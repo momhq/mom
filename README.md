@@ -13,17 +13,28 @@ Método de trabalho replicável pra agentes Claude Code. Um gerente conversacion
 ```
 copilot-core/
 ├── agents/
-│   ├── leo.md              ← Manager of Managers (model: opus)
+│   ├── leo.md                      ← Manager of Managers (model: opus)
 │   └── managers/
-│       ├── dev.md          ← tech lead de desenvolvimento
-│       ├── designer.md     ← tech lead de design
-│       ├── pm.md           ← tech lead de produto
-│       └── marketing.md    ← tech lead de marketing
-├── rules/                  ← rules universais (a escrever — Q2 do RDD)
+│       ├── dev.md                  ← tech lead de desenvolvimento
+│       ├── designer.md             ← tech lead de design
+│       ├── pm.md                   ← tech lead de produto
+│       └── marketing.md            ← tech lead de marketing
+├── rules/                          ← 11 rules universais
+│   ├── propagation.md
+│   ├── anti-hallucination.md
+│   ├── think-before-execute.md
+│   ├── evidence-over-claim.md
+│   ├── peer-review-automatic.md
+│   ├── state-vs-learning.md
+│   ├── hiring-loop.md
+│   ├── know-what-you-dont-know.md
+│   ├── escalation-triggers.md
+│   ├── inheritance.md
+│   └── metrics-collection.md
 ├── scripts/
-│   └── sync.sh             ← symlinka core → ~/.claude/ (a escrever — D8)
+│   └── sync.sh                     ← symlinka core → ~/.claude/ (a escrever — D8)
 └── docs/
-    └── rdds/               ← decisões arquiteturais versionadas
+    └── rdds/                       ← decisões arquiteturais versionadas
 ```
 
 ## Como usar (uma vez que o piloto validar)
@@ -68,7 +79,7 @@ Decisões fundacionais estão em:
 ## Estado atual
 
 - ✅ Leo + 4 Managers (Dev, Designer, PM, Marketing) escritos
-- ⏳ Rules universais (10 rules) — Q2, próxima sessão
+- ✅ 11 rules universais escritas (10 do RDD + metrics-collection)
 - ⏳ `sync.sh` — D8 definido no plan, a implementar
 - ⏳ Piloto no logbook — Q7
 - ⏳ Migração do Saintfy — Q8
