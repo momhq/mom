@@ -1,78 +1,72 @@
-# Self-hosting notes — cuidados específicos ao rodar Leo dentro do core
+# Self-hosting notes — specific care when running Leo inside the core
 
-Trabalhar no copilot-core usando o próprio copilot-core é dogfooding útil, mas tem particularidades que não aplicam em projeto downstream. Este arquivo lista o que precisa de atenção extra.
+Working on copilot-core using copilot-core itself is useful dogfooding, but it has particularities that don't apply in a downstream project. This file lists what needs extra attention.
 
-## 1. Propagação é instantânea
+## 1. Propagation is instant
 
-`~/.claude/agents/`, `~/.claude/rules/`, `~/.claude/skills/` são **symlinks** pra este repo (criados via `scripts/sync.sh`). Quando Leo edita `rules/peer-review-automatic.md` aqui, a próxima sessão de qualquer projeto — Logbook, Saintfy, o que for — pega a versão nova.
+`~/.claude/agents/`, `~/.claude/rules/`, `~/.claude/skills/` are **symlinks** to this repo (created via `scripts/sync.sh`). When Leo edits `rules/peer-review-automatic.md` here, the next session of any project — Logbook, Saintfy, whatever — picks up the new version.
 
-**Consequência:** não existe "staging" entre editar a rule e ela valer. Toda mudança em `rules/`, `agents/`, `skills/` é commit cross-projeto por construção.
+**Consequence:** there is no "staging" between editing a rule and it taking effect. Every change in `rules/`, `agents/`, `skills/` is a cross-project commit by construction.
 
-**Mitigação:** a rule `escalation-triggers.md` já lista "Adição ou modificação de rule no core" como trigger obrigatório de R2. Isso vale aqui também — Leo nunca edita rule sem você aprovar. Mesmo aqui, onde "não tem mais ninguém pra bloquear".
+**Mitigation:** the `escalation-triggers.md` rule already lists "Adding or modifying a rule in the core" as a mandatory R2 trigger. That applies here too — Leo never edits a rule without your approval. Even here, where "there's nobody else to block".
 
-## 2. Mudanças em Manager propagam aos projetos que estendem
+## 2. Changes in a Manager propagate to the projects that extend it
 
-Se Leo edita `agents/managers/dev.md` aqui, todo projeto que tem `.claude/agents/managers/dev.md` com `extends: ../../../../.claude/agents/managers/dev.md` (via inheritance) herda a mudança imediatamente na próxima sessão.
+If Leo edits `agents/managers/dev.md` here, every project that has `.claude/agents/managers/dev.md` with `extends: ../../../../.claude/agents/managers/dev.md` (via inheritance) inherits the change immediately in the next session.
 
-**Consequência:** mudar Self-QA do Dev Manager no core afeta Logbook agora e Saintfy quando migrar. Propagação é ativa, não opcional.
+**Consequence:** changing the Dev Manager's Self-QA in the core affects Logbook now and Saintfy when it migrates. Propagation is active, not optional.
 
-**Mitigação:** antes de mudar Manager no core, responda mentalmente "algum projeto que herda este Manager depende do comportamento atual?". Se sim, a mudança exige nota de migração no commit e verificação no próximo trabalho do projeto afetado. Leo escreve essa nota como parte do diff, não separada.
+**Mitigation:** before changing a Manager in the core, answer mentally "does any project that inherits this Manager depend on the current behavior?". If yes, the change requires a migration note in the commit and verification in the affected project's next work. Leo writes that note as part of the diff, not separately.
 
-## 3. Editar Leo dentro de uma sessão do Leo
+## 3. Editing Leo inside a Leo session
 
-Se você modificar `agents/leo.md` no meio de uma sessão, a **próxima** invocação de Leo (inclusive um sub-agent dentro da mesma sessão) carrega a versão nova. A sessão corrente continua com a versão antiga em memória.
+If you modify `agents/leo.md` in the middle of a session, the **next** Leo invocation (including a sub-agent inside the same session) loads the new version. The current session keeps the old version in memory.
 
-**Consequência:** tem um lag de uma invocação entre editar Leo e Leo se comportar diferente. Normalmente invisível, mas pode gerar confusão se você espera mudança imediata no próximo turn da mesma sessão.
+**Consequence:** there's a one-invocation lag between editing Leo and Leo behaving differently. Normally invisible, but can cause confusion if you expect an immediate change on the next turn of the same session.
 
-**Mitigação:** após editar `agents/leo.md`, abrir nova sessão pra validar o comportamento muda. Não confie no próximo turn da sessão corrente pra testar.
+**Mitigation:** after editing `agents/leo.md`, open a new session to validate that the behavior changed. Don't trust the next turn of the current session to test.
 
-## 4. Sem outros projetos pra escalar
+## 4. No other projects to escalate to
 
-Em projeto downstream (Logbook, Saintfy), o "alvo de escalation" é o founder. Aqui também é o founder, mas sem uma camada de projeto entre você e decisão arquitetural. Isso aumenta a tentação de Leo "decidir sozinho" porque está "no core, é meta-trabalho".
+In a downstream project (Logbook, Saintfy), the "escalation target" is the founder. Here it's also the founder, but without a project layer between you and the architectural decision. That increases the temptation for Leo to "decide alone" because it's "in the core, it's meta-work".
 
-**Mitigação:** as rules `think-before-execute` e `escalation-triggers` continuam valendo sem exceção. Meta-trabalho não é licença pra modo direto. Se algo parece decisão estrutural, é — e precisa de R2.
+**Mitigation:** the `think-before-execute` and `escalation-triggers` rules still apply without exception. Meta-work is not a license for direct mode. If something looks like a structural decision, it is — and it needs R2.
 
-## 5. Idiomas dos artefatos — inconsistência conhecida
+## 5. Artifact languages — core is locked to EN
 
-Estado atual (2026-04-09):
+As of 2026-04-09, all core artifacts are standardized on English:
 
-- `rules/*.md` — PT
-- `agents/leo.md` — PT
-- `agents/managers/*.md` — PT
-- `docs/rdds/2026-04-08-copilot-core-architecture/rdd.md` — PT
-- `docs/rdds/2026-04-08-copilot-core-architecture/refinements.md` — **EN**
-- `docs/conventions/github-project-management.md` — **EN**
-- `docs/conventions/templates/*` — **EN**
+- `rules/*.md` — EN
+- `agents/leo.md` — EN
+- `agents/managers/*.md` — EN
+- `docs/rdds/2026-04-08-copilot-core-architecture/rdd.md` — EN
+- `docs/rdds/2026-04-08-copilot-core-architecture/refinements.md` — EN
+- `docs/conventions/github-project-management.md` — EN
+- `docs/conventions/templates/*` — EN
 - `skills/session-wrap-up/SKILL.md` — EN
-- `README.md` — PT
+- `README.md` — EN
 
-A convention `docs/conventions/github-project-management.md` diz "Never mix languages within a project". O core viola isso. Duas hipóteses defensáveis:
+This is enforced at config level: `.claude/project-config.yml` has `locales.project_files: en`. Any new artifact in the core must be written in English. The rationale is neutral ground — every contributor (human or AI) can read and extend the system without a language barrier.
 
-- **(A) Core em PT inteiro.** Consistente com a maioria histórica. Requer traduzir refinements, conventions, skills, README.
-- **(B) Core em EN inteiro.** Neutral ground cross-projetos. Requer traduzir rules, managers, Leo, RDD.
+Interaction language (Leo ↔ founder) is a personal choice and lives in `.claude/project-config.local.yml` (gitignored). Each contributor sets their own without touching the committed config.
 
-Nenhuma é claramente melhor. É decisão que cabe a uma sessão dedicada no core, com R2 do founder e propagação cuidadosa porque afeta **todos** os projetos downstream.
+## 6. Known loose ends
 
-**Por enquanto:** `project_files: pt` está no `project-config.yml`, mas novos artefatos EN não são rejeitados — a inconsistência está flagged, não resolvida.
+Things that are messy in the core and deserve a dedicated cleanup session:
 
-## 6. Loose ends conhecidos
+- **No `context/` in the core itself beyond this scaffold** — when the core gains state that needs to be tracked (e.g., an evolution roadmap), we need to decide whether it lives in `context/` (like projects) or in `docs/` (like RDDs).
+- **No templates for new Managers or new rules** — if someone needs to create an `agents/managers/legal.md` or `rules/retention-policy.md`, there's no skeleton. Would be useful, but speculative right now.
 
-Coisas que estão bagunçadas no core e que merecem sessão dedicada pra limpar:
+## 7. Recommended session flow in the core
 
-- **`skills/session-wrap-up/session-wrap-up`** — symlink circular (aponta pra si mesmo). Bug de criação manual ou do sync.sh. Inofensivo mas sujo.
-- **Não existe `context/` no próprio core além deste scaffold** — quando o core ganhar estado que precisa ser rastreado (ex: roadmap de evolução), precisa decidir se vive em `context/` (como projetos) ou em `docs/` (como RDDs).
-- **Não existe templates pra Managers novos ou rules novas** — se alguém precisar criar um `agents/managers/legal.md` ou `rules/retention-policy.md`, não tem esqueleto. Seria útil, mas especulativo agora.
+1. Open Claude Code in `~/Github/copilot-core/`
+2. Leo identifies it's a core session via `self_hosting: true` in `project-config.yml`
+3. Founder describes the intent
+4. Leo applies `think-before-execute`: a structural decision is almost always alignment mode
+5. If it's a rule/Manager/skill, Leo writes a proposal (prose, not code) for R2
+6. R2 approved → Leo edits
+7. Evidence at the end (diff, sync.sh output, whatever is verifiable)
+8. Wrap-up on the founder's signal → `session-wrap-up` skill runs the protocol, commit with a clear message referencing the relevant RDD or refinement
+9. Push to `origin/main` (private repo, no escalation trigger; if it goes public, escalation applies)
 
-## 7. Fluxo recomendado de sessão no core
-
-1. Abrir Claude Code em `~/Github/copilot-core/`
-2. Leo identifica que é sessão do core via `self_hosting: true` no `project-config.yml`
-3. Founder descreve a intenção
-4. Leo aplica `think-before-execute`: decisão estrutural é quase sempre modo alinhamento
-5. Se for rule/Manager/skill, Leo escreve proposta (prosa, não código) pra R2
-6. R2 aprovado → Leo edita
-7. Evidência no final (diff, output de sync.sh rodando, o que for verificável)
-8. Wrap-up no sinal do founder → `session-wrap-up` skill roda protocolo, commit com mensagem clara referenciando o RDD ou refinement relevante
-9. Push pro `origin/main` (repo privado, sem escalation trigger; se virar público, escalation aplica)
-
-Sessões no core tendem a ser mais curtas e mais "documentais" que sessões de projeto. Não é falha — é a natureza do trabalho aqui.
+Sessions on the core tend to be shorter and more "documentary" than project sessions. That's not a flaw — it's the nature of the work here.

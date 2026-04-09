@@ -1,43 +1,43 @@
-# copilot-core — o projeto
+# copilot-core — the project
 
-Este repo **é** o core do sistema multi-agente que gerencia todos os outros projetos do founder. É um projeto meta: o código aqui não é produto, é a definição do método de trabalho que os produtos (Logbook, Saintfy, futuros) herdam.
+This repo **is** the core of the multi-agent system that manages all the founder's other projects. It's a meta project: the code here isn't a product, it's the definition of the working method that the products (Logbook, Saintfy, future ones) inherit.
 
-## O que vive aqui
+## What lives here
 
-- **`agents/leo.md`** — o Manager of Managers. Ponto de entrada conversacional em qualquer sessão de qualquer projeto.
-- **`agents/managers/`** — os 4 tech leads universais (Dev, Designer, Marketing, PM). Projetos estendem via `extends:` pra adicionar contexto local sem reescrever a base.
-- **`rules/`** — 11 rules universais que governam comportamento de todos os agentes. Propagation, anti-hallucination, peer-review, escalation, etc.
-- **`skills/`** — skills model-invoked que os agentes usam sob demanda. Hoje só `session-wrap-up`.
-- **`docs/conventions/`** — convenções operacionais compartilhadas entre projetos (ex: GitHub project management). Templates vivem em `docs/conventions/templates/`.
-- **`docs/rdds/`** — Research & Design Docs. Cada decisão arquitetural grande vira um RDD com `rdd.md` + `refinements.md` append-only.
-- **`scripts/sync.sh`** — instalador symlink-based. Copia `agents/leo.md`, `agents/managers/`, `rules/`, `skills/` pra `~/.claude/` via symlink, fazendo o core ser a fonte de verdade global em qualquer projeto.
+- **`agents/leo.md`** — the Manager of Managers. Conversational entry point in any session of any project.
+- **`agents/managers/`** — the 4 universal tech leads (Dev, Designer, Marketing, PM). Projects extend via `extends:` to add local context without rewriting the base.
+- **`rules/`** — 11 universal rules that govern behavior of all agents. Propagation, anti-hallucination, peer-review, escalation, etc.
+- **`skills/`** — model-invoked skills that agents use on demand. Today only `session-wrap-up`.
+- **`docs/conventions/`** — operational conventions shared across projects (e.g., GitHub project management). Templates live in `docs/conventions/templates/`.
+- **`docs/rdds/`** — Research & Design Docs. Each big architectural decision becomes an RDD with `rdd.md` + append-only `refinements.md`.
+- **`scripts/sync.sh`** — symlink-based installer. Links `agents/leo.md`, `agents/managers/`, `rules/`, `skills/` into `~/.claude/`, making the core the global source of truth in any project.
 
 ## Stack
 
-Majoritariamente markdown + yaml frontmatter. Uma pitada de bash (sync.sh). Zero código de aplicação. O "build" é `sync.sh`, o "teste" é usar os agentes em projetos reais e observar falhas.
+Mostly markdown + yaml frontmatter. A pinch of bash (sync.sh). Zero application code. The "build" is `sync.sh`, the "test" is using the agents in real projects and observing failures.
 
-## Filosofia fundamental
+## Core philosophy
 
-**Copilot-style, não Paperclip-style.** Founder conversa com Leo, Leo delega pros Managers, Managers delegam pros specialists. Review é automático via sub-instâncias em modo adversarial. Founder decide o *o quê*, Leo decide o *como*, volta pro founder no que é irreversível ou estrutural.
+**Copilot-style, not Paperclip-style.** Founder talks to Leo, Leo delegates to the Managers, Managers delegate to the specialists. Review is automatic via adversarial sub-instances. Founder decides the *what*, Leo decides the *how*, comes back to the founder on anything irreversible or structural.
 
-**Estender, nunca sobrescrever.** Projetos herdam o core via `extends:` no frontmatter dos Managers. Podem adicionar rules, self-QA items, específicos do stack local. Nunca podem remover comportamento universal.
+**Extend, never override.** Projects inherit the core via `extends:` in the Managers' frontmatter. They can add rules, self-QA items, specifics to the local stack. They can never remove universal behavior.
 
-## Como evoluir o core
+## How to evolve the core
 
-O próprio core segue o método que ele define:
+The core itself follows the method it defines:
 
-1. **Decisão arquitetural grande** → vira RDD novo em `docs/rdds/YYYY-MM-DD-slug/`
-2. **Refinamento pós-implementação** → vira entry append-only em `docs/rdds/.../refinements.md` do RDD original
-3. **Rule nova ou mudança em rule existente** → escalation trigger obrigatório; só aplica com R2 explícito do founder
-4. **Manager novo** → decisão estratégica, passa por R2 e vira RDD
-5. **Skill nova** → escalation trigger; só adiciona quando tem motivo claro (não criar skill especulativa)
+1. **Big architectural decision** → becomes a new RDD in `docs/rdds/YYYY-MM-DD-slug/`
+2. **Post-implementation refinement** → becomes an append-only entry in the original RDD's `docs/rdds/.../refinements.md`
+3. **New rule or change to existing rule** → mandatory escalation trigger; only applies with explicit R2 from the founder
+4. **New Manager** → strategic decision, goes through R2 and becomes an RDD
+5. **New skill** → escalation trigger; only added when there's a clear reason (don't create speculative skills)
 
 ## Dogfooding
 
-A expectativa é que cada sessão no copilot-core seja ela mesma um exercício do método: PRD se for feature de sistema grande, RDD se for design técnico, peer review adversarial, evidence-over-claim, propagation no fim. Se o método fizer sentido em self-hosting, faz sentido nos produtos downstream.
+The expectation is that every session on copilot-core is itself an exercise of the method: PRD if it's a big system feature, RDD if it's a technical design, adversarial peer review, evidence-over-claim, propagation at the end. If the method makes sense in self-hosting, it makes sense in downstream products.
 
-## Histórico relevante
+## Relevant history
 
-O core nasceu de um RDD inicial (`docs/rdds/2026-04-08-copilot-core-architecture/`) escrito a partir do aprendizado acumulado do projeto Saintfy que precedeu. Logbook é o primeiro piloto real (Pilot Phase 1, começou 2026-04-08).
+The core was born from an initial RDD (`docs/rdds/2026-04-08-copilot-core-architecture/`) written from the accumulated learning of the Saintfy project that preceded it. Logbook is the first real pilot (Pilot Phase 1, started 2026-04-08).
 
-O primeiro refinamento pós-implementação (ebf685b) foi sobre propagação wrap-up-driven — veio de uma falha real observada no piloto, não de especulação. Esse é o padrão de evolução esperado: falhas do campo → refinamentos documentados → propagação cross-projeto.
+The first post-implementation refinement (ebf685b) was about wrap-up-driven propagation — it came from a real failure observed in the pilot, not from speculation. That's the expected evolution pattern: field failures → documented refinements → cross-project propagation.

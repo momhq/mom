@@ -2,27 +2,27 @@
 
 ## Context
 
-Em 2026-04-08 rodamos uma sessão de planejamento longa que produziu o RDD da arquitetura `copilot-core` (`Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/rdd.md`). O RDD deixou 8 questões em aberto para serem resolvidas antes da implementação.
+On 2026-04-08 we ran a long planning session that produced the RDD for the `copilot-core` architecture (`Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/rdd.md`). The RDD left 8 open questions to be resolved before implementation.
 
-Esta sessão atacou o **Bloco 1** dessas questões — as decisões de "forma" que destravam todo o resto: formato dos Managers, escopo inicial do time, e fluxo de inicialização de projeto. O objetivo do plan é travar essas decisões em um documento executável para que a próxima sessão (implementação) comece com padrão único e sem ambiguidade.
+This session tackled **Block 1** of those questions — the "form" decisions that unblock everything else: Manager format, initial team scope, and project initialization flow. The goal of the plan is to lock those decisions in an executable document so that the next session (implementation) starts with a single standard and no ambiguity.
 
-**Importante**: este plan **não implementa nada**. Não cria o repo `copilot-core`, não escreve agent files, não roda sync.sh. É só o contrato de decisões do Bloco 1. A implementação é uma sessão separada.
+**Important**: this plan **implements nothing**. It does not create the `copilot-core` repo, does not write agent files, does not run sync.sh. It is only the Block 1 decisions contract. Implementation is a separate session.
 
 ---
 
-## Decisões travadas nesta sessão
+## Decisions locked in this session
 
-### D1 — Estilo dos Managers: **Minimalist**
+### D1 — Manager style: **Minimalist**
 
-Escolhido via comparação lado a lado com o estilo Verbose.
+Chosen via side-by-side comparison with the Verbose style.
 
-**Racional:**
-- Tokens importam em sessões longas (memories já carregam, rules universais já carregam — Manager não precisa repetir o que está em outros lugares do core)
-- Mais fácil manter consistência entre 4-6 managers diferentes
-- Tom casual combina melhor com formato enxuto
-- Referência/checklist é mais fiel ao papel real do Manager (tech lead operando, não treinando iniciante)
+**Rationale:**
+- Tokens matter in long sessions (memories already load, universal rules already load — Manager doesn't need to repeat what's in other places of the core)
+- Easier to maintain consistency across 4-6 different managers
+- Casual tone fits better with lean format
+- Reference/checklist is more faithful to the Manager's real role (tech lead operating, not training a beginner)
 
-**Referência de como um Manager minimalist deve parecer** (versão Dev Manager, como ficou no preview):
+**Reference for how a minimalist Manager should look** (Dev Manager version, as it ended up in the preview):
 
 ```yaml
 ---
@@ -35,232 +35,232 @@ skills: [project-briefing]
 ```
 
 ```
-Tech lead de dev. Recebe, delega, revisa, sintetiza.
-Executa só em exceções.
+Dev tech lead. Receives, delegates, reviews, synthesizes.
+Executes only in exceptions.
 
-## Princípios
+## Principles
 - PR-first (worktree + Closes #N)
-- Debugging 3-strikes antes de pedir ajuda
-- Grep callsite real antes de refactor
-- Self-QA com prova colada (build/lint/test)
+- 3-strikes debugging before asking for help
+- Grep real callsite before refactor
+- Self-QA with pasted proof (build/lint/test)
 
 ## Hiring loop
-Expertise que o time não cobre → para e reporta ao Leo.
+Expertise the team doesn't cover → stop and report to Leo.
 
 ## Self-QA
-- [ ] Build passou (colar output)
-- [ ] Lint passou (colar output)
-- [ ] Type check passou
-- [ ] Code path real exercitado
+- [ ] Build passed (paste output)
+- [ ] Lint passed (paste output)
+- [ ] Type check passed
+- [ ] Real code path exercised
 
 ## Escalation
-Pare antes de: gastar dinheiro, publicar externo,
-ação destrutiva, mudar rule do core.
+Stop before: spending money, publishing externally,
+destructive action, changing a core rule.
 ```
 
-### D2 — Tom: **Casual**
+### D2 — Tone: **Casual**
 
-- Segunda pessoa (direto ao agente), linguagem direta, zero corporativês
-- Exemplo PT: "Você é o tech lead de dev" e não "Você é o líder técnico responsável pela disciplina de desenvolvimento..."
-- Exemplo EN: "You're the dev tech lead" e não "You are the development technical lead responsible for..."
-- **Idioma** de interação do Leo com o founder, e idioma dos arquivos do core, é decidido no setup do projeto (ver D6), não nesta decisão arquitetural. Founder tem preferência pessoal de interagir com IA em PT mas manter código/docs de projeto em EN — isso é legitimamente config por usuário/projeto, não por core.
+- Second person (direct to the agent), direct language, zero corporate speak
+- PT example: "Você é o tech lead de dev" and not "Você é o líder técnico responsável pela disciplina de desenvolvimento..."
+- EN example: "You're the dev tech lead" and not "You are the development technical lead responsible for..."
+- **Language** of Leo's interaction with the founder, and language of the core files, is decided at project setup (see D6), not in this architectural decision. The founder has a personal preference to interact with AI in PT but keep project code/docs in EN — this is legitimately per-user/project config, not per-core.
 
-### D3 — Frontmatter: 6 campos fixos
+### D3 — Frontmatter: 6 fixed fields
 
 ```yaml
 ---
-name: <Nome do Manager>                    # obrigatório
-description: <frase curta do papel>         # obrigatório
-extends: <path relativo ao arquivo base>    # opcional, pra agents de projeto que estendem core
-tools: Read, Edit, Write, Glob, Grep, Bash, Task  # lista de Claude Code tools permitidas
-model: <haiku|sonnet|opus>                  # ver critério de seleção abaixo
-skills: [...]                               # lista de model-invoked skills
+name: <Manager name>                       # required
+description: <short role sentence>          # required
+extends: <path relative to base file>       # optional, for project agents that extend core
+tools: Read, Edit, Write, Glob, Grep, Bash, Task  # list of allowed Claude Code tools
+model: <haiku|sonnet|opus>                  # see selection criterion below
+skills: [...]                               # list of model-invoked skills
 ---
 ```
 
-**Decisões específicas sobre campos:**
+**Specific decisions about fields:**
 
-- **`extends` é novo** — suporta inheritance do §6 do RDD (projeto estende core)
-- **`Task` tool adicionada por padrão** nos Managers — necessária pra sub-invocação de peer review automático (Q4 deferida, testaremos no piloto)
-- **`workflows` NÃO adicionado** — workflows que importam viram skills; campo separado seria redundante
-- **`memory` NÃO adicionado** (existe no Saintfy hoje) — memories devem ser universais por sessão, não escopadas por agente
+- **`extends` is new** — supports inheritance from §6 of the RDD (project extends core)
+- **`Task` tool added by default** to Managers — necessary for sub-invocation of automatic peer review (Q4 deferred, we will test in the pilot)
+- **`workflows` NOT added** — workflows that matter become skills; a separate field would be redundant
+- **`memory` NOT added** (exists in Saintfy today) — memories should be universal per session, not scoped by agent
 
-**Critério de seleção de model (parte da decisão D3):**
+**Model selection criterion (part of the D3 decision):**
 
-| Model | Quando usar | Agentes default |
+| Model | When to use | Default agents |
 |---|---|---|
-| **`opus`** | Raciocínio de big picture, decisões arquiteturais, coordenação cross-projeto, hiring loop (formar specialists bem), síntese de trabalho de múltiplos agentes | **Leo** (sempre) |
-| **`sonnet`** | Execução padrão: escrever código, revisar, delegar, aplicar rules, self-QA | **Managers** (todos por default: Dev, Designer, PM, Marketing) |
-| **`haiku`** | Tarefas mecânicas de baixo raciocínio: formatadores, lint fixers, renomeação em massa, template generators, conversores simples | **Specialists mecânicos** (quando houver) |
+| **`opus`** | Big picture reasoning, architectural decisions, cross-project coordination, hiring loop (forming specialists well), synthesis of work from multiple agents | **Leo** (always) |
+| **`sonnet`** | Standard execution: writing code, reviewing, delegating, applying rules, self-QA | **Managers** (all by default: Dev, Designer, PM, Marketing) |
+| **`haiku`** | Low-reasoning mechanical tasks: formatters, lint fixers, mass renaming, template generators, simple converters | **Mechanical specialists** (when any) |
 
-Regras práticas:
-1. **Default é sonnet.** Se não há razão explícita pra ser haiku ou opus, é sonnet.
-2. **Leo é sempre opus** porque coordenação + big picture são intensivos em raciocínio, e Leo é invocado poucas vezes por sessão (custo justificado).
-3. **Haiku só entra em specialists** que fazem trabalho mecânico comprovadamente. Nunca default pra um Manager — o risco de under-thinking em decisão de delegação é alto demais pra economia marginal.
-4. **Opus em Managers individuais** só se houver evidência empírica de que sonnet está errando em decisões daquele domínio especificamente. Piloto vai informar isso.
-5. **Projetos podem override o model do core** via `extends`: o agent do projeto declara `model: opus` e sobrepõe o default. Útil se um projeto tem dor específica que justifica custo maior.
+Practical rules:
+1. **Default is sonnet.** If there is no explicit reason to be haiku or opus, it is sonnet.
+2. **Leo is always opus** because coordination + big picture are reasoning-intensive, and Leo is invoked few times per session (cost justified).
+3. **Haiku only goes into specialists** that do provably mechanical work. Never default for a Manager — the risk of under-thinking in a delegation decision is too high for marginal savings.
+4. **Opus in individual Managers** only if there is empirical evidence that sonnet is making mistakes in that domain's decisions specifically. The pilot will inform this.
+5. **Projects can override the core's model** via `extends`: the project agent declares `model: opus` and overrides the default. Useful if a project has specific pain that justifies the higher cost.
 
-### D4 — Estrutura interna fixa dos Managers
+### D4 — Fixed internal structure of Managers
 
-Toda arquivo de Manager segue esta ordem de seções (nomes exatos em português):
+Every Manager file follows this section order (exact names in Portuguese):
 
-1. **Papel** — 1-2 frases. O que o agente é, quando delega, quando executa em exceção
-2. **Princípios** — bullets curtos. Os 3-5 princípios centrais do papel
-3. **Hiring loop** — 1-2 frases sobre quando disparar contratação de specialist
-4. **Self-QA** — checklist de prova específica da disciplina
-5. **Escalation** — lista concreta do que para o agente e força pergunta ao founder
+1. **Papel** — 1-2 sentences. What the agent is, when it delegates, when it executes in exception
+2. **Princípios** — short bullets. The 3-5 central principles of the role
+3. **Hiring loop** — 1-2 sentences about when to trigger specialist hiring
+4. **Self-QA** — discipline-specific proof checklist
+5. **Escalation** — concrete list of what stops the agent and forces a question to the founder
 
-Seções extras só se forem justificadas por natureza do domínio. Padrão é manter as 5 acima.
+Extra sections only if justified by the nature of the domain. Default is to keep the 5 above.
 
-### D5 — Managers iniciais: **4 (Dev + Designer + PM + Marketing)**
+### D5 — Initial Managers: **4 (Dev + Designer + PM + Marketing)**
 
-Escrever primeiro:
+To write first:
 
-| Manager | Por que agora | Insumo principal pra escrita |
+| Manager | Why now | Main input for writing |
 |---|---|---|
-| **Dev Manager** | Saintfy e logbook ambos precisam de dev; dor mais aguda observada | `~/Github/Saintfy-Copilot/.claude/agents/developer.md` + CLAUDE.md do Saintfy + memories de dev |
-| **Designer Manager** | Saintfy tem design system massivo; logbook precisa de assets de store | `~/Github/Saintfy-Copilot/.claude/agents/designer.md` + `.claude/rules/design-system.md` |
-| **PM Manager** | Fluxo PRD→RDD está estabelecido (memory `feedback_doc_canonical_locations`) e vai continuar em todos os projetos | `~/Github/Saintfy-Copilot/.claude/agents/pm.md` + `workflows/prd.md` atualizado |
-| **Marketing Manager** | Saintfy (Instagram/ASO) e logbook (App Store listing) ambos precisam | `~/Github/Saintfy-Copilot/.claude/agents/marketer.md` |
+| **Dev Manager** | Saintfy and logbook both need dev; most acute pain observed | `~/Github/Saintfy-Copilot/.claude/agents/developer.md` + Saintfy CLAUDE.md + dev memories |
+| **Designer Manager** | Saintfy has a massive design system; logbook needs store assets | `~/Github/Saintfy-Copilot/.claude/agents/designer.md` + `.claude/rules/design-system.md` |
+| **PM Manager** | PRD→RDD flow is established (memory `feedback_doc_canonical_locations`) and will continue across all projects | `~/Github/Saintfy-Copilot/.claude/agents/pm.md` + updated `workflows/prd.md` |
+| **Marketing Manager** | Saintfy (Instagram/ASO) and logbook (App Store listing) both need it | `~/Github/Saintfy-Copilot/.claude/agents/marketer.md` |
 
-Leo (Manager of Managers) também entra nesta primeira leva — é pré-requisito pra qualquer delegação funcionar.
+Leo (Manager of Managers) also enters this first batch — he is a prerequisite for any delegation to work.
 
-**Não escrever ainda:** Research Manager, Writing Manager. Entram quando houver dor real de não existirem.
+**Not to write yet:** Research Manager, Writing Manager. They come in when there is real pain from their absence.
 
-### D6 — Fluxo de inicialização de projeto
+### D6 — Project initialization flow
 
-Visão do founder, documentada literal:
+Founder's vision, documented literally:
 
-> "Eu imagino o seguinte como instalação: eu tenho algum tipo de `copilot init` como você mencionou, que gera um setup inicial do copilot. Nesse setup, ele vai praticamente clonar o repo copilot-core e vai pedir o repo (ou repos caso seja projeto grande) do projeto que o Copilot vai gerenciar. Nisso ele já monta a estrutura inicial e já linka com os repos de código mesmo. A partir disso, o próximo passo seria coletar mais contexto do projeto, poderia ser algum tipo de interação já via Claude Code, onde o usuário poderia enviar alguns arquivos (doc, md, pdf, o que tiver) e o Leo desse novo Copilot já faz uma primeira versão de contexto e terminar de fazer o setup."
+> "I imagine the following as installation: I have some kind of `copilot init` like you mentioned, that generates an initial copilot setup. In that setup, it will practically clone the copilot-core repo and will ask for the repo (or repos if it's a big project) that the Copilot will manage. With that, it already assembles the initial structure and already links with the code repos themselves. From there, the next step would be to collect more project context, it could be some kind of interaction already via Claude Code, where the user could send some files (doc, md, pdf, whatever) and the Leo of this new Copilot already makes a first version of context and finishes doing the setup."
 
-**Fluxo detalhado (para a sessão de implementação):**
+**Detailed flow (for the implementation session):**
 
-1. **Invocação** — founder roda `copilot init` em algum terminal (implementação concreta do comando é detalhe deferido)
-2. **Bootstrap de máquina (só primeira vez)** — se `copilot-core` não está clonado em `~/Github/copilot-core/` nem sincado em `~/.claude/`, o init:
-   - Clona `git clone <url> ~/Github/copilot-core`
-   - Roda `bash ~/Github/copilot-core/scripts/sync.sh` (ver D8) pra popular `~/.claude/` com symlinks
-3. **Project setup** — pergunta ao founder:
-   - Path do repo principal do projeto
-   - Paths de repos adicionais se for projeto multi-repo (ex: Saintfy = saintfy/ + saintfy-web/)
-   - **Idioma de interação** do Leo com o founder (default: PT)
-   - **Idioma dos arquivos do projeto** — código, docs, PRDs, RDDs (default: EN)
-   - Essas duas escolhas ficam gravadas em `.claude/project-config.yml` e são lidas por Leo no começo de cada sessão
-4. **Scaffolding** — cria em cada repo do projeto:
-   - `.claude/agents/managers/` vazio (pronto pra estender)
-   - `.claude/rules/` vazio (pronto pra rules específicas do projeto)
-   - `.claude/context/project.md` — template vazio com seções a preencher
-   - `.claude/specialists/` vazio (hiring loop populará)
-5. **Context collection interativa** — abre uma sessão Claude Code e coloca Leo no papel de entrevistador:
-   - Leo pede ao founder que compartilhe arquivos de contexto existentes (PRDs, docs, README, pitch, qualquer coisa)
-   - Founder joga os arquivos na sessão (paste, paths, ou upload se Desktop)
-   - Leo lê tudo, sintetiza primeira versão de `context/project.md`
-   - Leo faz 3-5 perguntas de calibração se algo ficou ambíguo (stack, domínio, público, deadlines)
-6. **Encerramento do setup** — Leo confirma com founder que o contexto capturado está correto, commita o scaffolding inicial no repo do projeto, e reporta "pronto pra trabalhar"
-7. **Uso normal** — daí em diante founder conversa normalmente, Leo e managers operam, contexto enriquece organicamente
+1. **Invocation** — founder runs `copilot init` in some terminal (concrete command implementation is a deferred detail)
+2. **Machine bootstrap (first time only)** — if `copilot-core` is not cloned in `~/Github/copilot-core/` nor synced in `~/.claude/`, init:
+   - Clones `git clone <url> ~/Github/copilot-core`
+   - Runs `bash ~/Github/copilot-core/scripts/sync.sh` (see D8) to populate `~/.claude/` with symlinks
+3. **Project setup** — asks the founder:
+   - Path to the project's main repo
+   - Paths to additional repos if it's a multi-repo project (e.g., Saintfy = saintfy/ + saintfy-web/)
+   - **Interaction language** of Leo with the founder (default: PT)
+   - **Language of the project files** — code, docs, PRDs, RDDs (default: EN)
+   - These two choices are saved in `.claude/project-config.yml` and are read by Leo at the start of each session
+4. **Scaffolding** — creates in each project repo:
+   - `.claude/agents/managers/` empty (ready to extend)
+   - `.claude/rules/` empty (ready for project-specific rules)
+   - `.claude/context/project.md` — empty template with sections to fill
+   - `.claude/specialists/` empty (hiring loop will populate)
+5. **Interactive context collection** — opens a Claude Code session and puts Leo in the interviewer role:
+   - Leo asks the founder to share existing context files (PRDs, docs, README, pitch, anything)
+   - Founder throws files into the session (paste, paths, or upload if Desktop)
+   - Leo reads everything, synthesizes first version of `context/project.md`
+   - Leo asks 3-5 calibration questions if something stayed ambiguous (stack, domain, audience, deadlines)
+6. **Setup closure** — Leo confirms with the founder that the captured context is correct, commits the initial scaffolding in the project repo, and reports "ready to work"
+7. **Normal use** — from there on founder talks normally, Leo and managers operate, context enriches organically
 
-**Atualização do core (founder na máquina dele):**
+**Core update (founder on his machine):**
 
-- `cd ~/Github/copilot-core && git pull` — atualiza arquivos fonte
-- Graças aos symlinks do D8, os updates são **imediatos** — não precisa re-rodar sync.sh se só conteúdo mudou
-- Re-roda sync.sh apenas quando topologia do core muda (arquivos novos ou removidos)
-- Todos os projetos daquela máquina pegam a versão nova na próxima sessão
+- `cd ~/Github/copilot-core && git pull` — updates source files
+- Thanks to the D8 symlinks, updates are **immediate** — no need to re-run sync.sh if only content changed
+- Re-run sync.sh only when core topology changes (new or removed files)
+- All projects on that machine pick up the new version in the next session
 
-**Multi-máquina:** cada Mac novo precisa rodar `copilot init` uma vez (pra bootstrap). Daí em diante os updates são `git pull + sync`.
+**Multi-machine:** each new Mac needs to run `copilot init` once (for bootstrap). From there on, updates are `git pull + sync`.
 
-### D7 — Hiring loop enforcement: como "forçar" o modelo a reconhecer lacunas
+### D7 — Hiring loop enforcement: how to "force" the model to recognize gaps
 
-**Problema:** Claude como modelo "sabe" fazer quase tudo superficialmente. Um Dev Manager instruído a implementar APNs vai tentar — porque tem conhecimento superficial sobre o domínio no treino. Isso é exatamente o modo de falha que o hiring loop deveria prevenir.
+**Problem:** Claude as a model "knows" how to do almost everything superficially. A Dev Manager instructed to implement APNs will try — because it has superficial knowledge of the domain from training. This is exactly the failure mode that the hiring loop should prevent.
 
-O founder levantou esse ponto explicitamente: "vamos precisar, de alguma forma, 'forçar' o modelo identificar isso". Não basta uma rule dizendo "peça specialist quando não souber" — o modelo vai achar que sabe.
+The founder raised this point explicitly: "we will need, somehow, to 'force' the model to identify this". It is not enough to have a rule saying "ask for specialist when you don't know" — the model will think it knows.
 
-**Três mecanismos que vão ser combinados na rule `know-what-you-dont-know`:**
+**Three mechanisms that will be combined in the `know-what-you-dont-know` rule:**
 
-#### Mecanismo 1 — Self-interrogation obrigatória antes de executar código
+#### Mechanism 1 — Mandatory self-interrogation before executing code
 
-Antes de escrever qualquer linha de código, o Manager DEVE preencher este formulário mental e **colar a resposta no output** (não só pensar — escrever):
+Before writing any line of code, the Manager MUST fill out this mental form and **paste the response in the output** (not just think — write):
 
 ```
-## Pre-execution check (obrigatório)
-- Qual é o domínio técnico específico desta task? (1 frase)
-- Eu tenho um specialist no meu time com playbook para este domínio?
-  [ ] Sim → qual specialist, referência ao arquivo
-  [ ] Não → STOP, disparar hiring-loop
-- Se eu errar essa task por falta de expertise, qual é o pior cenário?
-  [ ] Bug fácil de reverter → pode executar com cuidado
-  [ ] Bug difícil de reverter ou catastrófico → STOP, specialist obrigatório
-- Minha confiança neste domínio é alta ou baixa?
-  [ ] Alta e sei por quê (cite o specialist que cobre) → executa
-  [ ] Baixa OU alta sem fonte citável → STOP
+## Pre-execution check (mandatory)
+- What is the specific technical domain of this task? (1 sentence)
+- Do I have a specialist on my team with a playbook for this domain?
+  [ ] Yes → which specialist, reference to the file
+  [ ] No → STOP, trigger hiring-loop
+- If I get this task wrong from lack of expertise, what is the worst case?
+  [ ] Bug easy to revert → can execute with care
+  [ ] Bug hard to revert or catastrophic → STOP, specialist mandatory
+- Is my confidence in this domain high or low?
+  [ ] High and I know why (cite the specialist that covers) → execute
+  [ ] Low OR high without a citable source → STOP
 ```
 
-A obrigação de **escrever** a resposta (não só pensar) é o truque — força o modelo a materializar raciocínio meta que ele normalmente pula. Se o modelo tenta driblar escrevendo "sim" sem fonte, o founder vê e cobra.
+The obligation to **write** the answer (not just think) is the trick — it forces the model to materialize meta reasoning that it normally skips. If the model tries to dodge by writing "yes" without a source, the founder sees it and calls it out.
 
-#### Mecanismo 2 — Trust gradient por categoria de task
+#### Mechanism 2 — Trust gradient per task category
 
-Rule define categorias com trust default diferente. Algumas NUNCA executam sem specialist. Exemplo pra Dev Manager:
+Rule defines categories with different default trust. Some NEVER execute without a specialist. Example for Dev Manager:
 
-| Categoria | Trust default | Specialist obrigatório? |
+| Category | Default trust | Specialist mandatory? |
 |---|---|---|
-| Edição de texto/copy/JSON estático | Alto | Não |
-| CRUD padrão com ORM/biblioteca conhecida | Alto | Não |
-| UI puro (componente novo, estilo, layout) | Alto | Só se design system específico do projeto |
-| Migração de banco de dados | Médio | Sim pra schema complex, não pra add column simples |
-| Integração com API externa | Médio | Sim se for protocolo (APNs, OAuth, WebAuthn), não se for REST comum |
-| Crypto / auth / security | **Baixo** | **Sempre** |
-| Native bridging (Capacitor, React Native) | **Baixo** | **Sempre** |
-| Infra / deploy / CI | **Baixo** | **Sempre** |
+| Editing text/copy/static JSON | High | No |
+| Standard CRUD with known ORM/library | High | No |
+| Pure UI (new component, style, layout) | High | Only if project-specific design system |
+| Database migration | Medium | Yes for complex schema, no for simple add column |
+| Integration with external API | Medium | Yes if it's a protocol (APNs, OAuth, WebAuthn), no if it's common REST |
+| Crypto / auth / security | **Low** | **Always** |
+| Native bridging (Capacitor, React Native) | **Low** | **Always** |
+| Infra / deploy / CI | **Low** | **Always** |
 
-Essa tabela é **específica por Manager** (Dev tem a dele, Designer tem outra, etc.). Vive dentro do agent file do Manager na seção "Trust gradient". A categoria de "Sempre specialist" é a lista dura — mesmo com pressão, Manager não executa.
+This table is **Manager-specific** (Dev has his, Designer has another, etc.). It lives inside the Manager's agent file in the "Trust gradient" section. The "Always specialist" category is the hard list — even under pressure, Manager does not execute.
 
-#### Mecanismo 3 — Post-failure hardening
+#### Mechanism 3 — Post-failure hardening
 
-Quando o Manager executou sem specialist e errou (detectado no peer review, ou pior, em produção), essa falha vira input automático pro trust gradient. A rule `propagation` entra aqui:
+When the Manager executed without a specialist and made a mistake (detected in peer review, or worse, in production), that failure becomes automatic input to the trust gradient. The `propagation` rule comes in here:
 
-- Peer review detectou que Manager errou em domínio X porque faltava specialist
-- Leo propaga: adiciona X na lista "Sempre specialist" do Manager no projeto
-- Na próxima sessão, Manager tem o trust gradient atualizado
+- Peer review detected that Manager erred in domain X because a specialist was missing
+- Leo propagates: adds X to the "Always specialist" list of the Manager in the project
+- In the next session, Manager has the trust gradient updated
 
-Isso transforma falhas em enforcement automático — cada erro corrige o sistema pra não repetir. É o inverso do padrão atual onde memories ficavam stale.
+This turns failures into automatic enforcement — each error corrects the system so as not to repeat. It is the opposite of the current pattern where memories went stale.
 
-#### Mecanismo 4 — Lessons learned pass após falha (novo, inspirado em autoresearch)
+#### Mechanism 4 — Lessons learned pass after failure (new, inspired by autoresearch)
 
-Quando peer review rejeita trabalho de um Manager ou specialist, antes de simplesmente corrigir a task, o agente roda um **lessons learned pass**:
+When peer review rejects work from a Manager or specialist, before simply correcting the task, the agent runs a **lessons learned pass**:
 
 ```
-## Lessons learned (obrigatório após peer review rejection)
-- Qual regra ou checklist item teria prevenido essa falha?
-- Essa lição é específica do projeto atual ou universal?
-- Se universal: propor ao Leo adição ao agent file do core
-- Se específica do projeto: propor ao Leo adição ao agent file estendido do projeto
-- Propostas vão pro founder via R2 antes de serem aplicadas
+## Lessons learned (mandatory after peer review rejection)
+- Which rule or checklist item would have prevented this failure?
+- Is this lesson specific to the current project or universal?
+- If universal: propose to Leo addition to the core agent file
+- If specific to the project: propose to Leo addition to the project's extended agent file
+- Proposals go to the founder via R2 before being applied
 ```
 
-Isso institucionaliza o aprendizado por falha. Sem esse passo, as lições ficam na cabeça do founder (até esquecer) ou em memories que podem ficar stale. Com esse passo, cada falha tem chance de virar enforcement permanente.
+This institutionalizes learning by failure. Without this step, lessons stay in the founder's head (until forgotten) or in memories that can go stale. With this step, each failure has a chance to become permanent enforcement.
 
-**Implicação pra escrita da rule `know-what-you-dont-know`:** esses 4 mecanismos são requirements obrigatórios. Quando Q2 for abordada, a rule precisa descrever:
-- Template do pre-execution check (mecanismo 1)
-- Formato do trust gradient no agent file (mecanismo 2)
-- Processo de post-failure hardening (mecanismo 3)
-- Template do lessons learned pass (mecanismo 4)
+**Implication for writing the `know-what-you-dont-know` rule:** these 4 mechanisms are mandatory requirements. When Q2 is addressed, the rule needs to describe:
+- Pre-execution check template (mechanism 1)
+- Format of the trust gradient in the agent file (mechanism 2)
+- Post-failure hardening process (mechanism 3)
+- Lessons learned pass template (mechanism 4)
 
-### D8 — sync.sh: design concreto
+### D8 — sync.sh: concrete design
 
-**Problema:** founder quer updates do core via `git pull` simples, sem quebrar arquivos locais em `~/.claude/` (memories, settings, projects, etc.), funcionar multi-máquina, e ser recuperável via rollback.
+**Problem:** founder wants core updates via simple `git pull`, without breaking local files in `~/.claude/` (memories, settings, projects, etc.), working multi-machine, and recoverable via rollback.
 
-**Opções avaliadas:**
+**Options evaluated:**
 
-| Opção | Como funciona | Por que rejeitada |
+| Option | How it works | Why rejected |
 |---|---|---|
-| `rsync --delete` | Copia core pra `~/.claude/`, deleta orphans | `--delete` é perigoso; bug pode apagar memories do founder |
-| Git submodule em `~/.claude/` | `~/.claude/` vira parcialmente um git checkout | Mistura state do user com content do core; submodule UX é ruim; confunde Claude Code |
-| Symlink do diretório inteiro | `ln -s core/agents ~/.claude/agents` | Substitui o diretório inteiro — founder perde agentes locais se houver |
-| **Symlinks por arquivo (recomendada)** | Script symlinka cada arquivo individual do core pros locais correspondentes em `~/.claude/` | Funciona com loading flat do Claude Code, preserva arquivos locais, git pull = update imediato, idempotente |
+| `rsync --delete` | Copies core to `~/.claude/`, deletes orphans | `--delete` is dangerous; a bug can erase the founder's memories |
+| Git submodule in `~/.claude/` | `~/.claude/` becomes partially a git checkout | Mixes user state with core content; submodule UX is bad; confuses Claude Code |
+| Symlink of the whole directory | `ln -s core/agents ~/.claude/agents` | Replaces the entire directory — founder loses local agents if any exist |
+| **Per-file symlinks (recommended)** | Script symlinks each individual file from the core to the corresponding locations in `~/.claude/` | Works with Claude Code's flat loading, preserves local files, git pull = immediate update, idempotent |
 
-**Design escolhido: `sync.sh` com symlinks por arquivo**
+**Chosen design: `sync.sh` with per-file symlinks**
 
-Script vive em `~/Github/copilot-core/scripts/sync.sh` (dentro do repo do core, pra estar disponível automaticamente em qualquer máquina que clone o repo).
+Script lives in `~/Github/copilot-core/scripts/sync.sh` (inside the core repo, so it's automatically available on any machine that clones the repo).
 
-Comportamento:
+Behavior:
 
 ```bash
 #!/bin/bash
@@ -304,151 +304,151 @@ echo "Future updates: cd $CORE_DIR && git pull"
 echo "Re-run sync.sh only if new files were added to core."
 ```
 
-**Propriedades importantes:**
+**Important properties:**
 
-1. **Idempotente.** Safe rodar N vezes. `ln -sf` sobrescreve symlink existente, não erra.
-2. **Zero-copy depois do primeiro run.** Depois que os symlinks estão criados, `git pull` no core é suficiente pra update — os symlinks apontam pra arquivos vivos do repo.
-3. **Re-run só quando topologia muda.** Se core adicionar `agents/managers/research.md` novo, founder roda `sync.sh` pra criar o novo symlink. Se core só editar conteúdo de `dev.md` existente, zero trabalho — symlink já aponta pro arquivo.
-4. **Local files preservados.** Memories em `~/.claude/memory/`, settings em `~/.claude/settings.json`, projects em `~/.claude/projects/` — nada disso é tocado.
-5. **Rollback trivial.** `cd ~/Github/copilot-core && git checkout <rev>` — symlinks seguem automaticamente. Se o checkout removeu arquivos, rodar sync.sh limpa os dangling symlinks.
-6. **Dangling cleanup.** Find com `! -exec test -e` detecta symlinks cujo target foi removido e limpa — evita clutter.
-7. **Multi-máquina.** Cada Mac novo: `git clone <core-url> ~/Github/copilot-core && bash ~/Github/copilot-core/scripts/sync.sh`. Duas linhas, feito.
+1. **Idempotent.** Safe to run N times. `ln -sf` overwrites existing symlink, doesn't error.
+2. **Zero-copy after the first run.** Once the symlinks are created, `git pull` in the core is enough for an update — the symlinks point to live files in the repo.
+3. **Re-run only when topology changes.** If the core adds a new `agents/managers/research.md`, founder runs `sync.sh` to create the new symlink. If the core only edits the content of an existing `dev.md`, zero work — the symlink already points to the file.
+4. **Local files preserved.** Memories in `~/.claude/memory/`, settings in `~/.claude/settings.json`, projects in `~/.claude/projects/` — none of that is touched.
+5. **Trivial rollback.** `cd ~/Github/copilot-core && git checkout <rev>` — symlinks follow automatically. If the checkout removed files, running sync.sh cleans up dangling symlinks.
+6. **Dangling cleanup.** Find with `! -exec test -e` detects symlinks whose target was removed and cleans them — avoids clutter.
+7. **Multi-machine.** Each new Mac: `git clone <core-url> ~/Github/copilot-core && bash ~/Github/copilot-core/scripts/sync.sh`. Two lines, done.
 
-**Conflito potencial com arquivos locais de mesmo nome:** se founder tem `~/.claude/agents/dev.md` local e core também tem `dev.md`, o symlink sobrescreve o local. Solução: core usa nomes distintivos (ex: `core-dev-manager.md`) OU founder usa subdirectory local que não conflita. **Decisão:** core usa nomes limpos (`dev.md`, `designer.md`), founder evita conflitos mantendo agentes locais custom em nomes únicos (`dev-experimental.md`). Edge case, improvável na prática.
+**Potential conflict with local files of the same name:** if the founder has a local `~/.claude/agents/dev.md` and the core also has `dev.md`, the symlink overwrites the local. Solution: core uses distinctive names (e.g., `core-dev-manager.md`) OR founder uses a local subdirectory that doesn't conflict. **Decision:** core uses clean names (`dev.md`, `designer.md`), founder avoids conflicts by keeping custom local agents with unique names (`dev-experimental.md`). Edge case, unlikely in practice.
 
-**Quando escrever de verdade:** junto com a criação do repo `copilot-core` na sessão de piloto. Não antes — não tem pra quê sem ter conteúdo no repo pra sincar.
+**When to actually write it:** together with the creation of the `copilot-core` repo in the pilot session. Not before — no point without having content in the repo to sync.
 
-### D9 — Métricas de outcome (inspirado em autoresearch)
+### D9 — Outcome metrics (inspired by autoresearch)
 
-Autoresearch do Karpathy insiste em fitness function mensurável como pré-requisito pra auto-refinamento. Nossa arquitetura até agora não tinha métricas. Vamos coletá-las desde o piloto pra ter dados reais pra refinar o core.
+Karpathy's autoresearch insists on a measurable fitness function as a prerequisite for auto-refinement. Our architecture so far has not had metrics. We will collect them from the pilot to have real data to refine the core.
 
-**5 métricas básicas a coletar a partir do piloto do logbook:**
+**5 basic metrics to collect from the logbook pilot:**
 
-| Métrica | O que mede | Como coletar |
+| Metric | What it measures | How to collect |
 |---|---|---|
-| **Peer review pass rate** | % de tasks que passam no peer review na primeira tentativa | Instância de review logga aprovação/rejeição |
-| **Founder rejection rate** | % de entregas que founder rejeita dizendo "não é o que pedi" | Leo logga quando founder rejeita síntese final |
-| **Self-QA honesty rate** | % de tasks em que self-QA do agente foi honesto (não "disse que passou mas falhou em review") | Comparar output de self-QA com resultado de review |
-| **Rework cycles** | Número médio de idas e vindas por task antes de aprovação | Leo conta iterações por task |
-| **Hiring loop hit rate** | % de tasks onde Manager reconheceu lacuna corretamente (reportou ao Leo) vs tentou sem specialist e quebrou | Comparar hiring requests com failures em domínios não-cobertos |
+| **Peer review pass rate** | % of tasks that pass peer review on the first try | Review instance logs approval/rejection |
+| **Founder rejection rate** | % of deliveries the founder rejects saying "not what I asked for" | Leo logs when the founder rejects the final synthesis |
+| **Self-QA honesty rate** | % of tasks where the agent's self-QA was honest (not "said it passed but failed in review") | Compare self-QA output with review result |
+| **Rework cycles** | Average number of back-and-forths per task before approval | Leo counts iterations per task |
+| **Hiring loop hit rate** | % of tasks where Manager recognized a gap correctly (reported to Leo) vs tried without specialist and broke | Compare hiring requests with failures in uncovered domains |
 
-**Onde os logs vivem:** `~/Github/<projeto>/.claude/metrics/<YYYY-MM>.jsonl` — arquivo por mês, uma entrada por task. Formato simples, legível, greppable. Fora do `outputs/` porque é métrica operacional contínua, não artefato de trabalho.
+**Where the logs live:** `~/Github/<project>/.claude/metrics/<YYYY-MM>.jsonl` — file per month, one entry per task. Simple, readable, greppable format. Outside `outputs/` because it is continuous operational metric, not a work artifact.
 
-**Como vira refinamento:** depois de ~20-30 tasks no piloto (2-4 semanas), founder e Leo revisam as métricas juntos. Onde estão os piores números? Essa é a área que precisa de refinamento no core. Evita "achismo" sobre o que está errado.
+**How it becomes refinement:** after ~20-30 tasks in the pilot (2-4 weeks), founder and Leo review the metrics together. Where are the worst numbers? That's the area that needs refinement in the core. Avoids "guesswork" about what is wrong.
 
-**Decisão ativa (não parking lot):** métricas entram nas rules universais a serem escritas em Q2. Precisa de uma rule `metrics-collection.md` que todos os agentes carregam e respeitam.
+**Active decision (not parking lot):** metrics enter the universal rules to be written in Q2. Needs a `metrics-collection.md` rule that all agents load and respect.
 
-### D10 — Auto-refinamento de agents e skills (inspirado em autoresearch, dois horizontes)
+### D10 — Agent and skill auto-refinement (inspired by autoresearch, two horizons)
 
-Você trouxe o autoresearch do Karpathy como pergunta: "faz sentido aproveitar pra auto-treinar agents e skills?". A resposta honesta tem **dois horizontes diferentes**, porque autoresearch é um paradigma que se aplica de duas formas no nosso contexto:
+You brought Karpathy's autoresearch as a question: "does it make sense to leverage it to auto-train agents and skills?". The honest answer has **two different horizons**, because autoresearch is a paradigm that applies in two ways in our context:
 
-#### Horizonte 1 — Aprendizado online (durante uso real)
+#### Horizon 1 — Online learning (during real use)
 
-Já coberto por D7 Mecanismo 3 (post-failure hardening) + D7 Mecanismo 4 (lessons learned pass). Cada falha real detectada em peer review vira proposta de refinamento do agent file, validada pelo founder via R2, aplicada.
+Already covered by D7 Mechanism 3 (post-failure hardening) + D7 Mechanism 4 (lessons learned pass). Each real failure detected in peer review becomes a proposal for agent file refinement, validated by the founder via R2, applied.
 
-**Status:** bakeado nesta sessão. Faz parte de D7.
+**Status:** baked into this session. Part of D7.
 
-#### Horizonte 2 — Auto-refinamento offline (loop de treinamento deliberado)
+#### Horizon 2 — Offline auto-refinement (deliberate training loop)
 
-O que você leu originalmente em autoresearch. A ideia é:
+What you originally read in autoresearch. The idea is:
 
-1. Founder escolhe um Manager ou skill pra refinar (ex: Dev Manager)
-2. Prepara um **benchmark** — conjunto de tasks representativas do domínio com "respostas esperadas" ou critérios de sucesso
-3. Roda o Manager atual contra o benchmark, mede resultado
-4. Outra instância do agente (ou o founder via Claude) analisa os resultados, propõe mudanças ao agent file
-5. Aplica mudança, re-roda benchmark, compara
-6. Mantém se melhorou, descarta se piorou
-7. Itera até convergir ou até diminishing returns
+1. Founder chooses a Manager or skill to refine (e.g., Dev Manager)
+2. Prepares a **benchmark** — set of representative tasks from the domain with "expected answers" or success criteria
+3. Runs the current Manager against the benchmark, measures result
+4. Another instance of the agent (or the founder via Claude) analyzes the results, proposes changes to the agent file
+5. Applies change, re-runs benchmark, compares
+6. Keeps if improved, discards if worsened
+7. Iterates until convergence or diminishing returns
 
-**Por que isso tem valor:** permite refinar um Manager **antes** de colocar em produção, ou **entre projetos**, sem depender de aguardar falhas reais aparecerem. É o equivalente a "treinar o time antes da temporada começar" — prática profissional normal.
+**Why this has value:** allows refining a Manager **before** putting it in production, or **between projects**, without depending on waiting for real failures to appear. It is the equivalent of "training the team before the season starts" — normal professional practice.
 
-**Por que NÃO é MVP:** três razões concretas:
+**Why it's NOT MVP:** three concrete reasons:
 
-1. **Precisamos de métricas primeiro.** Sem D9 implementado, não há como medir "melhorou ou piorou". O horizonte 2 depende de D9 funcionar.
-2. **Precisamos de benchmark.** Construir um benchmark representativo pra cada Manager é trabalho — envolve coletar tasks passadas, definir critérios, validar que são realistas. Prematura otimização antes do piloto estar rodando.
-3. **Precisamos de volume de dados.** Refinar algo sem ter rodado em produção vira chutar no escuro. Ainda que o loop seja fechado, o que é "melhor" depende do que acontece no uso real.
+1. **We need metrics first.** Without D9 implemented, there is no way to measure "improved or worsened". Horizon 2 depends on D9 working.
+2. **We need a benchmark.** Building a representative benchmark for each Manager is work — it involves collecting past tasks, defining criteria, validating that they are realistic. Premature optimization before the pilot is running.
+3. **We need volume of data.** Refining something without having run it in production becomes shooting in the dark. Even if the loop is closed, what is "better" depends on what happens in real use.
 
-**Quando virar ativo:** depois do piloto do logbook produzir ~1 mês de dados reais (Q7). Com métricas D9 e feedback de uso, dá pra construir um benchmark pra Dev Manager (a disciplina onde temos mais dor observada) e rodar o primeiro loop offline de refinamento. Se funcionar, replica pros outros Managers.
+**When to make it active:** after the logbook pilot produces ~1 month of real data (Q7). With D9 metrics and usage feedback, we can build a benchmark for Dev Manager (the discipline where we have the most observed pain) and run the first offline refinement loop. If it works, replicate to the other Managers.
 
-**Status:** adicionado como próximo passo pós-piloto. Não é parking lot indefinido — é parking lot com trigger claro (piloto + 1 mês + métricas suficientes).
+**Status:** added as a post-pilot next step. It is not an indefinite parking lot — it is a parking lot with a clear trigger (pilot + 1 month + enough metrics).
 
 ### D11 — Parking lot updates
 
-Adicionado ao parking lot do RDD (§9):
+Added to the RDD parking lot (§9):
 
-- **Estilo configurável por projeto**: founder sugeriu que verbosity (minimalist vs verbose) poderia ser configurável via `project-config.yml`. Decisão: **não fazer agora**. Se algum dia um projeto precisar de estilo diferente (ex: projeto corporativo formal que exige prose explicativa), adiciona. Por ora, minimalist bakeado no core.
-- **Tom configurável por projeto**: tom é decidido (casual) mas poderia virar config no futuro se alguém open-source usar em contexto corporativo formal. Não agora.
-- **Workflow field no frontmatter**: considerado e rejeitado por redundância com skills. Se isso voltar a ser útil no futuro (ex: workflows que não são skills), reavaliar.
-- **Idioma configurado por projeto é decisão ativa (D6), não parking lot.** Confirmado que vai ser config real no setup.
-- **Auto-refinamento offline de agents (horizonte 2 de D10)**: não é parking lot indefinido. Tem trigger: piloto do logbook + 1 mês de dados de métricas D9. Depois disso, primeiro loop experimental de refinamento de Dev Manager.
-
----
-
-## Deferido pra próximas sessões
-
-Estas decisões ficaram **propositadamente em aberto** nesta sessão:
-
-- **Q2 — Conteúdo exato das 10 rules universais**: founder confia no Leo pra redigir rascunho, ele revisa. Próxima sessão de implementação.
-- **Q3 — Prompt adversarial do modo review**: parte da rule `peer-review-automatic`. Leo rascunha, founder revisa. Talvez com estrutura "core + especificação por domínio".
-- **Q4 — Mecanismo técnico da sub-invocação**: testar Task tool nativo do Claude Code no piloto. Se funcionar, trava. Se não, repensar.
-- **Q7 — Estratégia de piloto logbook**: decidir depois de ter os 4 managers escritos
-- **Q8 — Migração do Saintfy**: decidir depois do piloto validar modelo
-
-**Q5 (sync.sh) saiu da lista de deferidas** — resolvida em D8.
-**Q6 (inicialização de projeto) saiu da lista de deferidas** — resolvida em D6.
+- **Style configurable per project**: founder suggested that verbosity (minimalist vs verbose) could be configurable via `project-config.yml`. Decision: **not now**. If one day a project needs a different style (e.g., a formal corporate project that requires explanatory prose), add it. For now, minimalist is baked into the core.
+- **Tone configurable per project**: tone is decided (casual) but could become config in the future if someone open-sources uses it in a formal corporate context. Not now.
+- **Workflow field in the frontmatter**: considered and rejected due to redundancy with skills. If this becomes useful again in the future (e.g., workflows that are not skills), reevaluate.
+- **Language configured per project is an active decision (D6), not parking lot.** Confirmed that it will be real config at setup.
+- **Offline agent auto-refinement (D10 horizon 2)**: not an indefinite parking lot. Has a trigger: logbook pilot + 1 month of D9 metric data. After that, first experimental Dev Manager refinement loop.
 
 ---
 
-## Arquivos críticos pra sessão de implementação
+## Deferred to future sessions
 
-**Fonte dos Managers (a ler ao começar a escrever):**
-- `~/Github/Saintfy-Copilot/CLAUDE.md` — identidade + regras atuais do Leo + Tomé
-- `~/Github/Saintfy-Copilot/.claude/agents/developer.md` — Dev Manager base
-- `~/Github/Saintfy-Copilot/.claude/agents/designer.md` — Designer Manager base
-- `~/Github/Saintfy-Copilot/.claude/agents/pm.md` — PM Manager base
-- `~/Github/Saintfy-Copilot/.claude/agents/marketer.md` — Marketing Manager base
-- `~/Github/Saintfy-Copilot/.claude/rules/propagation.md` — rule universal já existente
-- `~/Github/Saintfy-Copilot/.claude/rules/design-system.md` — pra Designer Manager
-- `~/Github/Saintfy-Copilot/.claude/rules/paper-artboards.md` — pra Designer Manager (será generalizado pra "artboard-conventions" sem menção a ferramenta)
+These decisions were left **intentionally open** in this session:
 
-**Memories a consultar como insumo:**
-- `feedback_pr_workflow` — base do princípio PR-first do Dev Manager
-- `feedback_real_callsite_first` — princípio do Dev Manager
-- `feedback_doc_canonical_locations` — base do fluxo PRD→RDD do PM Manager
-- `feedback_strategy_before_processing` — base do `think-before-execute` universal
-- `feedback_no_inventing_design` — princípio do Designer Manager
-- `feedback_reusable_components` — princípio do Dev Manager
-- `feedback_shadcn_first_enforcement` — **NÃO** vai pro core (específico do Saintfy), fica na extensão
+- **Q2 — Exact content of the 10 universal rules**: founder trusts Leo to write the draft, he reviews. Next implementation session.
+- **Q3 — Adversarial prompt for review mode**: part of the `peer-review-automatic` rule. Leo drafts, founder reviews. Possibly with a "core + per-domain specification" structure.
+- **Q4 — Technical mechanism of sub-invocation**: test Claude Code's native Task tool in the pilot. If it works, lock it. If not, rethink.
+- **Q7 — Logbook pilot strategy**: decide after having the 4 managers written
+- **Q8 — Saintfy migration**: decide after the pilot validates the model
 
-**Fonte arquitetural:**
-- `~/Github/Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/rdd.md` — spec completa
+**Q5 (sync.sh) left the deferred list** — resolved in D8.
+**Q6 (project initialization) left the deferred list** — resolved in D6.
 
 ---
 
-## Verificação (após sessão de implementação dos Managers)
+## Critical files for the implementation session
 
-Quando os 4 managers + Leo estiverem escritos, verificar:
+**Manager sources (to read when starting to write):**
+- `~/Github/Saintfy-Copilot/CLAUDE.md` — identity + current rules of Leo + Tomé
+- `~/Github/Saintfy-Copilot/.claude/agents/developer.md` — base Dev Manager
+- `~/Github/Saintfy-Copilot/.claude/agents/designer.md` — base Designer Manager
+- `~/Github/Saintfy-Copilot/.claude/agents/pm.md` — base PM Manager
+- `~/Github/Saintfy-Copilot/.claude/agents/marketer.md` — base Marketing Manager
+- `~/Github/Saintfy-Copilot/.claude/rules/propagation.md` — already existing universal rule
+- `~/Github/Saintfy-Copilot/.claude/rules/design-system.md` — for Designer Manager
+- `~/Github/Saintfy-Copilot/.claude/rules/paper-artboards.md` — for Designer Manager (will be generalized to "artboard-conventions" without tool mention)
 
-1. **Consistência estrutural** — cada arquivo segue as 5 seções fixas (Papel, Princípios, Hiring loop, Self-QA, Escalation) na ordem, com os nomes exatos
-2. **Frontmatter válido** — todos os 6 campos corretos, YAML válido, `model: sonnet` default
-3. **Tom e estilo** — leitura rápida (founder lê cada manager em <3 minutos e entende o papel)
-4. **Zero menção a projeto específico** — nenhum arquivo do core menciona "Saintfy", "logbook", stack específica, nome de pessoa, credencial, ID
-5. **Cross-reference** — `extends` paths fazem sentido; rules de domínio citadas existem ou estão na lista de "a criar na Q2"
-6. **Teste de extensão conceitual** — consigo mentalmente imaginar como o Saintfy extenderia o Dev Manager (adicionando shadcn-first) sem conflito?
+**Memories to consult as input:**
+- `feedback_pr_workflow` — base of the Dev Manager's PR-first principle
+- `feedback_real_callsite_first` — Dev Manager principle
+- `feedback_doc_canonical_locations` — base of the PM Manager's PRD→RDD flow
+- `feedback_strategy_before_processing` — base of the universal `think-before-execute`
+- `feedback_no_inventing_design` — Designer Manager principle
+- `feedback_reusable_components` — Dev Manager principle
+- `feedback_shadcn_first_enforcement` — **DOES NOT** go in the core (Saintfy-specific), stays in the extension
 
-Verificação empírica só vira possível com o piloto (Q7), que depende de ter os Managers + algumas rules universais prontos.
+**Architectural source:**
+- `~/Github/Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/rdd.md` — complete spec
 
 ---
 
-## Próximos passos depois deste plan ser aprovado
+## Verification (after Manager implementation session)
 
-1. **Sessão de implementação dos Managers** — escrever Leo + 4 Managers seguindo D1-D5. Saída: 5 arquivos em `Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/draft-managers/` (rascunho pra revisão, ainda não é o core final porque o repo `copilot-core` não existe)
-2. **Sessão de rules universais (Q2)** — Leo rascunha as 10 rules universais + `metrics-collection.md` (novo, D9), founder revisa
-3. **Decisão sobre piloto (Q7)** — com managers + rules prontos, decidir escopo do piloto no logbook
-4. **Piloto** — criar repo `copilot-core`, popular com conteúdo aprovado, rodar sync.sh (D8) pra ativar em `~/.claude/`, testar no logbook
-5. **Ajustes baseados em piloto** — Q4 (mecanismo sub-invocação via Task tool) se resolve aqui
-6. **Coleta de métricas (D9)** — durante ~1 mês de uso real, acumular dados de peer review pass rate, hiring loop hit rate, etc.
-7. **Primeiro loop de auto-refinamento (D10 horizonte 2)** — com métricas em mãos, construir benchmark do Dev Manager e rodar loop offline de refinamento estilo autoresearch
-8. **Migração Saintfy (Q8)** — só depois do piloto validar modelo
+When the 4 managers + Leo are written, verify:
 
-Este plan encerra o Bloco 1. O próximo plan (sessão de implementação dos Managers) vai ser ativo (cria arquivos), não passivo (só decide).
+1. **Structural consistency** — each file follows the 5 fixed sections (Papel, Princípios, Hiring loop, Self-QA, Escalation) in order, with the exact names
+2. **Valid frontmatter** — all 6 fields correct, valid YAML, `model: sonnet` default
+3. **Tone and style** — fast read (founder reads each manager in <3 minutes and understands the role)
+4. **Zero mention of a specific project** — no core file mentions "Saintfy", "logbook", specific stack, person name, credential, ID
+5. **Cross-reference** — `extends` paths make sense; cited domain rules exist or are on the "to create in Q2" list
+6. **Conceptual extension test** — can I mentally imagine how Saintfy would extend the Dev Manager (adding shadcn-first) without conflict?
+
+Empirical verification only becomes possible with the pilot (Q7), which depends on having the Managers + some universal rules ready.
+
+---
+
+## Next steps after this plan is approved
+
+1. **Manager implementation session** — write Leo + 4 Managers following D1-D5. Output: 5 files in `Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/draft-managers/` (draft for review, not yet the final core because the `copilot-core` repo doesn't exist)
+2. **Universal rules session (Q2)** — Leo drafts the 10 universal rules + `metrics-collection.md` (new, D9), founder reviews
+3. **Pilot decision (Q7)** — with managers + rules ready, decide pilot scope on logbook
+4. **Pilot** — create `copilot-core` repo, populate with approved content, run sync.sh (D8) to activate in `~/.claude/`, test on logbook
+5. **Pilot-based adjustments** — Q4 (sub-invocation mechanism via Task tool) is resolved here
+6. **Metrics collection (D9)** — during ~1 month of real use, accumulate peer review pass rate, hiring loop hit rate, etc. data
+7. **First auto-refinement loop (D10 horizon 2)** — with metrics in hand, build a Dev Manager benchmark and run autoresearch-style offline refinement loop
+8. **Saintfy migration (Q8)** — only after the pilot validates the model
+
+This plan closes Block 1. The next plan (Manager implementation session) will be active (creates files), not passive (only decides).

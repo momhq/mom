@@ -16,13 +16,14 @@ project:
     - claude-code-harness
 
 locales:
-  # Majority of historical artifacts (rules, managers, RDDs, Leo agent file)
-  # are in Portuguese. Recent additions drifted to English (refinements.md,
-  # docs/conventions/github-project-management.md, this very scaffold).
-  # This is a known inconsistency documented in context/self-hosting-notes.md
-  # and should be resolved in a dedicated core session before it grows.
-  interaction: pt
-  project_files: pt
+  # project_files is locked to EN in the core. All committed artifacts
+  # (rules, agents, skills, docs, RDDs, commits, PRs, issues) must be in
+  # English so any contributor can read and extend the system.
+  project_files: en
+  # interaction (Leo ↔ founder conversational language) is a local choice.
+  # It lives in .claude/project-config.local.yml (gitignored) so each
+  # contributor picks their own without touching the committed config.
+  # If unset, Leo defaults to matching the founder's prompt language.
 
 self_hosting: true
 # Signals to Leo: this is the core itself. Extra escalation discipline
