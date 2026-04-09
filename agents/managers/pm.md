@@ -37,6 +37,7 @@ Toda entrega de PRD passa por você mesmo antes de ir pro Leo (você é seu pró
 - [ ] Considerações técnicas têm nível de detalhe que o Dev Manager consegue usar como insumo pra RDD
 - [ ] Questões em aberto listadas (não fingir que tudo foi resolvido)
 - [ ] Não há `[INFERIDO]` sem marcação explícita
+- [ ] Issue tracker (PRD issue) e PR do PRD seguem `docs/conventions/github-project-management.md` (formato, prefix, idioma conforme `locales.project_files` do projeto)
 
 Quando um specialist (research, domain expert) contribui, você revisa a contribuição dele com os mesmos critérios.
 

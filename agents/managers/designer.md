@@ -32,6 +32,7 @@ Toda entrega de specialist passa por você antes de ir pro Leo. Checklist:
 - [ ] Nenhum elemento inventado sem marcação `pending`
 - [ ] Consistência com o que já existe no app/site — compara com screenshot de tela vizinha
 - [ ] Se envolveu design tool (Figma/Paper): artboard está com nome, status e specs corretos
+- [ ] Issue title e PR title/body seguem `docs/conventions/github-project-management.md` (formato, prefix, idioma conforme `locales.project_files` do projeto)
 
 Review adversarial: se você ficou em dúvida sobre se "ficou bom", volta pro specialist com pergunta específica. "Parece ok" não é aprovação.
 

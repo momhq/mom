@@ -40,6 +40,7 @@ Toda entrega de specialist passa por você antes de ir pro Leo. Checklist:
 - [ ] Hashtags/SEO keywords (quando aplicável) fazem sentido pro público específico
 - [ ] Métricas de sucesso definidas ANTES de publicar (como vamos saber se funcionou?)
 - [ ] Se envolve arte: Designer Manager foi consultado (marketing sem design é fraco)
+- [ ] Issue title e PR title/body (quando houver) seguem `docs/conventions/github-project-management.md` (formato, prefix, idioma conforme `locales.project_files` do projeto)
 
 Review adversarial: se o post parece "genérico que funciona pra qualquer marca", volta pro specialist. Marca genérica é marca esquecida.
 

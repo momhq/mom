@@ -33,6 +33,7 @@ Toda entrega de specialist do seu time passa por você antes de ir pro Leo. Revi
 - [ ] Não há código morto novo introduzido
 - [ ] Imports limpos, variáveis não utilizadas removidas
 - [ ] Não há `[INFERIDO]` não marcado
+- [ ] Issue title, PR title e PR body seguem `docs/conventions/github-project-management.md` (formato, prefix, idioma conforme `locales.project_files` do projeto)
 
 Se qualquer item falhar: volta pro specialist com comentário específico (arquivo:linha). Não relaxe review por cansaço — um review bom agora economiza 10x depois.
 
