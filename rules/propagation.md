@@ -20,6 +20,43 @@ Propague sempre que a task incluir:
 - **Asset ou template criado** que outros agentes podem reusar
 - **Aprendizado** de falha que teria sido evitada com rule ou checklist
 
+## Quando disparar o checklist completo
+
+Sessões conversacionais não têm fim explícito. Cada turn é um potencial ponto de parada. Por isso o checklist de propagação **não roda após cada tool call nem após cada decisão individual** — isso seria ruidoso, caro, e arriscaria persistir estado intermediário que ainda vai mudar.
+
+O checklist roda em **três situações**, com pesos diferentes:
+
+### 1. Principal — sinal explícito de fim de sessão do founder
+
+Quando o founder sinaliza que a sessão (ou o bloco de trabalho atual) acabou, Leo **invoca a skill `session-wrap-up`**, que roda o protocolo inteiro de forma determinística.
+
+Exemplos de sinal em linguagem natural (a lista não é exaustiva — Leo reconhece a *intenção* em qualquer idioma, não a frase exata):
+
+- "fecha a sessão" / "fecha aí" / "pode fechar"
+- "vamos consolidar" / "consolida aí" / "salva isso"
+- "acho que tá bom por hoje" / "tá bom assim" / "pronto por hoje"
+- "próxima vez continua daqui" / "daqui a pouco volto"
+- "manda bala, fecha" / "finaliza"
+- "wrap up", "let's consolidate", "save this", "done for today", "we're good"
+
+Se o sinal é ambíguo (ex: founder fala "ok" depois de uma task terminar — pode ser "ok, done for today" ou "ok, continua"), Leo **pergunta uma vez** antes de invocar a skill: *"Você quer que eu feche a sessão agora (rodar wrap-up) ou é só uma pausa?"*.
+
+### 2. Secundário — propagação oportunística pontual
+
+Quando uma decisão **claramente locked** é tomada mid-sessão — ex: founder fala "iOS 17 é o floor, ponto final" ou "decisão: TabBar está fora, drawer fica" — Leo pode propagar **apenas aquela decisão** imediatamente, criando ou editando o arquivo relevante (ex: `context/decisions/...`). Isso **não** dispara o checklist completo nem invoca a skill; é só capturar um fato isolado que não vai mudar.
+
+Critério pra decidir se é "claramente locked":
+
+- Founder usou palavra explícita de fechamento ("ponto final", "locked", "decidido", "não reabre")
+- OU a decisão foi explicitamente contraposta a alternativas e uma foi escolhida com rationale
+- **Em dúvida, esperar o wrap-up.** Propagar incremental demais re-cria o problema que essa rule resolve.
+
+### 3. Safety net — pergunta única em sessão longa
+
+Se Leo percebe que a sessão está ficando longa (muitas decisões acumuladas, contexto crescendo, múltiplos turns sem nenhum sinal de fechamento), pergunta **uma vez**: *"Tá juntando bastante coisa. Quer que eu feche a sessão agora ou seguimos?"*. Só isso — não insista. O safety net existe pra cobrir o caso "founder entrou no flow e esqueceu de fechar", não pra interromper ritmo.
+
+**Anti-padrão:** Leo **nunca** roda o checklist completo sem um dos três gatilhos acima. Propagar mid-task por iniciativa própria é como commitar a cada linha de código — fere o ponto da rule.
+
 ## Como aplicar
 
 Ao fechar uma task que se enquadra acima:
@@ -29,6 +66,8 @@ Ao fechar uma task que se enquadra acima:
 3. **Atualize** cada arquivo impactado
 4. **Verifique** com grep que não restam referências stale
 5. **Reporte** ao founder: "Propagação feita — atualizei X, Y, Z"
+
+Quando o gatilho é o **sinal explícito de fim de sessão** (situação 1 acima), Leo invoca a skill `session-wrap-up`, que orquestra esses passos de forma determinística (inventário → classificação → plano → R2 → execução → report). Ver `~/.claude/skills/session-wrap-up/SKILL.md` (fonte em `copilot-core/skills/session-wrap-up/`).
 
 ## Checklist mental (Leo roda mentalmente ao fechar qualquer task)
 
