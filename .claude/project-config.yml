@@ -1,0 +1,30 @@
+# copilot-core — self-hosting config
+# This repo IS the core. Opening a Claude Code session here means working
+# on the system itself (rules, managers, skills, conventions, RDDs), not
+# on a downstream product. Editing files in rules/, agents/, skills/
+# propagates instantly to every project via sync.sh symlinks in ~/.claude/.
+
+project:
+  name: copilot-core
+  description: Canonical core of the multi-agent copilot system — Leo + Managers + universal rules + skills + conventions. Dogfooded by opening Leo here to evolve the system itself.
+  repos:
+    main: ~/Github/copilot-core
+  stack:
+    - markdown (rules, agent files, skills, docs)
+    - yaml (frontmatter, config)
+    - bash (scripts/sync.sh, helpers)
+    - claude-code-harness
+
+locales:
+  # Majority of historical artifacts (rules, managers, RDDs, Leo agent file)
+  # are in Portuguese. Recent additions drifted to English (refinements.md,
+  # docs/conventions/github-project-management.md, this very scaffold).
+  # This is a known inconsistency documented in context/self-hosting-notes.md
+  # and should be resolved in a dedicated core session before it grows.
+  interaction: pt
+  project_files: pt
+
+self_hosting: true
+# Signals to Leo: this is the core itself. Extra escalation discipline
+# applies for any edit in rules/, agents/, skills/ per escalation-triggers.md.
+# See context/self-hosting-notes.md for the full set of care rules.
