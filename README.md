@@ -80,9 +80,10 @@ Decisões fundacionais estão em:
 
 - ✅ Leo + 4 Managers (Dev, Designer, PM, Marketing) escritos
 - ✅ 11 rules universais escritas (10 do RDD + metrics-collection)
-- ⏳ `sync.sh` — D8 definido no plan, a implementar
-- ⏳ Piloto no logbook — Q7
-- ⏳ Migração do Saintfy — Q8
+- ✅ `sync.sh` implementado, testado idempotente, ativado em `~/.claude/`
+- ✅ Piloto no logbook configurado (Phase 1 — hiring loop e extends ativos, peer review e metrics adiados pra Phase 2)
+- ⏳ Primeira task real no logbook (próximo)
+- ⏳ Migração do Saintfy — Q8 (pós-piloto estabilizado)
 
 ## Não é
 
