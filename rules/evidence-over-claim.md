@@ -1,51 +1,51 @@
 ---
 name: evidence-over-claim
-description: Nunca reporte trabalho como pronto sem evidência verificável anexada. Cada disciplina define seu formato.
+description: Never report work as done without verifiable evidence attached. Each discipline defines its format.
 ---
 
-## Regra
+## Rule
 
-O founder não deveria precisar **acreditar** em você. Deveria poder **conferir**. Toda entrega precisa vir com evidência verificável — o formato muda por disciplina, mas a exigência é universal.
+The founder shouldn't need to **believe** you. They should be able to **check**. Every delivery must come with verifiable evidence — the format changes by discipline, but the requirement is universal.
 
-Se você não tem evidência pra mostrar, o trabalho **não está pronto**. Reporte como "em progresso" e siga trabalhando.
+If you don't have evidence to show, the work is **not done**. Report it as "in progress" and keep working.
 
-## Por que
+## Why
 
-Claude (o modelo) tem tendência forte a dizer "pronto, passou, funcionou" sem verificar. Não é malícia — é otimismo estrutural do treino. O problema é que "disse que passou" e "passou" são coisas diferentes, e o founder já foi queimado várias vezes por confiar no primeiro.
+Claude (the model) has a strong tendency to say "done, passed, works" without verifying. It's not malice — it's structural optimism from training. The problem is that "said it passed" and "passed" are different things, and the founder has been burned several times trusting the first.
 
-A evidência é o contrato: você cola o que rodou, ele olha, fica pacífico.
+Evidence is the contract: you paste what ran, they look, they're at peace.
 
-## Formato de evidência por disciplina
+## Evidence format by discipline
 
-| Disciplina | Evidência aceitável |
+| Discipline | Acceptable evidence |
 |---|---|
-| **Dev** | Output de build, test, lint, type check **colado** na resposta (não "rodei e passou"). Screenshot do comportamento se for UI. Grep do callsite real pra provar que o code path certo foi tocado. |
-| **Design** | Screenshot ou link pro artboard/Figma da peça final. Referência cruzada aos tokens do design system que foram respeitados. |
-| **Marketing** | Rascunho completo do post/email/copy/ad colado. Não "escrevi e tá bom". |
-| **Research** | Fontes citadas com URL, autor, data. Dados brutos ou screenshot da fonte. Não "pesquisei e descobri que...". |
-| **Writing** | Texto final colado. Trecho específico quando a edição foi pontual. |
-| **Product (PM)** | Link pro PRD/RDD. Decisões rastreáveis. Não "conversei com o time e decidimos...". |
+| **Dev** | Output of build, test, lint, type check **pasted** into the reply (not "I ran it and it passed"). Screenshot of the behavior if it's UI. Grep of the actual callsite to prove the right code path was touched. |
+| **Design** | Screenshot or link to the final artboard/Figma piece. Cross-reference to the design system tokens that were respected. |
+| **Marketing** | Full draft of the post/email/copy/ad pasted. Not "I wrote it and it's good". |
+| **Research** | Sources cited with URL, author, date. Raw data or screenshot of the source. Not "I researched and found that...". |
+| **Writing** | Final text pasted. Specific excerpt when the edit was point-scoped. |
+| **Product (PM)** | Link to the PRD/RDD. Traceable decisions. Not "I talked to the team and we decided...". |
 
-## Self-QA específico vive no Manager
+## Discipline-specific self-QA lives in the Manager
 
-A rule universal exige que **haja** evidência. O **checklist específico** (o que faz parte de uma "boa" evidência pra cada disciplina) vive dentro do agent file do Manager na seção Self-QA.
+The universal rule requires that evidence **exists**. The **specific checklist** (what counts as "good" evidence for each discipline) lives inside the Manager's agent file, in the Self-QA section.
 
-Isso significa: rule universal não precisa dizer "rode lint-shadcn.sh" — isso é específico demais. O Dev Manager do Saintfy vai ter essa linha na sua extensão. Mas a exigência genérica ("lint passou, output colado") é universal e fica aqui.
+That means: the universal rule doesn't need to say "run lint-shadcn.sh" — that's too specific. The Saintfy Dev Manager will have that line in its extension. But the generic requirement ("lint passed, output pasted") is universal and lives here.
 
-## Anti-padrões a rejeitar
+## Anti-patterns to reject
 
-Quando você (Manager) está revisando trabalho de um specialist, **rejeite** imediatamente se você ver:
+When you (Manager) are reviewing a specialist's work, **reject** immediately if you see:
 
-- "Build passou" sem o output
-- "Testei e funciona" sem descrição do que testou
-- "Ajustei o spacing" sem screenshot antes/depois
-- "Pesquisei o mercado" sem lista de fontes
-- "Corrigi o bug" sem explicar a causa raiz
-- "Otimizei a performance" sem número antes/depois
-- "Está pronto pra produção" sem pré-deploy checklist
+- "Build passed" without the output
+- "Tested and it works" without a description of what was tested
+- "Adjusted the spacing" without a before/after screenshot
+- "Researched the market" without a list of sources
+- "Fixed the bug" without explaining the root cause
+- "Optimized performance" without a before/after number
+- "Ready for production" without a pre-deploy checklist
 
-Voltar pro specialist com pedido de evidência **não é ser chato**. É o contrato de trabalho.
+Sending it back to the specialist with a request for evidence **isn't being annoying**. It's the work contract.
 
-## Propagação
+## Propagation
 
-Esta rule vale pra todos os agentes. Leo rejeita sínteses de Managers que não cumpram. Managers rejeitam entregas de specialists que não cumpram. Founder rejeita entregas de Leo que não cumpram. Cascata de rigor.
+This rule applies to all agents. Leo rejects syntheses from Managers that don't comply. Managers reject deliveries from specialists that don't comply. The founder rejects deliveries from Leo that don't comply. Cascade of rigor.

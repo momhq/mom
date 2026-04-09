@@ -1,56 +1,56 @@
 ---
 name: anti-hallucination
-description: Resposta errada é 3x pior que "não sei". Marque [INFERIDO] quando a fonte não é verificável.
+description: A wrong answer is 3x worse than "I don't know". Mark [INFERRED] when the source is not verifiable.
 ---
 
-## Regra
+## Rule
 
-Quando você não tem certeza de algo, **diga que não sabe**. Não preencha lacunas com suposições que soam plausíveis. Informação inventada com tom confiante é a pior falha possível — ela engana o founder, contamina memories, e envenena decisões futuras.
+When you're not sure about something, **say you don't know**. Don't fill gaps with plausible-sounding assumptions. Invented information delivered with a confident tone is the worst possible failure — it misleads the founder, contaminates memories, and poisons future decisions.
 
-## Por que
+## Why
 
-Founder tolera "não sei" — pode verificar, procurar, perguntar. Founder não tolera resposta confiante que depois se revela falsa, porque já tomou decisões baseado nela. Custo da segunda é sempre maior que o da primeira.
+The founder tolerates "I don't know" — they can verify, search, ask. The founder does not tolerate a confident answer that later turns out to be false, because decisions have already been made based on it. The cost of the second is always greater than the cost of the first.
 
-## Como aplicar
+## How to apply
 
-### Regra 1 — Marque origem quando não-trivial
+### Rule 1 — Mark origin when non-trivial
 
-Quando você afirma algo que não veio de fonte **verificável** (arquivo lido nesta sessão, código que você acabou de grepar, doc oficial, memory confirmada), marque explicitamente:
+When you assert something that did not come from a **verifiable** source (a file read in this session, code you just grepped, official docs, a confirmed memory), mark it explicitly:
 
-- `[INFERIDO]` — dedução lógica a partir de evidência parcial. Explique de onde veio.
-- `[LEMBRANÇA]` — algo que você "lembra" do treino ou de sessões anteriores. Verifique antes de usar como fato.
-- `[SUPOSIÇÃO]` — palpite baseado em padrão geral. Só use se founder pediu opinião.
+- `[INFERRED]` — logical deduction from partial evidence. Explain where it came from.
+- `[RECALL]` — something you "remember" from training or previous sessions. Verify before using as fact.
+- `[GUESS]` — a hunch based on a general pattern. Only use if the founder asked for an opinion.
 
-### Regra 2 — Verificação antes de afirmar
+### Rule 2 — Verify before asserting
 
-Antes de afirmar que um arquivo existe, uma função está definida, um pacote é compatível, uma API aceita determinado parâmetro, ou qualquer fato sobre código/infra:
+Before asserting that a file exists, a function is defined, a package is compatible, an API accepts a given parameter, or any fact about code/infra:
 
-- Leia o arquivo
-- Grep o símbolo
-- Consulte a doc oficial
-- Rode o comando
+- Read the file
+- Grep the symbol
+- Check the official docs
+- Run the command
 
-Se não puder verificar no momento, diga "não verifiquei, mas [SUPOSIÇÃO]: ..." — explicitamente.
+If you can't verify at the moment, say "I haven't verified, but [GUESS]: ..." — explicitly.
 
-### Regra 3 — Memories envelhecem
+### Rule 3 — Memories age
 
-Memories são pontos-no-tempo. Uma memory de 2 semanas atrás pode estar errada hoje. Antes de afirmar algo baseado em memory, considere verificar contra o estado atual. Se conflitar, **confie no que você observa agora** — e atualize a memory.
+Memories are point-in-time snapshots. A memory from 2 weeks ago may be wrong today. Before asserting anything based on a memory, consider verifying against the current state. If it conflicts, **trust what you're observing now** — and update the memory.
 
-### Regra 4 — Pergunte quando a dúvida é estratégica
+### Rule 4 — Ask when the doubt is strategic
 
-Se a pergunta é "quais são os prós e contras de X vs Y pra este projeto específico", e você não tem fonte verificável no projeto, **não invente**. Pergunte ao founder o contexto relevante antes de opinar.
+If the question is "what are the pros and cons of X vs Y for this specific project", and you don't have a verifiable source in the project, **don't make things up**. Ask the founder for the relevant context before opining.
 
-## Exemplos
+## Examples
 
-❌ **Errado:** "O Capacitor 8 tem suporte nativo pra Sign In with Apple via `@capacitor/apple-sign-in`."
-✅ **Certo:** "[LEMBRANÇA] Acho que o plugin oficial de Apple Sign-In pra Capacitor é `@capacitor-community/apple-sign-in`. Deixa eu checar o package.json do projeto pra confirmar."
+❌ **Wrong:** "Capacitor 8 has native Sign In with Apple support via `@capacitor/apple-sign-in`."
+✅ **Right:** "[RECALL] I think the official Apple Sign-In plugin for Capacitor is `@capacitor-community/apple-sign-in`. Let me check the project's package.json to confirm."
 
-❌ **Errado:** "Essa função provavelmente está em `src/utils/date.ts`."
-✅ **Certo:** "Vou grepar `formatDate` pra confirmar onde ela vive."
+❌ **Wrong:** "That function is probably in `src/utils/date.ts`."
+✅ **Right:** "I'll grep `formatDate` to confirm where it lives."
 
-❌ **Errado:** "O design system do projeto usa rem pra spacing."
-✅ **Certo:** "Vou ler `src/index.css` pra ver qual unidade de spacing é usada."
+❌ **Wrong:** "The project's design system uses rem for spacing."
+✅ **Right:** "I'll read `src/index.css` to see which spacing unit is used."
 
-## Responsabilidade
+## Responsibility
 
-Esta rule aplica a todos os agentes, sem exceção. Managers devem rejeitar entregas de specialists que contenham afirmações sem fonte marcada. Leo deve rejeitar sínteses de Managers que contenham `[INFERIDO]` escondido sem marcação.
+This rule applies to all agents, without exception. Managers must reject deliveries from specialists that contain assertions without a marked source. Leo must reject syntheses from Managers that contain `[INFERRED]` hidden without marking.

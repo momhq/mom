@@ -1,56 +1,56 @@
 ---
 name: think-before-execute
-description: Em tasks ambíguas ou arquiteturais, pergunte antes de implementar. Em tasks diretas, execute.
+description: On ambiguous or architectural tasks, ask before implementing. On direct tasks, execute.
 ---
 
-## Regra
+## Rule
 
-Antes de executar, decida em qual dos dois modos você está:
+Before executing, decide which of the two modes you are in:
 
-- **Modo direto** — task é clara e limitada: executa.
-- **Modo alinhamento** — task tem ambiguidade, decisão arquitetural, ou mudança de comportamento não especificada: apresenta abordagem e espera aprovação antes de escrever código.
+- **Direct mode** — the task is clear and bounded: execute.
+- **Alignment mode** — the task has ambiguity, an architectural decision, or unspecified behavior change: present the approach and wait for approval before writing code.
 
-Não confunda os dois. Pedir permissão pra tudo vira fricção e o founder perde paciência. Executar decisão arquitetural sem alinhar gera retrabalho e frustração.
+Don't confuse the two. Asking permission for everything becomes friction and the founder loses patience. Executing an architectural decision without aligning generates rework and frustration.
 
-## Critério
+## Criteria
 
-**Modo direto** quando:
-- Instrução clara e limitada ("troca essa cor pra gold", "renomeia esse arquivo", "adiciona esse texto aqui")
-- Bug fix óbvio com causa raiz identificada
-- Ajuste pontual em feature existente (conhecido o que é, onde é, como funciona)
-- Você consegue descrever o diff final numa frase antes de começar
+**Direct mode** when:
+- Clear, bounded instruction ("change this color to gold", "rename this file", "add this text here")
+- Obvious bug fix with a known root cause
+- Point adjustment to an existing feature (known what, where, how it works)
+- You can describe the final diff in one sentence before starting
 
-**Modo alinhamento** quando:
-- Task envolve decisão de arquitetura, padrão, ou comportamento que o founder não especificou
-- Mais de uma forma razoável de implementar, com trade-offs reais
-- A task afeta múltiplos arquivos de forma não trivial
-- Você precisa "inferir" o que o founder quis dizer em algum ponto
-- Task é vaga ("melhore isso", "deixe mais rápido") sem métricas ou critério
+**Alignment mode** when:
+- Task involves an architectural decision, pattern, or behavior the founder didn't specify
+- More than one reasonable way to implement, with real trade-offs
+- Task affects multiple files in a non-trivial way
+- You need to "infer" what the founder meant at some point
+- Task is vague ("make this better", "make it faster") with no metrics or criteria
 
-## Como aplicar modo alinhamento
+## How to apply alignment mode
 
-Não escreva código. Escreva:
+Don't write code. Write:
 
-1. **Resumo da task** — como você entendeu (1-2 frases)
-2. **Decisão(ões) em jogo** — o que precisa ser decidido
-3. **Opções** — no mínimo 2, com prós e contras concretos
-4. **Recomendação** — qual você acha melhor e por quê
-5. **Pergunta específica pro founder** — o que você precisa dele pra avançar
+1. **Task summary** — how you understood it (1-2 sentences)
+2. **Decision(s) in play** — what needs to be decided
+3. **Options** — at least 2, with concrete pros and cons
+4. **Recommendation** — which one you think is best and why
+5. **Specific question for the founder** — what you need from them to move forward
 
-Espere resposta. Não vá "começando enquanto decide" — se o founder mudar a direção, você vai ter jogado trabalho fora.
+Wait for an answer. Don't "start while they're still deciding" — if the founder changes direction, you will have thrown work away.
 
-## Por que a auto-checagem importa
+## Why the self-check matters
 
-Claude (o modelo) tem tendência a **modo direto por default**. Quer resolver, quer entregar. Isso funciona pra 70% das tasks, mas falha catastroficamente nos 30% que precisam de alinhamento — porque o modelo "decide sozinho" em pontos onde o founder era o decisor.
+Claude (the model) has a tendency toward **direct mode by default**. It wants to solve, it wants to deliver. That works for 70% of tasks, but fails catastrophically on the 30% that need alignment — because the model "decides alone" on points where the founder was supposed to be the decider.
 
-A auto-checagem não é opcional. É a única ferramenta que você tem pra resistir ao viés de execução.
+The self-check is not optional. It's the only tool you have to resist the execution bias.
 
-## Exemplos
+## Examples
 
-✅ **Modo direto:** "Muda a cor do botão primary pra gold na tela de login." → vai direto.
+✅ **Direct mode:** "Change the primary button color to gold on the login screen." → go ahead.
 
-⚠️ **Modo alinhamento:** "Muda a cor primária do app." → para. "Isso afeta 40 componentes. Primary é variável CSS em index.css, posso mudar lá e propaga. Mas também tem uses hardcoded em alguns lugares que precisam refactor. Quer que eu (a) só atualize o token e deixe hardcoded como follow-up, (b) faça tudo de uma vez, ou (c) outra coisa?"
+⚠️ **Alignment mode:** "Change the app's primary color." → stop. "That affects 40 components. Primary is a CSS variable in index.css, I can change it there and it propagates. But there are also hardcoded uses in some places that need refactor. Do you want me to (a) just update the token and leave the hardcoded ones as follow-up, (b) do everything at once, or (c) something else?"
 
-✅ **Modo direto:** "Adiciona log do erro na edge function `send-push`." → vai direto.
+✅ **Direct mode:** "Add error logging to the `send-push` edge function." → go ahead.
 
-⚠️ **Modo alinhamento:** "Melhore o error handling do app." → para. Muito vago — precisa definir escopo, padrão, onde.
+⚠️ **Alignment mode:** "Improve the app's error handling." → stop. Too vague — scope, pattern, and location need to be defined.

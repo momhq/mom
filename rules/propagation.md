@@ -1,36 +1,36 @@
 ---
 name: propagation
-description: Toda decisão ou mudança de contexto deve propagar pros arquivos impactados antes de fechar a task
+description: Every decision or context change must propagate to the impacted files before closing the task
 ---
 
-## Regra
+## Rule
 
-Nenhuma task está completa até que o contexto do sistema reflita o que mudou. Se você tomou uma decisão, mudou uma stack, definiu um padrão novo, ou aprendeu algo que vale pra próxima vez — isso precisa ser materializado antes de reportar "pronto".
+No task is complete until the system's context reflects what changed. If you made a decision, changed a stack, defined a new pattern, or learned something worth remembering for next time — it must be materialized before reporting "done".
 
-**Informação desatualizada é pior que informação ausente.** Ela induz erro silencioso.
+**Outdated information is worse than missing information.** It induces silent error.
 
-## Quando aplicar
+## When to apply
 
-Propague sempre que a task incluir:
+Propagate whenever the task includes:
 
-- **Decisão** de produto, design, tech, negócio ou marketing
-- **Mudança de stack** (nova lib, migração, arquitetura alterada)
-- **Novo padrão** (convenção, template, rule de domínio)
-- **Mudança de contexto** (status do projeto, persona, concorrente novo, decisão revertida)
-- **Asset ou template criado** que outros agentes podem reusar
-- **Aprendizado** de falha que teria sido evitada com rule ou checklist
+- **Decision** in product, design, tech, business, or marketing
+- **Stack change** (new lib, migration, altered architecture)
+- **New pattern** (convention, template, domain rule)
+- **Context change** (project status, persona, new competitor, reverted decision)
+- **Asset or template created** that other agents can reuse
+- **Lesson** from a failure that would have been avoided with a rule or checklist
 
-## Quando disparar o checklist completo
+## When to fire the full checklist
 
-Sessões conversacionais não têm fim explícito. Cada turn é um potencial ponto de parada. Por isso o checklist de propagação **não roda após cada tool call nem após cada decisão individual** — isso seria ruidoso, caro, e arriscaria persistir estado intermediário que ainda vai mudar.
+Conversational sessions don't have explicit endings. Every turn is a potential stopping point. For that reason the propagation checklist **does not run after every tool call nor after every individual decision** — that would be noisy, expensive, and would risk persisting intermediate state that's still going to change.
 
-O checklist roda em **três situações**, com pesos diferentes:
+The checklist runs in **three situations**, with different weights:
 
-### 1. Principal — sinal explícito de fim de sessão do founder
+### 1. Primary — explicit founder end-of-session signal
 
-Quando o founder sinaliza que a sessão (ou o bloco de trabalho atual) acabou, Leo **invoca a skill `session-wrap-up`**, que roda o protocolo inteiro de forma determinística.
+When the founder signals that the session (or the current block of work) has ended, Leo **invokes the `session-wrap-up` skill**, which runs the full protocol deterministically.
 
-Exemplos de sinal em linguagem natural (a lista não é exaustiva — Leo reconhece a *intenção* em qualquer idioma, não a frase exata):
+Natural-language signal examples (the list is not exhaustive — Leo recognizes the *intent* in any language, not the exact phrase):
 
 - "fecha a sessão" / "fecha aí" / "pode fechar"
 - "vamos consolidar" / "consolida aí" / "salva isso"
@@ -39,54 +39,54 @@ Exemplos de sinal em linguagem natural (a lista não é exaustiva — Leo reconh
 - "manda bala, fecha" / "finaliza"
 - "wrap up", "let's consolidate", "save this", "done for today", "we're good"
 
-Se o sinal é ambíguo (ex: founder fala "ok" depois de uma task terminar — pode ser "ok, done for today" ou "ok, continua"), Leo **pergunta uma vez** antes de invocar a skill: *"Você quer que eu feche a sessão agora (rodar wrap-up) ou é só uma pausa?"*.
+If the signal is ambiguous (e.g., the founder says "ok" after a task ends — it could be "ok, done for today" or "ok, keep going"), Leo **asks once** before invoking the skill: *"Do you want me to close the session now (run wrap-up) or is this just a pause?"*.
 
-### 2. Secundário — propagação oportunística pontual
+### 2. Secondary — opportunistic single-decision propagation
 
-Quando uma decisão **claramente locked** é tomada mid-sessão — ex: founder fala "iOS 17 é o floor, ponto final" ou "decisão: TabBar está fora, drawer fica" — Leo pode propagar **apenas aquela decisão** imediatamente, criando ou editando o arquivo relevante (ex: `context/decisions/...`). Isso **não** dispara o checklist completo nem invoca a skill; é só capturar um fato isolado que não vai mudar.
+When a decision is **clearly locked** mid-session — e.g., the founder says "iOS 17 is the floor, final" or "decision: TabBar is out, drawer stays" — Leo can propagate **just that decision** immediately, creating or editing the relevant file (e.g., `context/decisions/...`). This **does not** fire the full checklist nor invoke the skill; it's only capturing an isolated fact that won't change.
 
-Critério pra decidir se é "claramente locked":
+Criteria for "clearly locked":
 
-- Founder usou palavra explícita de fechamento ("ponto final", "locked", "decidido", "não reabre")
-- OU a decisão foi explicitamente contraposta a alternativas e uma foi escolhida com rationale
-- **Em dúvida, esperar o wrap-up.** Propagar incremental demais re-cria o problema que essa rule resolve.
+- The founder used an explicit closing word ("final", "locked", "decided", "not reopening")
+- OR the decision was explicitly contrasted with alternatives and one was chosen with a rationale
+- **When in doubt, wait for wrap-up.** Propagating too incrementally recreates the problem this rule solves.
 
-### 3. Safety net — pergunta única em sessão longa
+### 3. Safety net — single question in a long session
 
-Se Leo percebe que a sessão está ficando longa (muitas decisões acumuladas, contexto crescendo, múltiplos turns sem nenhum sinal de fechamento), pergunta **uma vez**: *"Tá juntando bastante coisa. Quer que eu feche a sessão agora ou seguimos?"*. Só isso — não insista. O safety net existe pra cobrir o caso "founder entrou no flow e esqueceu de fechar", não pra interromper ritmo.
+If Leo notices the session is growing long (many accumulated decisions, expanding context, multiple turns without any closing signal), he asks **once**: *"There's a lot piling up. Do you want me to close the session now or keep going?"*. That's it — don't insist. The safety net exists to cover the "founder in flow, forgot to wrap up" case, not to break rhythm.
 
-**Anti-padrão:** Leo **nunca** roda o checklist completo sem um dos três gatilhos acima. Propagar mid-task por iniciativa própria é como commitar a cada linha de código — fere o ponto da rule.
+**Anti-pattern:** Leo **never** runs the full checklist without one of the three triggers above. Propagating mid-task on his own initiative is like committing on every line of code — it defeats the point of the rule.
 
-## Como aplicar
+## How to apply
 
-Ao fechar uma task que se enquadra acima:
+When closing a task that falls into the above:
 
-1. **Identifique** o que mudou (decisão, fato, padrão)
-2. **Consulte** `context/propagation-map.md` do projeto (se existir) ou use o checklist mental abaixo pra mapear arquivos impactados
-3. **Atualize** cada arquivo impactado
-4. **Verifique** com grep que não restam referências stale
-5. **Reporte** ao founder: "Propagação feita — atualizei X, Y, Z"
+1. **Identify** what changed (decision, fact, pattern)
+2. **Consult** the project's `context/propagation-map.md` (if it exists) or use the mental checklist below to map impacted files
+3. **Update** each impacted file
+4. **Verify** with grep that no stale references remain
+5. **Report** to the founder: "Propagation done — I updated X, Y, Z"
 
-Quando o gatilho é o **sinal explícito de fim de sessão** (situação 1 acima), Leo invoca a skill `session-wrap-up`, que orquestra esses passos de forma determinística (inventário → classificação → plano → R2 → execução → report). Ver `~/.claude/skills/session-wrap-up/SKILL.md` (fonte em `copilot-core/skills/session-wrap-up/`).
+When the trigger is the **explicit end-of-session signal** (situation 1 above), Leo invokes the `session-wrap-up` skill, which orchestrates these steps deterministically (inventory → classify → plan → R2 → execute → report). See `~/.claude/skills/session-wrap-up/SKILL.md` (source in `copilot-core/skills/session-wrap-up/`).
 
-## Checklist mental (Leo roda mentalmente ao fechar qualquer task)
+## Mental checklist (Leo runs mentally when closing any task)
 
-- [ ] Alguma decisão foi tomada? → `context/decisions/{domínio}.md`
-- [ ] O que o projeto **é** mudou? → `context/project.md`, `context/brand.md`
-- [ ] A stack mudou? → `context/stack.md`
-- [ ] Algum manager precisa saber disso? → agent file do manager (ou memória)
-- [ ] Algum workflow referencia o que mudou?
-- [ ] Alguma rule do projeto precisa update?
-- [ ] Alguma memory está agora stale? → atualizar ou remover
-- [ ] Algum doc canônico (PRD, RDD) referencia algo que mudou?
+- [ ] Was any decision made? → `context/decisions/{domain}.md`
+- [ ] Did what the project **is** change? → `context/project.md`, `context/brand.md`
+- [ ] Did the stack change? → `context/stack.md`
+- [ ] Does any manager need to know this? → the manager's agent file (or memory)
+- [ ] Does any workflow reference what changed?
+- [ ] Does any project rule need an update?
+- [ ] Is any memory now stale? → update or remove
+- [ ] Does any canonical doc (PRD, RDD) reference something that changed?
 
-## O que NÃO propagar
+## What NOT to propagate
 
-- Detalhes de implementação que vivem no código (código é fonte de verdade)
-- Estado temporário de task em andamento
-- Informação que já está no git history
-- Outputs de sessão (vão pra `outputs/`)
+- Implementation details that live in code (code is the source of truth)
+- Temporary state of an in-progress task
+- Information that's already in git history
+- Session outputs (those go to `outputs/`)
 
-## Responsabilidade final
+## Final responsibility
 
-**Leo é o responsável final pela propagação.** Managers podem fazer propagação no escopo deles (rule de domínio, memory específica), mas Leo é quem garante que nada passou batido. Se founder cobrar propagação faltante, Leo responde — não o Manager.
+**Leo is ultimately responsible for propagation.** Managers can propagate within their scope (domain rule, specific memory), but Leo is the one who ensures nothing slipped through. If the founder complains about missing propagation, Leo answers — not the Manager.

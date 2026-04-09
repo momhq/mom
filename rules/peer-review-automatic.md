@@ -1,105 +1,105 @@
 ---
 name: peer-review-automatic
-description: Todo trabalho passa por peer review automático e transparente antes de chegar ao founder.
+description: All work goes through automatic, transparent peer review before reaching the founder.
 ---
 
-## Regra
+## Rule
 
-Nenhum trabalho chega ao founder sem ter passado por peer review. Review é feito por **outra instância do mesmo Manager**, em modo review, com contexto isolado, postura adversarial, e disparada automaticamente via sub-invocação — o founder nunca abre outra sessão manualmente.
+No work reaches the founder without going through peer review. Review is done by **another instance of the same Manager**, in review mode, with isolated context, an adversarial posture, and fired automatically via sub-invocation — the founder never opens another session manually.
 
-## Por que
+## Why
 
-**Self-QA e peer review pegam coisas diferentes.** Self-QA é o autor checando o próprio trabalho — pega o que o autor consegue ver. Peer review é um par com o mesmo expertise olhando com fresh eyes e sem contexto do raciocínio original — pega viés confirmatório, atalhos, código morto, callsite errado, regressões, edge cases ignorados. Não são redundantes; são camadas complementares.
+**Self-QA and peer review catch different things.** Self-QA is the author checking their own work — it catches what the author can see. Peer review is a peer with the same expertise looking with fresh eyes and without the original reasoning's context — it catches confirmation bias, shortcuts, dead code, wrong callsite, regressions, ignored edge cases. They're not redundant; they're complementary layers.
 
-**Custo humano é o que torna peer review caro em times humanos.** Em IA, custo é segundos e tokens. Não há razão racional pra não ter review universal.
+**Human cost is what makes peer review expensive in human teams.** In AI, the cost is seconds and tokens. There's no rational reason not to have universal review.
 
-## Fluxo padrão
+## Standard flow
 
 ```
-Founder → Leo → Manager recebe
+Founder → Leo → Manager receives
                     ↓
-                 Manager decompõe + delega pro specialist do time
+                 Manager decomposes + delegates to the team's specialist
                     ↓
-                 Specialist executa → self-QA → reporta pro Manager
+                 Specialist executes → self-QA → reports to the Manager
                     ↓
-                 Manager (instância A) revisa — peer review natural
-                 (Manager é o tech lead, revisa o time dele)
-                    ↓ aprova → sintetiza pro Leo
-                    ↓ rejeita → volta pro specialist com comentários
+                 Manager (instance A) reviews — natural peer review
+                 (the Manager is the tech lead, reviewing their team)
+                    ↓ approves → synthesizes for Leo
+                    ↓ rejects → back to the specialist with comments
                  Leo → Founder
 ```
 
-Quando o **Manager executa diretamente** (exceção — micro-tasks, emergência), o review acontece via:
+When the **Manager executes directly** (exception — micro-tasks, emergency), review happens via:
 
 ```
-Manager executa → self-QA
+Manager executes → self-QA
     ↓
-Manager dispara sub-invocação de si mesmo em modo review
-(via Task tool nativo do Claude Code, análogo a sub-agents)
+Manager fires a sub-invocation of themselves in review mode
+(via Claude Code's native Task tool, analogous to sub-agents)
     ↓
-Nova instância do Manager recebe:
-  - Arquivos mudados / diff
-  - Output do self-QA
-  - Contexto adversarial (modo review)
-  - SEM o raciocínio/contexto da sessão de execução
+New Manager instance receives:
+  - Changed files / diff
+  - Self-QA output
+  - Adversarial context (review mode)
+  - WITHOUT the execution session's reasoning/context
     ↓
-Revisa adversarialmente → aprova ou lista problemas
+Reviews adversarially → approves or lists problems
     ↓
-Resultado volta pra sessão principal
-Founder vê tudo como uma coisa só
+Result returns to the main session
+Founder sees everything as a single thing
 ```
 
-## Contexto adversarial — template base
+## Adversarial context — base template
 
-Quando o Manager dispara sua própria instância em modo review, o briefing inclui (no mínimo):
+When the Manager fires their own instance in review mode, the briefing includes (at minimum):
 
 ```
-Você é [Manager name] em modo REVIEW. Outra instância sua acabou de
-fazer o trabalho descrito abaixo. Sua função é revisar adversarialmente.
+You are [Manager name] in REVIEW mode. Another instance of you just did
+the work described below. Your job is to review adversarially.
 
-REGRAS DO MODO REVIEW:
-1. Você NÃO tem acesso ao raciocínio da sessão que executou. Só aos
-   artefatos (diff, arquivos, self-QA).
-2. Procure ativamente bugs que o self-QA não pega:
-   - Código morto introduzido
-   - Regressões em outras partes
-   - Callsite errado (o code path real é esse mesmo?)
-   - Side effects não intencionais
-   - Suposições não verificadas
-   - Edge cases ignorados
-   - Marca [INFERIDO] escondida sem sinalização
-3. NÃO elogie. Se estiver ok, diga "aprovado" e pare.
-4. Se houver problema, liste específico e concreto:
-   - arquivo:linha
-   - o que está errado
-   - por que isso é problema
-5. Você tem o mesmo expertise do executor — use adversarialmente.
+REVIEW MODE RULES:
+1. You do NOT have access to the executing session's reasoning. Only
+   the artifacts (diff, files, self-QA).
+2. Actively look for bugs that self-QA doesn't catch:
+   - Dead code introduced
+   - Regressions elsewhere
+   - Wrong callsite (is the real code path actually this one?)
+   - Unintended side effects
+   - Unverified assumptions
+   - Ignored edge cases
+   - Hidden [INFERRED] marks without signaling
+3. DO NOT praise. If it's ok, say "approved" and stop.
+4. If there's a problem, list it specifically and concretely:
+   - file:line
+   - what's wrong
+   - why this is a problem
+5. You have the same expertise as the executor — use it adversarially.
 
-MATERIAL A REVISAR:
-[diff / arquivos mudados / output de self-QA]
+MATERIAL TO REVIEW:
+[diff / changed files / self-QA output]
 ```
 
-Cada Manager pode **estender** esse template com critérios específicos de review da disciplina dele (Dev Manager adiciona checks de código, Designer checks visuais, etc.).
+Each Manager can **extend** this template with discipline-specific review criteria (Dev Manager adds code checks, Designer adds visual checks, etc.).
 
-## Isolamento de contexto é obrigatório
+## Context isolation is mandatory
 
-A instância reviewer **não pode** ver o contexto da sessão original. Se ver, o viés confirmatório volta (o reviewer lê "eu escolhi fazer assim porque X" e concorda). Isolamento garante que o reviewer avalie o **resultado** pelo mérito, não pelo raciocínio.
+The reviewer instance **cannot** see the original session's context. If it does, confirmation bias returns (the reviewer reads "I chose to do it this way because X, Y, Z" and agrees). Isolation ensures the reviewer evaluates the **result** on its merit, not on the reasoning.
 
-Em termos de Task tool: invoque a sub-sessão com prompt fresco, contendo só os artefatos necessários.
+In Task tool terms: invoke the sub-session with a fresh prompt containing only the necessary artifacts.
 
-## Iteração
+## Iteration
 
-Se o reviewer rejeita:
-1. Volta pro agente que executou (ou pro specialist, se foi delegado)
-2. Corrige baseado nos comentários específicos
-3. Re-submete
-4. Nova instância de review (ou a mesma, com novo contexto) revisa novamente
-5. Loop até aprovar
+If the reviewer rejects:
+1. Goes back to the executing agent (or to the specialist, if it was delegated)
+2. Fixes based on the specific comments
+3. Re-submits
+4. A new review instance (or the same, with new context) reviews again
+5. Loop until approval
 
-Founder não vê cada iteração — recebe o resultado final quando a task está aprovada em review. Se o loop estiver demorando muito (3+ iterações), reporta pro founder pra decidir escalar ou abortar.
+The founder doesn't see each iteration — they receive the final result once the task is approved in review. If the loop is taking too long (3+ iterations), report to the founder to decide whether to escalate or abort.
 
-## Exceções
+## Exceptions
 
-**Não há exceções.** Task de 10 segundos também passa por review — review de task de 10 segundos também dura 10 segundos. O custo marginal é zero. Se você está tentado a pular review "porque é simples", é justamente onde bugs passam despercebidos.
+**There are no exceptions.** A 10-second task also goes through review — review of a 10-second task also takes 10 seconds. The marginal cost is zero. If you're tempted to skip review "because it's simple", that's exactly where bugs slip through.
 
-A única exceção legítima é quando a task **é** ela mesma uma ação de meta-review (ex: founder pede "revisa esse PR" — aí a task inteira é review, não precisa de review do review).
+The only legitimate exception is when the task **is** itself a meta-review action (e.g., the founder asks "review this PR" — then the whole task is review, no review of the review is needed).

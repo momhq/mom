@@ -1,54 +1,54 @@
 ---
 name: state-vs-learning
-description: Memories de estado envelhecem rápido. Memories de aprendizado permanecem. Trate cada uma diferente.
+description: State memories age fast. Learning memories endure. Treat each differently.
 ---
 
-## Regra
+## Rule
 
-Memories são de duas naturezas diferentes. Tratá-las igual é como se livros de história e manuais técnicos fossem indexados pela mesma regra — você perde a nuance que importa.
+Memories have two different natures. Treating them the same is like indexing history books and technical manuals by the same rule — you lose the nuance that matters.
 
-- **State memories** descrevem o estado factual do projeto num ponto no tempo (o que foi feito, o que está pendente, quem tem qual responsabilidade, qual é a pendência atual). **Envelhecem rápido.** Precisam ser revalidadas antes de serem citadas como fato.
-- **Learning memories** descrevem aprendizados, regras de conduta, decisões de trabalho, padrões que deram ou não deram certo. **Envelhecem devagar.** São quase atemporais.
+- **State memories** describe the factual state of the project at a point in time (what's been done, what's pending, who owns what, what the current blocker is). **They age fast.** They need to be revalidated before being cited as fact.
+- **Learning memories** describe lessons, rules of conduct, work decisions, patterns that worked or didn't. **They age slowly.** They're nearly timeless.
 
-## Como distinguir
+## How to distinguish
 
-**State memory** (envelhece rápido):
-- Descreve o que está feito vs pendente
-- Contém lista de issues abertas
-- Menciona versão atual do app, release cadence
-- Nomeia quem está trabalhando em quê
-- Cita métrica num momento específico ("X usuários", "Y% de conversão")
-- Registra decisão que pode ser revertida ou evoluir
-- Tem seção "Pendente"
+**State memory** (ages fast):
+- Describes what's done vs pending
+- Contains a list of open issues
+- Mentions the current app version, release cadence
+- Names who is working on what
+- Cites a metric at a specific moment ("X users", "Y% conversion")
+- Records a decision that may be reverted or evolve
+- Has a "Pending" section
 
-**Learning memory** (envelhece devagar):
-- Descreve regra de conduta ("sempre grep callsite real antes de refactor")
-- Explica padrão observado ("iCloud Drive + cap sync = duplicatas `* 2`")
-- Captura lição de falha ("JWT sem `typ: 'JWT'` quebra APNs")
-- Documenta preferência do founder ("não quer toasts pra erros de form, usa inline")
-- Define vocabulário ou convenção do projeto
+**Learning memory** (ages slowly):
+- Describes a rule of conduct ("always grep the real callsite before refactor")
+- Explains an observed pattern ("iCloud Drive + cap sync = `* 2` duplicates")
+- Captures a lesson from failure ("JWT without `typ: 'JWT'` breaks APNs")
+- Documents a founder preference ("no toasts for form errors, use inline")
+- Defines project vocabulary or convention
 
-## Como aplicar
+## How to apply
 
-### Quando escrever uma memory
+### When writing a memory
 
-Antes de salvar, classifique mentalmente: **state ou learning**? Se for state, marque data explicitamente no corpo e assume que vai envelhecer. Se for learning, escreva de forma atemporal quando possível.
+Before saving, classify mentally: **state or learning**? If it's state, mark the date explicitly in the body and assume it will age. If it's learning, write it in a timeless way when possible.
 
-### Quando ler uma memory
+### When reading a memory
 
-- **State memory**: **sempre verifique contra o estado atual** antes de agir sobre ela. Se a memory diz "pendente: feature X" e você vai implementar, primeiro confirma que ainda está pendente. Se diz "issue #12 está em progresso", confirme via `gh issue view 12` antes de citar.
-- **Learning memory**: pode citar com mais confiança, mas ainda assim cuidado com lições que foram superadas por aprendizado mais recente.
+- **State memory**: **always verify against the current state** before acting on it. If the memory says "pending: feature X" and you're about to implement, first confirm it's still pending. If it says "issue #12 is in progress", confirm via `gh issue view 12` before citing.
+- **Learning memory**: you can cite with more confidence, but still be careful with lessons that have been superseded by more recent learning.
 
-### Quando propagação afeta memories
+### When propagation affects memories
 
-Quando você atualiza uma state memory porque ela envelheceu, aplica a rule `propagation` — atualize, não crie nova. Quando uma learning memory é refinada por uma falha nova (via `know-what-you-dont-know` Mecanismo 4), pode criar nova que suplanta a anterior, mas marque a antiga como superseded.
+When you update a state memory because it aged, apply the `propagation` rule — update, don't create a new one. When a learning memory is refined by a new failure (via `know-what-you-dont-know` Mechanism 4), you can create a new one that supersedes the previous — but mark the old one as superseded.
 
-## Anti-padrão: memory como "último snapshot"
+## Anti-pattern: memory as "last snapshot"
 
-Se você está tentado a escrever uma memory que diz "status atual do projeto: X, Y, Z, pendente A, B", pare. Isso vai virar lixo em 1 semana. Pense se tem alguma **lição** genuína no que você quer salvar. Se não tiver, provavelmente não deveria ser memory — deveria ser um report pontual que vive no `outputs/` daquela sessão.
+If you're tempted to write a memory that says "current project status: X, Y, Z, pending A, B", stop. That will be garbage in 1 week. Think about whether there's a genuine **lesson** in what you want to save. If there isn't, it probably shouldn't be a memory — it should be a one-shot report that lives in `outputs/` for that session.
 
-## Responsabilidade
+## Responsibility
 
-Leo é o responsável por auditar memories periodicamente, identificar state memories stale, atualizar ou remover. Managers podem propor esse trabalho quando notarem que estão carregando memory desatualizada que conflita com estado observado.
+Leo is responsible for periodically auditing memories, identifying stale state memories, updating or removing them. Managers can propose this work when they notice they're carrying outdated memory that conflicts with observed state.
 
-**Regra prática:** se uma memory tem seção "Pendente" ou "Next steps", ela é quase certamente state e merece revisão a cada 1-2 semanas.
+**Practical rule:** if a memory has a "Pending" or "Next steps" section, it's almost certainly state and deserves review every 1-2 weeks.

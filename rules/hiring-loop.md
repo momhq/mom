@@ -1,110 +1,110 @@
 ---
 name: hiring-loop
-description: Manager reporta lacuna → Leo contrata specialist → devolve pro Manager executar.
+description: Manager reports a gap → Leo hires the specialist → hands it back to the Manager to execute.
 ---
 
-## Regra
+## Rule
 
-**Reconhecer lacuna** e **preencher lacuna** são responsabilidades separadas, atribuídas a papéis diferentes.
+**Recognizing a gap** and **filling a gap** are separate responsibilities, assigned to different roles.
 
-- Manager identifica que precisa de um specialist que não existe → **reporta** ao Leo (não tenta criar sozinho)
-- Leo, com big picture e contexto cross-projeto, **contrata** o specialist formatando o playbook correto → devolve pro Manager
-- Manager usa o specialist e **executa** a task
+- Manager identifies that they need a specialist that doesn't exist → **reports** to Leo (does not try to create it alone)
+- Leo, with big-picture and cross-project context, **hires** the specialist by formatting the correct playbook → hands it back to the Manager
+- Manager uses the specialist and **executes** the task
 
-Isso espelha headhunting real: gerente de engenharia diz "preciso de iOS sênior com experiência em push", RH/CTO escreve a JD, busca, entrevista, contrata, entrega. Gerente executa o trabalho com o novo contratado. Separation of concerns.
+This mirrors real headhunting: the engineering manager says "I need a senior iOS engineer with push experience", HR/CTO writes the JD, sources, interviews, hires, delivers. The manager executes the work with the new hire. Separation of concerns.
 
-## Por que Leo contrata e não o Manager
+## Why Leo hires and not the Manager
 
-1. **Leo enxerga duplicação.** Se outro Manager já pediu specialist parecido nesta ou em outra sessão, Leo lembra. Manager sozinho não tem esse olhar cruzado.
-2. **Leo enxerga reuso cross-projeto.** Se outro projeto em `~/Github/*/` já tem specialist similar, Leo propõe adaptar em vez de criar do zero.
-3. **Leo impõe padrão estrutural.** Frontmatter, formato, nível de detalhe. Evita specialists bagunçados feitos por Managers diferentes com estilos diferentes.
-4. **Manager fica focado.** Pediu, voltou pra executar a task original. Não perde contexto na meta-tarefa de "escrever um bom specialist".
+1. **Leo sees duplication.** If another Manager already asked for a similar specialist in this session or another, Leo remembers. A Manager on their own doesn't have that cross-cutting view.
+2. **Leo sees cross-project reuse.** If another project in `~/Github/*/` already has a similar specialist, Leo proposes adapting instead of creating from scratch.
+3. **Leo enforces structural standards.** Frontmatter, format, level of detail. Prevents messy specialists created by different Managers with different styles.
+4. **Manager stays focused.** They asked, they went back to execute the original task. They don't lose context on the meta-task of "writing a good specialist".
 
-## Quando Manager dispara hiring loop
+## When a Manager fires the hiring loop
 
-**Dois casos legítimos:**
+**Two legitimate cases:**
 
-### Caso 1 — Constituir time inicial
+### Case 1 — Assemble the initial team
 
-Nas primeiras interações de um Manager com um projeto novo, ele identifica quais specialists generalistas precisa baseado na stack e nas tasks esperadas, e dispara Hiring Loop pra constituir o time básico.
+In a Manager's first interactions with a new project, they identify which generalist specialists are needed based on the stack and expected tasks, and fire the Hiring Loop to assemble the basic team.
 
-Exemplos:
-- Dev Manager num projeto React: "preciso de `frontend-react-specialist`, `backend-supabase-specialist`, `deploy-vercel-specialist`"
-- Designer Manager num projeto mobile: "preciso de `mobile-ui-specialist`, `app-store-assets-specialist`"
+Examples:
+- Dev Manager on a React project: "I need `frontend-react-specialist`, `backend-supabase-specialist`, `deploy-vercel-specialist`"
+- Designer Manager on a mobile project: "I need `mobile-ui-specialist`, `app-store-assets-specialist`"
 
-### Caso 2 — Preencher lacuna de domínio específico
+### Case 2 — Fill a specific domain gap
 
-Durante execução, Manager encontra task que exige expertise profunda que o time atual não cobre.
+During execution, the Manager hits a task that requires deep expertise the current team doesn't cover.
 
-Exemplos:
-- Task pede integração APNs → Dev Manager pede `apns-push-protocol-specialist`
-- Task pede animação Lottie complexa → Designer Manager pede `lottie-animation-specialist`
+Examples:
+- Task requires APNs integration → Dev Manager asks for `apns-push-protocol-specialist`
+- Task requires a complex Lottie animation → Designer Manager asks for `lottie-animation-specialist`
 
-Em ambos os casos, **specialists vivem 100% no projeto**, nunca no core. Core mantém só managers universais.
+In both cases, **specialists live 100% in the project**, never in the core. The core keeps only universal managers.
 
-## Fluxo passo-a-passo
+## Step-by-step flow
 
 ```
-1. Manager, executando task:
-   "Essa task envolve [X domínio técnico]. Eu não tenho specialist
-    no meu time com playbook pra isso. Preciso disparar Hiring Loop."
+1. Manager, executing a task:
+   "This task involves [X technical domain]. I don't have a specialist
+    on my team with a playbook for this. I need to fire the Hiring Loop."
 
 2. Manager → Leo:
-   "Preciso de um specialist `[nome-proposto]`. Escopo: [o que ele sabe].
-    Pra quê: [por que esta task precisa]. Pior cenário se executar sem:
-    [consequência de não ter]."
+   "I need a specialist `[proposed-name]`. Scope: [what they know].
+    For what: [why this task needs it]. Worst case without it:
+    [consequence of not having it]."
 
-3. Leo verifica:
-   - Outro Manager deste projeto já pediu algo parecido recentemente?
-   - Outro projeto tem specialist reusável? (olha ~/Github/*/.claude/specialists/)
-   - O escopo proposto faz sentido? Muito largo ou muito estreito?
+3. Leo checks:
+   - Has another Manager on this project asked for something similar recently?
+   - Does another project have a reusable specialist? (checks ~/Github/*/.claude/specialists/)
+   - Does the proposed scope make sense? Too broad or too narrow?
 
-4. Leo formata proposta e apresenta ao founder (R2):
-   "Manager [X] pediu specialist `[nome]` com escopo [Y]. Proposta:
-    [playbook de 1 página]. Autoriza?"
+4. Leo formats a proposal and presents it to the founder (R2):
+   "Manager [X] asked for a specialist `[name]` with scope [Y]. Proposal:
+    [1-page playbook]. Approve?"
 
-5. Founder aprova, rejeita, ou pede ajuste.
+5. Founder approves, rejects, or requests an adjustment.
 
-6. Se aprovado: Leo cria o arquivo em .claude/specialists/{domain}/{name}.md
-   no projeto. Devolve pro Manager com referência.
+6. If approved: Leo creates the file at .claude/specialists/{domain}/{name}.md
+   in the project. Hands it back to the Manager with the reference.
 
-7. Manager lê o specialist como contexto e executa a task.
+7. Manager reads the specialist as context and executes the task.
 ```
 
-## Formato mínimo de specialist
+## Minimum specialist format
 
-Quando Leo cria specialist, ele segue formato similar ao dos Managers mas focado em conteúdo técnico acionável:
+When Leo creates a specialist, they follow a format similar to Managers' but focused on actionable technical content:
 
 ```markdown
 ---
 name: <specialist name>
-description: <o que ele sabe em 1 linha>
+description: <what they know in 1 line>
 domain: <dev|design|marketing|pm|...>
 ---
 
-## Domínio
-[O que este specialist sabe e NÃO sabe]
+## Domain
+[What this specialist knows and does NOT know]
 
 ## Playbook
-[Passos, checklist, gotchas, anti-padrões — conteúdo técnico real]
+[Steps, checklist, gotchas, anti-patterns — real technical content]
 
-## Referências
-[Links, docs oficiais, memórias anteriores, PRs relevantes]
+## References
+[Links, official docs, prior memories, relevant PRs]
 
 ## Self-check
-[O que specialist deve verificar antes de reportar pronto]
+[What the specialist must verify before reporting done]
 ```
 
-## Anti-padrões
+## Anti-patterns
 
-❌ **Manager criando specialist sem passar pelo Leo.**
-Sem o olhar cruzado do Leo, você gera duplicatas e inconsistência.
+❌ **Manager creating a specialist without going through Leo.**
+Without Leo's cross-cutting view, you generate duplicates and inconsistency.
 
-❌ **Specialists genéricos demais.**
-"Frontend generalist" que tenta cobrir React + Vue + Svelte é inútil. Seja específico.
+❌ **Specialists that are too generic.**
+A "Frontend generalist" trying to cover React + Vue + Svelte is useless. Be specific.
 
-❌ **Specialists que replicam conhecimento do Manager.**
-Se o Manager já sabe, não precisa specialist. Specialist existe pra conhecimento **profundo** ou **específico** que o Manager não tem.
+❌ **Specialists that replicate the Manager's knowledge.**
+If the Manager already knows it, no specialist is needed. Specialists exist for **deep** or **specific** knowledge the Manager doesn't have.
 
-❌ **Hiring loop pra task de 5 minutos.**
-Se a task é tão pequena que criar specialist custa mais que executar com cuidado, o Manager pode executar (com self-QA rigoroso + peer review). Hiring loop é pra tasks onde o custo de errar justifica o custo de contratar.
+❌ **Hiring loop for a 5-minute task.**
+If the task is so small that creating a specialist costs more than executing carefully, the Manager can execute (with strict self-QA + peer review). The hiring loop is for tasks where the cost of being wrong justifies the cost of hiring.

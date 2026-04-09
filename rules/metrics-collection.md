@@ -1,64 +1,64 @@
 ---
 name: metrics-collection
-description: Coletar 5 métricas operacionais por task pra informar refinamento do sistema no futuro.
+description: Collect 5 operational metrics per task to inform future system refinement.
 ---
 
-## Regra
+## Rule
 
-Toda task executada deixa **uma entrada de métrica** num arquivo JSONL específico do projeto. Isso cria o dataset que vai permitir, no futuro, refinar os agents e rules baseado em dados reais — não em achismo.
+Every executed task leaves **one metric entry** in a project-specific JSONL file. This creates the dataset that will later allow refining agents and rules based on real data — not guesswork.
 
-**Onde:** `<projeto>/.claude/metrics/<YYYY-MM>.jsonl` (um arquivo por mês, uma linha por task)
+**Where:** `<project>/.claude/metrics/<YYYY-MM>.jsonl` (one file per month, one line per task)
 
-**Responsabilidade:** Leo é quem escreve a entrada, ao fechar a task e sintetizar pro founder. Managers passam os dados brutos pro Leo como parte do report final.
+**Responsibility:** Leo writes the entry when closing the task and synthesizing for the founder. Managers pass the raw data to Leo as part of the final report.
 
-## Por que
+## Why
 
-Inspirado no paradigma do autoresearch do Karpathy: qualquer sistema que se pretende refinável precisa de **fitness function mensurável**. Sem métricas, refinar o core vira achismo — "acho que o Dev Manager precisa dessa rule a mais". Com métricas, a gente consegue olhar os piores números e ir direto na dor.
+Inspired by Karpathy's autoresearch paradigm: any system that intends to be refinable needs a **measurable fitness function**. Without metrics, refining the core becomes guesswork — "I think the Dev Manager needs this extra rule". With metrics, we can look at the worst numbers and go straight to the pain.
 
-Duas utilidades imediatas:
+Two immediate uses:
 
-1. **Decisão sobre onde refinar.** Depois de ~20-30 tasks, founder e Leo revisam os números. Qual métrica está pior? Essa é a área que precisa de ajuste no core ou nas rules.
-2. **Input pro loop offline de auto-refinamento** (horizonte 2 do RDD §8.10). Quando houver volume suficiente, dá pra construir benchmark a partir das tasks registradas e rodar refinamento deliberado de um Manager contra histórico real.
+1. **Deciding where to refine.** After ~20-30 tasks, founder and Leo review the numbers. Which metric is worst? That's the area that needs adjustment in the core or rules.
+2. **Input for the offline auto-refinement loop** (horizon 2 of the RDD §8.10). Once there's enough volume, we can build a benchmark from the logged tasks and run deliberate refinement of a Manager against real history.
 
-## As 5 métricas iniciais
+## The 5 initial metrics
 
 ### 1. Peer review pass rate
-**O que mede:** % de tasks que passam no peer review **na primeira tentativa** (sem rework).
-**Coleta:** a instância que faz o review registra "approved" ou "rejected" + contagem de iterações.
-**Campo:** `review.first_pass` (bool), `review.iterations` (int)
+**What it measures:** % of tasks that pass peer review **on the first attempt** (no rework).
+**Collection:** the review instance records "approved" or "rejected" + iteration count.
+**Field:** `review.first_pass` (bool), `review.iterations` (int)
 
 ### 2. Founder rejection rate
-**O que mede:** % de entregas finais em que o founder rejeita ou pede mudança substancial após Leo reportar "pronto".
-**Coleta:** Leo registra se, depois de reportar, o founder precisou pedir ajuste no mesmo turn ou turn seguinte.
-**Campo:** `founder.accepted_on_delivery` (bool)
+**What it measures:** % of final deliveries where the founder rejects or requests a substantial change after Leo reports "done".
+**Collection:** Leo records whether, after reporting, the founder needed to request an adjustment in the same turn or the next.
+**Field:** `founder.accepted_on_delivery` (bool)
 
 ### 3. Self-QA honesty rate
-**O que mede:** % de tasks em que o self-QA do agente executor foi honesto — ou seja, disse que passou E de fato passou no review.
-**Coleta:** comparar o output do self-QA (todos os checks marcados ✅) com o resultado do peer review. Desonesto = self-QA disse "tudo ok" mas review achou problema.
-**Campo:** `self_qa.honest` (bool)
+**What it measures:** % of tasks where the executing agent's self-QA was honest — i.e., it said it passed AND it actually passed review.
+**Collection:** compare the self-QA output (all checks marked ✅) against the peer review result. Dishonest = self-QA said "all ok" but review found a problem.
+**Field:** `self_qa.honest` (bool)
 
 ### 4. Rework cycles
-**O que mede:** número de idas e vindas entre executor e reviewer (ou entre Leo e founder) até a task fechar.
-**Coleta:** Leo conta.
-**Campo:** `rework_cycles` (int)
+**What it measures:** the number of back-and-forth iterations between executor and reviewer (or between Leo and founder) until the task closes.
+**Collection:** Leo counts.
+**Field:** `rework_cycles` (int)
 
 ### 5. Hiring loop hit rate
-**O que mede:** % de tasks onde o Manager reconheceu corretamente uma lacuna (e disparou Hiring Loop) **vs** % onde tentou sem specialist e errou por isso.
-**Coleta:** quando peer review ou founder identifica que uma falha foi por falta de specialist, essa task conta como "hit rate miss". Tasks que dispararam Hiring Loop contam como "hit".
-**Campo:** `hiring_loop.outcome` (string: "triggered" | "missed" | "na")
+**What it measures:** % of tasks where the Manager correctly recognized a gap (and fired the Hiring Loop) **vs** % where they tried without a specialist and failed because of it.
+**Collection:** when peer review or the founder identifies that a failure was due to a missing specialist, that task counts as a "hit rate miss". Tasks that fired the Hiring Loop count as a "hit".
+**Field:** `hiring_loop.outcome` (string: "triggered" | "missed" | "na")
 
-## Formato da entrada JSONL
+## JSONL entry format
 
-Cada linha do arquivo é um JSON válido auto-contido:
+Each line in the file is a self-contained valid JSON:
 
 ```json
 {
   "task_id": "2026-04-08-001",
   "timestamp": "2026-04-08T15:30:00Z",
-  "founder_prompt_summary": "Adicionar tela de settings com toggle de dark mode",
+  "founder_prompt_summary": "Add a settings screen with a dark mode toggle",
   "manager": "dev",
   "specialist_used": "frontend-react-specialist",
-  "domain_category": "ui_puro",
+  "domain_category": "ui_only",
   "review": {
     "first_pass": true,
     "iterations": 1
@@ -74,53 +74,53 @@ Cada linha do arquivo é um JSON válido auto-contido:
     "outcome": "na"
   },
   "duration_minutes_approximate": 12,
-  "notes": "Task clara, executou no primeiro passe."
+  "notes": "Clear task, executed on the first pass."
 }
 ```
 
-**Campos obrigatórios:** `task_id`, `timestamp`, `manager`, `review`, `founder`, `rework_cycles`, `hiring_loop`
-**Campos opcionais:** `specialist_used`, `domain_category`, `self_qa`, `duration_minutes_approximate`, `notes`
+**Required fields:** `task_id`, `timestamp`, `manager`, `review`, `founder`, `rework_cycles`, `hiring_loop`
+**Optional fields:** `specialist_used`, `domain_category`, `self_qa`, `duration_minutes_approximate`, `notes`
 
-## Como aplicar
+## How to apply
 
-### Fim de task (Leo)
+### End of task (Leo)
 
-Antes de reportar pronto ao founder:
+Before reporting done to the founder:
 
-1. Colete os dados brutos de cada participante da task (Manager, specialists, reviewer)
-2. Compile uma entrada JSONL seguindo o formato acima
-3. Escreva (append) em `<projeto>/.claude/metrics/<YYYY-MM>.jsonl`
-   - Criar arquivo se não existir
-   - Criar diretório `.claude/metrics/` se não existir
-4. Reporte ao founder normalmente (a coleta de métrica é transparente)
+1. Collect raw data from each participant in the task (Manager, specialists, reviewer)
+2. Compile a JSONL entry following the format above
+3. Write (append) to `<project>/.claude/metrics/<YYYY-MM>.jsonl`
+   - Create the file if it doesn't exist
+   - Create the `.claude/metrics/` directory if it doesn't exist
+4. Report to the founder normally (metric collection is transparent)
 
-### Revisão periódica
+### Periodic review
 
-A cada 20-30 tasks (ou uma vez por mês), founder pode pedir a Leo um **relatório de métricas**:
+Every 20-30 tasks (or once a month), the founder can ask Leo for a **metrics report**:
 
 ```
-Leo, me mostra os números de métricas deste mês.
+Leo, show me this month's metric numbers.
 ```
 
-Leo lê o JSONL do mês, agrega, apresenta:
-- Contagem total de tasks
-- Taxa de cada métrica
-- Piores casos (tasks com muito rework, review rejeitado, hiring loop missed)
-- Padrões (alguma categoria de domínio concentra falhas?)
+Leo reads the month's JSONL, aggregates, presents:
+- Total task count
+- Rate of each metric
+- Worst cases (tasks with lots of rework, rejected reviews, hiring loop missed)
+- Patterns (does any domain category concentrate failures?)
 
-Esse é o input pra próxima conversa de refinamento do core.
+That's the input for the next core refinement conversation.
 
-## O que NÃO medir
+## What NOT to measure
 
-- **Tempo real de execução** — Claude Code já não é determinístico no tempo, e o founder não liga se uma task demora 5 ou 15 minutos. `duration_minutes_approximate` é opcional e grosso.
-- **Qualidade subjetiva** — "o código ficou bonito?" não vira métrica. Métricas são binárias ou contáveis.
-- **Número de arquivos mudados** — correlação fraca com qualidade. Task grande e bem feita é melhor que task pequena mal feita.
-- **Tokens consumidos** — vai variar demais, e a decisão de refinamento não deve ser otimizar custo em detrimento de qualidade.
+- **Real execution time** — Claude Code is already non-deterministic in time, and the founder doesn't care whether a task takes 5 or 15 minutes. `duration_minutes_approximate` is optional and coarse.
+- **Subjective quality** — "did the code come out pretty?" is not a metric. Metrics are binary or countable.
+- **Number of files changed** — weak correlation with quality. A big, well-done task is better than a small, badly-done one.
+- **Tokens consumed** — it'll vary too much, and the refinement decision should not be to optimize cost at the expense of quality.
 
-## Privacidade
+## Privacy
 
-Logs de métrica vivem dentro do `.claude/metrics/` do projeto, **gitignored**. Não são commitados, não vão pro repo. São locais do founder e servem à análise do founder.
+Metric logs live inside the project's `.claude/metrics/`, **gitignored**. They are not committed, they don't go to the repo. They are the founder's local data and serve the founder's analysis.
 
-## Responsabilidade
+## Responsibility
 
-Esta rule depende do Leo ser disciplinado em coletar e escrever. Se Leo esquecer de registrar tasks, o dataset fica furado e as decisões de refinamento serão baseadas em amostra viesada. Founder pode cobrar periodicamente: "Leo, mostra as últimas 10 entradas do metrics.jsonl" — se faltar, é sinal pra reforçar.
+This rule depends on Leo being disciplined about collecting and writing. If Leo forgets to log tasks, the dataset becomes skewed and refinement decisions will be based on a biased sample. The founder can periodically audit: "Leo, show me the last 10 entries in metrics.jsonl" — if something's missing, that's a signal to reinforce.

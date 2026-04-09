@@ -1,124 +1,124 @@
 ---
 name: know-what-you-dont-know
-description: Managers e specialists param ANTES de executar quando detectam domínio fora da sua capacidade.
+description: Managers and specialists stop BEFORE executing when they detect a domain outside their capability.
 ---
 
-## Regra
+## Rule
 
-Antes de escrever qualquer linha de código, desenho, ou copy, o agente executor **para e avalia** se realmente tem expertise pra entregar a task com qualidade. Se a resposta é "não", dispara Hiring Loop ou escalation — **antes** de errar, não depois.
+Before writing any line of code, design, or copy, the executing agent **stops and evaluates** whether they really have the expertise to deliver the task with quality. If the answer is "no", fire the Hiring Loop or escalation — **before** failing, not after.
 
-## Por que isso precisa de enforcement explícito
+## Why this needs explicit enforcement
 
-Claude (o modelo) sabe quase tudo superficialmente. Um Dev Manager instruído a implementar APNs vai tentar — porque tem conhecimento superficial sobre APNs do treino. É exatamente o modo de falha que esta rule previne.
+Claude (the model) knows almost everything superficially. A Dev Manager told to implement APNs will try — because it has superficial APNs knowledge from training. That's exactly the failure mode this rule prevents.
 
-Rule dizendo "peça ajuda quando não souber" não basta. O modelo vai achar que sabe. Precisa de mecanismo que **força** o raciocínio meta a ser materializado.
+A rule saying "ask for help when you don't know" is not enough. The model will think it knows. A mechanism is needed that **forces** meta-reasoning to be materialized.
 
-## Os 4 mecanismos (todos obrigatórios)
+## The 4 mechanisms (all mandatory)
 
-### Mecanismo 1 — Pre-execution check obrigatório
+### Mechanism 1 — Mandatory pre-execution check
 
-Antes de escrever qualquer código, desenho, ou copy, o agente **preenche e cola na resposta** este formulário (não pode só "pensar", tem que escrever):
+Before writing any code, design, or copy, the agent **fills in and pastes into the reply** this form (can't just "think about it", must write):
 
 ```
 ## Pre-execution check
 
-- Domínio técnico específico desta task (1 frase):
+- Specific technical domain of this task (1 sentence):
   [...]
 
-- Eu tenho um specialist no meu time com playbook pra este domínio?
-  [ ] Sim → specialist: [nome + arquivo]
-  [ ] Não → STOP: disparar Hiring Loop antes de continuar
+- Do I have a specialist on my team with a playbook for this domain?
+  [ ] Yes → specialist: [name + file]
+  [ ] No → STOP: fire Hiring Loop before continuing
 
-- Se eu errar esta task por falta de expertise, qual é o pior cenário?
-  [ ] Bug trivial, fácil de reverter → posso executar com cuidado
-  [ ] Bug difícil de reverter ou com efeito cascata → specialist obrigatório
-  [ ] Risco de produção / segurança / dinheiro → specialist obrigatório
+- If I get this task wrong for lack of expertise, what's the worst case?
+  [ ] Trivial bug, easy to revert → I can execute carefully
+  [ ] Hard-to-revert bug or cascading effect → specialist mandatory
+  [ ] Production / security / money risk → specialist mandatory
 
-- Minha confiança neste domínio é alta ou baixa?
-  [ ] Alta, e sei por quê (cite a fonte: specialist X, memory Y, doc Z)
-  [ ] Baixa OU "alta" sem fonte citável → STOP
+- Is my confidence in this domain high or low?
+  [ ] High, and I know why (cite the source: specialist X, memory Y, doc Z)
+  [ ] Low OR "high" without a citable source → STOP
 ```
 
-**O truque é escrever.** Pensar "sei sim" é fácil. Ter que citar fonte verificável força o modelo a confrontar "realmente sei ou tô chutando?".
+**The trick is to write it.** Thinking "I know this" is easy. Having to cite a verifiable source forces the model to confront "do I actually know it or am I guessing?".
 
-Se o agente tentar driblar escrevendo "sim" sem fonte ou "alta confiança" sem justificativa — founder vê no output e cobra. Transparência força honestidade.
+If the agent tries to cheat by writing "yes" without a source or "high confidence" without justification — the founder sees it in the output and calls it out. Transparency forces honesty.
 
-### Mecanismo 2 — Trust gradient por categoria
+### Mechanism 2 — Trust gradient by category
 
-Cada Manager tem uma tabela de trust default por categoria de task. Algumas categorias **nunca** executam sem specialist, mesmo que a task pareça simples.
+Each Manager has a default trust table by task category. Some categories **never** execute without a specialist, even if the task looks simple.
 
-Template (cada Manager personaliza no agent file dele):
+Template (each Manager customizes in their own agent file):
 
-| Categoria | Trust default | Specialist obrigatório? |
+| Category | Default trust | Specialist mandatory? |
 |---|---|---|
-| [categoria baixo risco] | Alto | Não |
-| [categoria médio risco] | Médio | Depende do escopo |
-| [categoria alto risco] | **Baixo** | **Sempre** |
+| [low-risk category] | High | No |
+| [medium-risk category] | Medium | Depends on scope |
+| [high-risk category] | **Low** | **Always** |
 
-Exemplo pro Dev Manager:
+Example for the Dev Manager:
 
-| Categoria | Trust default | Specialist obrigatório? |
+| Category | Default trust | Specialist mandatory? |
 |---|---|---|
-| Edição de texto/copy/JSON estático | Alto | Não |
-| UI puro (componente novo, estilo) | Alto | Só se design system específico |
-| CRUD padrão com ORM conhecido | Alto | Não |
-| Integração com API externa | Médio | Sim se for protocolo (APNs, OAuth, WebAuthn) |
-| Migração de schema complexa | Médio | Sim |
-| Crypto / auth / security | **Baixo** | **Sempre** |
-| Native bridging (Capacitor, React Native) | **Baixo** | **Sempre** |
-| Infra / deploy / CI | **Baixo** | **Sempre** |
+| Text/copy/static JSON edit | High | No |
+| Pure UI (new component, styling) | High | Only if specific design system |
+| Standard CRUD with known ORM | High | No |
+| Integration with external API | Medium | Yes if it's a protocol (APNs, OAuth, WebAuthn) |
+| Complex schema migration | Medium | Yes |
+| Crypto / auth / security | **Low** | **Always** |
+| Native bridging (Capacitor, React Native) | **Low** | **Always** |
+| Infra / deploy / CI | **Low** | **Always** |
 
-A coluna "**Sempre**" é linha dura. Mesmo com pressão, Manager não executa — dispara Hiring Loop ou escala pro founder.
+The "**Always**" column is a hard line. Even under pressure, the Manager does not execute — they fire the Hiring Loop or escalate to the founder.
 
-### Mecanismo 3 — Post-failure hardening
+### Mechanism 3 — Post-failure hardening
 
-Quando peer review (rule `peer-review-automatic`) detecta que um agente errou por **falta de expertise em domínio X**, essa falha vira input **automático** pro trust gradient.
+When peer review (the `peer-review-automatic` rule) detects that an agent failed due to **lack of expertise in domain X**, that failure becomes **automatic** input for the trust gradient.
 
-Processo:
-1. Peer review rejeita: "falhou porque não tinha playbook pra domínio X"
-2. Leo registra a falha
-3. Leo adiciona X na lista "Sempre specialist" do Manager **no projeto atual** (via extensão `.claude/agents/managers/<manager>.md`)
-4. Na próxima vez que o Manager encontrar task em X, trust gradient já bloqueia execução sem specialist
+Process:
+1. Peer review rejects: "failed because there was no playbook for domain X"
+2. Leo records the failure
+3. Leo adds X to the "Always specialist" list for the Manager **in the current project** (via the `.claude/agents/managers/<manager>.md` extension)
+4. Next time the Manager hits a task in X, the trust gradient already blocks execution without a specialist
 
-Isso transforma falhas em enforcement automático — cada erro corrige o sistema pra não repetir. É o inverso do padrão antigo onde lições ficavam em memories que ninguém relia.
+This turns failures into automatic enforcement — each mistake corrects the system so it doesn't repeat. It's the opposite of the old pattern where lessons sat in memories nobody re-read.
 
-### Mecanismo 4 — Lessons learned pass
+### Mechanism 4 — Lessons learned pass
 
-Após peer review rejeitar trabalho, **antes de corrigir a task**, o agente roda um lessons learned pass:
+After peer review rejects work, **before fixing the task**, the agent runs a lessons learned pass:
 
 ```
-## Lessons learned (obrigatório após review rejection)
+## Lessons learned (mandatory after review rejection)
 
-- Qual regra ou checklist item teria prevenido essa falha?
+- Which rule or checklist item would have prevented this failure?
   [...]
 
-- Essa lição é específica deste projeto ou universal?
-  [ ] Específica do projeto → propor adição ao agent file estendido do projeto
-  [ ] Universal → propor adição ao agent file do core
+- Is this lesson specific to this project or universal?
+  [ ] Project-specific → propose adding to the project's extended agent file
+  [ ] Universal → propose adding to the core agent file
 
-- A lição deve virar:
-  [ ] Item no Self-QA do Manager
-  [ ] Item no trust gradient (Mecanismo 2)
-  [ ] Rule de domínio nova
-  [ ] Atualização de specialist existente
+- The lesson should become:
+  [ ] An item in the Manager's Self-QA
+  [ ] An item in the trust gradient (Mechanism 2)
+  [ ] A new domain rule
+  [ ] An update to an existing specialist
 
-- Proposta escrita (1 parágrafo):
+- Written proposal (1 paragraph):
   [...]
 
-- Proposta vai pro Leo → R2 com founder antes de ser aplicada
+- Proposal goes to Leo → R2 with founder before being applied
 ```
 
-Sem isso, as lições ficam na cabeça do founder (até esquecer) ou em memories stale. Com isso, cada falha tem chance de virar enforcement permanente.
+Without this, lessons sit in the founder's head (until they forget) or in stale memories. With this, each failure has a chance to become permanent enforcement.
 
-## Como os 4 se encaixam
+## How the 4 fit together
 
-- **Mecanismo 1** é preventivo, roda antes de cada task
-- **Mecanismo 2** é estrutural, define linhas duras por disciplina
-- **Mecanismo 3** é reativo automático, fortalece após falha
-- **Mecanismo 4** é reflexivo deliberado, extrai lição pra refinar o sistema
+- **Mechanism 1** is preventive, runs before each task
+- **Mechanism 2** is structural, sets hard lines per discipline
+- **Mechanism 3** is reactive and automatic, hardens after failure
+- **Mechanism 4** is deliberately reflective, extracts a lesson to refine the system
 
-Juntos, formam um sistema que **aprende e se fortalece com cada falha real**, respeitando o R2 (nada se aplica sem founder aprovar).
+Together, they form a system that **learns and strengthens with every real failure**, respecting R2 (nothing applies without founder approval).
 
-## Responsabilidade
+## Responsibility
 
-Esta rule aplica a **todo agente executor** (Managers quando executam exceção, specialists quando executam trabalho). Reviewers (Managers em modo review) também consultam trust gradient ao avaliar se a execução foi legítima ou se foi tentativa de driblar o sistema.
+This rule applies to **every executing agent** (Managers when they execute as an exception, specialists when they execute work). Reviewers (Managers in review mode) also consult the trust gradient when evaluating whether the execution was legitimate or an attempt to dodge the system.

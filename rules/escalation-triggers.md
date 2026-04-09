@@ -1,99 +1,99 @@
 ---
 name: escalation-triggers
-description: Lista explícita de situações que param o agente e exigem pergunta ao founder, sem negociação.
+description: Explicit list of situations that stop the agent and require asking the founder, no negotiation.
 ---
 
-## Regra
+## Rule
 
-Tem situações em que **nenhum agente** pode proceder sem aprovação explícita do founder, por mais "óbvio" que pareça o próximo passo. Esta lista é o contrato — não é sugestão.
+There are situations where **no agent** can proceed without explicit approval from the founder, no matter how "obvious" the next step looks. This list is the contract — it's not a suggestion.
 
-Quando você encontrar qualquer um dos triggers abaixo, **pare**, documente a situação, apresente as opções ao founder, e espere resposta. Não "vá avançando enquanto founder decide" — ações tomadas sem resposta podem gerar trabalho perdido ou problema real.
+When you hit any of the triggers below, **stop**, document the situation, present the options to the founder, and wait for an answer. Don't "keep moving forward while the founder decides" — actions taken without an answer can generate lost work or a real problem.
 
-## Triggers universais (aplicam a todos os agentes)
+## Universal triggers (apply to all agents)
 
-### 💸 Gasto de dinheiro
+### 💸 Spending money
 
-- Rodar comando que chama API paga (image gen, LLM de outro provider, transcrição, etc.)
-- Deploy que consome budget de serviço cloud
-- Compra de domínio, licença, plugin, font
-- Ad spend, promoção paga
-- Qualquer coisa que apareça na fatura do founder
+- Running a command that hits a paid API (image gen, another provider's LLM, transcription, etc.)
+- A deploy that consumes a cloud service budget
+- Buying a domain, license, plugin, font
+- Ad spend, paid promotion
+- Anything that will show up on the founder's invoice
 
-### 📢 Publicação externa
+### 📢 External publication
 
-- Git push pra `main`/`master` em repo público
-- Merge de PR
-- Publicação de post em rede social
-- Envio de email pra mailing list
-- Release pra app store (TestFlight, Play Store)
-- Publicação de página em site vivo
+- Git push to `main`/`master` on a public repo
+- Merging a PR
+- Publishing a social media post
+- Sending an email to a mailing list
+- Release to an app store (TestFlight, Play Store)
+- Publishing a page on a live site
 
-### ⚠️ Ação destrutiva
+### ⚠️ Destructive action
 
-- `rm -rf`, `git reset --hard`, `git push --force` em branch compartilhada
-- Drop table, delete em massa no banco
-- Revogação de credencial, chave, secret
-- Deleção de issue, PR, branch com histórico relevante
-- Overwrite de arquivo que pode ter conteúdo não commitado
+- `rm -rf`, `git reset --hard`, `git push --force` on a shared branch
+- Drop table, mass delete on the database
+- Revoking a credential, key, secret
+- Deleting an issue, PR, branch with relevant history
+- Overwriting a file that may contain uncommitted content
 
-### 🏗️ Mudança estrutural
+### 🏗️ Structural change
 
-- Criação de specialist ou manager novo (via Hiring Loop, mas com R2 do founder)
-- Adição ou modificação de rule **no core**
-- Mudança em decisão registrada em `context/decisions/`
-- Mudança em arquitetura que não estava no escopo da task original
-- Alteração em frontmatter de agent file (especialmente `extends`, `tools`, `model`)
+- Creating a new specialist or manager (via Hiring Loop, but with founder R2)
+- Adding or modifying a rule **in the core**
+- Changing a decision recorded in `context/decisions/`
+- Changing architecture that wasn't in the original task scope
+- Altering an agent file's frontmatter (especially `extends`, `tools`, `model`)
 
-### ❓ Ambiguidade não resolvível
+### ❓ Unresolvable ambiguity
 
-- Contradição entre duas rules existentes
-- Task que afeta dois domínios cujos Managers discordariam
-- Decisão que envolve o **o quê** (estratégico), não o **como** (tático)
-- Qualquer situação em que você não consegue decidir sem inferir o que o founder "provavelmente" queria
+- Contradiction between two existing rules
+- A task that affects two domains whose Managers would disagree
+- A decision that involves the **what** (strategic), not the **how** (tactical)
+- Any situation in which you can't decide without inferring what the founder "probably" wanted
 
-## Como escalar corretamente
+## How to escalate correctly
 
-Quando um trigger dispara, apresente ao founder no seguinte formato:
+When a trigger fires, present to the founder in the following format:
 
 ```
-## Escalation — [trigger categoria]
+## Escalation — [trigger category]
 
-**Situação:** [1-2 frases descrevendo onde você está e por que parou]
+**Situation:** [1-2 sentences describing where you are and why you stopped]
 
-**Por que parei:** [qual trigger disparou — ex: "ação destrutiva em arquivos não
-commitados", "gasto de dinheiro", "mudança em rule do core"]
+**Why I stopped:** [which trigger fired — e.g., "destructive action on uncommitted
+files", "spending money", "change to a core rule"]
 
-**Contexto relevante:** [o que o founder precisa saber pra decidir —
-sem firula, só fatos]
+**Relevant context:** [what the founder needs to know to decide —
+no fluff, just facts]
 
-**Opções:**
+**Options:**
 - (a) [...]
 - (b) [...]
 - (c) [...]
 
-**Recomendação:** [qual você acha melhor e por quê — 1-2 frases]
+**Recommendation:** [which one you think is best and why — 1-2 sentences]
 
-**Decisão necessária:** [o que você precisa do founder pra avançar]
+**Decision needed:** [what you need from the founder to move forward]
 ```
 
-Não "disfarce" a escalation como pergunta casual. O founder precisa reconhecer que é um ponto de decisão real.
+Don't "disguise" the escalation as a casual question. The founder needs to recognize that this is a real decision point.
 
-## Anti-padrões
+## Anti-patterns
 
-❌ **Pedir permissão pra tudo.**
-Escalation é pra triggers desta lista, não pra cada decisão trivial. Pedir permissão pra cada micro-passo vira fricção. Se não está nesta lista e a rule `think-before-execute` te coloca em modo direto, execute.
+❌ **Asking permission for everything.**
+Escalation is for triggers on this list, not for every trivial decision. Asking permission for every micro-step becomes friction. If it's not on this list and the `think-before-execute` rule puts you in direct mode, execute.
 
-❌ **Pular trigger "porque o founder já aprovou algo parecido antes".**
-Cada instância é nova. Founder aprovar push pro `main` ontem **não** te dá permissão pra fazer push hoje sem perguntar.
+❌ **Skipping a trigger "because the founder already approved something similar before".**
+Each instance is new. The founder approving a push to `main` yesterday does **not** grant you permission to push today without asking.
 
-❌ **Escalar sem opções.**
-"Não sei o que fazer" é frustrante. Apresente pelo menos 2 opções, mesmo que uma seja "fazer nada". Trabalho do agente é **reduzir** a carga cognitiva do founder, não transferir.
+❌ **Escalating without options.**
+"I don't know what to do" is frustrating. Present at least 2 options, even if one is "do nothing". The agent's job is to **reduce** the founder's cognitive load, not transfer it.
 
-❌ **"Enquanto você pensa eu vou começando."**
-Não. Se parou por trigger, parou de verdade. Trabalho em paralelo depois de decisão estrutural quase sempre vira retrabalho.
+❌ **"While you think, I'll get started."**
+No. If you stopped because of a trigger, you stopped for real. Work in parallel after a structural decision almost always becomes rework.
 
-## Responsabilidade
+## Responsibility
 
-Esta rule aplica a **todos os agentes sem exceção**. Inclui specialists criados via Hiring Loop — ao serem contratados, eles herdam essa lista automaticamente via `inheritance`.
+This rule applies to **all agents without exception**. It includes specialists created via Hiring Loop — when they're hired, they automatically inherit this list via `inheritance`.
 
-Leo tem um papel especial: quando um Manager reporta uma task, Leo revisa mentalmente se algum trigger foi (ou poderia ter sido) ativado no meio da execução que deveria ter parado o trabalho. Se identifica, reporta ao founder retroativamente — "Manager X terminou task Y, mas durante a execução houve momento que deveria ter escalado — aqui está".
+Leo has a special role: when a Manager reports a task, Leo mentally reviews whether any trigger was (or could have been) activated during execution that should have stopped the work. If he identifies one, he reports to the founder retroactively — "Manager X finished task Y, but during execution there was a moment that should have escalated — here it is".
