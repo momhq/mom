@@ -6,7 +6,7 @@ A replicable working method for Claude Code agents. One conversational manager (
 
 You talk to **Leo** (the Manager of Managers). Leo delegates to the right **Manager** based on the domain — Engineer Manager for code, Designer Manager for design, PM Manager for product, Marketing Manager for content. Managers decompose tasks, delegate to **specialists** (hired on-demand via the Hiring Loop), review the work adversarially, and synthesize back to you.
 
-You decide the **what**. Leo decides the **how**. Anything irreversible or structural comes back to you for approval.
+You decide the **what** and **why**. Leo decides the **who**. Managers decide the **how**. Anything irreversible or structural comes back to you for approval.
 
 ```
 You (founder)

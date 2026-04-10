@@ -66,10 +66,11 @@ The discussion about "how much autonomy to give agents" only becomes clear when 
 | Axis | What it is | Who decides |
 |---|---|---|
 | **Strategic** | What to work on. Priorities. Project direction. The "does it serve the mission?" filter | **Always the founder.** Non-negotiable. |
-| **Tactical** | How to execute what has already been strategically approved. Decomposition, delegation, ordering, execution. | **Leo.** This is literally his job as Manager of Managers. |
+| **Tactical — routing** | Who handles what. Identifying the right Manager, delegating, synthesizing results back to the founder. | **Leo.** This is literally his job as Manager of Managers. |
+| **Tactical — execution** | How to execute what has already been delegated. Decomposition, ordering, specialist selection, implementation strategy. | **Managers.** Each Manager owns the how within their discipline. |
 | **Creative/Structural** | Creating a new specialist, changing a core rule, opening a PRD, spending money, publishing externally. | **R2:** agent proposes, founder approves. No structural change happens without explicit approval. |
 
-This resolves the apparent paradox between "I want to converse, not delegate blindly" and "I don't want to keep blocking the system at every step." The founder decides the **what**, Leo decides the **how**, and it goes back to the founder at **inflection points**. It's normal human management, just formalized for agents.
+This resolves the apparent paradox between "I want to converse, not delegate blindly" and "I don't want to keep blocking the system at every step." The founder decides the **what** and **why**, Leo decides the **who**, Managers decide the **how**, and it goes back to the founder at **inflection points**. It's normal human management, just formalized for agents.
 
 This model will be referenced as **"R2 with tactical autonomy"** throughout the rest of the document.
 

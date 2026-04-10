@@ -19,7 +19,7 @@ Markdown + YAML frontmatter for agents/rules. Node.js + TypeScript for the CLI (
 
 ## Core philosophy
 
-**Copilot-style, not Paperclip-style.** Founder talks to Leo, Leo delegates to the Managers, Managers delegate to the specialists. Review is automatic via adversarial sub-instances. Founder decides the *what*, Leo decides the *how*, comes back to the founder on anything irreversible or structural.
+**Copilot-style, not Paperclip-style.** Founder talks to Leo, Leo delegates to the Managers, Managers delegate to the specialists. Review is automatic via adversarial sub-instances. Founder decides the *what* and *why*, Leo decides the *who* (routing and delegation), Managers decide the *how*, comes back to the founder on anything irreversible or structural.
 
 **Extend, never override.** Projects inherit the core via `extends:` in the Managers' frontmatter. They can add rules, self-QA items, specifics to the local stack. They can never remove universal behavior.
 
