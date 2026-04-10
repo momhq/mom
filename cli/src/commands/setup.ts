@@ -100,33 +100,42 @@ export async function setup() {
   mkdirSync(targetSkills, { recursive: true });
 
   // Sync agents (recursive find, flat destination)
+  // Guard: skip if source and target resolve to the same path (self-hosting)
   const agentFiles = findMdFiles(agentsDir);
   let agentCount = 0;
   for (const src of agentFiles) {
     const name = basename(src);
-    if (safeSync(src, resolve(targetAgents, name))) {
+    const target = resolve(targetAgents, name);
+    if (resolve(src) === resolve(target)) continue;
+    if (safeSync(src, target)) {
       agentCount++;
     }
   }
   success(`Linked ${agentCount} agents`);
 
   // Sync rules
+  // Guard: skip if source and target resolve to the same path (self-hosting)
   const ruleFiles = findMdFiles(rulesDir);
   let ruleCount = 0;
   for (const src of ruleFiles) {
     const name = basename(src);
-    if (safeSync(src, resolve(targetRules, name))) {
+    const target = resolve(targetRules, name);
+    if (resolve(src) === resolve(target)) continue;
+    if (safeSync(src, target)) {
       ruleCount++;
     }
   }
   success(`Linked ${ruleCount} rules`);
 
   // Sync skills (symlink directories)
+  // Guard: skip if source and target resolve to the same path (self-hosting)
   const skillDirs = findTopLevelDirs(skillsDir);
   let skillCount = 0;
   for (const src of skillDirs) {
     const name = basename(src);
-    if (safeSync(src, resolve(targetSkills, name))) {
+    const target = resolve(targetSkills, name);
+    if (resolve(src) === resolve(target)) continue; // avoid circular symlink
+    if (safeSync(src, target)) {
       skillCount++;
     }
   }

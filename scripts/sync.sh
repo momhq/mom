@@ -45,7 +45,10 @@ mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/rules" "$CLAUDE_DIR/skills"
 agent_count=0
 while IFS= read -r -d '' src; do
   basename=$(basename "$src")
-  ln -sf "$src" "$CLAUDE_DIR/agents/$basename"
+  target="$CLAUDE_DIR/agents/$basename"
+  # Skip if source and target resolve to the same path (self-hosting guard)
+  [ "$(realpath "$src")" = "$(realpath "$target" 2>/dev/null)" ] && continue
+  ln -sf "$src" "$target"
   echo "  agent: $basename"
   agent_count=$((agent_count + 1))
 done < <(find "$CORE_DIR/agents" -type f -name "*.md" -print0)
@@ -55,7 +58,9 @@ done < <(find "$CORE_DIR/agents" -type f -name "*.md" -print0)
 rule_count=0
 while IFS= read -r -d '' src; do
   basename=$(basename "$src")
-  ln -sf "$src" "$CLAUDE_DIR/rules/$basename"
+  target="$CLAUDE_DIR/rules/$basename"
+  [ "$(realpath "$src")" = "$(realpath "$target" 2>/dev/null)" ] && continue
+  ln -sf "$src" "$target"
   echo "  rule:  $basename"
   rule_count=$((rule_count + 1))
 done < <(find "$CORE_DIR/rules" -type f -name "*.md" -print0)
@@ -70,7 +75,9 @@ skill_count=0
 if [ -d "$CORE_DIR/skills" ]; then
   while IFS= read -r -d '' src; do
     basename=$(basename "$src")
-    ln -sf "$src" "$CLAUDE_DIR/skills/$basename"
+    target="$CLAUDE_DIR/skills/$basename"
+    [ "$(realpath "$src")" = "$(realpath "$target" 2>/dev/null)" ] && continue
+    ln -sf "$src" "$target"
     echo "  skill: $basename"
     skill_count=$((skill_count + 1))
   done < <(find "$CORE_DIR/skills" -mindepth 1 -maxdepth 1 -type d -print0)
