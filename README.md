@@ -1,93 +1,176 @@
 # copilot-core
 
-A replicable working method for Claude Code agents. A conversational manager (Leo) + a team of Managers per discipline + universal rules. Extends per project without rewriting the base.
+A replicable working method for Claude Code agents. One conversational manager (Leo) coordinates a team of discipline-specific Managers, universal rules, and on-demand specialists — across all your projects.
 
-**Status:** early-stage, no pilot yet. Private repo while the design matures.
+## How it works
 
-## Philosophy in 2 sentences
+You talk to **Leo** (the Manager of Managers). Leo delegates to the right **Manager** based on the domain — Engineer Manager for code, Designer Manager for design, PM Manager for product, Marketing Manager for content. Managers decompose tasks, delegate to **specialists** (hired on-demand via the Hiring Loop), review the work adversarially, and synthesize back to you.
 
-**Copilot-style, not Paperclip-style.** You talk to Leo, he delegates to the Managers, they delegate to the specialists (hired via Hiring Loop), review is automatic and transparent, you validate at inflection points. Founder decides the *what*, Leo decides the *how*, comes back to the founder on anything irreversible or structural.
+You decide the **what**. Leo decides the **how**. Anything irreversible or structural comes back to you for approval.
+
+```
+You (founder)
+  └─ Leo (routing, synthesis, propagation)
+       ├─ Engineer Manager → specialists (frontend, backend, infra, ...)
+       ├─ Designer Manager → specialists (UI, assets, ...)
+       ├─ PM Manager → research, domain experts
+       └─ Marketing Manager → content, growth specialists
+```
+
+## Getting started
+
+### 1. Clone the core
+
+```bash
+git clone git@github.com:vmarinogg/copilot-core.git ~/Github/copilot-core
+```
+
+### 2. Install the CLI
+
+```bash
+cd ~/Github/copilot-core/cli
+npm install
+npm link
+```
+
+This registers `copilot-core` as a global command.
+
+### 3. Run setup
+
+```bash
+copilot-core setup
+```
+
+This symlinks the core's agents, rules, and skills into `~/.claude/`, making them available in every Claude Code session.
+
+```
+~/.claude/
+  agents/    → symlinks to copilot-core/agents/
+  rules/     → symlinks to copilot-core/rules/
+  skills/    → symlinks to copilot-core/skills/
+```
+
+### 4. Onboard a project
+
+```bash
+cd ~/Github/your-project
+copilot-core init
+```
+
+The interactive onboarding:
+- Scans your codebase and detects the stack (20+ frameworks/tools supported)
+- Infers project type and asks for confirmation
+- Lets you pick which Managers you need
+- Suggests specialists based on your stack (scaffolded with empty playbooks — filled on first use)
+- Asks for negative constraints (things the agent should NOT do)
+- Generates `.claude/` structure, `CLAUDE.md`, and adds `.claude/` to `.gitignore`
+
+If interrupted, run `copilot-core init` again — it picks up where you left off.
+
+### 5. Start working
+
+```bash
+claude
+```
+
+Leo is ready. Describe what you need, and the system handles routing, delegation, review, and delivery.
+
+## CLI commands
+
+| Command | What it does |
+|---------|-------------|
+| `copilot-core setup` | Symlink agents/rules/skills to `~/.claude/` |
+| `copilot-core init` | Interactive project onboarding (scan, configure, generate) |
+| `copilot-core update` | Pull latest core + re-sync + migrate projects |
+| `copilot-core status` | Show core and current project state |
+
+## Updating
+
+```bash
+copilot-core update
+```
+
+This fetches the latest core, re-syncs symlinks, and automatically migrates any projects under `~/Github/` that need updates (e.g., renamed files, changed references).
+
+Content updates to existing agents/rules propagate instantly via symlinks — no re-run needed. Only run `update` when the core's structure changes (files added/removed/renamed).
 
 ## Structure
 
 ```
 copilot-core/
+├── cli/                               ← Node.js CLI (setup, init, update, status)
+│   └── src/
+│       ├── commands/                  ← CLI command implementations
+│       ├── scanners/                  ← Stack detection (20+ frameworks)
+│       ├── generators/               ← File generators (CLAUDE.md, managers, context)
+│       └── utils/                     ← Paths, UI helpers, state management
 ├── agents/
-│   ├── leo.md                      ← Manager of Managers (model: opus)
+│   ├── leo.md                         ← Manager of Managers (model: opus)
 │   └── managers/
-│       ├── engineer.md             ← engineering tech lead
-│       ├── designer.md             ← design tech lead
-│       ├── pm.md                   ← product tech lead
-│       └── marketing.md            ← marketing tech lead
-├── rules/                          ← 11 universal rules
-│   ├── propagation.md
-│   ├── anti-hallucination.md
-│   ├── think-before-execute.md
-│   ├── evidence-over-claim.md
-│   ├── peer-review-automatic.md
-│   ├── state-vs-learning.md
-│   ├── hiring-loop.md
-│   ├── know-what-you-dont-know.md
-│   ├── escalation-triggers.md
-│   ├── inheritance.md
-│   └── metrics-collection.md
-├── scripts/
-│   └── sync.sh                     ← symlinks core → ~/.claude/ (to be written — D8)
-└── docs/
-    └── rdds/                       ← versioned architectural decisions
+│       ├── engineer.md                ← engineering tech lead
+│       ├── designer.md               ← design tech lead
+│       ├── pm.md                      ← product tech lead
+│       └── marketing.md              ← marketing tech lead
+├── rules/                             ← 11 universal rules
+│   ├── think-before-execute.md        ← direct mode vs alignment mode
+│   ├── propagation.md                 ← decisions must reach context files
+│   ├── anti-hallucination.md          ← mark origin, verify before asserting
+│   ├── evidence-over-claim.md         ← deliveries need proof
+│   ├── peer-review-automatic.md       ← adversarial review via sub-instances
+│   ├── escalation-triggers.md         ← when to stop and ask
+│   ├── hiring-loop.md                 ← managers report gaps, Leo hires
+│   ├── know-what-you-dont-know.md     ← pre-execution checks + trust gradient
+│   ├── inheritance.md                 ← projects extend core via `extends:`
+│   ├── state-vs-learning.md           ← memories age differently
+│   └── metrics-collection.md          ← 8 metrics per task
+├── skills/
+│   └── session-wrap-up/               ← end-of-session propagation protocol
+├── docs/
+│   ├── conventions/                   ← GitHub project management, templates
+│   └── rdds/                          ← architectural decision records
+└── scripts/
+    └── sync.sh                        ← legacy installer (CLI preferred)
 ```
 
-## How to use (once the pilot validates it)
+## Key concepts
 
-**First time on a machine:**
-```bash
-git clone git@github.com:vmarinogg/copilot-core.git ~/Github/copilot-core
-bash ~/Github/copilot-core/scripts/sync.sh
+### Managers are tech leads, not executors
+
+Managers receive tasks, decompose them, delegate to specialists, review adversarially, and synthesize. They write code/design/copy only as an exception (micro-tasks, emergency).
+
+### Specialists live in the project, not the core
+
+The core has universal Managers and rules. Each project builds its own specialist team via the Hiring Loop as needed. Specialists are created in `<project>/.claude/specialists/`.
+
+### Projects extend the core, never override
+
+A project's Manager file uses `extends:` to inherit the core Manager and add project-specific context (stack, conventions, extra self-QA items). Core behavior can never be removed — only extended.
+
+```yaml
+---
+name: Engineer Manager (my-project)
+extends: ../../../../.claude/agents/managers/engineer.md
+---
+
+## Project-specific additions
+- shadcn/ui first — always check component library before creating custom components
 ```
 
-**Updates:**
-```bash
-cd ~/Github/copilot-core && git pull
-# Symlinks point to the repo — content already updated.
-# Run sync.sh only if topology changed (files added/removed).
-```
+### Rules in 2 scopes
 
-**Per project** (e.g. Saintfy, logbook):
-- Active project gets `.claude/agents/managers/<manager>.md` with `extends: ../../../.claude/agents/managers/<manager>.md` in the frontmatter
-- Project-specific rules and specialists live under the project's `.claude/`, never here in the core
+- **Universal** (`rules/`) — always loaded, govern all agents. "How the team works."
+- **Domain** — embedded in Manager files, loaded when the Manager is invoked. "How that discipline works."
 
-## Conventions
+### Review is automatic
 
-**Managers are tech leads, not executors.** They receive, decompose, delegate to the specialist team, review, synthesize. They execute code/design/copy directly only as an exception (micro-tasks, emergency).
+Every piece of work goes through adversarial peer review by another instance of the same Manager — with isolated context and no access to the original reasoning. The cost is seconds and tokens, not human hours.
 
-**Specialists live in the project, never in the core.** Core keeps only universal Managers + universal Rules. Each project builds its specialist team via Hiring Loop as needed.
+### 8 operational metrics
 
-**Rules in 2 scopes:**
-- **Universal** (here in the core, under `rules/`) — "how the company works". Always loaded.
-- **Domain** — "how that team works". Embedded in the Manager files, loaded only when the Manager is invoked.
-
-**Manager style: minimalist.** Identity + principles + checklist. Zero long prose. Fixed internal structure: Role → Principles → Hiring loop → Self-QA → Escalation.
-
-**Tone: casual.** Second person, zero corporate-speak. Interaction language is configurable per project.
-
-## Architectural reference
-
-Foundational decisions live in:
-- `docs/rdds/2026-04-08-copilot-core-architecture/` — main RDD (will be copied once the repo stabilizes)
-- Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/rdd.md (origin, pre-copy)
-
-## Current state
-
-- ✅ Leo + 4 Managers (Engineer, Designer, PM, Marketing) written
-- ✅ 11 universal rules written (10 from the RDD + metrics-collection)
-- ✅ `sync.sh` implemented, tested idempotent, active in `~/.claude/`
-- ✅ Logbook pilot configured (Phase 1 — hiring loop and extends active, peer review and metrics deferred to Phase 2)
-- ⏳ First real task in logbook (next)
-- ⏳ Saintfy migration — Q8 (after pilot is stable)
+Every task produces a JSONL entry tracking: peer review pass rate, founder acceptance, self-QA honesty, rework cycles, hiring loop hit rate, delegation quality, internal iterations, and Leo's own errors.
 
 ## What it is not
 
-- Not an autonomous agent framework (Paperclip-style)
-- Not a generic CLI for Claude Code
-- Not a replacement for a project's CLAUDE.md
-- Not an open-source product yet (might become one — see the RDD parking lot)
+- Not an autonomous agent framework — you stay in the loop at every inflection point
+- Not a replacement for your project's `CLAUDE.md` — it complements it
+- Not a generic CLI for Claude Code — it's a working method with opinions

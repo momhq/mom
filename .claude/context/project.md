@@ -10,11 +10,12 @@ This repo **is** the core of the multi-agent system that manages all the founder
 - **`skills/`** — model-invoked skills that agents use on demand. Today only `session-wrap-up`.
 - **`docs/conventions/`** — operational conventions shared across projects (e.g., GitHub project management). Templates live in `docs/conventions/templates/`.
 - **`docs/rdds/`** — Research & Design Docs. Each big architectural decision becomes an RDD with `rdd.md` + append-only `refinements.md`.
-- **`scripts/sync.sh`** — symlink-based installer. Links `agents/leo.md`, `agents/managers/`, `rules/`, `skills/` into `~/.claude/`, making the core the global source of truth in any project.
+- **`cli/`** — Node.js CLI (v0.1.0) for setup, project onboarding, updates, and status. Replaces `sync.sh` as the primary interface. Commands: `setup`, `init`, `update`, `status`.
+- **`scripts/sync.sh`** — legacy symlink installer (still works, but CLI is preferred).
 
 ## Stack
 
-Mostly markdown + yaml frontmatter. A pinch of bash (sync.sh). Zero application code. The "build" is `sync.sh`, the "test" is using the agents in real projects and observing failures.
+Markdown + YAML frontmatter for agents/rules. Node.js + TypeScript for the CLI (`cli/`). The CLI uses `@clack/prompts` for interactive UX, `commander` for command parsing, and `tsup` for builds.
 
 ## Core philosophy
 
