@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 export interface DetectedStack {
@@ -323,6 +323,38 @@ const detectors: StackDetector[] = [
     specialists: [],
   },
 
+  // --- Testing ---
+  {
+    name: "Vitest",
+    detect: (dir) =>
+      depExists(dir, "vitest") ||
+      fileExists(dir, "vitest.config.ts", "vitest.config.js"),
+    detectedBy: "vitest dependency or config",
+    specialists: [],
+  },
+  {
+    name: "Jest",
+    detect: (dir) =>
+      depExists(dir, "jest") || fileExists(dir, "jest.config.js", "jest.config.ts"),
+    detectedBy: "jest dependency or config",
+    specialists: [],
+  },
+  {
+    name: "Playwright",
+    detect: (dir) =>
+      depExists(dir, "@playwright/test") ||
+      fileExists(dir, "playwright.config.ts", "playwright.config.js"),
+    detectedBy: "playwright dependency or config",
+    specialists: [],
+  },
+  {
+    name: "Cypress",
+    detect: (dir) =>
+      depExists(dir, "cypress") || fileExists(dir, "cypress.config.ts", "cypress.config.js"),
+    detectedBy: "cypress dependency or config",
+    specialists: [],
+  },
+
   // --- Other ---
   {
     name: "TypeScript",
@@ -399,4 +431,126 @@ export function isMonorepo(projectDir: string): boolean {
     }
   }
   return false;
+}
+
+/** Infer project type from detected stack — returns null if ambiguous */
+export function inferProjectType(
+  stacks: DetectedStack[]
+): string | null {
+  const names = new Set(stacks.map((s) => s.name));
+
+  const hasMobile =
+    names.has("Capacitor") ||
+    names.has("React Native") ||
+    names.has("Flutter") ||
+    names.has("iOS Native") ||
+    names.has("Android Native");
+
+  const hasWeb =
+    names.has("Next.js") || names.has("Vite") || names.has("Vue");
+
+  const hasBackend =
+    names.has("Supabase") ||
+    names.has("Prisma") ||
+    names.has("Python") ||
+    names.has("Go") ||
+    names.has("Rust");
+
+  if (hasMobile && hasWeb) return "fullstack";
+  if (hasMobile) return "mobile-app";
+  if (hasWeb) return "web-app";
+  if (hasBackend && !hasWeb && !hasMobile) return "api";
+
+  // Check if it's a CLI/library by looking at package.json
+  return null; // ambiguous — will ask the user
+}
+
+/** Detect what copilot-core structures already exist in a project */
+export interface ExistingState {
+  hasClaudeDir: boolean;
+  hasClaudeMd: boolean;
+  managers: string[];        // filenames without .md
+  specialists: string[];     // full relative paths
+  hasProjectMd: boolean;
+  hasStackMd: boolean;
+  hasConstraintsMd: boolean;
+  hasDecisions: boolean;
+  hasGitignoreEntry: boolean;
+}
+
+export function detectExistingState(projectDir: string): ExistingState {
+  const claudeDir = resolve(projectDir, ".claude");
+  const state: ExistingState = {
+    hasClaudeDir: existsSync(claudeDir),
+    hasClaudeMd: existsSync(resolve(projectDir, "CLAUDE.md")),
+    managers: [],
+    specialists: [],
+    hasProjectMd: existsSync(resolve(claudeDir, "context", "project.md")),
+    hasStackMd: existsSync(resolve(claudeDir, "context", "stack.md")),
+    hasConstraintsMd: existsSync(resolve(claudeDir, "context", "constraints.md")),
+    hasDecisions: existsSync(resolve(claudeDir, "context", "decisions")),
+    hasGitignoreEntry: false,
+  };
+
+  // Detect managers
+  const managersDir = resolve(claudeDir, "agents", "managers");
+  if (existsSync(managersDir)) {
+    try {
+      state.managers = readdirSync(managersDir)
+        .filter((f) => f.endsWith(".md"))
+        .map((f) => f.replace(".md", ""));
+    } catch { /* ignore */ }
+  }
+
+  // Detect specialists
+  const specialistsDir = resolve(claudeDir, "specialists");
+  if (existsSync(specialistsDir)) {
+    try {
+      for (const domain of readdirSync(specialistsDir, { withFileTypes: true })) {
+        if (!domain.isDirectory()) continue;
+        const domainPath = resolve(specialistsDir, domain.name);
+        for (const file of readdirSync(domainPath)) {
+          if (file.endsWith(".md")) {
+            state.specialists.push(`${domain.name}/${file.replace(".md", "")}`);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Check .gitignore
+  const gitignorePath = resolve(projectDir, ".gitignore");
+  if (existsSync(gitignorePath)) {
+    try {
+      const content = readFileSync(gitignorePath, "utf-8");
+      state.hasGitignoreEntry = content.includes(".claude/");
+    } catch { /* ignore */ }
+  }
+
+  return state;
+}
+
+/** Detect test framework from stack */
+export function detectTestFramework(stacks: DetectedStack[]): string | null {
+  const names = new Set(stacks.map((s) => s.name));
+  if (names.has("Vitest")) return "Vitest";
+  if (names.has("Jest")) return "Jest";
+  if (names.has("Playwright")) return "Playwright";
+  if (names.has("Cypress")) return "Cypress";
+  return null;
+}
+
+/** Detect if project has a design system */
+export function detectDesignSystem(stacks: DetectedStack[]): string | null {
+  const names = new Set(stacks.map((s) => s.name));
+  if (names.has("shadcn/ui")) return "shadcn/ui + Tailwind";
+  if (names.has("Tailwind CSS")) return "Tailwind CSS";
+  return null;
+}
+
+/** Detect CI/CD from stack */
+export function detectCI(stacks: DetectedStack[]): string | null {
+  const names = new Set(stacks.map((s) => s.name));
+  if (names.has("GitHub Actions")) return "GitHub Actions";
+  return null;
 }
