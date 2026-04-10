@@ -1,11 +1,11 @@
 ---
 name: peer-review-automatic
-description: All work goes through automatic, transparent peer review before reaching the founder.
+description: All work goes through automatic, transparent peer review before reaching the owner.
 ---
 
 ## Rule
 
-No work reaches the founder without going through peer review. Review is done by **another instance of the same Manager**, in review mode, with isolated context, an adversarial posture, and fired automatically via sub-invocation — the founder never opens another session manually.
+No work reaches the owner without going through peer review. Review is done by **another instance of the same Manager**, in review mode, with isolated context, an adversarial posture, and fired automatically via sub-invocation — the owner never opens another session manually.
 
 ## Why
 
@@ -16,7 +16,7 @@ No work reaches the founder without going through peer review. Review is done by
 ## Standard flow
 
 ```
-Founder → Leo → Manager receives
+Owner → Leo → Manager receives
                     ↓
                  Manager decomposes + delegates to the team's specialist
                     ↓
@@ -26,7 +26,7 @@ Founder → Leo → Manager receives
                  (the Manager is the tech lead, reviewing their team)
                     ↓ approves → synthesizes for Leo
                     ↓ rejects → back to the specialist with comments
-                 Leo → Founder
+                 Leo → Owner
 ```
 
 When the **Manager executes directly** (exception — micro-tasks, emergency), review happens via:
@@ -46,7 +46,7 @@ New Manager instance receives:
 Reviews adversarially → approves or lists problems
     ↓
 Result returns to the main session
-Founder sees everything as a single thing
+Owner sees everything as a single thing
 ```
 
 ## Adversarial context — base template
@@ -96,10 +96,10 @@ If the reviewer rejects:
 4. A new review instance (or the same, with new context) reviews again
 5. Loop until approval
 
-The founder doesn't see each iteration — they receive the final result once the task is approved in review. If the loop is taking too long (3+ iterations), report to the founder to decide whether to escalate or abort.
+The owner doesn't see each iteration — they receive the final result once the task is approved in review. If the loop is taking too long (3+ iterations), report to the owner to decide whether to escalate or abort.
 
 ## Exceptions
 
 **There are no exceptions.** A 10-second task also goes through review — review of a 10-second task also takes 10 seconds. The marginal cost is zero. If you're tempted to skip review "because it's simple", that's exactly where bugs slip through.
 
-The only legitimate exception is when the task **is** itself a meta-review action (e.g., the founder asks "review this PR" — then the whole task is review, no review of the review is needed).
+The only legitimate exception is when the task **is** itself a meta-review action (e.g., the owner asks "review this PR" — then the whole task is review, no review of the review is needed).

@@ -41,7 +41,7 @@ Before writing any code, design, or copy, the agent **fills in and pastes into t
 
 **The trick is to write it.** Thinking "I know this" is easy. Having to cite a verifiable source forces the model to confront "do I actually know it or am I guessing?".
 
-If the agent tries to cheat by writing "yes" without a source or "high confidence" without justification — the founder sees it in the output and calls it out. Transparency forces honesty.
+If the agent tries to cheat by writing "yes" without a source or "high confidence" without justification — the owner sees it in the output and calls it out. Transparency forces honesty.
 
 ### Mechanism 2 — Trust gradient by category
 
@@ -68,7 +68,7 @@ Example for the Engineer Manager:
 | Native bridging (Capacitor, React Native) | **Low** | **Always** |
 | Infra / deploy / CI | **Low** | **Always** |
 
-The "**Always**" column is a hard line. Even under pressure, the Manager does not execute — they fire the Hiring Loop or escalate to the founder.
+The "**Always**" column is a hard line. Even under pressure, the Manager does not execute — they fire the Hiring Loop or escalate to the owner.
 
 ### Mechanism 3 — Post-failure hardening
 
@@ -105,10 +105,10 @@ After peer review rejects work, **before fixing the task**, the agent runs a les
 - Written proposal (1 paragraph):
   [...]
 
-- Proposal goes to Leo → R2 with founder before being applied
+- Proposal goes to Leo → R2 with owner before being applied
 ```
 
-Without this, lessons sit in the founder's head (until they forget) or in stale memories. With this, each failure has a chance to become permanent enforcement.
+Without this, lessons sit in the owner's head (until they forget) or in stale memories. With this, each failure has a chance to become permanent enforcement.
 
 ## How the 4 fit together
 
@@ -117,7 +117,7 @@ Without this, lessons sit in the founder's head (until they forget) or in stale 
 - **Mechanism 3** is reactive and automatic, hardens after failure
 - **Mechanism 4** is deliberately reflective, extracts a lesson to refine the system
 
-Together, they form a system that **learns and strengthens with every real failure**, respecting R2 (nothing applies without founder approval).
+Together, they form a system that **learns and strengthens with every real failure**, respecting R2 (nothing applies without owner approval).
 
 ## Responsibility
 

@@ -1,7 +1,7 @@
 # RDD: Copilot-Core Architecture
 
 **Status:** `Planning — awaiting open decisions and pilot`
-**Author:** `Saintfy Copilot (Leo)` conducting conversation with founder (Vinícius)
+**Author:** `Saintfy Copilot (Leo)` conducting conversation with owner (Vinícius)
 **Date:** `2026-04-08`
 **Application:** `Saintfy-Copilot` (working method) → future `copilot-core` repo
 **Tracking:** vmarinogg/Saintfy-Copilot#1
@@ -10,7 +10,7 @@
 
 ## Summary
 
-This document describes the proposed architecture for a replicable "copilot" system based on specialized agents, universal rules, and on-demand playbooks. The goal is to turn the working method built empirically in Saintfy over the course of weeks into a generic, reusable layer usable by any of the founder's projects, without sacrificing the specialization each project requires.
+This document describes the proposed architecture for a replicable "copilot" system based on specialized agents, universal rules, and on-demand playbooks. The goal is to turn the working method built empirically in Saintfy over the course of weeks into a generic, reusable layer usable by any of the owner's projects, without sacrificing the specialization each project requires.
 
 This document is **not** an implementation plan. It is a record of architectural decisions made during a planning session on 2026-04-08, with open points explicitly marked for future sessions.
 
@@ -20,24 +20,24 @@ This document is **not** an implementation plan. It is a record of architectural
 
 ### 1.1. The problem
 
-The founder operates multiple projects simultaneously — Saintfy (native Catholic app), logbook (iOS training app), and others on the horizon. Each project has its particularities but shares a **working method**: conversation with a "manager" (Leo) who delegates to specialists, process rules, canonical decisions, PR-first flow, context propagation.
+The owner operates multiple projects simultaneously — Saintfy (native Catholic app), logbook (iOS training app), and others on the horizon. Each project has its particularities but shares a **working method**: conversation with a "manager" (Leo) who delegates to specialists, process rules, canonical decisions, PR-first flow, context propagation.
 
-Today that method lives entirely inside `Saintfy-Copilot`. When the founder opens Claude in another project (logbook, for example), it starts from scratch: no Leo, no rules, no structure. The result is frustrating — the "raw" version of Claude invents unnecessary abstractions, repeats mistakes already fixed in other projects, and loses the philosophical context that makes the work have quality.
+Today that method lives entirely inside `Saintfy-Copilot`. When the owner opens Claude in another project (logbook, for example), it starts from scratch: no Leo, no rules, no structure. The result is frustrating — the "raw" version of Claude invents unnecessary abstractions, repeats mistakes already fixed in other projects, and loses the philosophical context that makes the work have quality.
 
 Beyond that, within Saintfy itself, the current architecture has structural limits:
 
 - **Monolithic agents.** Tomé (dev) has a single agent file that tries to cover frontend, backend, native Capacitor, Supabase, deploy. In practice, it fails in every domain because it doesn't have a specialized playbook loaded at the right moment. The Apple Sign-In + Push Notifications marathon (2026-04-06/07) had 10 chained bugs that could have been avoided with specific playbooks.
 - **Memories as a dumping ground.** Several of Leo's memories are actually skills in disguise — specialized technical playbooks loaded in every session, even when irrelevant. Waste of tokens + context dilution.
-- **Orphan workflows.** `workflows/` has valuable SOPs that no agent references, because they were written for invocation via `/commands` (user-invoked skills) that the founder doesn't use.
+- **Orphan workflows.** `workflows/` has valuable SOPs that no agent references, because they were written for invocation via `/commands` (user-invoked skills) that the owner doesn't use.
 - **No replication mechanism.** Improvements to the working method made in Saintfy stay stuck in Saintfy.
 
 ### 1.2. Objectives
 
 1. **Extract generic method into a reusable core** (`copilot-core`) that any new project can inherit.
 2. **Preserve per-project specialization** — the core provides the backbone, each project extends with its stack, domain, decisions.
-3. **Propagate improvements automatically** — when the founder refines the method in one project, the improvement becomes available to all the others without manual work.
+3. **Propagate improvements automatically** — when the owner refines the method in one project, the improvement becomes available to all the others without manual work.
 4. **Solve the "generic Tomé" problem** with an agent hierarchy that separates process (Manager), subject matter (Domain Expert), and specific technical problem (Specialist).
-5. **Keep the conversational philosophy** — the founder drives, the agents execute, but without turning the method into a Paperclip-style autonomous system that decides on its own.
+5. **Keep the conversational philosophy** — the owner drives, the agents execute, but without turning the method into a Paperclip-style autonomous system that decides on its own.
 
 ---
 
@@ -51,7 +51,7 @@ The current market has two dominant philosophies for AI agents doing real work:
 
 | Dimension | **Paperclip-style** | **Copilot-style** |
 |---|---|---|
-| Unit of work | Issue/ticket executed autonomously | Conversation between founder and agent |
+| Unit of work | Issue/ticket executed autonomously | Conversation between owner and agent |
 | Agent model | Flat — "the agent" does the work | Hierarchical — manager delegates to specialists |
 | Specialization | Via tools and integrations | Via hireable skills/playbooks |
 | Where the human comes in | Creates issue, receives PR | Talks with the manager, approves each relevant step |
@@ -65,12 +65,12 @@ The discussion about "how much autonomy to give agents" only becomes clear when 
 
 | Axis | What it is | Who decides |
 |---|---|---|
-| **Strategic** | What to work on. Priorities. Project direction. The "does it serve the mission?" filter | **Always the founder.** Non-negotiable. |
-| **Tactical — routing** | Who handles what. Identifying the right Manager, delegating, synthesizing results back to the founder. | **Leo.** This is literally his job as Manager of Managers. |
+| **Strategic** | What to work on. Priorities. Project direction. The "does it serve the mission?" filter | **Always the owner.** Non-negotiable. |
+| **Tactical — routing** | Who handles what. Identifying the right Manager, delegating, synthesizing results back to the owner. | **Leo.** This is literally his job as Manager of Managers. |
 | **Tactical — execution** | How to execute what has already been delegated. Decomposition, ordering, specialist selection, implementation strategy. | **Managers.** Each Manager owns the how within their discipline. |
-| **Creative/Structural** | Creating a new specialist, changing a core rule, opening a PRD, spending money, publishing externally. | **R2:** agent proposes, founder approves. No structural change happens without explicit approval. |
+| **Creative/Structural** | Creating a new specialist, changing a core rule, opening a PRD, spending money, publishing externally. | **R2:** agent proposes, owner approves. No structural change happens without explicit approval. |
 
-This resolves the apparent paradox between "I want to converse, not delegate blindly" and "I don't want to keep blocking the system at every step." The founder decides the **what** and **why**, Leo decides the **who**, Managers decide the **how**, and it goes back to the founder at **inflection points**. It's normal human management, just formalized for agents.
+This resolves the apparent paradox between "I want to converse, not delegate blindly" and "I don't want to keep blocking the system at every step." The owner decides the **what** and **why**, Leo decides the **who**, Managers decide the **how**, and it goes back to the owner at **inflection points**. It's normal human management, just formalized for agents.
 
 This model will be referenced as **"R2 with tactical autonomy"** throughout the rest of the document.
 
@@ -97,7 +97,7 @@ This model will be referenced as **"R2 with tactical autonomy"** throughout the 
 └── ...
 ```
 
-When the founder improves something in the core:
+When the owner improves something in the core:
 1. Edits in `~/Github/copilot-core/`
 2. Commits to the repo
 3. Runs `bash sync.sh` (or equivalent)
@@ -127,12 +127,12 @@ One concern raised: what about when this becomes a product/open-source? The idea
 
 | Horizon | Mode | Reason |
 |---|---|---|
-| **Now** (private, founder only) | Option A — user-level sync | Zero friction, personal working mode |
+| **Now** (private, owner only) | Option A — user-level sync | Zero friction, personal working mode |
 | **Future** (open-source / product) | Option C — per-project opt-in with versioning | Per-user control, projects pinned to stable versions |
 
-**How to preserve both horizons in a single design:** `copilot-core` will be structured as a **pure content repo** (markdown, no logic). `sync.sh` lives **outside** the repo (founder's personal scripts). This ensures that:
+**How to preserve both horizons in a single design:** `copilot-core` will be structured as a **pure content repo** (markdown, no logic). `sync.sh` lives **outside** the repo (owner's personal scripts). This ensures that:
 
-- Today: founder uses it via sync.sh → `~/.claude/` (Option A)
+- Today: owner uses it via sync.sh → `~/.claude/` (Option A)
 - Tomorrow: someone else clones and uses it via their own mechanism (Option C, CLI, etc.) — **without needing to rewrite the content**
 
 The content doesn't change. The delivery mechanism is configurable.
@@ -143,7 +143,7 @@ Decided during the session:
 
 1. **New private git repo**, created when the time comes to implement
 2. **Zero mention of specific projects** in any core file — no "Saintfy", no "logbook", no "vmarino". Universal rules, neutral templates
-3. **`sync.sh` script lives outside the core repo** (founder's personal scripts in `~/bin/` or `.zshrc`)
+3. **`sync.sh` script lives outside the core repo** (owner's personal scripts in `~/bin/` or `.zshrc`)
 4. **Credentials, IDs, service names** never go in the core — they always stay in the project
 
 ---
@@ -157,7 +157,7 @@ During the session it was discovered that "agent" is a concept that aggregates t
 | Type | Role | Lives where | Who creates | Lifecycle | Example |
 |---|---|---|---|---|---|
 | **Manager** | **Tech lead** of the discipline — receives, decomposes, delegates, reviews, synthesizes. Executes only in exceptions | **Core** (universal) | Already exists in core; extended by the project | Permanent | Engineer Manager, Design Manager |
-| **Domain Expert** | Subject matter consultant (what is true about X) | **Project** | Hiring Loop (proposed by the founder) | Permanent in the project | Theologian (Saintfy), Strength Coach (logbook) |
+| **Domain Expert** | Subject matter consultant (what is true about X) | **Project** | Hiring Loop (proposed by the owner) | Permanent in the project | Theologian (Saintfy), Strength Coach (logbook) |
 | **Specialist** | Executor of technical tasks — composes the Manager's "team" | **Project** | Hiring Loop (proposed by the Manager) | Created on demand, permanent in the project | Frontend dev, APNs protocol, SwiftData |
 
 **Critical distinction between Manager and Specialist:**
@@ -167,7 +167,7 @@ The Manager **is not the default executor**. He is the tech lead of his team. Wh
 **Critical distinction between Domain Expert and Specialist:**
 
 - **Specialist** is hired by the **Manager** to solve **technical tasks**. His content is an actionable playbook and he **executes** concrete work.
-- **Domain Expert** is hired by the **founder** (via Leo) as a **permanent consultant** for the project. His content is broad knowledge about the subject, consulted in various decisions over time. He **does not execute** — he is a consultative reference.
+- **Domain Expert** is hired by the **owner** (via Leo) as a **permanent consultant** for the project. His content is broad knowledge about the subject, consulted in various decisions over time. He **does not execute** — he is a consultative reference.
 
 A Engineer Manager + a Theologian collaborate: Engineer Manager leads implementation of the feature with his team of specialists; Theologian validates whether the feature aligns with doctrine. Neither replaces the other.
 
@@ -185,7 +185,7 @@ Six managers make up the "default team" that any project can use:
 
 Notes:
 
-- The structure **supports "hiring" new managers** via conversation with Leo. Example given by the founder: a manager with "theological formation" to validate Saintfy content, or a "strength coach" for the logbook. Domain Experts cover most of those cases, but a new manager makes sense if it is a recurring **professional discipline**, not a body of knowledge.
+- The structure **supports "hiring" new managers** via conversation with Leo. Example given by the owner: a manager with "theological formation" to validate Saintfy content, or a "strength coach" for the logbook. Domain Experts cover most of those cases, but a new manager makes sense if it is a recurring **professional discipline**, not a body of knowledge.
 - "DevOps manager" or "Data manager" were not included initially — there is no real pain in those domains in current projects. They can be added via hiring loop when they arise.
 - **Each Manager's minimum team grows organically, not by anticipatory decision.** The core delivers the Managers "empty of team". In the first interactions with a project, the Manager identifies which specialists he needs based on the stack and real tasks, and triggers Hiring Loop with Leo to hire them. No specialist is pre-defined in the core. This keeps the core lean and honest with the principle "nothing in the core without evidence of real use".
 
@@ -193,11 +193,11 @@ Notes:
 
 Leo has a unique role and is not "just another manager". Exclusive responsibilities:
 
-1. **Routing** — receives requests from the founder, identifies the domain, delegates to the right manager
+1. **Routing** — receives requests from the owner, identifies the domain, delegates to the right manager
 2. **Hiring Loop contractor** — when a manager reports a gap, Leo hires the specialist (see §4.4)
 3. **Cross-project big picture** — Leo sees other projects in `~/Github/` when the task requires reference (e.g., "did we already implement push in another project?")
 4. **Context propagation** — Leo is ultimately responsible for ensuring decisions propagate to memories, canonical docs, relevant rules
-5. **Synthesis for the founder** — consolidates the managers' work into actionable reports
+5. **Synthesis for the owner** — consolidates the managers' work into actionable reports
 
 ### 4.4. Hiring Loop
 
@@ -237,7 +237,7 @@ This mirrors how headhunting works in real companies. Engineering manager says "
 The Manager is not the default executor — he is the **tech lead** of his team. The default flow of a task follows this sequence:
 
 ```
-Founder → Leo → Manager receives
+Owner → Leo → Manager receives
                     ↓
                  Manager decomposes + decides which team specialists to use
                     ↓
@@ -248,7 +248,7 @@ Founder → Leo → Manager receives
                  Manager reviews (natural peer review, same domain, more senior)
                     ↓ approves → synthesizes to Leo
                     ↓ rejects → back to specialist with comments
-                 Leo → Founder
+                 Leo → Owner
 ```
 
 **Review is embedded in the Manager's role.** It is not an extra step nor a separate agent — it is part of what it means to be tech lead of the discipline. Manager reviews a specialist from the same domain because he has the expertise to do it rigorously.
@@ -267,18 +267,18 @@ In those cases, review happens via **transparent sub-invocation of the Manager h
 Manager executes small task → self-QA
     ↓
 Manager triggers sub-invocation of himself in review mode
-    ↓ (same founder session, no manual intervention,
+    ↓ (same owner session, no manual intervention,
        analogous to how Claude Code triggers sub-agents via Task tool today)
 New Manager instance receives only the output (diff + self-QA),
 WITHOUT access to the execution's context/reasoning
     ↓
 Reviews adversarially, approves or requests adjustment
     ↓
-Result goes back to the founder's main session, who receives
+Result goes back to the owner's main session, who receives
 everything together: execution + review + final result
 ```
 
-**Critical property:** the founder **never opens another session manually**. The entire execution + review cycle happens inside the session the founder is working in, transparently. The founder sees the progress (analogous to seeing a sub-agent running), receives the final result, and done.
+**Critical property:** the owner **never opens another session manually**. The entire execution + review cycle happens inside the session the owner is working in, transparently. The owner sees the progress (analogous to seeing a sub-agent running), receives the final result, and done.
 
 Context isolation of the reviewer instance is mandatory — without it, confirmation bias returns ("I decided this way because X, Y, Z" → reviewer reads and agrees). The new instance receives only the artifacts: changed files/diff, self-QA report, and the review context ("you are [Manager name] in review mode, be adversarial, look for bugs that self-QA doesn't catch").
 
@@ -316,12 +316,12 @@ Loaded **always**, in any session, for any active agent. They define the "consti
 | `propagation.md` | Every decision/change must propagate to relevant memories, context, rules before closing the task |
 | `anti-hallucination.md` | A wrong answer is 3x worse than "I don't know". Mark `[INFERRED]` when it didn't come from a verifiable source |
 | `think-before-execute.md` | On ambiguous/complex tasks, ask before implementing. On direct ones, go directly. Clear criterion |
-| `evidence-over-claim.md` | Never report work as complete without attached verifiable evidence. Each domain defines its form of evidence (build/test/lint for dev, screenshot for design, complete draft for marketing, cited sources for research, etc). The founder should not need to believe — he should be able to verify |
-| `peer-review-automatic.md` | All work goes through peer review before reaching the founder. Review is done by another instance of the same Manager (review mode, isolated context, adversarial), triggered automatically via transparent sub-invocation — founder never opens another session manually |
+| `evidence-over-claim.md` | Never report work as complete without attached verifiable evidence. Each domain defines its form of evidence (build/test/lint for dev, screenshot for design, complete draft for marketing, cited sources for research, etc). The owner should not need to believe — he should be able to verify |
+| `peer-review-automatic.md` | All work goes through peer review before reaching the owner. Review is done by another instance of the same Manager (review mode, isolated context, adversarial), triggered automatically via transparent sub-invocation — owner never opens another session manually |
 | `state-vs-learning.md` | State memories age fast, learning memories remain. State needs to be revalidated before citing |
 | `hiring-loop.md` | Manager reports gap → Leo hires specialist → hands back to Manager. Used both to constitute initial team and to fill specific domain gaps |
 | `know-what-you-dont-know.md` | Manager detects domain outside his capability → stops and reports the gap BEFORE executing |
-| `escalation-triggers.md` | Explicit list of situations that always stop the agent and force a question to the founder (spending money, external publishing, destructive action, creating a specialist/manager, changing a core rule, contradiction between existing rules) |
+| `escalation-triggers.md` | Explicit list of situations that always stop the agent and force a question to the owner (spending money, external publishing, destructive action, creating a specialist/manager, changing a core rule, contradiction between existing rules) |
 | `inheritance.md` | When an agent has `extends` in the frontmatter, load the base file before executing and concatenate behavior |
 
 ### 5.3. Domain rules
@@ -403,7 +403,7 @@ Extends wins because:
 
 ### 7.1. The original problem
 
-The founder currently uses Claude via VS Code extension, with full access to the filesystem and Copilot structure. It works well but has an obvious limit: **it only works when the founder is on the Mac**. Ideas captured in the field (conversation with parish folks, training at the gym) stay outside the system until the founder gets back to the computer.
+The owner currently uses Claude via VS Code extension, with full access to the filesystem and Copilot structure. It works well but has an obvious limit: **it only works when the owner is on the Mac**. Ideas captured in the field (conversation with parish folks, training at the gym) stay outside the system until the owner gets back to the computer.
 
 The real pain: "I want to send a message to Saintfy's Leo from my phone and capture an idea".
 
@@ -420,7 +420,7 @@ During the session, the official documentation for **Cowork/Dispatch** and **Rem
 
 **Conceptual setup:**
 
-1. Founder runs `claude remote-control --name "Saintfy"` on the project's Mac (or leaves it running in background)
+1. Owner runs `claude remote-control --name "Saintfy"` on the project's Mac (or leaves it running in background)
 2. Leaves for parish / training / café
 3. Opens Claude mobile, sees "Saintfy" in the session list
 4. Talks normally — it is literally the same session from the Mac, seen from another device
@@ -429,13 +429,13 @@ During the session, the official documentation for **Cowork/Dispatch** and **Rem
 
 - Nothing moves to the cloud. Claude keeps running locally on the Mac.
 - Filesystem, MCP servers, `.claude/`, agents — everything remains available just like in the local session.
-- Conversation syncs between devices in real time. Founder can start on the phone and continue in VS Code or vice versa.
+- Conversation syncs between devices in real time. Owner can start on the phone and continue in VS Code or vice versa.
 - Reconnects on its own if laptop sleeps or network drops.
-- Works on Pro/Max (the founder's plan covers it).
+- Works on Pro/Max (the owner's plan covers it).
 
 ### 7.4. Implication for copilot-core: none
 
-Because Remote Control is just a way to **access** the same local session, **nothing in the core changes**. The architecture designed in sections 3-6 works identically in VS Code, terminal, and mobile. The only addition is the `claude remote-control` command that the founder runs when he wants to activate the secondary surface.
+Because Remote Control is just a way to **access** the same local session, **nothing in the core changes**. The architecture designed in sections 3-6 works identically in VS Code, terminal, and mobile. The only addition is the `claude remote-control` command that the owner runs when he wants to activate the secondary surface.
 
 ### 7.5. Cowork stays in the parking lot
 
@@ -446,7 +446,7 @@ Explicit reasons not to adopt now:
 3. **Security risk** — remote instructions triggering local actions without checkpoint
 4. **Duplication** — Remote Control solves the real use case ("send a message to Leo from the phone") without the downsides
 
-**When to reconsider:** if Cowork comes out of preview and the founder identifies a genuine "Paperclip mode" use case for massive tasks (e.g., "execute this refactor of 50 files while I have dinner"). For now, no.
+**When to reconsider:** if Cowork comes out of preview and the owner identifies a genuine "Paperclip mode" use case for massive tasks (e.g., "execute this refactor of 50 files while I have dinner"). For now, no.
 
 ---
 
@@ -460,7 +460,7 @@ Identity + principles + checklist, no long prose. Manager is a tech lead operati
 
 ### 8.2. D2 — Tone: Casual, configurable language
 
-Second person, zero corporate speak ("You are the dev tech lead" not "You are the technical leader responsible for the discipline of..."). Language is decided at project setup via `.claude/project-config.yml`, not baked into the core. Founder has a personal preference to interact with AI in PT but keep code/docs in EN — legitimate per-user/project config.
+Second person, zero corporate speak ("You are the dev tech lead" not "You are the technical leader responsible for the discipline of..."). Language is decided at project setup via `.claude/project-config.yml`, not baked into the core. Owner has a personal preference to interact with AI in PT but keep code/docs in EN — legitimate per-user/project config.
 
 ### 8.3. D3 — Frontmatter: 6 fixed fields
 
@@ -497,7 +497,7 @@ Every Manager file follows this order:
 2. **Principles** — short bullets (3-5 central principles)
 3. **Hiring loop** — 1-2 sentences about when to trigger specialist hiring
 4. **Self-QA** — discipline-specific proof checklist
-5. **Escalation** — concrete list of what stops the agent and forces a question to the founder
+5. **Escalation** — concrete list of what stops the agent and forces a question to the owner
 
 Extra sections only if justified by the nature of the domain.
 
@@ -507,20 +507,20 @@ First batch: **Leo, Engineer Manager, Designer Manager, PM Manager, Marketing Ma
 
 ### 8.6. D6 — Project initialization flow (`copilot init`)
 
-Founder's documented vision:
+Owner's documented vision:
 
 1. **Machine bootstrap (first time):** clone `copilot-core`, run `sync.sh` to populate `~/.claude/` with symlinks
 2. **Project setup:** asks for repo path(s), interaction language, file language. Saves to `.claude/project-config.yml`
 3. **Scaffolding:** creates empty structure in `.claude/agents/managers/`, `rules/`, `context/project.md`, `specialists/`
-4. **Interactive context collection:** session with Leo interviewing founder, collecting context files (PRDs, docs, README), synthesizing first version of `context/project.md`
+4. **Interactive context collection:** session with Leo interviewing owner, collecting context files (PRDs, docs, README), synthesizing first version of `context/project.md`
 5. **Closing:** commit the scaffolding, ready to work
-6. **Normal use:** founder talks, managers operate, context enriches organically
+6. **Normal use:** owner talks, managers operate, context enriches organically
 
 **Core updates:** `cd ~/Github/copilot-core && git pull`. Thanks to the D8 symlinks, updates are immediate — re-run `sync.sh` only when topology changes (files added/removed).
 
 ### 8.7. D7 — Hiring loop enforcement: forcing the model to recognize gaps
 
-**Problem identified by the founder:** Claude "knows" how to do almost everything superficially. A rule saying "ask for specialist when you don't know" is not enough — the model will think it knows.
+**Problem identified by the owner:** Claude "knows" how to do almost everything superficially. A rule saying "ask for specialist when you don't know" is not enough — the model will think it knows.
 
 **4 mechanisms combined in the `know-what-you-dont-know` rule:**
 
@@ -539,7 +539,7 @@ Script lives in `copilot-core/scripts/sync.sh`. Design chosen after rejecting `r
 - Idempotent (safe to run N times via `ln -sf`)
 - Zero-copy after first run — `git pull` updates content via symlinks
 - Re-run only when topology changes
-- Founder's local files (`memory/`, `settings.json`, `projects/`) preserved
+- Owner's local files (`memory/`, `settings.json`, `projects/`) preserved
 - Trivial rollback: `git checkout <rev>` in the core
 - Automatic dangling cleanup
 
@@ -550,7 +550,7 @@ Concrete script is in the plan file.
 Karpathy's autoresearch insists on a measurable fitness function. Adding **5 basic metrics** to collect from the pilot onwards:
 
 - **Peer review pass rate** — % of tasks that pass on the first try
-- **Founder rejection rate** — % of deliveries rejected by the founder
+- **Owner rejection rate** — % of deliveries rejected by the owner
 - **Self-QA honesty rate** — % of honest self-QAs (not "passed" that failed in review)
 - **Rework cycles** — average back-and-forth per task
 - **Hiring loop hit rate** — % of times Manager recognized a gap vs tried without specialist
@@ -561,7 +561,7 @@ Logs live in `.claude/metrics/<YYYY-MM>.jsonl`. New universal rule `metrics-coll
 
 **Horizon 1 — Online (during real use):** baked into D7 Mechanism 3 + 4. Real failures become refinement proposals via R2.
 
-**Horizon 2 — Offline (deliberate benchmark):** replicate Karpathy's autoresearch paradigm. Founder prepares a benchmark of representative tasks from the domain → runs Manager against benchmark → agent proposes changes to the agent file → re-runs → keeps if improved. **Not MVP** — depends on metrics (D9) and volume of real data from the pilot. Trigger: ~1 month of logbook pilot with enough data.
+**Horizon 2 — Offline (deliberate benchmark):** replicate Karpathy's autoresearch paradigm. Owner prepares a benchmark of representative tasks from the domain → runs Manager against benchmark → agent proposes changes to the agent file → re-runs → keeps if improved. **Not MVP** — depends on metrics (D9) and volume of real data from the pilot. Trigger: ~1 month of logbook pilot with enough data.
 
 ### 8.11. D11 — Parking lot updates
 
@@ -573,7 +573,7 @@ Added: configurable style/tone per project (not now), workflow field in the fron
 
 5 remaining questions for future sessions:
 
-1. **Q2 — Exact content of the 10 universal rules.** Leo drafts, founder reviews. Next session.
+1. **Q2 — Exact content of the 10 universal rules.** Leo drafts, owner reviews. Next session.
 2. **Q3 — Adversarial prompt for review mode.** Part of the `peer-review-automatic` rule. Possibly "core + specification per domain".
 3. **Q4 — Technical mechanism of sub-invocation.** Test Claude Code's native Task tool in the pilot. If it works, lock it. If not, rethink.
 4. **Q7 — Logbook pilot strategy.** Decide after having Managers + rules written.
@@ -593,11 +593,11 @@ Captured during the session so as not to lose them. **Not part of the MVP.**
 - **Random names for managers per project.** Product idea: when a new project is initialized, managers receive unique names (like "gracie" for the logbook design manager). Generates personality, helps branding. Not MVP — fits when the core becomes a product.
 - **`.claude/project.yml` declaring active managers.** Option B from the debate about which managers to load. Current decision was Option A (all always active, Leo decides by context) because it's simpler. When the dead weight of irrelevant managers becomes annoying, migrate to B.
 - **Deterministic hooks via `update-config`.** Some memories/rules (`lint-before-accept`, `pr-workflow` regarding commits) are "enforcement behavior" that markdown doesn't guarantee. Claude Code hooks solve it — but they are separate complexity. Worth a dedicated session.
-- **`cross-repo-reference.md` as formal rule.** Decided that, for now, founder asks explicitly when to remember. When cross-project reuse becomes frequent, formalize as a rule.
-- **`copilot-core` as a product or open-source.** The whole design is already compatible. When the founder decides to make that jump, the content is ready — only the distribution mechanism changes (Option A → Option C with CLI/npm/etc).
+- **`cross-repo-reference.md` as formal rule.** Decided that, for now, owner asks explicitly when to remember. When cross-project reuse becomes frequent, formalize as a rule.
+- **`copilot-core` as a product or open-source.** The whole design is already compatible. When the owner decides to make that jump, the content is ready — only the distribution mechanism changes (Option A → Option C with CLI/npm/etc).
 - **Channels and Scheduled Tasks.** Discovered during multi-surface research. Channels forwards Telegram/Discord/iMessage messages to the Claude session. Scheduled tasks runs recurring routines. Not recommended now — worth knowing they exist.
-- **`morning-brief.md` as a rule.** Suggested during the session and **explicitly rejected** by the founder: "my ideal routine is enter the board, see issues, and go asking". Documented so as not to propose again.
-- **`autonomy-audit-trail.md` as a rule.** Suggested during the session and rejected after the discovery of Remote Control: there is no longer work running "without the founder seeing it", so audit trail loses purpose.
+- **`morning-brief.md` as a rule.** Suggested during the session and **explicitly rejected** by the owner: "my ideal routine is enter the board, see issues, and go asking". Documented so as not to propose again.
+- **`autonomy-audit-trail.md` as a rule.** Suggested during the session and rejected after the discovery of Remote Control: there is no longer work running "without the owner seeing it", so audit trail loses purpose.
 
 ---
 
@@ -613,7 +613,7 @@ Captured during the session so as not to lose them. **Not part of the MVP.**
    - Write `sync.sh`
    - Activate in `~/.claude/`
    - Open logbook in Claude, run a real work session
-   - Validate: does Leo work? Does Engineer Manager load? Does extends work? Does the founder feel a qualitative difference vs "raw Claude"?
+   - Validate: does Leo work? Does Engineer Manager load? Does extends work? Does the owner feel a qualitative difference vs "raw Claude"?
    - Adjust based on real observation
 
 3. **Saintfy migration**
@@ -632,14 +632,14 @@ Captured during the session so as not to lose them. **Not part of the MVP.**
 Recorded so they are not lost — they may become universal rules in the future:
 
 1. **Recognizing is different from filling.** Manager recognizes the gap, Leo fills it. Separation of responsibilities reflects real companies.
-2. **Autonomy is not one axis, it's three.** Strategic always from the founder, tactical from Leo, creative/structural in R2.
+2. **Autonomy is not one axis, it's three.** Strategic always from the owner, tactical from Leo, creative/structural in R2.
 3. **Extend instead of overwriting.** Project adds knowledge to the core, never removes. Bugs stay confined to the project.
 4. **State memories vs learning memories.** State ages fast and needs revalidation. Learning remains. Mixing the two is debt.
 5. **Philosophy drives mechanism.** Cowork is technically great but philosophically wrong for this model. Tool choice comes after philosophy choice.
 6. **Outdated information is worse than missing information.** The propagation rule exists because stale memory generates silent errors — worse than having no memory at all.
 7. **Manager is tech lead, not implementer.** The Manager's role is to decompose, delegate, review, synthesize — executing is the exception. His team's specialists execute. This mirrors real professional senior engineering practice.
 8. **Author checks, peer validates.** Self-QA and peer review are complementary layers, never redundant. Self-QA catches what the author can check; peer review catches what the author doesn't see because of being immersed in his own reasoning. Both are mandatory.
-9. **Review transparent to the founder.** The founder never opens another session manually to review work. The entire execution → self-QA → peer review → adjustment → approval cycle happens inside the session the founder is working in, analogous to how Claude Code triggers sub-agents today. The founder sees the progress and receives the final result, does not coordinate the middle of the path.
+9. **Review transparent to the owner.** The owner never opens another session manually to review work. The entire execution → self-QA → peer review → adjustment → approval cycle happens inside the session the owner is working in, analogous to how Claude Code triggers sub-agents today. The owner sees the progress and receives the final result, does not coordinate the middle of the path.
 10. **Nothing in the core without evidence of real use.** Specialists, new managers, new rules — everything enters the core only after proving usefulness in a real project. Anticipatory decisions are a source of debt.
 
 ---

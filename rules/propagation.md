@@ -26,9 +26,9 @@ Conversational sessions don't have explicit endings. Every turn is a potential s
 
 The checklist runs in **three situations**, with different weights:
 
-### 1. Primary — explicit founder end-of-session signal
+### 1. Primary — explicit owner end-of-session signal
 
-When the founder signals that the session (or the current block of work) has ended, Leo **invokes the `session-wrap-up` skill**, which runs the full protocol deterministically.
+When the owner signals that the session (or the current block of work) has ended, Leo **invokes the `session-wrap-up` skill**, which runs the full protocol deterministically.
 
 Natural-language signal examples (the list is not exhaustive — Leo recognizes the *intent* in any language, not the exact phrase):
 
@@ -39,21 +39,21 @@ Natural-language signal examples (the list is not exhaustive — Leo recognizes 
 - "manda bala, fecha" / "finaliza"
 - "wrap up", "let's consolidate", "save this", "done for today", "we're good"
 
-If the signal is ambiguous (e.g., the founder says "ok" after a task ends — it could be "ok, done for today" or "ok, keep going"), Leo **asks once** before invoking the skill: *"Do you want me to close the session now (run wrap-up) or is this just a pause?"*.
+If the signal is ambiguous (e.g., the owner says "ok" after a task ends — it could be "ok, done for today" or "ok, keep going"), Leo **asks once** before invoking the skill: *"Do you want me to close the session now (run wrap-up) or is this just a pause?"*.
 
 ### 2. Secondary — opportunistic single-decision propagation
 
-When a decision is **clearly locked** mid-session — e.g., the founder says "iOS 17 is the floor, final" or "decision: TabBar is out, drawer stays" — Leo can propagate **just that decision** immediately, creating or editing the relevant file (e.g., `context/decisions/...`). This **does not** fire the full checklist nor invoke the skill; it's only capturing an isolated fact that won't change.
+When a decision is **clearly locked** mid-session — e.g., the owner says "iOS 17 is the floor, final" or "decision: TabBar is out, drawer stays" — Leo can propagate **just that decision** immediately, creating or editing the relevant file (e.g., `context/decisions/...`). This **does not** fire the full checklist nor invoke the skill; it's only capturing an isolated fact that won't change.
 
 Criteria for "clearly locked":
 
-- The founder used an explicit closing word ("final", "locked", "decided", "not reopening")
+- The owner used an explicit closing word ("final", "locked", "decided", "not reopening")
 - OR the decision was explicitly contrasted with alternatives and one was chosen with a rationale
 - **When in doubt, wait for wrap-up.** Propagating too incrementally recreates the problem this rule solves.
 
 ### 3. Safety net — single question in a long session
 
-If Leo notices the session is growing long (many accumulated decisions, expanding context, multiple turns without any closing signal), he asks **once**: *"There's a lot piling up. Do you want me to close the session now or keep going?"*. That's it — don't insist. The safety net exists to cover the "founder in flow, forgot to wrap up" case, not to break rhythm.
+If Leo notices the session is growing long (many accumulated decisions, expanding context, multiple turns without any closing signal), he asks **once**: *"There's a lot piling up. Do you want me to close the session now or keep going?"*. That's it — don't insist. The safety net exists to cover the "owner in flow, forgot to wrap up" case, not to break rhythm.
 
 **Anti-pattern:** Leo **never** runs the full checklist without one of the three triggers above. Propagating mid-task on his own initiative is like committing on every line of code — it defeats the point of the rule.
 
@@ -65,7 +65,7 @@ When closing a task that falls into the above:
 2. **Consult** the project's `context/propagation-map.md` (if it exists) or use the mental checklist below to map impacted files
 3. **Update** each impacted file
 4. **Verify** with grep that no stale references remain
-5. **Report** to the founder: "Propagation done — I updated X, Y, Z"
+5. **Report** to the owner: "Propagation done — I updated X, Y, Z"
 
 When the trigger is the **explicit end-of-session signal** (situation 1 above), Leo invokes the `session-wrap-up` skill, which orchestrates these steps deterministically (inventory → classify → plan → R2 → execute → report). See `~/.claude/skills/session-wrap-up/SKILL.md` (source in `copilot-core/skills/session-wrap-up/`).
 
@@ -89,4 +89,4 @@ When the trigger is the **explicit end-of-session signal** (situation 1 above), 
 
 ## Final responsibility
 
-**Leo is ultimately responsible for propagation.** Managers can propagate within their scope (domain rule, specific memory), but Leo is the one who ensures nothing slipped through. If the founder complains about missing propagation, Leo answers — not the Manager.
+**Leo is ultimately responsible for propagation.** Managers can propagate within their scope (domain rule, specific memory), but Leo is the one who ensures nothing slipped through. If the owner complains about missing propagation, Leo answers — not the Manager.

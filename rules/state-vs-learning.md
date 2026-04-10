@@ -25,7 +25,7 @@ Memories have two different natures. Treating them the same is like indexing his
 - Describes a rule of conduct ("always grep the real callsite before refactor")
 - Explains an observed pattern ("iCloud Drive + cap sync = `* 2` duplicates")
 - Captures a lesson from failure ("JWT without `typ: 'JWT'` breaks APNs")
-- Documents a founder preference ("no toasts for form errors, use inline")
+- Documents a owner preference ("no toasts for form errors, use inline")
 - Defines project vocabulary or convention
 
 ## How to apply

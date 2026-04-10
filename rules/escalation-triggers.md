@@ -1,13 +1,13 @@
 ---
 name: escalation-triggers
-description: Explicit list of situations that stop the agent and require asking the founder, no negotiation.
+description: Explicit list of situations that stop the agent and require asking the owner, no negotiation.
 ---
 
 ## Rule
 
-There are situations where **no agent** can proceed without explicit approval from the founder, no matter how "obvious" the next step looks. This list is the contract — it's not a suggestion.
+There are situations where **no agent** can proceed without explicit approval from the owner, no matter how "obvious" the next step looks. This list is the contract — it's not a suggestion.
 
-When you hit any of the triggers below, **stop**, document the situation, present the options to the founder, and wait for an answer. Don't "keep moving forward while the founder decides" — actions taken without an answer can generate lost work or a real problem.
+When you hit any of the triggers below, **stop**, document the situation, present the options to the owner, and wait for an answer. Don't "keep moving forward while the owner decides" — actions taken without an answer can generate lost work or a real problem.
 
 ## Universal triggers (apply to all agents)
 
@@ -17,7 +17,7 @@ When you hit any of the triggers below, **stop**, document the situation, presen
 - A deploy that consumes a cloud service budget
 - Buying a domain, license, plugin, font
 - Ad spend, paid promotion
-- Anything that will show up on the founder's invoice
+- Anything that will show up on the owner's invoice
 
 ### 📢 External publication
 
@@ -38,7 +38,7 @@ When you hit any of the triggers below, **stop**, document the situation, presen
 
 ### 🏗️ Structural change
 
-- Creating a new specialist or manager (via Hiring Loop, but with founder R2)
+- Creating a new specialist or manager (via Hiring Loop, but with owner R2)
 - Adding or modifying a rule **in the core**
 - Changing a decision recorded in `context/decisions/`
 - Changing architecture that wasn't in the original task scope
@@ -49,11 +49,11 @@ When you hit any of the triggers below, **stop**, document the situation, presen
 - Contradiction between two existing rules
 - A task that affects two domains whose Managers would disagree
 - A decision that involves the **what** (strategic), not the **how** (tactical)
-- Any situation in which you can't decide without inferring what the founder "probably" wanted
+- Any situation in which you can't decide without inferring what the owner "probably" wanted
 
 ## How to escalate correctly
 
-When a trigger fires, present to the founder in the following format:
+When a trigger fires, present to the owner in the following format:
 
 ```
 ## Escalation — [trigger category]
@@ -63,7 +63,7 @@ When a trigger fires, present to the founder in the following format:
 **Why I stopped:** [which trigger fired — e.g., "destructive action on uncommitted
 files", "spending money", "change to a core rule"]
 
-**Relevant context:** [what the founder needs to know to decide —
+**Relevant context:** [what the owner needs to know to decide —
 no fluff, just facts]
 
 **Options:**
@@ -73,21 +73,21 @@ no fluff, just facts]
 
 **Recommendation:** [which one you think is best and why — 1-2 sentences]
 
-**Decision needed:** [what you need from the founder to move forward]
+**Decision needed:** [what you need from the owner to move forward]
 ```
 
-Don't "disguise" the escalation as a casual question. The founder needs to recognize that this is a real decision point.
+Don't "disguise" the escalation as a casual question. The owner needs to recognize that this is a real decision point.
 
 ## Anti-patterns
 
 ❌ **Asking permission for everything.**
 Escalation is for triggers on this list, not for every trivial decision. Asking permission for every micro-step becomes friction. If it's not on this list and the `think-before-execute` rule puts you in direct mode, execute.
 
-❌ **Skipping a trigger "because the founder already approved something similar before".**
-Each instance is new. The founder approving a push to `main` yesterday does **not** grant you permission to push today without asking.
+❌ **Skipping a trigger "because the owner already approved something similar before".**
+Each instance is new. The owner approving a push to `main` yesterday does **not** grant you permission to push today without asking.
 
 ❌ **Escalating without options.**
-"I don't know what to do" is frustrating. Present at least 2 options, even if one is "do nothing". The agent's job is to **reduce** the founder's cognitive load, not transfer it.
+"I don't know what to do" is frustrating. Present at least 2 options, even if one is "do nothing". The agent's job is to **reduce** the owner's cognitive load, not transfer it.
 
 ❌ **"While you think, I'll get started."**
 No. If you stopped because of a trigger, you stopped for real. Work in parallel after a structural decision almost always becomes rework.
@@ -96,4 +96,4 @@ No. If you stopped because of a trigger, you stopped for real. Work in parallel 
 
 This rule applies to **all agents without exception**. It includes specialists created via Hiring Loop — when they're hired, they automatically inherit this list via `inheritance`.
 
-Leo has a special role: when a Manager reports a task, Leo mentally reviews whether any trigger was (or could have been) activated during execution that should have stopped the work. If he identifies one, he reports to the founder retroactively — "Manager X finished task Y, but during execution there was a moment that should have escalated — here it is".
+Leo has a special role: when a Manager reports a task, Leo mentally reviews whether any trigger was (or could have been) activated during execution that should have stopped the work. If he identifies one, he reports to the owner retroactively — "Manager X finished task Y, but during execution there was a moment that should have escalated — here it is".

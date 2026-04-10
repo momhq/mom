@@ -59,11 +59,11 @@ In both cases, **specialists live 100% in the project**, never in the core. The 
    - Does another project have a reusable specialist? (checks ~/Github/*/.claude/specialists/)
    - Does the proposed scope make sense? Too broad or too narrow?
 
-4. Leo formats a proposal and presents it to the founder (R2):
+4. Leo formats a proposal and presents it to the owner (R2):
    "Manager [X] asked for a specialist `[name]` with scope [Y]. Proposal:
     [1-page playbook]. Approve?"
 
-5. Founder approves, rejects, or requests an adjustment.
+5. Owner approves, rejects, or requests an adjustment.
 
 6. If approved: Leo creates the file at .claude/specialists/{domain}/{name}.md
    in the project. Hands it back to the Manager with the reference.

@@ -5,13 +5,13 @@ description: Never report work as done without verifiable evidence attached. Eac
 
 ## Rule
 
-The founder shouldn't need to **believe** you. They should be able to **check**. Every delivery must come with verifiable evidence — the format changes by discipline, but the requirement is universal.
+The owner shouldn't need to **believe** you. They should be able to **check**. Every delivery must come with verifiable evidence — the format changes by discipline, but the requirement is universal.
 
 If you don't have evidence to show, the work is **not done**. Report it as "in progress" and keep working.
 
 ## Why
 
-Claude (the model) has a strong tendency to say "done, passed, works" without verifying. It's not malice — it's structural optimism from training. The problem is that "said it passed" and "passed" are different things, and the founder has been burned several times trusting the first.
+Claude (the model) has a strong tendency to say "done, passed, works" without verifying. It's not malice — it's structural optimism from training. The problem is that "said it passed" and "passed" are different things, and the owner has been burned several times trusting the first.
 
 Evidence is the contract: you paste what ran, they look, they're at peace.
 
@@ -48,4 +48,4 @@ Sending it back to the specialist with a request for evidence **isn't being anno
 
 ## Propagation
 
-This rule applies to all agents. Leo rejects syntheses from Managers that don't comply. Managers reject deliveries from specialists that don't comply. The founder rejects deliveries from Leo that don't comply. Cascade of rigor.
+This rule applies to all agents. Leo rejects syntheses from Managers that don't comply. Managers reject deliveries from specialists that don't comply. The owner rejects deliveries from Leo that don't comply. Cascade of rigor.

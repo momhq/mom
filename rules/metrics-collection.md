@@ -9,7 +9,7 @@ Every executed task leaves **one metric entry** in a project-specific JSONL file
 
 **Where:** `<project>/.claude/metrics/<YYYY-MM>.jsonl` (one file per month, one line per task)
 
-**Responsibility:** Leo writes the entry when closing the task and synthesizing for the founder. Managers pass the raw data to Leo as part of the final report.
+**Responsibility:** Leo writes the entry when closing the task and synthesizing for the owner. Managers pass the raw data to Leo as part of the final report.
 
 ## Why
 
@@ -17,7 +17,7 @@ Inspired by Karpathy's autoresearch paradigm: any system that intends to be refi
 
 Two immediate uses:
 
-1. **Deciding where to refine.** After ~20-30 tasks, founder and Leo review the numbers. Which metric is worst? That's the area that needs adjustment in the core or rules.
+1. **Deciding where to refine.** After ~20-30 tasks, owner and Leo review the numbers. Which metric is worst? That's the area that needs adjustment in the core or rules.
 2. **Input for the offline auto-refinement loop** (horizon 2 of the RDD §8.10). Once there's enough volume, we can build a benchmark from the logged tasks and run deliberate refinement of a Manager against real history.
 
 ## The 8 metrics
@@ -27,10 +27,10 @@ Two immediate uses:
 **Collection:** the review instance records "approved" or "rejected" + iteration count.
 **Field:** `review.first_pass` (bool), `review.iterations` (int)
 
-### 2. Founder rejection rate
-**What it measures:** % of final deliveries where the founder rejects or requests a substantial change after Leo reports "done".
-**Collection:** Leo records whether, after reporting, the founder needed to request an adjustment in the same turn or the next.
-**Field:** `founder.accepted_on_delivery` (bool)
+### 2. Owner rejection rate
+**What it measures:** % of final deliveries where the owner rejects or requests a substantial change after Leo reports "done".
+**Collection:** Leo records whether, after reporting, the owner needed to request an adjustment in the same turn or the next.
+**Field:** `owner.accepted_on_delivery` (bool)
 
 ### 3. Self-QA honesty rate
 **What it measures:** % of tasks where the executing agent's self-QA was honest — i.e., it said it passed AND it actually passed review.
@@ -38,31 +38,31 @@ Two immediate uses:
 **Field:** `self_qa.honest` (bool)
 
 ### 4. Rework cycles
-**What it measures:** the number of back-and-forth iterations between executor and reviewer (or between Leo and founder) until the task closes.
+**What it measures:** the number of back-and-forth iterations between executor and reviewer (or between Leo and owner) until the task closes.
 **Collection:** Leo counts.
 **Field:** `rework_cycles` (int)
 
 ### 5. Hiring loop hit rate
 **What it measures:** % of tasks where the Manager correctly recognized a gap (and fired the Hiring Loop) **vs** % where they tried without a specialist and failed because of it.
-**Collection:** when peer review or the founder identifies that a failure was due to a missing specialist, that task counts as a "hit rate miss". Tasks that fired the Hiring Loop count as a "hit".
+**Collection:** when peer review or the owner identifies that a failure was due to a missing specialist, that task counts as a "hit rate miss". Tasks that fired the Hiring Loop count as a "hit".
 **Field:** `hiring_loop.outcome` (string: "triggered" | "missed" | "na")
 
 ### 6. Delegation quality
 **What it measures:** whether Leo delegated to the correct agent on the first attempt, or tried to solve it himself / sent it to the wrong agent first.
-**Why it exists:** the Logbook v1.1 pilot revealed that Leo sometimes attempts to provide solutions directly (e.g., design decisions) instead of delegating to the appropriate Manager. The original 5 metrics didn't capture this — the task would still show as "delivered, founder accepted" even though the process was wrong.
-**Collection:** Leo self-reports honestly. If Leo catches himself having worked on something before delegating, or if the founder points it out, record it.
+**Why it exists:** the Logbook v1.1 pilot revealed that Leo sometimes attempts to provide solutions directly (e.g., design decisions) instead of delegating to the appropriate Manager. The original 5 metrics didn't capture this — the task would still show as "delivered, owner accepted" even though the process was wrong.
+**Collection:** Leo self-reports honestly. If Leo catches himself having worked on something before delegating, or if the owner points it out, record it.
 **Field:** `delegation.quality` (string: "correct_first" | "self_attempted_then_delegated" | "wrong_agent_then_corrected")
 
 ### 7. Internal iterations
-**What it measures:** the number of significant back-and-forth iterations that happened **inside** the execution — between Leo and the Manager, between the Manager and the specialist, or between Leo and the founder on clarifications — **before** the formal delivery.
+**What it measures:** the number of significant back-and-forth iterations that happened **inside** the execution — between Leo and the Manager, between the Manager and the specialist, or between Leo and the owner on clarifications — **before** the formal delivery.
 **Why it exists:** `rework_cycles` only counts post-delivery rejections. The Logbook pilot had a Designer Manager analysis that went through 3 rounds of factual corrections before delivery, but `rework_cycles` showed 0 because the final delivery was accepted. The real friction was invisible.
-**Collection:** the Manager reports how many significant revision rounds happened during execution. A "round" means the agent produced output, received correction (from self-QA, from Leo, or from the founder mid-task), and revised. Minor typo fixes don't count; substantive corrections do.
+**Collection:** the Manager reports how many significant revision rounds happened during execution. A "round" means the agent produced output, received correction (from self-QA, from Leo, or from the owner mid-task), and revised. Minor typo fixes don't count; substantive corrections do.
 **Field:** `internal_iterations` (int)
 
 ### 8. Leo operational errors
 **What it measures:** errors made by Leo himself that generated unnecessary work, delays, or required recovery — regardless of whether the task ultimately succeeded.
 **Why it exists:** Leo's own mistakes (e.g., deleting a base branch in stacked PRs, asserting a rule is missing without checking config) were invisible in the original metrics. They'd show up as successful "recovery" tasks or not at all. This metric ensures Leo's operational quality is tracked with the same rigor as the team's.
-**Collection:** Leo self-reports. When Leo causes an incident that requires recovery work, or the founder points out a Leo-level mistake, log it. Be honest — this metric exists precisely because the system was hiding its own errors.
+**Collection:** Leo self-reports. When Leo causes an incident that requires recovery work, or the owner points out a Leo-level mistake, log it. Be honest — this metric exists precisely because the system was hiding its own errors.
 **Field:** `leo_errors` (array of strings, each a brief description of the error; empty array `[]` if none)
 
 ## JSONL entry format
@@ -73,7 +73,7 @@ Each line in the file is a self-contained valid JSON:
 {
   "task_id": "2026-04-08-001",
   "timestamp": "2026-04-08T15:30:00Z",
-  "founder_prompt_summary": "Add a settings screen with a dark mode toggle",
+  "owner_prompt_summary": "Add a settings screen with a dark mode toggle",
   "manager": "engineer",
   "specialist_used": "frontend-react-specialist",
   "domain_category": "ui_only",
@@ -84,7 +84,7 @@ Each line in the file is a self-contained valid JSON:
   "self_qa": {
     "honest": true
   },
-  "founder": {
+  "owner": {
     "accepted_on_delivery": true
   },
   "rework_cycles": 0,
@@ -101,25 +101,25 @@ Each line in the file is a self-contained valid JSON:
 }
 ```
 
-**Required fields:** `task_id`, `timestamp`, `manager`, `review`, `founder`, `rework_cycles`, `hiring_loop`, `delegation`, `internal_iterations`, `leo_errors`
+**Required fields:** `task_id`, `timestamp`, `manager`, `review`, `owner`, `rework_cycles`, `hiring_loop`, `delegation`, `internal_iterations`, `leo_errors`
 **Optional fields:** `specialist_used`, `domain_category`, `self_qa`, `duration_minutes_approximate`, `notes`
 
 ## How to apply
 
 ### End of task (Leo)
 
-Before reporting done to the founder:
+Before reporting done to the owner:
 
 1. Collect raw data from each participant in the task (Manager, specialists, reviewer)
 2. Compile a JSONL entry following the format above
 3. Write (append) to `<project>/.claude/metrics/<YYYY-MM>.jsonl`
    - Create the file if it doesn't exist
    - Create the `.claude/metrics/` directory if it doesn't exist
-4. Report to the founder normally (metric collection is transparent)
+4. Report to the owner normally (metric collection is transparent)
 
 ### Periodic review
 
-Every 20-30 tasks (or once a month), the founder can ask Leo for a **metrics report**:
+Every 20-30 tasks (or once a month), the owner can ask Leo for a **metrics report**:
 
 ```
 Leo, show me this month's metric numbers.
@@ -135,17 +135,17 @@ That's the input for the next core refinement conversation.
 
 ## What NOT to measure
 
-- **Real execution time** — Claude Code is already non-deterministic in time, and the founder doesn't care whether a task takes 5 or 15 minutes. `duration_minutes_approximate` is optional and coarse.
+- **Real execution time** — Claude Code is already non-deterministic in time, and the owner doesn't care whether a task takes 5 or 15 minutes. `duration_minutes_approximate` is optional and coarse.
 - **Subjective quality** — "did the code come out pretty?" is not a metric. Metrics are binary or countable.
 - **Number of files changed** — weak correlation with quality. A big, well-done task is better than a small, badly-done one.
 - **Tokens consumed** — it'll vary too much, and the refinement decision should not be to optimize cost at the expense of quality.
 
 ## Privacy
 
-Metric logs live inside the project's `.claude/metrics/`, **gitignored**. They are not committed, they don't go to the repo. They are the founder's local data and serve the founder's analysis.
+Metric logs live inside the project's `.claude/metrics/`, **gitignored**. They are not committed, they don't go to the repo. They are the owner's local data and serve the owner's analysis.
 
 ## Responsibility
 
-This rule depends on Leo being disciplined about collecting and writing. If Leo forgets to log tasks, the dataset becomes skewed and refinement decisions will be based on a biased sample. The founder can periodically audit: "Leo, show me the last 10 entries in metrics.jsonl" — if something's missing, that's a signal to reinforce.
+This rule depends on Leo being disciplined about collecting and writing. If Leo forgets to log tasks, the dataset becomes skewed and refinement decisions will be based on a biased sample. The owner can periodically audit: "Leo, show me the last 10 entries in metrics.jsonl" — if something's missing, that's a signal to reinforce.
 
-**Leo must record his own errors with the same rigor he records the team's.** The Logbook v1.1 pilot showed that without `delegation.quality`, `internal_iterations`, and `leo_errors`, the metrics painted a falsely positive picture — zero rework, all first-pass approved — while the founder experienced real friction (3 rounds of Designer corrections, Leo attempting design solutions instead of delegating, branch deletion causing PR cascade). Metrics that only measure output quality without measuring process quality are structurally biased toward positive. These 3 fields exist to close that gap. If Leo finds himself wanting to skip `leo_errors` or mark `delegation.quality` as `"correct_first"` when it wasn't — that's exactly the honesty problem `self_qa.honest` was designed to catch, applied to Leo himself.
+**Leo must record his own errors with the same rigor he records the team's.** The Logbook v1.1 pilot showed that without `delegation.quality`, `internal_iterations`, and `leo_errors`, the metrics painted a falsely positive picture — zero rework, all first-pass approved — while the owner experienced real friction (3 rounds of Designer corrections, Leo attempting design solutions instead of delegating, branch deletion causing PR cascade). Metrics that only measure output quality without measuring process quality are structurally biased toward positive. These 3 fields exist to close that gap. If Leo finds himself wanting to skip `leo_errors` or mark `delegation.quality` as `"correct_first"` when it wasn't — that's exactly the honesty problem `self_qa.honest` was designed to catch, applied to Leo himself.

@@ -63,7 +63,7 @@ destructive action, changing a core rule.
 - Second person (direct to the agent), direct language, zero corporate speak
 - PT example: "Você é o tech lead de dev" and not "Você é o líder técnico responsável pela disciplina de desenvolvimento..."
 - EN example: "You're the dev tech lead" and not "You are the development technical lead responsible for..."
-- **Language** of Leo's interaction with the founder, and language of the core files, is decided at project setup (see D6), not in this architectural decision. The founder has a personal preference to interact with AI in PT but keep project code/docs in EN — this is legitimately per-user/project config, not per-core.
+- **Language** of Leo's interaction with the owner, and language of the core files, is decided at project setup (see D6), not in this architectural decision. The owner has a personal preference to interact with AI in PT but keep project code/docs in EN — this is legitimately per-user/project config, not per-core.
 
 ### D3 — Frontmatter: 6 fixed fields
 
@@ -108,7 +108,7 @@ Every Manager file follows this section order (exact names in Portuguese):
 2. **Princípios** — short bullets. The 3-5 central principles of the role
 3. **Hiring loop** — 1-2 sentences about when to trigger specialist hiring
 4. **Self-QA** — discipline-specific proof checklist
-5. **Escalation** — concrete list of what stops the agent and forces a question to the founder
+5. **Escalation** — concrete list of what stops the agent and forces a question to the owner
 
 Extra sections only if justified by the nature of the domain. Default is to keep the 5 above.
 
@@ -129,20 +129,20 @@ Leo (Manager of Managers) also enters this first batch — he is a prerequisite 
 
 ### D6 — Project initialization flow
 
-Founder's vision, documented literally:
+Owner's vision, documented literally:
 
 > "I imagine the following as installation: I have some kind of `copilot init` like you mentioned, that generates an initial copilot setup. In that setup, it will practically clone the copilot-core repo and will ask for the repo (or repos if it's a big project) that the Copilot will manage. With that, it already assembles the initial structure and already links with the code repos themselves. From there, the next step would be to collect more project context, it could be some kind of interaction already via Claude Code, where the user could send some files (doc, md, pdf, whatever) and the Leo of this new Copilot already makes a first version of context and finishes doing the setup."
 
 **Detailed flow (for the implementation session):**
 
-1. **Invocation** — founder runs `copilot init` in some terminal (concrete command implementation is a deferred detail)
+1. **Invocation** — owner runs `copilot init` in some terminal (concrete command implementation is a deferred detail)
 2. **Machine bootstrap (first time only)** — if `copilot-core` is not cloned in `~/Github/copilot-core/` nor synced in `~/.claude/`, init:
    - Clones `git clone <url> ~/Github/copilot-core`
    - Runs `bash ~/Github/copilot-core/scripts/sync.sh` (see D8) to populate `~/.claude/` with symlinks
-3. **Project setup** — asks the founder:
+3. **Project setup** — asks the owner:
    - Path to the project's main repo
    - Paths to additional repos if it's a multi-repo project (e.g., Saintfy = saintfy/ + saintfy-web/)
-   - **Interaction language** of Leo with the founder (default: PT)
+   - **Interaction language** of Leo with the owner (default: PT)
    - **Language of the project files** — code, docs, PRDs, RDDs (default: EN)
    - These two choices are saved in `.claude/project-config.yml` and are read by Leo at the start of each session
 4. **Scaffolding** — creates in each project repo:
@@ -151,14 +151,14 @@ Founder's vision, documented literally:
    - `.claude/context/project.md` — empty template with sections to fill
    - `.claude/specialists/` empty (hiring loop will populate)
 5. **Interactive context collection** — opens a Claude Code session and puts Leo in the interviewer role:
-   - Leo asks the founder to share existing context files (PRDs, docs, README, pitch, anything)
-   - Founder throws files into the session (paste, paths, or upload if Desktop)
+   - Leo asks the owner to share existing context files (PRDs, docs, README, pitch, anything)
+   - Owner throws files into the session (paste, paths, or upload if Desktop)
    - Leo reads everything, synthesizes first version of `context/project.md`
    - Leo asks 3-5 calibration questions if something stayed ambiguous (stack, domain, audience, deadlines)
-6. **Setup closure** — Leo confirms with the founder that the captured context is correct, commits the initial scaffolding in the project repo, and reports "ready to work"
-7. **Normal use** — from there on founder talks normally, Leo and managers operate, context enriches organically
+6. **Setup closure** — Leo confirms with the owner that the captured context is correct, commits the initial scaffolding in the project repo, and reports "ready to work"
+7. **Normal use** — from there on owner talks normally, Leo and managers operate, context enriches organically
 
-**Core update (founder on his machine):**
+**Core update (owner on his machine):**
 
 - `cd ~/Github/copilot-core && git pull` — updates source files
 - Thanks to the D8 symlinks, updates are **immediate** — no need to re-run sync.sh if only content changed
@@ -171,7 +171,7 @@ Founder's vision, documented literally:
 
 **Problem:** Claude as a model "knows" how to do almost everything superficially. A Engineer Manager instructed to implement APNs will try — because it has superficial knowledge of the domain from training. This is exactly the failure mode that the hiring loop should prevent.
 
-The founder raised this point explicitly: "we will need, somehow, to 'force' the model to identify this". It is not enough to have a rule saying "ask for specialist when you don't know" — the model will think it knows.
+The owner raised this point explicitly: "we will need, somehow, to 'force' the model to identify this". It is not enough to have a rule saying "ask for specialist when you don't know" — the model will think it knows.
 
 **Three mechanisms that will be combined in the `know-what-you-dont-know` rule:**
 
@@ -193,7 +193,7 @@ Before writing any line of code, the Manager MUST fill out this mental form and 
   [ ] Low OR high without a citable source → STOP
 ```
 
-The obligation to **write** the answer (not just think) is the trick — it forces the model to materialize meta reasoning that it normally skips. If the model tries to dodge by writing "yes" without a source, the founder sees it and calls it out.
+The obligation to **write** the answer (not just think) is the trick — it forces the model to materialize meta reasoning that it normally skips. If the model tries to dodge by writing "yes" without a source, the owner sees it and calls it out.
 
 #### Mechanism 2 — Trust gradient per task category
 
@@ -232,10 +232,10 @@ When peer review rejects work from a Manager or specialist, before simply correc
 - Is this lesson specific to the current project or universal?
 - If universal: propose to Leo addition to the core agent file
 - If specific to the project: propose to Leo addition to the project's extended agent file
-- Proposals go to the founder via R2 before being applied
+- Proposals go to the owner via R2 before being applied
 ```
 
-This institutionalizes learning by failure. Without this step, lessons stay in the founder's head (until forgotten) or in memories that can go stale. With this step, each failure has a chance to become permanent enforcement.
+This institutionalizes learning by failure. Without this step, lessons stay in the owner's head (until forgotten) or in memories that can go stale. With this step, each failure has a chance to become permanent enforcement.
 
 **Implication for writing the `know-what-you-dont-know` rule:** these 4 mechanisms are mandatory requirements. When Q2 is addressed, the rule needs to describe:
 - Pre-execution check template (mechanism 1)
@@ -245,15 +245,15 @@ This institutionalizes learning by failure. Without this step, lessons stay in t
 
 ### D8 — sync.sh: concrete design
 
-**Problem:** founder wants core updates via simple `git pull`, without breaking local files in `~/.claude/` (memories, settings, projects, etc.), working multi-machine, and recoverable via rollback.
+**Problem:** owner wants core updates via simple `git pull`, without breaking local files in `~/.claude/` (memories, settings, projects, etc.), working multi-machine, and recoverable via rollback.
 
 **Options evaluated:**
 
 | Option | How it works | Why rejected |
 |---|---|---|
-| `rsync --delete` | Copies core to `~/.claude/`, deletes orphans | `--delete` is dangerous; a bug can erase the founder's memories |
+| `rsync --delete` | Copies core to `~/.claude/`, deletes orphans | `--delete` is dangerous; a bug can erase the owner's memories |
 | Git submodule in `~/.claude/` | `~/.claude/` becomes partially a git checkout | Mixes user state with core content; submodule UX is bad; confuses Claude Code |
-| Symlink of the whole directory | `ln -s core/agents ~/.claude/agents` | Replaces the entire directory — founder loses local agents if any exist |
+| Symlink of the whole directory | `ln -s core/agents ~/.claude/agents` | Replaces the entire directory — owner loses local agents if any exist |
 | **Per-file symlinks (recommended)** | Script symlinks each individual file from the core to the corresponding locations in `~/.claude/` | Works with Claude Code's flat loading, preserves local files, git pull = immediate update, idempotent |
 
 **Chosen design: `sync.sh` with per-file symlinks**
@@ -308,13 +308,13 @@ echo "Re-run sync.sh only if new files were added to core."
 
 1. **Idempotent.** Safe to run N times. `ln -sf` overwrites existing symlink, doesn't error.
 2. **Zero-copy after the first run.** Once the symlinks are created, `git pull` in the core is enough for an update — the symlinks point to live files in the repo.
-3. **Re-run only when topology changes.** If the core adds a new `agents/managers/research.md`, founder runs `sync.sh` to create the new symlink. If the core only edits the content of an existing `engineer.md`, zero work — the symlink already points to the file.
+3. **Re-run only when topology changes.** If the core adds a new `agents/managers/research.md`, owner runs `sync.sh` to create the new symlink. If the core only edits the content of an existing `engineer.md`, zero work — the symlink already points to the file.
 4. **Local files preserved.** Memories in `~/.claude/memory/`, settings in `~/.claude/settings.json`, projects in `~/.claude/projects/` — none of that is touched.
 5. **Trivial rollback.** `cd ~/Github/copilot-core && git checkout <rev>` — symlinks follow automatically. If the checkout removed files, running sync.sh cleans up dangling symlinks.
 6. **Dangling cleanup.** Find with `! -exec test -e` detects symlinks whose target was removed and cleans them — avoids clutter.
 7. **Multi-machine.** Each new Mac: `git clone <core-url> ~/Github/copilot-core && bash ~/Github/copilot-core/scripts/sync.sh`. Two lines, done.
 
-**Potential conflict with local files of the same name:** if the founder has a local `~/.claude/agents/engineer.md` and the core also has `engineer.md`, the symlink overwrites the local. Solution: core uses distinctive names (e.g., `core-dev-manager.md`) OR founder uses a local subdirectory that doesn't conflict. **Decision:** core uses clean names (`engineer.md`, `designer.md`), founder avoids conflicts by keeping custom local agents with unique names (`dev-experimental.md`). Edge case, unlikely in practice.
+**Potential conflict with local files of the same name:** if the owner has a local `~/.claude/agents/engineer.md` and the core also has `engineer.md`, the symlink overwrites the local. Solution: core uses distinctive names (e.g., `core-dev-manager.md`) OR owner uses a local subdirectory that doesn't conflict. **Decision:** core uses clean names (`engineer.md`, `designer.md`), owner avoids conflicts by keeping custom local agents with unique names (`dev-experimental.md`). Edge case, unlikely in practice.
 
 **When to actually write it:** together with the creation of the `copilot-core` repo in the pilot session. Not before — no point without having content in the repo to sync.
 
@@ -327,14 +327,14 @@ Karpathy's autoresearch insists on a measurable fitness function as a prerequisi
 | Metric | What it measures | How to collect |
 |---|---|---|
 | **Peer review pass rate** | % of tasks that pass peer review on the first try | Review instance logs approval/rejection |
-| **Founder rejection rate** | % of deliveries the founder rejects saying "not what I asked for" | Leo logs when the founder rejects the final synthesis |
+| **Owner rejection rate** | % of deliveries the owner rejects saying "not what I asked for" | Leo logs when the owner rejects the final synthesis |
 | **Self-QA honesty rate** | % of tasks where the agent's self-QA was honest (not "said it passed but failed in review") | Compare self-QA output with review result |
 | **Rework cycles** | Average number of back-and-forths per task before approval | Leo counts iterations per task |
 | **Hiring loop hit rate** | % of tasks where Manager recognized a gap correctly (reported to Leo) vs tried without specialist and broke | Compare hiring requests with failures in uncovered domains |
 
 **Where the logs live:** `~/Github/<project>/.claude/metrics/<YYYY-MM>.jsonl` — file per month, one entry per task. Simple, readable, greppable format. Outside `outputs/` because it is continuous operational metric, not a work artifact.
 
-**How it becomes refinement:** after ~20-30 tasks in the pilot (2-4 weeks), founder and Leo review the metrics together. Where are the worst numbers? That's the area that needs refinement in the core. Avoids "guesswork" about what is wrong.
+**How it becomes refinement:** after ~20-30 tasks in the pilot (2-4 weeks), owner and Leo review the metrics together. Where are the worst numbers? That's the area that needs refinement in the core. Avoids "guesswork" about what is wrong.
 
 **Active decision (not parking lot):** metrics enter the universal rules to be written in Q2. Needs a `metrics-collection.md` rule that all agents load and respect.
 
@@ -344,7 +344,7 @@ You brought Karpathy's autoresearch as a question: "does it make sense to levera
 
 #### Horizon 1 — Online learning (during real use)
 
-Already covered by D7 Mechanism 3 (post-failure hardening) + D7 Mechanism 4 (lessons learned pass). Each real failure detected in peer review becomes a proposal for agent file refinement, validated by the founder via R2, applied.
+Already covered by D7 Mechanism 3 (post-failure hardening) + D7 Mechanism 4 (lessons learned pass). Each real failure detected in peer review becomes a proposal for agent file refinement, validated by the owner via R2, applied.
 
 **Status:** baked into this session. Part of D7.
 
@@ -352,10 +352,10 @@ Already covered by D7 Mechanism 3 (post-failure hardening) + D7 Mechanism 4 (les
 
 What you originally read in autoresearch. The idea is:
 
-1. Founder chooses a Manager or skill to refine (e.g., Engineer Manager)
+1. Owner chooses a Manager or skill to refine (e.g., Engineer Manager)
 2. Prepares a **benchmark** — set of representative tasks from the domain with "expected answers" or success criteria
 3. Runs the current Manager against the benchmark, measures result
-4. Another instance of the agent (or the founder via Claude) analyzes the results, proposes changes to the agent file
+4. Another instance of the agent (or the owner via Claude) analyzes the results, proposes changes to the agent file
 5. Applies change, re-runs benchmark, compares
 6. Keeps if improved, discards if worsened
 7. Iterates until convergence or diminishing returns
@@ -376,7 +376,7 @@ What you originally read in autoresearch. The idea is:
 
 Added to the RDD parking lot (§9):
 
-- **Style configurable per project**: founder suggested that verbosity (minimalist vs verbose) could be configurable via `project-config.yml`. Decision: **not now**. If one day a project needs a different style (e.g., a formal corporate project that requires explanatory prose), add it. For now, minimalist is baked into the core.
+- **Style configurable per project**: owner suggested that verbosity (minimalist vs verbose) could be configurable via `project-config.yml`. Decision: **not now**. If one day a project needs a different style (e.g., a formal corporate project that requires explanatory prose), add it. For now, minimalist is baked into the core.
 - **Tone configurable per project**: tone is decided (casual) but could become config in the future if someone open-sources uses it in a formal corporate context. Not now.
 - **Workflow field in the frontmatter**: considered and rejected due to redundancy with skills. If this becomes useful again in the future (e.g., workflows that are not skills), reevaluate.
 - **Language configured per project is an active decision (D6), not parking lot.** Confirmed that it will be real config at setup.
@@ -388,8 +388,8 @@ Added to the RDD parking lot (§9):
 
 These decisions were left **intentionally open** in this session:
 
-- **Q2 — Exact content of the 10 universal rules**: founder trusts Leo to write the draft, he reviews. Next implementation session.
-- **Q3 — Adversarial prompt for review mode**: part of the `peer-review-automatic` rule. Leo drafts, founder reviews. Possibly with a "core + per-domain specification" structure.
+- **Q2 — Exact content of the 10 universal rules**: owner trusts Leo to write the draft, he reviews. Next implementation session.
+- **Q3 — Adversarial prompt for review mode**: part of the `peer-review-automatic` rule. Leo drafts, owner reviews. Possibly with a "core + per-domain specification" structure.
 - **Q4 — Technical mechanism of sub-invocation**: test Claude Code's native Task tool in the pilot. If it works, lock it. If not, rethink.
 - **Q7 — Logbook pilot strategy**: decide after having the 4 managers written
 - **Q8 — Saintfy migration**: decide after the pilot validates the model
@@ -431,7 +431,7 @@ When the 4 managers + Leo are written, verify:
 
 1. **Structural consistency** — each file follows the 5 fixed sections (Papel, Princípios, Hiring loop, Self-QA, Escalation) in order, with the exact names
 2. **Valid frontmatter** — all 6 fields correct, valid YAML, `model: sonnet` default
-3. **Tone and style** — fast read (founder reads each manager in <3 minutes and understands the role)
+3. **Tone and style** — fast read (owner reads each manager in <3 minutes and understands the role)
 4. **Zero mention of a specific project** — no core file mentions "Saintfy", "logbook", specific stack, person name, credential, ID
 5. **Cross-reference** — `extends` paths make sense; cited domain rules exist or are on the "to create in Q2" list
 6. **Conceptual extension test** — can I mentally imagine how Saintfy would extend the Engineer Manager (adding shadcn-first) without conflict?
@@ -443,7 +443,7 @@ Empirical verification only becomes possible with the pilot (Q7), which depends 
 ## Next steps after this plan is approved
 
 1. **Manager implementation session** — write Leo + 4 Managers following D1-D5. Output: 5 files in `Saintfy-Copilot/docs/rdds/2026-04-08-copilot-core-architecture/draft-managers/` (draft for review, not yet the final core because the `copilot-core` repo doesn't exist)
-2. **Universal rules session (Q2)** — Leo drafts the 10 universal rules + `metrics-collection.md` (new, D9), founder reviews
+2. **Universal rules session (Q2)** — Leo drafts the 10 universal rules + `metrics-collection.md` (new, D9), owner reviews
 3. **Pilot decision (Q7)** — with managers + rules ready, decide pilot scope on logbook
 4. **Pilot** — create `copilot-core` repo, populate with approved content, run sync.sh (D8) to activate in `~/.claude/`, test on logbook
 5. **Pilot-based adjustments** — Q4 (sub-invocation mechanism via Task tool) is resolved here

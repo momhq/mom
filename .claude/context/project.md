@@ -1,6 +1,6 @@
 # copilot-core — the project
 
-This repo **is** the core of the multi-agent system that manages all the founder's other projects. It's a meta project: the code here isn't a product, it's the definition of the working method that the products (Logbook, Saintfy, future ones) inherit.
+This repo **is** the core of the multi-agent system that manages all the owner's other projects. It's a meta project: the code here isn't a product, it's the definition of the working method that the products (Logbook, Saintfy, future ones) inherit.
 
 ## What lives here
 
@@ -19,7 +19,7 @@ Markdown + YAML frontmatter for agents/rules. Node.js + TypeScript for the CLI (
 
 ## Core philosophy
 
-**Copilot-style, not Paperclip-style.** Founder talks to Leo, Leo delegates to the Managers, Managers delegate to the specialists. Review is automatic via adversarial sub-instances. Founder decides the *what* and *why*, Leo decides the *who* (routing and delegation), Managers decide the *how*, comes back to the founder on anything irreversible or structural.
+**Copilot-style, not Paperclip-style.** Owner talks to Leo, Leo delegates to the Managers, Managers delegate to the specialists. Review is automatic via adversarial sub-instances. Owner decides the *what* and *why*, Leo decides the *who* (routing and delegation), Managers decide the *how*, comes back to the owner on anything irreversible or structural.
 
 **Extend, never override.** Projects inherit the core via `extends:` in the Managers' frontmatter. They can add rules, self-QA items, specifics to the local stack. They can never remove universal behavior.
 
@@ -29,7 +29,7 @@ The core itself follows the method it defines:
 
 1. **Big architectural decision** → becomes a new RDD in `docs/rdds/YYYY-MM-DD-slug/`
 2. **Post-implementation refinement** → becomes an append-only entry in the original RDD's `docs/rdds/.../refinements.md`
-3. **New rule or change to existing rule** → mandatory escalation trigger; only applies with explicit R2 from the founder
+3. **New rule or change to existing rule** → mandatory escalation trigger; only applies with explicit R2 from the owner
 4. **New Manager** → strategic decision, goes through R2 and becomes an RDD
 5. **New skill** → escalation trigger; only added when there's a clear reason (don't create speculative skills)
 

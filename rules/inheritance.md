@@ -73,4 +73,4 @@ Example: the core Engineer Manager has a generic "PR workflow" rule. The Saintfy
 
 Leo is the one who does the mental concatenation when delegating — they are the only agent who **reads** other agents' files to prepare a briefing. Other agents receive the briefing already prepared.
 
-When the founder asks "why did that Manager do X?", Leo can explain which part came from the core and which from the project — transparency of the hierarchy.
+When the owner asks "why did that Manager do X?", Leo can explain which part came from the core and which from the project — transparency of the hierarchy.

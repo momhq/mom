@@ -9,7 +9,7 @@ You talk to **Leo** (the Manager of Managers). Leo delegates to the right **Mana
 You decide the **what** and **why**. Leo decides the **who**. Managers decide the **how**. Anything irreversible or structural comes back to you for approval.
 
 ```
-You (founder)
+You (owner)
   └─ Leo (routing, synthesis, propagation)
        ├─ Engineer Manager → specialists (frontend, backend, infra, ...)
        ├─ Designer Manager → specialists (UI, assets, ...)
@@ -148,7 +148,7 @@ Every piece of work goes through adversarial peer review by another instance of 
 
 ### 8 operational metrics
 
-Every task produces a JSONL entry tracking: peer review pass rate, founder acceptance, self-QA honesty, rework cycles, hiring loop hit rate, delegation quality, internal iterations, and Leo's own errors.
+Every task produces a JSONL entry tracking: peer review pass rate, owner acceptance, self-QA honesty, rework cycles, hiring loop hit rate, delegation quality, internal iterations, and Leo's own errors.
 
 ## What it is not
 

@@ -22,7 +22,7 @@ When a *new* session opened later that same day to ask "what was decided?", it h
 
 **Initial reading:** Leo of that session forgot to run the propagation checklist. Failure of discipline.
 
-**Correct reading (after discussion with founder):** Leo had no way to know the task had "ended". The session was still open and productive when the decisions were made. Running the checklist after every decision would have been noisy and risked persisting intermediate state that was still changing. Running it at the "end" required knowing where the end was — which only the founder knows.
+**Correct reading (after discussion with owner):** Leo had no way to know the task had "ended". The session was still open and productive when the decisions were made. Running the checklist after every decision would have been noisy and risked persisting intermediate state that was still changing. Running it at the "end" required knowing where the end was — which only the owner knows.
 
 The rule was missing a **trigger semantic**, not a discipline enforcement. Adding more urgency to the existing rule would not have fixed it. Defining *when* to fire the checklist did.
 
@@ -30,29 +30,29 @@ The rule was missing a **trigger semantic**, not a discipline enforcement. Addin
 
 Three-part trigger model added to `rules/propagation.md` as a new section "Quando disparar o checklist completo":
 
-1. **Principal — explicit founder signal.** When founder says something like "fecha a sessão", "consolida aí", "tá bom assim", Leo invokes the `session-wrap-up` skill, which runs the full checklist deterministically. Natural-language recognition — not a slash command, not a keyword.
+1. **Principal — explicit owner signal.** When owner says something like "fecha a sessão", "consolida aí", "tá bom assim", Leo invokes the `session-wrap-up` skill, which runs the full checklist deterministically. Natural-language recognition — not a slash command, not a keyword.
 
-2. **Secondary — opportunistic single-decision propagation.** When a decision is clearly locked mid-session (founder explicitly uses "ponto final", "locked", "decidido"), Leo can propagate *just that decision* immediately without running the full checklist. Conservative criterion: in doubt, wait for wrap-up.
+2. **Secondary — opportunistic single-decision propagation.** When a decision is clearly locked mid-session (owner explicitly uses "ponto final", "locked", "decidido"), Leo can propagate *just that decision* immediately without running the full checklist. Conservative criterion: in doubt, wait for wrap-up.
 
-3. **Safety net — single question in long sessions.** If the session is accumulating decisions without a fechamento signal, Leo asks **once**: *"Tá juntando bastante coisa. Quer que eu feche a sessão agora ou seguimos?"*. Not repeated. Exists for the "founder in flow, forgot to wrap up" case.
+3. **Safety net — single question in long sessions.** If the session is accumulating decisions without a fechamento signal, Leo asks **once**: *"Tá juntando bastante coisa. Quer que eu feche a sessão agora ou seguimos?"*. Not repeated. Exists for the "owner in flow, forgot to wrap up" case.
 
-The `session-wrap-up` skill was created to codify the wrap-up protocol (inventory → classify → plan → R2 → execute → report → optional learning capture), so Leo doesn't re-derive the steps each time and the founder sees a predictable shape.
+The `session-wrap-up` skill was created to codify the wrap-up protocol (inventory → classify → plan → R2 → execute → report → optional learning capture), so Leo doesn't re-derive the steps each time and the owner sees a predictable shape.
 
 ### Why a skill and not a slash command
 
-Founder feedback: *"Ter uma skill pra eu usar fere a ideia do copilot-core, que visa os agentes operarem sozinhos sabendo o que precisam ou não usar e quando. Então eu vejo mais como uma skill que seja usada pelo Leo lá e não eu ter que chamar."*
+Owner feedback: *"Ter uma skill pra eu usar fere a ideia do copilot-core, que visa os agentes operarem sozinhos sabendo o que precisam ou não usar e quando. Então eu vejo mais como uma skill que seja usada pelo Leo lá e não eu ter que chamar."*
 
-A slash command would have required the founder to remember a specific invocation. A model-invoked skill lets the founder signal in natural language and trusts Leo to recognize intent. This is more aligned with the core's original philosophy (agents autonomous in their tooling choices) and lower cognitive load on the founder.
+A slash command would have required the owner to remember a specific invocation. A model-invoked skill lets the owner signal in natural language and trusts Leo to recognize intent. This is more aligned with the core's original philosophy (agents autonomous in their tooling choices) and lower cognitive load on the owner.
 
 ### Why EN body with multi-language triggers
 
-Convention: core documentation is in EN by default. But Leo recognizes wrap-up intent in any language, so the skill's `description` frontmatter lists both EN and PT trigger examples. Future non-PT founders/collaborators would add their language's trigger examples to the description without changing the protocol body.
+Convention: core documentation is in EN by default. But Leo recognizes wrap-up intent in any language, so the skill's `description` frontmatter lists both EN and PT trigger examples. Future non-PT owners/collaborators would add their language's trigger examples to the description without changing the protocol body.
 
 ### Why R2 inside the skill even though the signal was already given
 
-Deliberate. "Wrap-up signal" authorizes *starting the protocol*, not *executing edits*. The skill forces Leo to present the propagation plan (Step 3) and wait for explicit approval before editing files (Step 4). This prevents the failure mode where founder says "fecha aí" meaning "wrap up whatever made sense" and Leo interprets it as carte blanche to commit anything.
+Deliberate. "Wrap-up signal" authorizes *starting the protocol*, not *executing edits*. The skill forces Leo to present the propagation plan (Step 3) and wait for explicit approval before editing files (Step 4). This prevents the failure mode where owner says "fecha aí" meaning "wrap up whatever made sense" and Leo interprets it as carte blanche to commit anything.
 
-The founder reviews the plan *before* anything is written. R2 is not optional, even on the happy path.
+The owner reviews the plan *before* anything is written. R2 is not optional, even on the happy path.
 
 ### Files shipped with this refinement
 
@@ -67,7 +67,7 @@ Copilot-core commit `ebf685b` (pushed to `origin/main` on 2026-04-09):
 
 These weren't decided — they're bets that the next session will validate or refine:
 
-- **Does Leo reliably recognize wrap-up intent across phrasings?** The `description` is verbose but can't anticipate every founder phrasing. First field test: next Logbook v1.1 session.
+- **Does Leo reliably recognize wrap-up intent across phrasings?** The `description` is verbose but can't anticipate every owner phrasing. First field test: next Logbook v1.1 session.
 - **Does opportunistic propagation get abused?** The "claramente locked" criterion is qualitative. Leo might lean too permissive or too conservative. Observe actual behavior over 2-3 sessions.
 - **Does the safety-net question land at the right moment?** Hard to define "long session" quantitatively. Starting with Leo's judgment, tightening later if it misfires.
 - **Is the Step 6 "optional learning capture" useful or is it noise?** Might produce cluttered memory directories if Leo invokes it on routine sessions.
@@ -77,12 +77,12 @@ All four questions are deliberate open bets, not design flaws. They exist to be 
 ### What this refinement does NOT try to solve
 
 - **Crash recovery.** If a session dies mid-work (client crash, context limit) before wrap-up, the work is still lost. Solving that is a separate problem — possibly auto-checkpointing on some cadence, or a "last known good" snapshot system. Not in scope here.
-- **Cross-session continuity.** When founder opens a new session to continue the work of a previous one, Leo still has to reconstruct context from git and filesystem. This refinement helps by making sure the filesystem reflects reality at wrap-up time, but doesn't add any "resume from previous session" primitive.
-- **Multi-founder scenarios.** The "founder signal" assumes a single founder. Collaborative scenarios would need a different design. Not relevant for current use.
+- **Cross-session continuity.** When owner opens a new session to continue the work of a previous one, Leo still has to reconstruct context from git and filesystem. This refinement helps by making sure the filesystem reflects reality at wrap-up time, but doesn't add any "resume from previous session" primitive.
+- **Multi-owner scenarios.** The "owner signal" assumes a single owner. Collaborative scenarios would need a different design. Not relevant for current use.
 
 ### Source session
 
-This refinement itself was produced in the session of 2026-04-09 (afternoon, after the morning Logbook roadmap session). The conversation started with the founder asking "o que foi definido na sessão anterior?" and progressively identified the propagation failure, diagnosed it as structural ambiguity, and designed the trigger mechanism. Meta-fun fact: the wrap-up skill did not exist yet when the wrap-up protocol was run manually for this same session.
+This refinement itself was produced in the session of 2026-04-09 (afternoon, after the morning Logbook roadmap session). The conversation started with the owner asking "o que foi definido na sessão anterior?" and progressively identified the propagation failure, diagnosed it as structural ambiguity, and designed the trigger mechanism. Meta-fun fact: the wrap-up skill did not exist yet when the wrap-up protocol was run manually for this same session.
 
 ---
 
@@ -99,7 +99,7 @@ In practice that meant Saintfy had a taxonomy born before copilot-core (persona-
 A Logbook session opened to execute the v1.1 roadmap asked Leo to also set up a GitHub Project v2 board mirroring the Saintfy setup. That tripped two deeper questions:
 
 1. If Logbook is copying Saintfy's conventions, they should come from somewhere canonical, not by osmosis from reading another repo's config.
-2. If core refinements keep happening as side-effects of project sessions (as this very refinement is doing), then the context-switching cost between "working on the project" and "working on the system that runs the project" becomes a real friction point for the founder.
+2. If core refinements keep happening as side-effects of project sessions (as this very refinement is doing), then the context-switching cost between "working on the project" and "working on the system that runs the project" becomes a real friction point for the owner.
 
 ### The two refinements
 
@@ -124,7 +124,7 @@ Applied immediately to Logbook: labels migrated, 10 issues renamed, `v1.0.1`/`v1
 
 #### B. Core self-hosting scaffold
 
-Founder's direct observation during the session: *"melhorias no core estão acontecendo já interando via os projetos, o que não tem problema nenhum, mas acaba nos tirando o foco do que precisa ser feito no projeto em si."*
+Owner's direct observation during the session: *"melhorias no core estão acontecendo já interando via os projetos, o que não tem problema nenhum, mas acaba nos tirando o foco do que precisa ser feito no projeto em si."*
 
 The problem articulated: core refinements kept landing as side-effects of project sessions (this refinement is itself an instance). Each occurrence forced context-switching between product work and meta-work, mixed commits in confusing ways, and — most importantly — meant core changes weren't themselves passing through the fluxo PRD → RDD → execution that the core *prescribes*. Meta-incoherence.
 
@@ -176,15 +176,15 @@ As with the previous refinement, these are bets the next sessions will validate:
 
 Two prior refinements were directly validated in this session:
 
-1. **The wrap-up trigger from commit `ebf685b`** fired for the first time in the wild. Founder signaled with *"faz um wrap-up aqui nessa sessão"* — Leo recognized the intent, invoked the `session-wrap-up` skill (which shipped in the same earlier commit), ran the 6-step protocol, got R2 on the plan, executed. The first open bet ("Does Leo reliably recognize wrap-up intent across phrasings?") now has its first data point: yes, for this phrasing.
+1. **The wrap-up trigger from commit `ebf685b`** fired for the first time in the wild. Owner signaled with *"faz um wrap-up aqui nessa sessão"* — Leo recognized the intent, invoked the `session-wrap-up` skill (which shipped in the same earlier commit), ran the 6-step protocol, got R2 on the plan, executed. The first open bet ("Does Leo reliably recognize wrap-up intent across phrasings?") now has its first data point: yes, for this phrasing.
 2. **`rules/escalation-triggers.md`** produced its first full cycle: Leo stopped before `git push` on `logbook-legal` (public repo), presented the situation in the structured escalation format, waited for explicit approval. Worked as designed.
 
 ### One learning captured as a memory, not a rule refinement
 
-During this session Leo asserted that renaming a GitHub issue would "break notification history and cross-references in PR bodies". Founder pushed back: GitHub references issues by immutable `#N`, not by title slug. Leo was wrong, and hadn't verified before asserting.
+During this session Leo asserted that renaming a GitHub issue would "break notification history and cross-references in PR bodies". Owner pushed back: GitHub references issues by immutable `#N`, not by title slug. Leo was wrong, and hadn't verified before asserting.
 
 This is exactly the failure mode that `rules/anti-hallucination.md` exists to prevent. The rule itself didn't need refinement — Leo failed to *apply* it. Captured as a feedback memory in the Logbook project memory directory rather than as a rule change. If this failure pattern recurs (N > 1), it becomes a candidate for a rule refinement — perhaps a more specific bullet in `anti-hallucination.md` about tool behavior assumptions.
 
 ### Source session
 
-Afternoon of 2026-04-09 (immediately following the wrap-up trigger refinement of the morning). The session started with the founder asking Leo to resume the v1.1 roadmap for Logbook and set up a GitHub Project board. Everything in this refinement entry emerged from that request — the founder did not set out to design conventions or scaffold the core.
+Afternoon of 2026-04-09 (immediately following the wrap-up trigger refinement of the morning). The session started with the owner asking Leo to resume the v1.1 roadmap for Logbook and set up a GitHub Project board. Everything in this refinement entry emerged from that request — the owner did not set out to design conventions or scaffold the core.

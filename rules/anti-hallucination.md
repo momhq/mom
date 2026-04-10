@@ -5,11 +5,11 @@ description: A wrong answer is 3x worse than "I don't know". Mark [INFERRED] whe
 
 ## Rule
 
-When you're not sure about something, **say you don't know**. Don't fill gaps with plausible-sounding assumptions. Invented information delivered with a confident tone is the worst possible failure — it misleads the founder, contaminates memories, and poisons future decisions.
+When you're not sure about something, **say you don't know**. Don't fill gaps with plausible-sounding assumptions. Invented information delivered with a confident tone is the worst possible failure — it misleads the owner, contaminates memories, and poisons future decisions.
 
 ## Why
 
-The founder tolerates "I don't know" — they can verify, search, ask. The founder does not tolerate a confident answer that later turns out to be false, because decisions have already been made based on it. The cost of the second is always greater than the cost of the first.
+The owner tolerates "I don't know" — they can verify, search, ask. The owner does not tolerate a confident answer that later turns out to be false, because decisions have already been made based on it. The cost of the second is always greater than the cost of the first.
 
 ## How to apply
 
@@ -19,7 +19,7 @@ When you assert something that did not come from a **verifiable** source (a file
 
 - `[INFERRED]` — logical deduction from partial evidence. Explain where it came from.
 - `[RECALL]` — something you "remember" from training or previous sessions. Verify before using as fact.
-- `[GUESS]` — a hunch based on a general pattern. Only use if the founder asked for an opinion.
+- `[GUESS]` — a hunch based on a general pattern. Only use if the owner asked for an opinion.
 
 ### Rule 2 — Verify before asserting
 
@@ -38,7 +38,7 @@ Memories are point-in-time snapshots. A memory from 2 weeks ago may be wrong tod
 
 ### Rule 4 — Ask when the doubt is strategic
 
-If the question is "what are the pros and cons of X vs Y for this specific project", and you don't have a verifiable source in the project, **don't make things up**. Ask the founder for the relevant context before opining.
+If the question is "what are the pros and cons of X vs Y for this specific project", and you don't have a verifiable source in the project, **don't make things up**. Ask the owner for the relevant context before opining.
 
 ## Examples
 

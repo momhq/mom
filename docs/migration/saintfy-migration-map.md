@@ -40,7 +40,7 @@ Plus CLAUDE.md defines Leo (the manager) inline.
 
 ### What NOT to bring
 
-- **Persona names (Tomé, Nico, Gil, etc.)** — these are Saintfy flavor. The core uses generic names (Engineer Manager, Designer Manager). The project extension can name them if the founder wants, but the naming is cosmetic, not structural.
+- **Persona names (Tomé, Nico, Gil, etc.)** — these are Saintfy flavor. The core uses generic names (Engineer Manager, Designer Manager). The project extension can name them if the owner wants, but the naming is cosmetic, not structural.
 - **Agent memory files** (`.claude/agent-memory/`) — these are state memories, not learning. Most are stale or will be rebuilt. See section 5.
 
 ---
@@ -377,7 +377,7 @@ The Leo doing the onboarding should go through this list:
 
 4. **Paper may be dead** — check if the Paper → Figma migration happened (was scheduled for 2026-04-18). If yes, all Paper-specific rules and workflows need adaptation or removal.
 
-5. **Agent persona names are optional but valued** — the founder uses "Tomé", "Nico", etc. in conversation. The core doesn't require names, but the project can name its agents. Keep the names if the founder wants them.
+5. **Agent persona names are optional but valued** — the owner uses "Tomé", "Nico", etc. in conversation. The core doesn't require names, but the project can name its agents. Keep the names if the owner wants them.
 
 6. **Researcher and Writer are NOT Managers in the core** — they don't have core equivalents. In the Saintfy-Copilot they were peer agents to Tomé/Nico. In the new model, they should be **specialists** that Managers delegate to, not standalone agents that Leo delegates to directly. This is a philosophical change: Leo → Manager → Specialist, not Leo → Specialist.
 

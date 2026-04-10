@@ -40,8 +40,8 @@ Adversarial review: if you're in doubt about whether "it turned out good", go ba
 
 Stop before:
 
-- Proposing a new component to the design system (always R2 with the founder)
-- Changing an existing token (spacing, color, typography) — affects everything, the founder decides
-- Publishing an asset to an external channel (app store, Instagram, landing) — the founder validates the final art
+- Proposing a new component to the design system (always R2 with the owner)
+- Changing an existing token (spacing, color, typography) — affects everything, the owner decides
+- Publishing an asset to an external channel (app store, Instagram, landing) — the owner validates the final art
 - Creating a new specialist (hiring loop via Leo)
 - Contradicting the brand/tone defined in `context/brand.md` — ask first

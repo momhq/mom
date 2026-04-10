@@ -28,7 +28,7 @@ If you modify `agents/leo.md` in the middle of a session, the **next** Leo invoc
 
 ## 4. No other projects to escalate to
 
-In a downstream project (Logbook, Saintfy), the "escalation target" is the founder. Here it's also the founder, but without a project layer between you and the architectural decision. That increases the temptation for Leo to "decide alone" because it's "in the core, it's meta-work".
+In a downstream project (Logbook, Saintfy), the "escalation target" is the owner. Here it's also the owner, but without a project layer between you and the architectural decision. That increases the temptation for Leo to "decide alone" because it's "in the core, it's meta-work".
 
 **Mitigation:** the `think-before-execute` and `escalation-triggers` rules still apply without exception. Meta-work is not a license for direct mode. If something looks like a structural decision, it is — and it needs R2.
 
@@ -48,7 +48,7 @@ As of 2026-04-09, all core artifacts are standardized on English:
 
 This is enforced at config level: `.claude/project-config.yml` has `locales.project_files: en`. Any new artifact in the core must be written in English. The rationale is neutral ground — every contributor (human or AI) can read and extend the system without a language barrier.
 
-Interaction language (Leo ↔ founder) is a personal choice and lives in `.claude/project-config.local.yml` (gitignored). Each contributor sets their own without touching the committed config.
+Interaction language (Leo ↔ owner) is a personal choice and lives in `.claude/project-config.local.yml` (gitignored). Each contributor sets their own without touching the committed config.
 
 ## 6. Known loose ends
 
@@ -61,12 +61,12 @@ Things that are messy in the core and deserve a dedicated cleanup session:
 
 1. Open Claude Code in `~/Github/copilot-core/`
 2. Leo identifies it's a core session via `self_hosting: true` in `project-config.yml`
-3. Founder describes the intent
+3. Owner describes the intent
 4. Leo applies `think-before-execute`: a structural decision is almost always alignment mode
 5. If it's a rule/Manager/skill, Leo writes a proposal (prose, not code) for R2
 6. R2 approved → Leo edits
 7. Evidence at the end (diff, sync.sh output, whatever is verifiable)
-8. Wrap-up on the founder's signal → `session-wrap-up` skill runs the protocol, commit with a clear message referencing the relevant RDD or refinement
+8. Wrap-up on the owner's signal → `session-wrap-up` skill runs the protocol, commit with a clear message referencing the relevant RDD or refinement
 9. Push to `origin/main` (private repo, no escalation trigger; if it goes public, escalation applies)
 
 Sessions on the core tend to be shorter and more "documentary" than project sessions. That's not a flaw — it's the nature of the work here.
