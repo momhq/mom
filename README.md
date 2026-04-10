@@ -19,43 +19,23 @@ You (founder)
 
 ## Getting started
 
-### 1. Clone the core
+### 1. Clone and install
 
 ```bash
 git clone git@github.com:vmarinogg/copilot-core.git ~/Github/copilot-core
+cd ~/Github/copilot-core && ./install.sh
 ```
 
-### 2. Install the CLI
+This builds the CLI and registers `copilot-core` as a global command.
 
-```bash
-cd ~/Github/copilot-core/cli
-npm install
-npm link
-```
-
-This registers `copilot-core` as a global command.
-
-### 3. Run setup
-
-```bash
-copilot-core setup
-```
-
-This symlinks the core's agents, rules, and skills into `~/.claude/`, making them available in every Claude Code session.
-
-```
-~/.claude/
-  agents/    → symlinks to copilot-core/agents/
-  rules/     → symlinks to copilot-core/rules/
-  skills/    → symlinks to copilot-core/skills/
-```
-
-### 4. Onboard a project
+### 2. Onboard a project
 
 ```bash
 cd ~/Github/your-project
 copilot-core init
 ```
+
+This automatically syncs the core's agents, rules, and skills to `~/.claude/` and then runs the interactive onboarding.
 
 The interactive onboarding:
 - Scans your codebase and detects the stack (20+ frameworks/tools supported)
@@ -67,7 +47,7 @@ The interactive onboarding:
 
 If interrupted, run `copilot-core init` again — it picks up where you left off.
 
-### 5. Start working
+### 3. Start working
 
 ```bash
 claude
@@ -79,8 +59,8 @@ Leo is ready. Describe what you need, and the system handles routing, delegation
 
 | Command | What it does |
 |---------|-------------|
-| `copilot-core setup` | Symlink agents/rules/skills to `~/.claude/` |
-| `copilot-core init` | Interactive project onboarding (scan, configure, generate) |
+| `copilot-core init` | Interactive project onboarding (auto-syncs core + scan, configure, generate) |
+| `copilot-core setup` | Re-sync agents/rules/skills to `~/.claude/` (also runs automatically inside `init`) |
 | `copilot-core update` | Pull latest core + re-sync + migrate projects |
 | `copilot-core status` | Show core and current project state |
 
@@ -128,8 +108,9 @@ copilot-core/
 ├── docs/
 │   ├── conventions/                   ← GitHub project management, templates
 │   └── rdds/                          ← architectural decision records
-└── scripts/
-    └── sync.sh                        ← legacy installer (CLI preferred)
+├── scripts/
+│   └── sync.sh                        ← legacy installer (CLI preferred)
+└── install.sh                         ← one-command setup (build + link CLI)
 ```
 
 ## Key concepts

@@ -16,6 +16,7 @@ import {
 import type { SuggestedSpecialist, DetectedStack } from "../scanners/stack.js";
 import { writeManagerFiles } from "../generators/managers.js";
 import type { ManagerType } from "../generators/managers.js";
+import { runSetup } from "./setup.js";
 import {
   generateProjectMd,
   generateStackMd,
@@ -90,6 +91,17 @@ function showExistingStatus(
 
 export async function init() {
   header("copilot-core · project onboarding");
+
+  // ── Auto-setup: ensure core is linked to ~/.claude/ ──────────────────
+  info("Syncing core agents, rules, and skills...");
+  const setupOk = runSetup({ silent: true });
+  if (!setupOk) {
+    error("Setup failed — could not find or link the copilot-core directory.");
+    error("Run install.sh from the copilot-core repo first.");
+    process.exit(1);
+  }
+  success("Core synced to ~/.claude/");
+  info("");
 
   const projectDir = getProjectDir();
   const projectName = basename(projectDir);

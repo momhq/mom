@@ -7,7 +7,8 @@
     "copilot-core": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
+    "build": "tsup src/index.ts --format esm",
+    "prepare": "npm run build && node scripts/save-core-path.js",
     "dev": "tsx src/index.ts",
     "prepublishOnly": "npm run build"
   },

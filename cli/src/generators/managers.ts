@@ -65,6 +65,7 @@ export function writeManagerFiles(
   const created: string[] = [];
   for (const type of managers) {
     const config = MANAGER_CONFIGS[type];
+    if (!config) continue; // skip unknown manager types (e.g. legacy "dev")
     const filePath = resolve(managersDir, config.extendsFile);
 
     if (!existsSync(filePath)) {
