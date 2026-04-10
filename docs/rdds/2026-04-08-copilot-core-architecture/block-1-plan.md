@@ -22,12 +22,12 @@ Chosen via side-by-side comparison with the Verbose style.
 - Casual tone fits better with lean format
 - Reference/checklist is more faithful to the Manager's real role (tech lead operating, not training a beginner)
 
-**Reference for how a minimalist Manager should look** (Dev Manager version, as it ended up in the preview):
+**Reference for how a minimalist Manager should look** (Engineer Manager version, as it ended up in the preview):
 
 ```yaml
 ---
-name: Dev Manager
-extends: core/agents/managers/dev.md
+name: Engineer Manager
+extends: core/agents/managers/engineer.md
 tools: Read, Edit, Write, Glob, Grep, Bash, Task
 model: sonnet
 skills: [project-briefing]
@@ -90,7 +90,7 @@ skills: [...]                               # list of model-invoked skills
 | Model | When to use | Default agents |
 |---|---|---|
 | **`opus`** | Big picture reasoning, architectural decisions, cross-project coordination, hiring loop (forming specialists well), synthesis of work from multiple agents | **Leo** (always) |
-| **`sonnet`** | Standard execution: writing code, reviewing, delegating, applying rules, self-QA | **Managers** (all by default: Dev, Designer, PM, Marketing) |
+| **`sonnet`** | Standard execution: writing code, reviewing, delegating, applying rules, self-QA | **Managers** (all by default: Engineer, Designer, PM, Marketing) |
 | **`haiku`** | Low-reasoning mechanical tasks: formatters, lint fixers, mass renaming, template generators, simple converters | **Mechanical specialists** (when any) |
 
 Practical rules:
@@ -118,7 +118,7 @@ To write first:
 
 | Manager | Why now | Main input for writing |
 |---|---|---|
-| **Dev Manager** | Saintfy and logbook both need dev; most acute pain observed | `~/Github/Saintfy-Copilot/.claude/agents/developer.md` + Saintfy CLAUDE.md + dev memories |
+| **Engineer Manager** | Saintfy and logbook both need dev; most acute pain observed | `~/Github/Saintfy-Copilot/.claude/agents/developer.md` + Saintfy CLAUDE.md + dev memories |
 | **Designer Manager** | Saintfy has a massive design system; logbook needs store assets | `~/Github/Saintfy-Copilot/.claude/agents/designer.md` + `.claude/rules/design-system.md` |
 | **PM Manager** | PRD→RDD flow is established (memory `feedback_doc_canonical_locations`) and will continue across all projects | `~/Github/Saintfy-Copilot/.claude/agents/pm.md` + updated `workflows/prd.md` |
 | **Marketing Manager** | Saintfy (Instagram/ASO) and logbook (App Store listing) both need it | `~/Github/Saintfy-Copilot/.claude/agents/marketer.md` |
@@ -169,7 +169,7 @@ Founder's vision, documented literally:
 
 ### D7 — Hiring loop enforcement: how to "force" the model to recognize gaps
 
-**Problem:** Claude as a model "knows" how to do almost everything superficially. A Dev Manager instructed to implement APNs will try — because it has superficial knowledge of the domain from training. This is exactly the failure mode that the hiring loop should prevent.
+**Problem:** Claude as a model "knows" how to do almost everything superficially. A Engineer Manager instructed to implement APNs will try — because it has superficial knowledge of the domain from training. This is exactly the failure mode that the hiring loop should prevent.
 
 The founder raised this point explicitly: "we will need, somehow, to 'force' the model to identify this". It is not enough to have a rule saying "ask for specialist when you don't know" — the model will think it knows.
 
@@ -197,7 +197,7 @@ The obligation to **write** the answer (not just think) is the trick — it forc
 
 #### Mechanism 2 — Trust gradient per task category
 
-Rule defines categories with different default trust. Some NEVER execute without a specialist. Example for Dev Manager:
+Rule defines categories with different default trust. Some NEVER execute without a specialist. Example for Engineer Manager:
 
 | Category | Default trust | Specialist mandatory? |
 |---|---|---|
@@ -308,13 +308,13 @@ echo "Re-run sync.sh only if new files were added to core."
 
 1. **Idempotent.** Safe to run N times. `ln -sf` overwrites existing symlink, doesn't error.
 2. **Zero-copy after the first run.** Once the symlinks are created, `git pull` in the core is enough for an update — the symlinks point to live files in the repo.
-3. **Re-run only when topology changes.** If the core adds a new `agents/managers/research.md`, founder runs `sync.sh` to create the new symlink. If the core only edits the content of an existing `dev.md`, zero work — the symlink already points to the file.
+3. **Re-run only when topology changes.** If the core adds a new `agents/managers/research.md`, founder runs `sync.sh` to create the new symlink. If the core only edits the content of an existing `engineer.md`, zero work — the symlink already points to the file.
 4. **Local files preserved.** Memories in `~/.claude/memory/`, settings in `~/.claude/settings.json`, projects in `~/.claude/projects/` — none of that is touched.
 5. **Trivial rollback.** `cd ~/Github/copilot-core && git checkout <rev>` — symlinks follow automatically. If the checkout removed files, running sync.sh cleans up dangling symlinks.
 6. **Dangling cleanup.** Find with `! -exec test -e` detects symlinks whose target was removed and cleans them — avoids clutter.
 7. **Multi-machine.** Each new Mac: `git clone <core-url> ~/Github/copilot-core && bash ~/Github/copilot-core/scripts/sync.sh`. Two lines, done.
 
-**Potential conflict with local files of the same name:** if the founder has a local `~/.claude/agents/dev.md` and the core also has `dev.md`, the symlink overwrites the local. Solution: core uses distinctive names (e.g., `core-dev-manager.md`) OR founder uses a local subdirectory that doesn't conflict. **Decision:** core uses clean names (`dev.md`, `designer.md`), founder avoids conflicts by keeping custom local agents with unique names (`dev-experimental.md`). Edge case, unlikely in practice.
+**Potential conflict with local files of the same name:** if the founder has a local `~/.claude/agents/engineer.md` and the core also has `engineer.md`, the symlink overwrites the local. Solution: core uses distinctive names (e.g., `core-dev-manager.md`) OR founder uses a local subdirectory that doesn't conflict. **Decision:** core uses clean names (`engineer.md`, `designer.md`), founder avoids conflicts by keeping custom local agents with unique names (`dev-experimental.md`). Edge case, unlikely in practice.
 
 **When to actually write it:** together with the creation of the `copilot-core` repo in the pilot session. Not before — no point without having content in the repo to sync.
 
@@ -352,7 +352,7 @@ Already covered by D7 Mechanism 3 (post-failure hardening) + D7 Mechanism 4 (les
 
 What you originally read in autoresearch. The idea is:
 
-1. Founder chooses a Manager or skill to refine (e.g., Dev Manager)
+1. Founder chooses a Manager or skill to refine (e.g., Engineer Manager)
 2. Prepares a **benchmark** — set of representative tasks from the domain with "expected answers" or success criteria
 3. Runs the current Manager against the benchmark, measures result
 4. Another instance of the agent (or the founder via Claude) analyzes the results, proposes changes to the agent file
@@ -368,7 +368,7 @@ What you originally read in autoresearch. The idea is:
 2. **We need a benchmark.** Building a representative benchmark for each Manager is work — it involves collecting past tasks, defining criteria, validating that they are realistic. Premature optimization before the pilot is running.
 3. **We need volume of data.** Refining something without having run it in production becomes shooting in the dark. Even if the loop is closed, what is "better" depends on what happens in real use.
 
-**When to make it active:** after the logbook pilot produces ~1 month of real data (Q7). With D9 metrics and usage feedback, we can build a benchmark for Dev Manager (the discipline where we have the most observed pain) and run the first offline refinement loop. If it works, replicate to the other Managers.
+**When to make it active:** after the logbook pilot produces ~1 month of real data (Q7). With D9 metrics and usage feedback, we can build a benchmark for Engineer Manager (the discipline where we have the most observed pain) and run the first offline refinement loop. If it works, replicate to the other Managers.
 
 **Status:** added as a post-pilot next step. It is not an indefinite parking lot — it is a parking lot with a clear trigger (pilot + 1 month + enough metrics).
 
@@ -380,7 +380,7 @@ Added to the RDD parking lot (§9):
 - **Tone configurable per project**: tone is decided (casual) but could become config in the future if someone open-sources uses it in a formal corporate context. Not now.
 - **Workflow field in the frontmatter**: considered and rejected due to redundancy with skills. If this becomes useful again in the future (e.g., workflows that are not skills), reevaluate.
 - **Language configured per project is an active decision (D6), not parking lot.** Confirmed that it will be real config at setup.
-- **Offline agent auto-refinement (D10 horizon 2)**: not an indefinite parking lot. Has a trigger: logbook pilot + 1 month of D9 metric data. After that, first experimental Dev Manager refinement loop.
+- **Offline agent auto-refinement (D10 horizon 2)**: not an indefinite parking lot. Has a trigger: logbook pilot + 1 month of D9 metric data. After that, first experimental Engineer Manager refinement loop.
 
 ---
 
@@ -403,7 +403,7 @@ These decisions were left **intentionally open** in this session:
 
 **Manager sources (to read when starting to write):**
 - `~/Github/Saintfy-Copilot/CLAUDE.md` — identity + current rules of Leo + Tomé
-- `~/Github/Saintfy-Copilot/.claude/agents/developer.md` — base Dev Manager
+- `~/Github/Saintfy-Copilot/.claude/agents/developer.md` — base Engineer Manager
 - `~/Github/Saintfy-Copilot/.claude/agents/designer.md` — base Designer Manager
 - `~/Github/Saintfy-Copilot/.claude/agents/pm.md` — base PM Manager
 - `~/Github/Saintfy-Copilot/.claude/agents/marketer.md` — base Marketing Manager
@@ -412,12 +412,12 @@ These decisions were left **intentionally open** in this session:
 - `~/Github/Saintfy-Copilot/.claude/rules/paper-artboards.md` — for Designer Manager (will be generalized to "artboard-conventions" without tool mention)
 
 **Memories to consult as input:**
-- `feedback_pr_workflow` — base of the Dev Manager's PR-first principle
-- `feedback_real_callsite_first` — Dev Manager principle
+- `feedback_pr_workflow` — base of the Engineer Manager's PR-first principle
+- `feedback_real_callsite_first` — Engineer Manager principle
 - `feedback_doc_canonical_locations` — base of the PM Manager's PRD→RDD flow
 - `feedback_strategy_before_processing` — base of the universal `think-before-execute`
 - `feedback_no_inventing_design` — Designer Manager principle
-- `feedback_reusable_components` — Dev Manager principle
+- `feedback_reusable_components` — Engineer Manager principle
 - `feedback_shadcn_first_enforcement` — **DOES NOT** go in the core (Saintfy-specific), stays in the extension
 
 **Architectural source:**
@@ -434,7 +434,7 @@ When the 4 managers + Leo are written, verify:
 3. **Tone and style** — fast read (founder reads each manager in <3 minutes and understands the role)
 4. **Zero mention of a specific project** — no core file mentions "Saintfy", "logbook", specific stack, person name, credential, ID
 5. **Cross-reference** — `extends` paths make sense; cited domain rules exist or are on the "to create in Q2" list
-6. **Conceptual extension test** — can I mentally imagine how Saintfy would extend the Dev Manager (adding shadcn-first) without conflict?
+6. **Conceptual extension test** — can I mentally imagine how Saintfy would extend the Engineer Manager (adding shadcn-first) without conflict?
 
 Empirical verification only becomes possible with the pilot (Q7), which depends on having the Managers + some universal rules ready.
 
@@ -448,7 +448,7 @@ Empirical verification only becomes possible with the pilot (Q7), which depends 
 4. **Pilot** — create `copilot-core` repo, populate with approved content, run sync.sh (D8) to activate in `~/.claude/`, test on logbook
 5. **Pilot-based adjustments** — Q4 (sub-invocation mechanism via Task tool) is resolved here
 6. **Metrics collection (D9)** — during ~1 month of real use, accumulate peer review pass rate, hiring loop hit rate, etc. data
-7. **First auto-refinement loop (D10 horizon 2)** — with metrics in hand, build a Dev Manager benchmark and run autoresearch-style offline refinement loop
+7. **First auto-refinement loop (D10 horizon 2)** — with metrics in hand, build a Engineer Manager benchmark and run autoresearch-style offline refinement loop
 8. **Saintfy migration (Q8)** — only after the pilot validates the model
 
 This plan closes Block 1. The next plan (Manager implementation session) will be active (creates files), not passive (only decides).

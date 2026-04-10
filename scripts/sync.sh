@@ -40,7 +40,7 @@ mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/rules" "$CLAUDE_DIR/skills"
 
 # --- Sync agents (recursive, flat destination) ------------------------------
 # Claude Code loads ~/.claude/agents/*.md flat, so we flatten subdirs like
-# agents/managers/dev.md → ~/.claude/agents/dev.md
+# agents/managers/engineer.md → ~/.claude/agents/engineer.md
 
 agent_count=0
 while IFS= read -r -d '' src; do

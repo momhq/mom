@@ -155,7 +155,7 @@ During the session it was discovered that "agent" is a concept that aggregates t
 
 | Type | Role | Lives where | Who creates | Lifecycle | Example |
 |---|---|---|---|---|---|
-| **Manager** | **Tech lead** of the discipline — receives, decomposes, delegates, reviews, synthesizes. Executes only in exceptions | **Core** (universal) | Already exists in core; extended by the project | Permanent | Dev Manager, Design Manager |
+| **Manager** | **Tech lead** of the discipline — receives, decomposes, delegates, reviews, synthesizes. Executes only in exceptions | **Core** (universal) | Already exists in core; extended by the project | Permanent | Engineer Manager, Design Manager |
 | **Domain Expert** | Subject matter consultant (what is true about X) | **Project** | Hiring Loop (proposed by the founder) | Permanent in the project | Theologian (Saintfy), Strength Coach (logbook) |
 | **Specialist** | Executor of technical tasks — composes the Manager's "team" | **Project** | Hiring Loop (proposed by the Manager) | Created on demand, permanent in the project | Frontend dev, APNs protocol, SwiftData |
 
@@ -168,14 +168,14 @@ The Manager **is not the default executor**. He is the tech lead of his team. Wh
 - **Specialist** is hired by the **Manager** to solve **technical tasks**. His content is an actionable playbook and he **executes** concrete work.
 - **Domain Expert** is hired by the **founder** (via Leo) as a **permanent consultant** for the project. His content is broad knowledge about the subject, consulted in various decisions over time. He **does not execute** — he is a consultative reference.
 
-A Dev Manager + a Theologian collaborate: Dev Manager leads implementation of the feature with his team of specialists; Theologian validates whether the feature aligns with doctrine. Neither replaces the other.
+A Engineer Manager + a Theologian collaborate: Engineer Manager leads implementation of the feature with his team of specialists; Theologian validates whether the feature aligns with doctrine. Neither replaces the other.
 
 ### 4.2. Managers in the core (initial list)
 
 Six managers make up the "default team" that any project can use:
 
 1. **Leo** — Manager of Managers. The only one with this role. Coordinates, delegates, has cross-project big picture.
-2. **Dev Manager** — Software development process. Domain rules: PR workflow, systematic debugging, real callsite first, self-QA with proof.
+2. **Engineer Manager** — Software development process. Domain rules: PR workflow, systematic debugging, real callsite first, self-QA with proof.
 3. **Design Manager** — Design process. Domain rules: source of truth, don't invent undefined elements, design system as authority.
 4. **Marketing Manager** — Marketing and growth process. Domain rules: ASO fundamentals, content calendar, brand voice.
 5. **Research Manager** — Research process. Domain rules: source credibility, primary vs secondary, synthesis.
@@ -209,7 +209,7 @@ Leo:      sees big picture (projects, existing specialists in other
           projects, memories, decisions, constraints)
        ↓ formats the correct specialist
 Leo:      "hired. Specialist `apns-push-protocol` created.
-          Handing back to Dev Manager."
+          Handing back to Engineer Manager."
 Manager:  delegates the task to the specialist, who executes
 ```
 
@@ -285,10 +285,10 @@ Context isolation of the reviewer instance is mandatory — without it, confirma
 
 The option of having Reviewers separate 1:1 with Managers in the core was considered. Rejected because:
 
-1. **Fragments knowledge.** Updating the Dev Manager required updating the Dev Reviewer in parallel. Guaranteed drift.
+1. **Fragments knowledge.** Updating the Engineer Manager required updating the Dev Reviewer in parallel. Guaranteed drift.
 2. **One single source of truth.** Technical expertise lives in a single file. Invocation mode changes the lens, not the content.
 3. **Mirrors real companies.** There is no "iOS Reviewer" position — it's a senior iOS reviewing another iOS's code. Same person, same expertise, different role.
-4. **Project extends once.** `.claude/agents/managers/dev.md` with `extends: core/managers/dev.md` serves for execution AND review. No duplication.
+4. **Project extends once.** `.claude/agents/managers/engineer.md` with `extends: core/managers/engineer.md` serves for execution AND review. No duplication.
 
 ---
 
@@ -327,7 +327,7 @@ Loaded **always**, in any session, for any active agent. They define the "consti
 
 They live **inside the corresponding manager's agent file**, either embedded in the markdown itself or in files referenced by the frontmatter. They load **only when** Leo delegates to that manager.
 
-Examples from the Dev Manager:
+Examples from the Engineer Manager:
 - PR workflow (worktree + branch + PR + Closes #N)
 - 3-strikes debugging
 - Real callsite first
@@ -362,11 +362,11 @@ Note on self-QA: the universal rule `evidence-over-claim` requires **that there 
 
 ```markdown
 ---
-name: Dev Manager (Saintfy)
-extends: core/agents/managers/dev.md
+name: Engineer Manager (Saintfy)
+extends: core/agents/managers/engineer.md
 ---
 
-In addition to the rules and principles of core/managers/dev.md, you also:
+In addition to the rules and principles of core/managers/engineer.md, you also:
 
 - Work with React + TypeScript + Vite + shadcn/ui + Supabase + Capacitor stack
 - Follow the specific rules of shadcn-first-enforcement
@@ -388,7 +388,7 @@ Extends wins because:
 1. **Doesn't break global update.** Core updates, project automatically pulls the new content in the next session.
 2. **Explicit over magic.** You read the project file, see the `extends`, know exactly what will be concatenated.
 3. **Extends instead of overwriting.** The architecture's philosophy is clear: project **adds** knowledge, never replaces the core. Bugs, inconsistencies, and quality loss stay confined to the project.
-4. **Traceable.** `extends: core/managers/dev.md` makes clear what is being inherited.
+4. **Traceable.** `extends: core/managers/engineer.md` makes clear what is being inherited.
 
 ### 6.3. Universal rule that sustains the mechanism
 
@@ -486,7 +486,7 @@ skills: [...]
 | `sonnet` | Standard execution: code, review, delegation | All Managers |
 | `haiku` | Low-reasoning mechanical work | Mechanical specialists |
 
-Project can override the model via `extends` — e.g., `model: opus` on the project's Dev Manager if there is empirical evidence of sonnet making mistakes.
+Project can override the model via `extends` — e.g., `model: opus` on the project's Engineer Manager if there is empirical evidence of sonnet making mistakes.
 
 ### 8.4. D4 — Fixed internal structure of Managers
 
@@ -502,7 +502,7 @@ Extra sections only if justified by the nature of the domain.
 
 ### 8.5. D5 — Initial Managers: Leo + 4
 
-First batch: **Leo, Dev Manager, Designer Manager, PM Manager, Marketing Manager**. They cover all the pains observed in Saintfy and logbook. Research and Writing come in when there is real need.
+First batch: **Leo, Engineer Manager, Designer Manager, PM Manager, Marketing Manager**. They cover all the pains observed in Saintfy and logbook. Research and Writing come in when there is real need.
 
 ### 8.6. D6 — Project initialization flow (`copilot init`)
 
@@ -524,7 +524,7 @@ Founder's documented vision:
 **4 mechanisms combined in the `know-what-you-dont-know` rule:**
 
 1. **Mandatory pre-execution check**: template that forces the Manager to paste a written response (not just think) about the task's domain, available specialist, worst-case error scenario, justified confidence
-2. **Trust gradient per category**: Manager-specific table listing categories with hard "always specialist" rules (crypto, auth, native bridging, infra — for Dev Manager)
+2. **Trust gradient per category**: Manager-specific table listing categories with hard "always specialist" rules (crypto, auth, native bridging, infra — for Engineer Manager)
 3. **Post-failure hardening**: peer review rejection → Leo adds the gap to the project's trust gradient automatically
 4. **Lessons learned pass**: after review rejection, agent fills out a "which rule would have prevented this?" form, proposes refinement to the core or the project via R2
 
@@ -608,11 +608,11 @@ Captured during the session so as not to lose them. **Not part of the MVP.**
    Resolve the 6 open questions (§8). Output: final version of this RDD, ready for implementation.
 
 2. **Logbook pilot**
-   - Create private `copilot-core` repo with minimal structure (Leo + Dev Manager + universal rules)
+   - Create private `copilot-core` repo with minimal structure (Leo + Engineer Manager + universal rules)
    - Write `sync.sh`
    - Activate in `~/.claude/`
    - Open logbook in Claude, run a real work session
-   - Validate: does Leo work? Does Dev Manager load? Does extends work? Does the founder feel a qualitative difference vs "raw Claude"?
+   - Validate: does Leo work? Does Engineer Manager load? Does extends work? Does the founder feel a qualitative difference vs "raw Claude"?
    - Adjust based on real observation
 
 3. **Saintfy migration**

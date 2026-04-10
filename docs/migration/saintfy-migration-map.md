@@ -24,13 +24,13 @@ Plus CLAUDE.md defines Leo (the manager) inline.
 
 ### What the core already covers
 
-4 Managers in `agents/managers/` (Dev, Designer, PM, Marketing) + Leo in `agents/leo.md`. Each has: Role, Principles, Hiring loop, Self-QA, Escalation — generic, stack-agnostic.
+4 Managers in `agents/managers/` (Engineer, Designer, PM, Marketing) + Leo in `agents/leo.md`. Each has: Role, Principles, Hiring loop, Self-QA, Escalation — generic, stack-agnostic.
 
 ### What to do
 
 | Saintfy-Copilot agent | Core Manager | Action |
 |---|---|---|
-| `developer.md` (Tomé) | `dev.md` | **Extend.** Create `saintfy/.claude/agents/managers/dev.md` with `extends: ~/.claude/agents/dev.md`. Bring over: Shadcn-first enforcement (the 5 grep checks + lint-shadcn.sh), Capacitor-specific rules, Supabase patterns, React/TypeScript conventions. Don't bring: generic debugging rules (core has 3-strikes), generic self-QA (core has it), generic PR workflow (core has it). |
+| `developer.md` (Tomé) | `engineer.md` | **Extend.** Create `saintfy/.claude/agents/managers/engineer.md` with `extends: ~/.claude/agents/engineer.md`. Bring over: Shadcn-first enforcement (the 5 grep checks + lint-shadcn.sh), Capacitor-specific rules, Supabase patterns, React/TypeScript conventions. Don't bring: generic debugging rules (core has 3-strikes), generic self-QA (core has it), generic PR workflow (core has it). |
 | `designer.md` (Nico) | `designer.md` | **Extend.** Bring over: design system 3-layer source of truth (index.css → Paper → .md), Paper MCP integration rules, specific token paths. Don't bring: generic "never invent" (core has it), generic "screenshot before modifying" (core evidence-over-claim covers it). |
 | `marketer.md` (Gil) | `marketing.md` | **Extend.** Bring over: Saintfy brand voice specifics (direct, imperative, fraternal, no coach-speak, minimal emoji), content pillars (saint/art 30%, temperament 25%, etc.), platform strategy (Instagram + X tier 1). Don't bring: generic "full draft before publishing" (core has it), generic "metrics over opinion" (core has it). |
 | `pm.md` (Davi) | `pm.md` | **Extend.** Bring over: Saintfy mission filter ("serve the mission of forming holy men?"), PRD location convention (`saintfy/docs/prds/`). Don't bring: generic PRD template (core PM has flow), generic "present options" (core has it). |
@@ -40,7 +40,7 @@ Plus CLAUDE.md defines Leo (the manager) inline.
 
 ### What NOT to bring
 
-- **Persona names (Tomé, Nico, Gil, etc.)** — these are Saintfy flavor. The core uses generic names (Dev Manager, Designer Manager). The project extension can name them if the founder wants, but the naming is cosmetic, not structural.
+- **Persona names (Tomé, Nico, Gil, etc.)** — these are Saintfy flavor. The core uses generic names (Engineer Manager, Designer Manager). The project extension can name them if the founder wants, but the naming is cosmetic, not structural.
 - **Agent memory files** (`.claude/agent-memory/`) — these are state memories, not learning. Most are stale or will be rebuilt. See section 5.
 
 ---
@@ -101,7 +101,7 @@ Rich context directory:
 |---|---|---|
 | `context/saintfy.md` | **Bring and rename to `context/project.md`.** This is the core's expected file. Update to current state (it says "beta open, redesign underway" — verify if still accurate). Remove references to Saintfy-Copilot paths. |
 | `context/brand.md` | **Bring as-is.** 100% project-specific. Core doesn't have a brand file — this is exactly what project context is for. Verify currency (last update 2026-03-12). |
-| `context/stack.md` | **Bring and verify.** Comprehensive but may be stale (says Capacitor 8.2, React 18.3 — confirm current versions). This is the reference the Dev Manager extension will cite. |
+| `context/stack.md` | **Bring and verify.** Comprehensive but may be stale (says Capacitor 8.2, React 18.3 — confirm current versions). This is the reference the Engineer Manager extension will cite. |
 | `context/competitors.md` | **Bring as-is.** Project-specific market intelligence. Verify Cristeros investigation status (was pending). |
 | `context/metrics.md` | **Skip.** Skeleton with no data. The core's `metrics-collection.md` rule handles metrics in `.claude/metrics/YYYY-MM.jsonl` now. If Saintfy wants an app-metrics dashboard (user count, conversion), that's separate from copilot operational metrics — create fresh if needed. |
 | `context/propagation-map.md` | **Bring and adapt.** Update file paths to reference `~/Github/saintfy/` instead of Saintfy-Copilot paths. Remove references to files that won't exist in the new structure. |
@@ -172,7 +172,7 @@ The core doesn't have workflows — it has skills (`session-wrap-up`) and conven
 
 | Memory | Action |
 |---|---|
-| Developer `reference_app_stack.md` | **Don't bring as memory.** This is `context/stack.md` content. The new Dev Manager extension should reference `context/stack.md`, not carry a separate memory. |
+| Developer `reference_app_stack.md` | **Don't bring as memory.** This is `context/stack.md` content. The new Engineer Manager extension should reference `context/stack.md`, not carry a separate memory. |
 | Marketer `project_social_media_strategy.md` | **Bring as context/decisions/marketing.md content** (it already overlaps with `context/decisions/marketing.md`). Don't duplicate — merge into the decision file. |
 | Researcher `research_seo_keywords.md`, `research_viral_artifact.md` | **Bring as context or specialist reference.** These are research outputs — either place in `context/research/` or reference from the researcher specialist file. |
 
@@ -244,7 +244,7 @@ Leo, rules, and Managers load from ~/.claude/ (symlinked from core).
 
 | Role | Core Manager | Project name | Extension |
 |------|-------------|--------------|-----------|
-| Dev lead | Dev Manager | Tomé | .claude/agents/managers/dev.md |
+| Dev lead | Engineer Manager | Tomé | .claude/agents/managers/engineer.md |
 | Design lead | Designer Manager | Nico | .claude/agents/managers/designer.md |
 | Marketing lead | Marketing Manager | Gil | .claude/agents/managers/marketing.md |
 | Product lead | PM Manager | Davi | .claude/agents/managers/pm.md |
@@ -332,7 +332,7 @@ The Leo doing the onboarding should go through this list:
 ### Phase 1 — Scaffold
 
 - [ ] Create `~/Github/saintfy/.claude/` directory structure:
-  - [ ] `agents/managers/` (dev.md, designer.md, pm.md, marketing.md — all with `extends`)
+  - [ ] `agents/managers/` (engineer.md, designer.md, pm.md, marketing.md — all with `extends`)
   - [ ] `specialists/` (research/, content/)
   - [ ] `rules/` (design-system.md, others as needed)
   - [ ] `context/` (project.md, brand.md, stack.md, competitors.md, propagation-map.md)
@@ -373,7 +373,7 @@ The Leo doing the onboarding should go through this list:
 
 2. **Don't inline core rules into project files** — the `inheritance.md` rule explicitly forbids this. If you see Saintfy-Copilot's CLAUDE.md has "anti-hallucination" paragraphs, those are now in `~/.claude/rules/anti-hallucination.md`. Don't duplicate.
 
-3. **Shadcn-first enforcement is the most critical project rule** — it cost 48h of refactoring work when violated. It MUST be in the Dev Manager extension with the same severity. This is not a guideline, it's a non-negotiable enforcement rule with `lint-shadcn.sh` as gate.
+3. **Shadcn-first enforcement is the most critical project rule** — it cost 48h of refactoring work when violated. It MUST be in the Engineer Manager extension with the same severity. This is not a guideline, it's a non-negotiable enforcement rule with `lint-shadcn.sh` as gate.
 
 4. **Paper may be dead** — check if the Paper → Figma migration happened (was scheduled for 2026-04-18). If yes, all Paper-specific rules and workflows need adaptation or removal.
 

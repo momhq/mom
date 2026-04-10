@@ -13,7 +13,7 @@ Every executed task leaves **one metric entry** in a project-specific JSONL file
 
 ## Why
 
-Inspired by Karpathy's autoresearch paradigm: any system that intends to be refinable needs a **measurable fitness function**. Without metrics, refining the core becomes guesswork — "I think the Dev Manager needs this extra rule". With metrics, we can look at the worst numbers and go straight to the pain.
+Inspired by Karpathy's autoresearch paradigm: any system that intends to be refinable needs a **measurable fitness function**. Without metrics, refining the core becomes guesswork — "I think the Engineer Manager needs this extra rule". With metrics, we can look at the worst numbers and go straight to the pain.
 
 Two immediate uses:
 
@@ -74,7 +74,7 @@ Each line in the file is a self-contained valid JSON:
   "task_id": "2026-04-08-001",
   "timestamp": "2026-04-08T15:30:00Z",
   "founder_prompt_summary": "Add a settings screen with a dark mode toggle",
-  "manager": "dev",
+  "manager": "engineer",
   "specialist_used": "frontend-react-specialist",
   "domain_category": "ui_only",
   "review": {

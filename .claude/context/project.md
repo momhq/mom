@@ -5,7 +5,7 @@ This repo **is** the core of the multi-agent system that manages all the founder
 ## What lives here
 
 - **`agents/leo.md`** — the Manager of Managers. Conversational entry point in any session of any project.
-- **`agents/managers/`** — the 4 universal tech leads (Dev, Designer, Marketing, PM). Projects extend via `extends:` to add local context without rewriting the base.
+- **`agents/managers/`** — the 4 universal tech leads (Engineer, Designer, Marketing, PM). Projects extend via `extends:` to add local context without rewriting the base.
 - **`rules/`** — 11 universal rules that govern behavior of all agents. Propagation, anti-hallucination, peer-review, escalation, etc.
 - **`skills/`** — model-invoked skills that agents use on demand. Today only `session-wrap-up`.
 - **`docs/conventions/`** — operational conventions shared across projects (e.g., GitHub project management). Templates live in `docs/conventions/templates/`.

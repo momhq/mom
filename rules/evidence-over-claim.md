@@ -30,7 +30,7 @@ Evidence is the contract: you paste what ran, they look, they're at peace.
 
 The universal rule requires that evidence **exists**. The **specific checklist** (what counts as "good" evidence for each discipline) lives inside the Manager's agent file, in the Self-QA section.
 
-That means: the universal rule doesn't need to say "run lint-shadcn.sh" — that's too specific. The Saintfy Dev Manager will have that line in its extension. But the generic requirement ("lint passed, output pasted") is universal and lives here.
+That means: the universal rule doesn't need to say "run lint-shadcn.sh" — that's too specific. The Saintfy Engineer Manager will have that line in its extension. But the generic requirement ("lint passed, output pasted") is universal and lives here.
 
 ## Anti-patterns to reject
 

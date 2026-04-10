@@ -12,9 +12,9 @@ Working on copilot-core using copilot-core itself is useful dogfooding, but it h
 
 ## 2. Changes in a Manager propagate to the projects that extend it
 
-If Leo edits `agents/managers/dev.md` here, every project that has `.claude/agents/managers/dev.md` with `extends: ../../../../.claude/agents/managers/dev.md` (via inheritance) inherits the change immediately in the next session.
+If Leo edits `agents/managers/engineer.md` here, every project that has `.claude/agents/managers/engineer.md` with `extends: ../../../../.claude/agents/managers/engineer.md` (via inheritance) inherits the change immediately in the next session.
 
-**Consequence:** changing the Dev Manager's Self-QA in the core affects Logbook now and Saintfy when it migrates. Propagation is active, not optional.
+**Consequence:** changing the Engineer Manager's Self-QA in the core affects Logbook now and Saintfy when it migrates. Propagation is active, not optional.
 
 **Mitigation:** before changing a Manager in the core, answer mentally "does any project that inherits this Manager depend on the current behavior?". If yes, the change requires a migration note in the commit and verification in the affected project's next work. Leo writes that note as part of the diff, not separately.
 

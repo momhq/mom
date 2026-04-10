@@ -2,7 +2,7 @@
 
 Canonical reference for how repos managed by copilot-core organize issues, PRs, labels, milestones, and Projects v2 boards. This doc is the source of truth; each project copies the templates into its own `.github/` and is expected to follow the same rules unless it has an explicit, documented override in `context/`.
 
-The goal is that any Manager (Leo, Dev, Designer, Marketing, PM) operating across any project can predict the shape of an issue or PR without learning a new convention per repo. **Standard beats clever.**
+The goal is that any Manager (Leo, Engineer, Designer, Marketing, PM) operating across any project can predict the shape of an issue or PR without learning a new convention per repo. **Standard beats clever.**
 
 ---
 
@@ -54,7 +54,7 @@ Put PRD and RDD **before** Backlog if used. Keep the rest in the same order.
 
 Which Manager owns this item. Options:
 
-- `dev` — Dev Manager
+- `engineer` — Engineer Manager
 - `design` — Designer Manager
 - `marketing` — Marketing Manager
 - `pm` — PM Manager

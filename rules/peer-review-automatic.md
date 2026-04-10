@@ -79,7 +79,7 @@ MATERIAL TO REVIEW:
 [diff / changed files / self-QA output]
 ```
 
-Each Manager can **extend** this template with discipline-specific review criteria (Dev Manager adds code checks, Designer adds visual checks, etc.).
+Each Manager can **extend** this template with discipline-specific review criteria (Engineer Manager adds code checks, Designer adds visual checks, etc.).
 
 ## Context isolation is mandatory
 

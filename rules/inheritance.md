@@ -21,9 +21,9 @@ An inheriting agent file has frontmatter like this:
 
 ```yaml
 ---
-name: Dev Manager (Saintfy)
-description: Saintfy's dev tech lead, extending the core Dev Manager
-extends: ../../../../.claude/agents/managers/dev.md
+name: Engineer Manager (Saintfy)
+description: Saintfy's engineering tech lead, extending the core Engineer Manager
+extends: ../../../../.claude/agents/managers/engineer.md
 tools: Read, Edit, Write, Glob, Grep, Bash, Task
 model: sonnet
 skills: [saintfy-briefing]
@@ -40,9 +40,9 @@ In practice, projects extend files that live in `~/.claude/agents/managers/*.md`
 
 ### When Leo delegates to a project Manager
 
-1. Leo reads the project's agent file (e.g., `~/Github/saintfy/.claude/agents/managers/dev.md`)
-2. Sees `extends: ../../../../.claude/agents/managers/dev.md` in the frontmatter
-3. Reads the base file (the core Dev Manager at `~/.claude/agents/managers/dev.md`)
+1. Leo reads the project's agent file (e.g., `~/Github/saintfy/.claude/agents/managers/engineer.md`)
+2. Sees `extends: ../../../../.claude/agents/managers/engineer.md` in the frontmatter
+3. Reads the base file (the core Engineer Manager at `~/.claude/agents/managers/engineer.md`)
 4. Concatenates mentally: **core first, project second**
 5. Passes the combined context as the briefing for the executing session
 
@@ -52,7 +52,7 @@ Leo **does not inline** the core's content into the project file — they only m
 
 Domain rules live inside the Managers' agent files. When a project's Manager extends the core Manager, the core's domain rules come in automatically, and the project can **add** its own rules or **specialize** the existing ones — but not remove them.
 
-Example: the core Dev Manager has a generic "PR workflow" rule. The Saintfy Dev Manager extends it and adds "in addition, PRs touching `.tsx` run `scripts/lint-shadcn.sh` in self-QA". Core stays valid, the project is stricter.
+Example: the core Engineer Manager has a generic "PR workflow" rule. The Saintfy Engineer Manager extends it and adds "in addition, PRs touching `.tsx` run `scripts/lint-shadcn.sh` in self-QA". Core stays valid, the project is stricter.
 
 ## What is forbidden
 

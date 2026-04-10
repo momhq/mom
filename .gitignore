@@ -11,3 +11,8 @@
 
 # Dashboard data (local metrics, not committed)
 dashboard/data.jsonl
+
+# CLI build artifacts
+cli/node_modules/
+cli/dist/
+cli/package-lock.json

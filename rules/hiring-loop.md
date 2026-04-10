@@ -29,7 +29,7 @@ This mirrors real headhunting: the engineering manager says "I need a senior iOS
 In a Manager's first interactions with a new project, they identify which generalist specialists are needed based on the stack and expected tasks, and fire the Hiring Loop to assemble the basic team.
 
 Examples:
-- Dev Manager on a React project: "I need `frontend-react-specialist`, `backend-supabase-specialist`, `deploy-vercel-specialist`"
+- Engineer Manager on a React project: "I need `frontend-react-specialist`, `backend-supabase-specialist`, `deploy-vercel-specialist`"
 - Designer Manager on a mobile project: "I need `mobile-ui-specialist`, `app-store-assets-specialist`"
 
 ### Case 2 — Fill a specific domain gap
@@ -37,7 +37,7 @@ Examples:
 During execution, the Manager hits a task that requires deep expertise the current team doesn't cover.
 
 Examples:
-- Task requires APNs integration → Dev Manager asks for `apns-push-protocol-specialist`
+- Task requires APNs integration → Engineer Manager asks for `apns-push-protocol-specialist`
 - Task requires a complex Lottie animation → Designer Manager asks for `lottie-animation-specialist`
 
 In both cases, **specialists live 100% in the project**, never in the core. The core keeps only universal managers.

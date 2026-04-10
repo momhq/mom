@@ -9,7 +9,7 @@ Before writing any line of code, design, or copy, the executing agent **stops an
 
 ## Why this needs explicit enforcement
 
-Claude (the model) knows almost everything superficially. A Dev Manager told to implement APNs will try — because it has superficial APNs knowledge from training. That's exactly the failure mode this rule prevents.
+Claude (the model) knows almost everything superficially. An Engineer Manager told to implement APNs will try — because it has superficial APNs knowledge from training. That's exactly the failure mode this rule prevents.
 
 A rule saying "ask for help when you don't know" is not enough. The model will think it knows. A mechanism is needed that **forces** meta-reasoning to be materialized.
 
@@ -55,7 +55,7 @@ Template (each Manager customizes in their own agent file):
 | [medium-risk category] | Medium | Depends on scope |
 | [high-risk category] | **Low** | **Always** |
 
-Example for the Dev Manager:
+Example for the Engineer Manager:
 
 | Category | Default trust | Specialist mandatory? |
 |---|---|---|

@@ -15,7 +15,7 @@ copilot-core/
 ├── agents/
 │   ├── leo.md                      ← Manager of Managers (model: opus)
 │   └── managers/
-│       ├── dev.md                  ← development tech lead
+│       ├── engineer.md             ← engineering tech lead
 │       ├── designer.md             ← design tech lead
 │       ├── pm.md                   ← product tech lead
 │       └── marketing.md            ← marketing tech lead
@@ -78,7 +78,7 @@ Foundational decisions live in:
 
 ## Current state
 
-- ✅ Leo + 4 Managers (Dev, Designer, PM, Marketing) written
+- ✅ Leo + 4 Managers (Engineer, Designer, PM, Marketing) written
 - ✅ 11 universal rules written (10 from the RDD + metrics-collection)
 - ✅ `sync.sh` implemented, tested idempotent, active in `~/.claude/`
 - ✅ Logbook pilot configured (Phase 1 — hiring loop and extends active, peer review and metrics deferred to Phase 2)
