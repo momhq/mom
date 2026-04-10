@@ -8,3 +8,6 @@
 # Claude Code local settings
 .claude/settings.local.json
 .claude/project-config.local.yml
+
+# Dashboard data (local metrics, not committed)
+dashboard/data.jsonl
