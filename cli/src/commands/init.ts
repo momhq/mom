@@ -53,7 +53,7 @@ function showExistingStatus(
     info(`${statusIcon(false)} Stack: not detected`);
   }
 
-  // Existing copilot-core structures
+  // Existing leo-core structures
   if (state.hasClaudeDir) {
     info(
       `${statusIcon(state.managers.length > 0)} Managers: ${
@@ -90,14 +90,14 @@ function showExistingStatus(
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export async function init() {
-  header("copilot-core · project onboarding");
+  header("leo · project onboarding");
 
   // ── Auto-setup: ensure core is linked to ~/.claude/ ──────────────────
   info("Syncing core agents, rules, and skills...");
   const setupOk = runSetup({ silent: true });
   if (!setupOk) {
-    error("Setup failed — could not find or link the copilot-core directory.");
-    error("Run install.sh from the copilot-core repo first.");
+    error("Setup failed — could not find or link the leo-core directory.");
+    error("Run install.sh from the leo-core repo first.");
     process.exit(1);
   }
   success("Core synced to ~/.claude/");
@@ -215,7 +215,7 @@ export async function init() {
 
       if (p.isCancel(confirm)) {
         saveInitState({ ...state, phase: "type" });
-        p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+        p.cancel("Progress saved. Run 'leo init' to resume.");
         process.exit(0);
       }
 
@@ -236,7 +236,7 @@ export async function init() {
         });
         if (p.isCancel(selected)) {
           saveInitState({ ...state, phase: "type" });
-          p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+          p.cancel("Progress saved. Run 'leo init' to resume.");
           process.exit(0);
         }
         projectType = selected as string;
@@ -256,7 +256,7 @@ export async function init() {
       });
       if (p.isCancel(selected)) {
         saveInitState({ ...state, phase: "type" });
-        p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+        p.cancel("Progress saved. Run 'leo init' to resume.");
         process.exit(0);
       }
       projectType = selected as string;
@@ -295,7 +295,7 @@ export async function init() {
 
     if (p.isCancel(desc)) {
       saveInitState({ ...state, phase: "description" });
-      p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+      p.cancel("Progress saved. Run 'leo init' to resume.");
       process.exit(0);
     }
 
@@ -331,7 +331,7 @@ export async function init() {
 
       if (p.isCancel(keepExisting)) {
         saveInitState({ ...state, phase: "managers" });
-        p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+        p.cancel("Progress saved. Run 'leo init' to resume.");
         process.exit(0);
       }
 
@@ -354,7 +354,7 @@ export async function init() {
 
           if (p.isCancel(toAdd)) {
             saveInitState({ ...state, phase: "managers" });
-            p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+            p.cancel("Progress saved. Run 'leo init' to resume.");
             process.exit(0);
           }
 
@@ -378,7 +378,7 @@ export async function init() {
 
         if (p.isCancel(selected)) {
           saveInitState({ ...state, phase: "managers" });
-          p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+          p.cancel("Progress saved. Run 'leo init' to resume.");
           process.exit(0);
         }
 
@@ -399,7 +399,7 @@ export async function init() {
 
       if (p.isCancel(selected)) {
         saveInitState({ ...state, phase: "managers" });
-        p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+        p.cancel("Progress saved. Run 'leo init' to resume.");
         process.exit(0);
       }
 
@@ -451,7 +451,7 @@ export async function init() {
 
       if (p.isCancel(specialistChoices)) {
         saveInitState({ ...state, phase: "specialists" });
-        p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+        p.cancel("Progress saved. Run 'leo init' to resume.");
         process.exit(0);
       }
 
@@ -489,7 +489,7 @@ export async function init() {
 
     if (p.isCancel(input)) {
       saveInitState({ ...state, phase: "constraints" });
-      p.cancel("Progress saved. Run 'copilot-core init' to resume.");
+      p.cancel("Progress saved. Run 'leo init' to resume.");
       process.exit(0);
     }
 
@@ -570,7 +570,7 @@ export async function init() {
 
   // .gitignore
   const gitignorePath = resolve(projectDir, ".gitignore");
-  const copilotIgnoreBlock = `\n# copilot-core (local agent infrastructure)\n.claude/\n`;
+  const copilotIgnoreBlock = `\n# leo-core (local agent infrastructure)\n.claude/\n`;
 
   if (existsSync(gitignorePath)) {
     const content = readFileSync(gitignorePath, "utf-8");

@@ -8,6 +8,6 @@ const coreDir = resolve(__dirname, "..", "..");
 const claudeDir = resolve(homedir(), ".claude");
 
 mkdirSync(claudeDir, { recursive: true });
-writeFileSync(resolve(claudeDir, ".copilot-core-path"), coreDir, "utf-8");
+writeFileSync(resolve(claudeDir, ".leo-core-path"), coreDir, "utf-8");
 
 console.log(`Saved core path: ${coreDir}`);

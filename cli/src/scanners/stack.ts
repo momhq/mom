@@ -465,7 +465,7 @@ export function inferProjectType(
   return null; // ambiguous — will ask the user
 }
 
-/** Detect what copilot-core structures already exist in a project */
+/** Detect what leo-core structures already exist in a project */
 export interface ExistingState {
   hasClaudeDir: boolean;
   hasClaudeMd: boolean;

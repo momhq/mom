@@ -1,6 +1,6 @@
-# copilot-core
+# LEO — Living Ecosystem Orchestrator
 
-A replicable working method for Claude Code agents. One conversational manager (Leo) coordinates a team of discipline-specific Managers, universal rules, and on-demand specialists — across all your projects.
+A replicable working method for Claude Code agents. One conversational manager (Leo) coordinates a team of discipline-specific Managers, universal rules, and on-demand specialists — across all your projects. Knowledge lives in a JSON Knowledge Base with neural tag connections.
 
 ## How it works
 
@@ -22,30 +22,27 @@ You (owner)
 ### 1. Clone and install
 
 ```bash
-git clone git@github.com:vmarinogg/copilot-core.git ~/Github/copilot-core
-cd ~/Github/copilot-core && ./install.sh
+git clone git@github.com:vmarinogg/leo-core.git ~/Github/leo-core
+cd ~/Github/leo-core && ./install.sh
 ```
 
-This builds the CLI and registers `copilot-core` as a global command.
+This builds the CLI and registers `leo` as a global command.
 
 ### 2. Onboard a project
 
 ```bash
 cd ~/Github/your-project
-copilot-core init
+leo init
 ```
 
-This automatically syncs the core's agents, rules, and skills to `~/.claude/` and then runs the interactive onboarding.
-
-The interactive onboarding:
+This automatically syncs the core's agents, rules, skills, and KB to `~/.claude/` and runs the interactive onboarding:
 - Scans your codebase and detects the stack (20+ frameworks/tools supported)
 - Infers project type and asks for confirmation
 - Lets you pick which Managers you need
-- Suggests specialists based on your stack (scaffolded with empty playbooks — filled on first use)
-- Asks for negative constraints (things the agent should NOT do)
-- Generates `.claude/` structure, `CLAUDE.md`, and adds `.claude/` to `.gitignore`
+- Suggests specialists based on your stack
+- Generates `.claude/` structure, `CLAUDE.md` bootloader, and KB foundation
 
-If interrupted, run `copilot-core init` again — it picks up where you left off.
+If interrupted, run `leo init` again — it picks up where you left off.
 
 ### 3. Start working
 
@@ -53,105 +50,101 @@ If interrupted, run `copilot-core init` again — it picks up where you left off
 claude
 ```
 
-Leo is ready. Describe what you need, and the system handles routing, delegation, review, and delivery.
+Leo boots from the KB, loads rules and identity, and is ready. Describe what you need.
 
 ## CLI commands
 
 | Command | What it does |
 |---------|-------------|
-| `copilot-core init` | Interactive project onboarding (auto-syncs core + scan, configure, generate) |
-| `copilot-core setup` | Re-sync agents/rules/skills to `~/.claude/` (also runs automatically inside `init`) |
-| `copilot-core update` | Pull latest core + re-sync + migrate projects |
-| `copilot-core status` | Show core and current project state |
+| `leo init` | Interactive project onboarding (auto-syncs core + scan, configure, generate) |
+| `leo setup` | Re-sync agents/rules/skills/KB to `~/.claude/` |
+| `leo update` | Pull latest core + re-sync + migrate projects |
+| `leo status` | Show core and current project state (including KB health) |
+| `leo migrate-kb` | Migrate existing project to KB architecture (JSON knowledge base) |
 
-## Updating
+## Knowledge Base (KB)
 
-```bash
-copilot-core update
+The KB is the core innovation — a neural network of JSON documents connected by tags. AI thinks, scripts execute.
+
+```
+.claude/kb/
+├── schema.json       ← JSON Schema for all doc types
+├── index.json        ← Neural map (by_tag, by_type, by_scope, by_lifecycle)
+├── docs/             ← Flat document store (type lives inside, not in filename)
+│   ├── think-before-execute.json    ← type: rule
+│   ├── project-identity.json        ← type: identity
+│   ├── session-wrap-up.json         ← type: skill
+│   └── ...
+└── scripts/
+    ├── validate.sh   ← Schema validation (zero tokens)
+    ├── build-index.sh ← Rebuild neural map (zero tokens)
+    └── check-stale.sh ← Detect expired docs (zero tokens)
 ```
 
-This fetches the latest core, re-syncs symlinks, and automatically migrates any projects under `~/Github/` that need updates (e.g., renamed files, changed references).
+### Token Economy
 
-Content updates to existing agents/rules propagate instantly via symlinks — no re-run needed. Only run `update` when the core's structure changes (files added/removed/renamed).
+- **AI spends tokens** on thinking, judgment, content creation
+- **Scripts spend zero tokens** on validation, indexing, stale detection
+- **Hooks automate** KB maintenance (validate on write, rebuild index on stop)
+
+### Doc types
+
+| Type | Lifecycle | What it stores |
+|------|-----------|---------------|
+| `rule` | permanent | Operational rules governing agent behavior |
+| `skill` | permanent | Executable workflows agents can invoke |
+| `identity` | permanent | What the project IS — stack, philosophy, constraints |
+| `decision` | learning | Decisions with context, alternatives, impact |
+| `pattern` | learning | Reusable conventions and templates |
+| `fact` | state | Temporary info that ages fast |
+| `feedback` | learning | Owner corrections to agent behavior |
+| `reference` | state | Pointers to external resources |
+| `metric` | state | Task execution metrics |
 
 ## Structure
 
 ```
-copilot-core/
-├── cli/                               ← Node.js CLI (setup, init, update, status)
-│   └── src/
-│       ├── commands/                  ← CLI command implementations
-│       ├── scanners/                  ← Stack detection (20+ frameworks)
-│       ├── generators/               ← File generators (CLAUDE.md, managers, context)
-│       └── utils/                     ← Paths, UI helpers, state management
+leo-core/
+├── CLAUDE.md                          ← Bootloader (~30 lines, teaches agent to self-load)
+├── cli/                               ← Node.js CLI (setup, init, update, status, migrate-kb)
 ├── agents/
 │   ├── leo.md                         ← Manager of Managers (model: opus)
-│   └── managers/
-│       ├── engineer.md                ← engineering tech lead
-│       ├── designer.md               ← design tech lead
-│       ├── pm.md                      ← product tech lead
-│       └── marketing.md              ← marketing tech lead
-├── rules/                             ← 11 universal rules
-│   ├── think-before-execute.md        ← direct mode vs alignment mode
-│   ├── propagation.md                 ← decisions must reach context files
-│   ├── anti-hallucination.md          ← mark origin, verify before asserting
-│   ├── evidence-over-claim.md         ← deliveries need proof
-│   ├── peer-review-automatic.md       ← adversarial review via sub-instances
-│   ├── escalation-triggers.md         ← when to stop and ask
-│   ├── hiring-loop.md                 ← managers report gaps, Leo hires
-│   ├── know-what-you-dont-know.md     ← pre-execution checks + trust gradient
-│   ├── inheritance.md                 ← projects extend core via `extends:`
-│   ├── state-vs-learning.md           ← memories age differently
-│   └── metrics-collection.md          ← 8 metrics per task
+│   └── managers/                      ← 4 universal tech leads
+├── rules/                             ← 11 universal rules (MD — legacy, migrating to KB)
+├── .claude/
+│   ├── kb/                            ← Knowledge Base
+│   │   ├── schema.json               ← Document schema
+│   │   ├── index.json                ← Neural map (auto-generated)
+│   │   ├── docs/                     ← 15 JSON documents
+│   │   └── scripts/                  ← Zero-token maintenance scripts
+│   ├── hooks/                         ← Claude Code hooks (validate, rebuild-index)
+│   └── settings.json                 ← Hooks configuration
 ├── skills/
-│   └── session-wrap-up/               ← end-of-session propagation protocol
-├── docs/
-│   ├── conventions/                   ← GitHub project management, templates
-│   └── rdds/                          ← architectural decision records
-├── scripts/
-│   └── sync.sh                        ← legacy installer (CLI preferred)
-└── install.sh                         ← one-command setup (build + link CLI)
+│   └── session-wrap-up/              ← End-of-session propagation protocol
+├── docs/                              ← Design docs, conventions, RDDs
+└── install.sh                         ← One-command setup
 ```
 
 ## Key concepts
 
 ### Managers are tech leads, not executors
 
-Managers receive tasks, decompose them, delegate to specialists, review adversarially, and synthesize. They write code/design/copy only as an exception (micro-tasks, emergency).
-
-### Specialists live in the project, not the core
-
-The core has universal Managers and rules. Each project builds its own specialist team via the Hiring Loop as needed. Specialists are created in `<project>/.claude/specialists/`.
+Managers receive tasks, decompose them, delegate to specialists, review adversarially, and synthesize. They write code/design/copy only as an exception.
 
 ### Projects extend the core, never override
 
-A project's Manager file uses `extends:` to inherit the core Manager and add project-specific context (stack, conventions, extra self-QA items). Core behavior can never be removed — only extended.
-
-```yaml
----
-name: Engineer Manager (my-project)
-extends: ../../../../.claude/agents/managers/engineer.md
----
-
-## Project-specific additions
-- shadcn/ui first — always check component library before creating custom components
-```
-
-### Rules in 2 scopes
-
-- **Universal** (`rules/`) — always loaded, govern all agents. "How the team works."
-- **Domain** — embedded in Manager files, loaded when the Manager is invoked. "How that discipline works."
+A project's Manager file uses `extends:` to inherit the core Manager. Core behavior can never be removed — only extended. KB docs use `scope: core` vs `scope: project` for the same principle.
 
 ### Review is automatic
 
-Every piece of work goes through adversarial peer review by another instance of the same Manager — with isolated context and no access to the original reasoning. The cost is seconds and tokens, not human hours.
+Every piece of work goes through adversarial peer review by another instance of the same Manager — with isolated context and no access to the original reasoning.
 
-### 8 operational metrics
+### Knowledge is alive
 
-Every task produces a JSONL entry tracking: peer review pass rate, owner acceptance, self-QA honesty, rework cycles, hiring loop hit rate, delegation quality, internal iterations, and Leo's own errors.
+The KB grows during sessions (wrap-up creates JSON docs), maintains itself (scripts validate and index), and ages naturally (lifecycle field + stale detection).
 
 ## What it is not
 
 - Not an autonomous agent framework — you stay in the loop at every inflection point
-- Not a replacement for your project's `CLAUDE.md` — it complements it
-- Not a generic CLI for Claude Code — it's a working method with opinions
+- Not a replacement for thinking — it's a structure for how AI agents collaborate
+- Not vendor-locked — JSON KB is AI-agnostic by design

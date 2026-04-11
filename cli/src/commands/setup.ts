@@ -72,8 +72,8 @@ export function runSetup(options?: { silent?: boolean }): boolean {
   try {
     coreDir = getCoreDir();
   } catch {
-    log.error("Could not find copilot-core directory.");
-    log.error("Run install.sh from the copilot-core repo first.");
+    log.error("Could not find leo-core directory.");
+    log.error("Run install.sh from the leo-core repo first.");
     return false;
   }
 
@@ -84,7 +84,7 @@ export function runSetup(options?: { silent?: boolean }): boolean {
   const skillsDir = resolve(coreDir, "skills");
 
   if (!existsSync(agentsDir) || !existsSync(rulesDir)) {
-    log.error(`Not a valid copilot-core directory: ${coreDir}`);
+    log.error(`Not a valid leo-core directory: ${coreDir}`);
     log.error("Expected agents/ and rules/ directories");
     return false;
   }
@@ -151,7 +151,7 @@ export function runSetup(options?: { silent?: boolean }): boolean {
 
 /** CLI command — runs setup with full output */
 export async function setup() {
-  header("copilot-core setup");
+  header("leo setup");
 
   const ok = runSetup();
   if (!ok) {
@@ -165,5 +165,5 @@ export async function setup() {
   info(`Source:  ${coreDir}`);
   info(`Target:  ${claudeDir}`);
 
-  p.outro("Setup complete. Run 'copilot-core init' in a project to onboard it.");
+  p.outro("Setup complete. Run 'leo init' in a project to onboard it.");
 }

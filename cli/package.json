@@ -1,9 +1,10 @@
 {
-  "name": "copilot-core",
-  "version": "0.1.0",
-  "description": "CLI for copilot-core — setup, onboard projects, and manage your AI agent system",
+  "name": "leo-core",
+  "version": "0.2.0",
+  "description": "LEO — Living Ecosystem Orchestrator. CLI for setup, project onboarding, KB migration, and AI agent management.",
   "type": "module",
   "bin": {
+    "leo": "./dist/index.js",
     "copilot-core": "./dist/index.js"
   },
   "scripts": {

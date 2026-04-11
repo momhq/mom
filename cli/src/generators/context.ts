@@ -34,7 +34,7 @@ export function generateStackMd(
 
   return `# Stack
 
-Auto-detected by copilot-core CLI on ${new Date().toISOString().split("T")[0]}.
+Auto-detected by leo-core CLI on ${new Date().toISOString().split("T")[0]}.
 
 ## Detected technologies
 

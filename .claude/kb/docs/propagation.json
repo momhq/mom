@@ -1,0 +1,42 @@
+{
+  "id": "propagation",
+  "type": "rule",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": ["propagation", "wrap-up", "persistence", "knowledge-management"],
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "owner",
+  "updated": "2026-04-10T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "rule": "No task is complete until the KB reflects what changed. Decisions, patterns, facts, and learnings must be materialized as JSON docs in the KB before reporting done. Outdated information is worse than missing information.",
+    "why": "Without propagation, knowledge stays in conversation context and dies with the session. The KB is the system's long-term memory — if it doesn't reflect what happened, the next session starts blind. The old mechanism (Leo scanning context files mentally) is replaced by structured JSON docs + scripts that validate and index at zero token cost.",
+    "how_to_apply": [
+      "Propagate when the task includes: decisions (product, design, tech, business, marketing), stack changes, new patterns, context changes, assets or templates created, lessons from failures",
+      "Primary trigger — explicit owner end-of-session signal: Leo invokes the session-wrap-up skill which generates JSON docs with tags, saves to .claude/kb/docs/, hooks validate and rebuild index",
+      "Secondary trigger — opportunistic single-decision propagation: when a decision is clearly locked mid-session (owner used 'final', 'locked', 'decided'), Leo can create a single KB doc immediately without invoking the full wrap-up",
+      "Safety net — long session detection: if many decisions are accumulating without a closing signal, Leo asks once: 'There's a lot piling up. Close now or keep going?'",
+      "Wrap-up flow: inventory what changed → classify each item (type, lifecycle, tags) → present plan to owner (R2) → write JSON docs to .claude/kb/docs/ → hooks fire (validate.sh checks schema, build-index.sh rebuilds index) → commit",
+      "When in doubt about whether to propagate mid-session, wait for wrap-up. Propagating too incrementally recreates the problem this rule solves"
+    ],
+    "examples": [
+      {
+        "situation": "Owner says 'iOS 17 is the floor, final' mid-session",
+        "wrong": "Wait for wrap-up to record this — might forget",
+        "right": "Create a single KB doc (type: decision) immediately — the decision is clearly locked"
+      },
+      {
+        "situation": "Long session with 5+ decisions made, no closing signal from owner",
+        "wrong": "Run full wrap-up without being asked",
+        "right": "Ask once: 'There's a lot piling up. Close now or keep going?'"
+      }
+    ],
+    "anti_patterns": [
+      "Running the full wrap-up checklist without an explicit trigger — Leo never propagates the full checklist on his own initiative",
+      "Writing a 'current project status' doc that will be garbage in 1 week — if there's no genuine lesson, it shouldn't be a KB doc",
+      "Propagating implementation details that live in code — code is the source of truth for code",
+      "Creating KB docs for temporary conversation context — that's ephemeral, not knowledge"
+    ],
+    "responsibility": "Leo is ultimately responsible for propagation. Managers can propagate within their scope (domain rule, specific fact), but Leo ensures nothing slipped through."
+  }
+}

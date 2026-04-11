@@ -5,17 +5,18 @@ import { setup } from "./commands/setup.js";
 import { init } from "./commands/init.js";
 import { update } from "./commands/update.js";
 import { status } from "./commands/status.js";
+import { migrateKb } from "./commands/migrate-kb.js";
 
 const program = new Command();
 
 program
-  .name("copilot-core")
-  .description("Setup, onboard projects, and manage your AI agent system")
-  .version("0.1.0");
+  .name("leo")
+  .description("LEO — Living Ecosystem Orchestrator. Setup, onboard projects, and manage your AI agent system.")
+  .version("0.2.0");
 
 program
   .command("setup")
-  .description("Install copilot-core (symlink agents, rules, skills to ~/.claude/)")
+  .description("Install leo-core (symlink agents, rules, skills, KB to ~/.claude/)")
   .action(setup);
 
 program
@@ -32,5 +33,10 @@ program
   .command("status")
   .description("Show current core and project status")
   .action(status);
+
+program
+  .command("migrate-kb")
+  .description("Migrate current project to KB architecture (JSON knowledge base)")
+  .action(migrateKb);
 
 program.parse();

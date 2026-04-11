@@ -6,22 +6,25 @@ import { homedir } from "node:os";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const CORE_PATH_FILE = resolve(homedir(), ".claude", ".copilot-core-path");
+const CORE_PATH_FILE = resolve(homedir(), ".claude", ".leo-core-path");
+const LEGACY_PATH_FILE = resolve(homedir(), ".claude", ".copilot-core-path");
 
-/** Save the core directory path to ~/.claude/.copilot-core-path */
+/** Save the core directory path to ~/.claude/.leo-core-path */
 export function saveCoreDir(dir: string): void {
   const claudeDir = resolve(homedir(), ".claude");
   mkdirSync(claudeDir, { recursive: true });
   writeFileSync(CORE_PATH_FILE, resolve(dir), "utf-8");
 }
 
-/** Resolve the copilot-core root */
+/** Resolve the leo-core root */
 export function getCoreDir(): string {
   // 1. Read from saved config (set at npm link / prepare time)
-  if (existsSync(CORE_PATH_FILE)) {
-    const saved = readFileSync(CORE_PATH_FILE, "utf-8").trim();
-    if (existsSync(resolve(saved, "agents")) && existsSync(resolve(saved, "rules"))) {
-      return saved;
+  for (const pathFile of [CORE_PATH_FILE, LEGACY_PATH_FILE]) {
+    if (existsSync(pathFile)) {
+      const saved = readFileSync(pathFile, "utf-8").trim();
+      if (existsSync(resolve(saved, "agents"))) {
+        return saved;
+      }
     }
   }
 
@@ -39,7 +42,7 @@ export function getCoreDir(): string {
   }
 
   throw new Error(
-    "Could not find copilot-core directory. Run 'npm link' again from copilot-core/cli/."
+    "Could not find leo-core directory. Run 'npm link' again from leo-core/cli/."
   );
 }
 

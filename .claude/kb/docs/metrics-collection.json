@@ -1,0 +1,29 @@
+{
+  "id": "metrics-collection",
+  "type": "rule",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": ["metrics", "quality", "refinement", "measurement"],
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "owner",
+  "updated": "2026-04-10T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "rule": "Every executed task leaves one metric entry as a KB doc (type: metric). This creates the dataset for refining agents and rules based on real data — not guesswork.",
+    "why": "Any system that intends to be refinable needs a measurable fitness function. Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. Two immediate uses: (1) deciding where to refine after 20-30 tasks, (2) input for offline auto-refinement loop.",
+    "how_to_apply": [
+      "Storage: each metric is a KB doc in .claude/kb/docs/ with type: metric, tagged with the manager name and domain. Replaces the old .claude/metrics/*.jsonl approach — metrics now live in the KB, queryable via index",
+      "Collection: Leo writes the metric doc when closing the task. Managers pass raw data to Leo as part of the final report",
+      "The 8 metrics: (1) peer review pass rate — review.first_pass + review.iterations, (2) owner rejection rate — owner.accepted_on_delivery, (3) self-QA honesty — self_qa.honest, (4) rework cycles — rework_cycles count, (5) hiring loop hit rate — hiring_loop.outcome, (6) delegation quality — delegation.quality, (7) internal iterations — internal_iterations count, (8) leo errors — leo_errors array",
+      "Periodic review: every 20-30 tasks, owner asks Leo for metrics report. Leo reads metric docs from KB via index (by_type.metric), aggregates, presents rates and worst cases",
+      "Leo must record his own errors with the same rigor as the team's. Metrics that only measure output quality without process quality are structurally biased toward positive"
+    ],
+    "anti_patterns": [
+      "Marking delegation.quality as 'correct_first' when it wasn't — that's the honesty problem self_qa.honest exists to catch, applied to Leo",
+      "Skipping metric collection for 'trivial' tasks — every task gets a metric entry, no exceptions",
+      "Measuring subjective quality ('did the code come out pretty?') — metrics are binary or countable",
+      "Optimizing for token cost at the expense of quality — the refinement decision should never be to cut corners"
+    ],
+    "responsibility": "Leo writes metric entries. Managers provide raw data. Owner audits periodically. If Leo forgets to log, the dataset becomes skewed and refinement decisions will be biased."
+  }
+}

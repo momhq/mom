@@ -1,0 +1,299 @@
+{
+  "version": "1",
+  "last_rebuilt": "2026-04-11T03:00:25Z",
+  "stats": {
+    "total_docs": 19,
+    "total_tags": 58,
+    "docs_by_type": {
+      "rule": 11,
+      "decision": 3,
+      "fact": 1,
+      "identity": 1,
+      "pattern": 1,
+      "skill": 1,
+      "feedback": 1
+    },
+    "stale_count": 0,
+    "most_connected_tag": "migration"
+  },
+  "by_tag": {
+    "honesty": [
+      "anti-hallucination"
+    ],
+    "verification": [
+      "anti-hallucination",
+      "evidence-over-claim"
+    ],
+    "trust": [
+      "anti-hallucination",
+      "know-what-you-dont-know"
+    ],
+    "evidence": [
+      "anti-hallucination",
+      "evidence-over-claim"
+    ],
+    "escalation": [
+      "escalation-triggers"
+    ],
+    "approval": [
+      "escalation-triggers"
+    ],
+    "safety": [
+      "escalation-triggers",
+      "self-hosting-notes"
+    ],
+    "owner-decision": [
+      "escalation-triggers"
+    ],
+    "delivery": [
+      "evidence-over-claim"
+    ],
+    "quality": [
+      "evidence-over-claim",
+      "metrics-collection",
+      "peer-review-automatic"
+    ],
+    "specialists": [
+      "hiring-loop"
+    ],
+    "delegation": [
+      "hiring-loop",
+      "token-economy-model-selection"
+    ],
+    "hiring": [
+      "hiring-loop"
+    ],
+    "separation-of-concerns": [
+      "hiring-loop"
+    ],
+    "inheritance": [
+      "inheritance"
+    ],
+    "extension": [
+      "inheritance"
+    ],
+    "core-project": [
+      "inheritance"
+    ],
+    "agent-config": [
+      "inheritance"
+    ],
+    "expertise": [
+      "know-what-you-dont-know"
+    ],
+    "hiring-loop": [
+      "know-what-you-dont-know"
+    ],
+    "self-awareness": [
+      "know-what-you-dont-know"
+    ],
+    "meta-reasoning": [
+      "know-what-you-dont-know"
+    ],
+    "lifecycle": [
+      "lifecycle-replaces-state-vs-learning"
+    ],
+    "architecture": [
+      "lifecycle-replaces-state-vs-learning",
+      "md-fallback-during-migration",
+      "project-identity",
+      "stop-hook-lesson"
+    ],
+    "knowledge-management": [
+      "lifecycle-replaces-state-vs-learning",
+      "propagation"
+    ],
+    "migration": [
+      "lifecycle-replaces-state-vs-learning",
+      "md-fallback-during-migration",
+      "migration-progress",
+      "repo-rename-to-leo-core"
+    ],
+    "compatibility": [
+      "md-fallback-during-migration"
+    ],
+    "rules": [
+      "md-fallback-during-migration"
+    ],
+    "metrics": [
+      "metrics-collection"
+    ],
+    "refinement": [
+      "metrics-collection"
+    ],
+    "measurement": [
+      "metrics-collection"
+    ],
+    "status": [
+      "migration-progress"
+    ],
+    "kb": [
+      "migration-progress"
+    ],
+    "review": [
+      "peer-review-automatic"
+    ],
+    "adversarial": [
+      "peer-review-automatic"
+    ],
+    "isolation": [
+      "peer-review-automatic"
+    ],
+    "identity": [
+      "project-identity",
+      "repo-rename-to-leo-core"
+    ],
+    "leo": [
+      "project-identity",
+      "repo-rename-to-leo-core"
+    ],
+    "meta": [
+      "project-identity"
+    ],
+    "propagation": [
+      "propagation",
+      "session-wrap-up"
+    ],
+    "wrap-up": [
+      "propagation",
+      "session-wrap-up"
+    ],
+    "persistence": [
+      "propagation",
+      "session-wrap-up"
+    ],
+    "naming": [
+      "repo-rename-to-leo-core"
+    ],
+    "self-hosting": [
+      "self-hosting-notes"
+    ],
+    "dogfooding": [
+      "self-hosting-notes"
+    ],
+    "core": [
+      "self-hosting-notes"
+    ],
+    "session": [
+      "session-wrap-up"
+    ],
+    "hooks": [
+      "stop-hook-lesson"
+    ],
+    "lesson": [
+      "stop-hook-lesson"
+    ],
+    "performance": [
+      "stop-hook-lesson"
+    ],
+    "execution": [
+      "think-before-execute"
+    ],
+    "alignment": [
+      "think-before-execute"
+    ],
+    "decision-making": [
+      "think-before-execute"
+    ],
+    "autonomy": [
+      "think-before-execute"
+    ],
+    "token-economy": [
+      "token-economy-model-selection"
+    ],
+    "model-selection": [
+      "token-economy-model-selection"
+    ],
+    "cost": [
+      "token-economy-model-selection"
+    ],
+    "efficiency": [
+      "token-economy-model-selection"
+    ]
+  },
+  "by_type": {
+    "rule": [
+      "anti-hallucination",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "hiring-loop",
+      "inheritance",
+      "know-what-you-dont-know",
+      "metrics-collection",
+      "peer-review-automatic",
+      "propagation",
+      "think-before-execute",
+      "token-economy-model-selection"
+    ],
+    "decision": [
+      "lifecycle-replaces-state-vs-learning",
+      "md-fallback-during-migration",
+      "repo-rename-to-leo-core"
+    ],
+    "fact": [
+      "migration-progress"
+    ],
+    "identity": [
+      "project-identity"
+    ],
+    "pattern": [
+      "self-hosting-notes"
+    ],
+    "skill": [
+      "session-wrap-up"
+    ],
+    "feedback": [
+      "stop-hook-lesson"
+    ]
+  },
+  "by_scope": {
+    "core": [
+      "anti-hallucination",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "hiring-loop",
+      "inheritance",
+      "know-what-you-dont-know",
+      "lifecycle-replaces-state-vs-learning",
+      "md-fallback-during-migration",
+      "metrics-collection",
+      "migration-progress",
+      "peer-review-automatic",
+      "project-identity",
+      "propagation",
+      "repo-rename-to-leo-core",
+      "self-hosting-notes",
+      "session-wrap-up",
+      "stop-hook-lesson",
+      "think-before-execute",
+      "token-economy-model-selection"
+    ]
+  },
+  "by_lifecycle": {
+    "permanent": [
+      "anti-hallucination",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "hiring-loop",
+      "inheritance",
+      "know-what-you-dont-know",
+      "lifecycle-replaces-state-vs-learning",
+      "metrics-collection",
+      "peer-review-automatic",
+      "project-identity",
+      "propagation",
+      "repo-rename-to-leo-core",
+      "self-hosting-notes",
+      "session-wrap-up",
+      "stop-hook-lesson",
+      "think-before-execute",
+      "token-economy-model-selection"
+    ],
+    "learning": [
+      "md-fallback-during-migration"
+    ],
+    "state": [
+      "migration-progress"
+    ]
+  }
+}

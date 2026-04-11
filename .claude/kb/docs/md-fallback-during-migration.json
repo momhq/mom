@@ -1,0 +1,25 @@
+{
+  "id": "md-fallback-during-migration",
+  "type": "decision",
+  "lifecycle": "learning",
+  "scope": "core",
+  "tags": ["migration", "architecture", "compatibility", "rules"],
+  "created": "2026-04-11T00:00:00Z",
+  "created_by": "owner",
+  "updated": "2026-04-11T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "decision": "Old MD rule files in rules/ are kept as deprecated fallback during KB migration. They will be removed after all downstream projects have migrated via leo migrate-kb.",
+    "context": "Claude Code auto-loads files from ~/.claude/rules/ at session start via symlinks. Removing MD rules from the core before downstream projects migrate would break their sessions — no rules loaded, no context. The KB bootloader (CLAUDE.md) handles rule loading for projects that have migrated.",
+    "alternatives_considered": [
+      "Remove MD immediately (option A) — breaks downstream projects",
+      "Keep MD forever alongside KB — maintenance burden, risk of divergence"
+    ],
+    "impact": [
+      "Downstream projects continue working unchanged until they run leo migrate-kb",
+      "Two sources of truth temporarily exist — KB docs are canonical, MD files are frozen",
+      "After all projects migrate, MD files and rules/ directory can be deleted"
+    ],
+    "reversible": true
+  }
+}

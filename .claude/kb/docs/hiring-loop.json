@@ -1,0 +1,31 @@
+{
+  "id": "hiring-loop",
+  "type": "rule",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": ["specialists", "delegation", "hiring", "separation-of-concerns"],
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "owner",
+  "updated": "2026-04-10T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "rule": "Recognizing a gap and filling a gap are separate responsibilities. Manager identifies the need, reports to Leo. Leo hires the specialist with cross-cutting view. Manager executes with the new hire.",
+    "why": "Leo sees duplication across managers, cross-project reuse across repos, and enforces structural standards. Without Leo's cross-cutting view, managers generate duplicate and inconsistent specialists. Mirrors real headhunting: engineering manager says 'I need a senior iOS engineer', HR/CTO writes the JD and hires, manager executes.",
+    "how_to_apply": [
+      "Two legitimate triggers: (1) Assemble initial team — Manager identifies generalist specialists needed for the stack, (2) Fill specific domain gap — Manager hits a task requiring deep expertise the current team doesn't cover",
+      "Manager reports to Leo: proposed name, scope, what for, worst case without it",
+      "Leo checks: similar specialist requested by another Manager? Reusable specialist in another project (~/Github/*/.claude/specialists/)? Scope too broad or narrow?",
+      "Leo formats proposal and presents to owner (R2): name, scope, playbook. Owner approves, rejects, or adjusts",
+      "If approved: Leo creates .claude/specialists/{domain}/{name}.md in the project + KB reference doc. Hands back to Manager",
+      "Specialist format: frontmatter (name, description, domain) + Domain (knows/doesn't know) + Playbook (steps, checklist, gotchas) + References + Self-check",
+      "Specialists live 100% in the project, never in the core. Core keeps only universal managers"
+    ],
+    "anti_patterns": [
+      "Manager creating a specialist without going through Leo — generates duplicates and inconsistency",
+      "Specialists that are too generic — a 'Frontend generalist' covering React + Vue + Svelte is useless",
+      "Specialists that replicate the Manager's knowledge — specialists exist for deep or specific knowledge the Manager doesn't have",
+      "Hiring loop for a 5-minute task — if creating a specialist costs more than executing carefully, the Manager can execute with strict self-QA + peer review"
+    ],
+    "responsibility": "Leo hires. Managers recognize gaps and execute with hired specialists. Owner approves via R2."
+  }
+}

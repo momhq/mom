@@ -112,7 +112,7 @@ function findProjects(): string[] {
 // --- Main command -----------------------------------------------------------
 
 export async function update() {
-  header("copilot-core update");
+  header("leo update");
 
   const coreDir = getCoreDir();
 

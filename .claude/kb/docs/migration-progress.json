@@ -1,0 +1,16 @@
+{
+  "id": "migration-progress",
+  "type": "fact",
+  "lifecycle": "state",
+  "scope": "core",
+  "tags": ["migration", "status", "kb"],
+  "created": "2026-04-11T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-11T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "fact": "KB migration phases 1-3 complete. Phase 4 (cleanup old MD files) deferred until downstream projects migrate. Phase 1: KB structure + schema + scripts. Phase 2: 15 docs migrated (11 rules + 1 decision + 1 identity + 1 pattern + 1 skill). Phase 3: CLAUDE.md bootloader + hooks + CLI v0.2.0 with migrate-kb command. End-to-end test passed — new session boots from KB correctly.",
+    "source": "Session 2026-04-11",
+    "expires": "2026-05-11T00:00:00Z"
+  }
+}

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, lstatSync, statSync } from "node:fs";
+import { existsSync, readdirSync, lstatSync, statSync, readFileSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { getCoreDir, getClaudeDir, getProjectDir } from "../utils/paths.js";
 import { header, success, warn, info, p, color } from "../utils/ui.js";
@@ -43,7 +43,7 @@ function countFiles(dir: string, ext: string): number {
 }
 
 export async function status() {
-  header("copilot-core status");
+  header("leo status");
 
   const coreDir = getCoreDir();
   const claudeDir = getClaudeDir();
@@ -74,7 +74,7 @@ export async function status() {
 
   const totalDangling = agents.dangling + rules.dangling + skills.dangling;
   if (totalDangling > 0) {
-    warn(`${totalDangling} dangling symlinks found — run 'copilot-core update' to clean`);
+    warn(`${totalDangling} dangling symlinks found — run 'leo update' to clean`);
   }
 
   // Project info (if not in core dir)
@@ -89,7 +89,7 @@ export async function status() {
         .map((f) => f.replace(".md", ""));
       info(`Managers: ${managers.join(", ") || "none"}`);
     } else {
-      warn("Not initialized — run 'copilot-core init' to onboard");
+      warn("Not initialized — run 'leo init' to onboard");
     }
 
     const specialistsDir = resolve(projectDir, ".claude", "specialists");
@@ -98,6 +98,23 @@ export async function status() {
       info(`Specialists: ${specialistCount}`);
     }
 
+    // KB info
+    const kbIndex = resolve(projectDir, ".claude", "kb", "index.json");
+    if (existsSync(kbIndex)) {
+      try {
+        const index = JSON.parse(readFileSync(kbIndex, "utf-8"));
+        info(`KB: ${color.green("active")} — ${index.stats.total_docs} docs, ${index.stats.total_tags} tags`);
+        if (index.stats.stale_count > 0) {
+          warn(`  ${index.stats.stale_count} stale doc(s) need review`);
+        }
+      } catch {
+        info("KB: index.json exists but could not be read");
+      }
+    } else {
+      info(`KB: ${color.dim("not migrated")} — run 'leo migrate-kb' to migrate`);
+    }
+
+    // Legacy context (still shows if present)
     const contextDir = resolve(projectDir, ".claude", "context");
     if (existsSync(contextDir)) {
       const hasProject = existsSync(resolve(contextDir, "project.md"));
@@ -108,7 +125,9 @@ export async function status() {
         hasStack ? "stack.md" : null,
         hasConstraints ? "constraints.md" : null,
       ].filter(Boolean);
-      info(`Context: ${contextItems.join(", ") || "none"}`);
+      if (contextItems.length > 0) {
+        info(`Legacy context: ${contextItems.join(", ")} ${color.dim("(can be removed after KB migration)")}`);
+      }
     }
   }
 

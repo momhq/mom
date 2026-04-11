@@ -1,0 +1,58 @@
+{
+  "id": "session-wrap-up",
+  "type": "skill",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": ["wrap-up", "propagation", "persistence", "session"],
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "owner",
+  "updated": "2026-04-10T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "description": "Orchestrates end-of-session knowledge propagation. Lists what changed, classifies each item, presents a plan for owner approval, writes KB docs, commits, and reports.",
+    "triggers": [
+      "wrap up", "let's consolidate", "close the session", "save this", "done for today", "we're good", "finalize",
+      "fecha a sessão", "consolida aí", "tá bom assim", "pronto por hoje", "salva isso", "fecha aí", "pode fechar",
+      "vamos consolidar", "acho que tá bom por hoje", "próxima vez continua daqui", "manda bala, fecha"
+    ],
+    "invoked_by": "leo",
+    "steps": [
+      {
+        "name": "Inventory",
+        "instruction": "List what actually changed: decisions made, state changes, new artifacts, learnings/failures. Skip: implementation details in code, temporary task state, conversation turns without durable decisions. Be honest about scope — if the session produced one decision, say so.",
+        "wait_for_approval": false
+      },
+      {
+        "name": "Classify",
+        "instruction": "For each inventory item, determine: type (decision, pattern, fact, feedback, reference), lifecycle (permanent, learning, state), tags for neural connections, id (kebab-case). Check index.json to see if a doc with similar tags/topic already exists — update vs create.",
+        "wait_for_approval": false
+      },
+      {
+        "name": "Present propagation plan",
+        "instruction": "Show the owner: new docs to create (id, type, tags), docs to update, items skipped with reason, commit strategy (files to stage, commit message draft), escalations needed. Wait for explicit approval before proceeding.",
+        "wait_for_approval": true
+      },
+      {
+        "name": "Execute",
+        "instruction": "Write JSON docs to .claude/kb/docs/ following schema.json. validate.sh hook checks each write. Run grep sanity checks for stale references. Stage exact files planned (no git add -A). Commit with clear message + Co-Authored-By footer.",
+        "wait_for_approval": false
+      },
+      {
+        "name": "Report",
+        "instruction": "Brief report: commit SHA, files changed, memory written (if any), pushed status, deferred items, session-level learning (if any).",
+        "wait_for_approval": false
+      }
+    ],
+    "do_not": [
+      "Decide whether to propagate — that's in the propagation rule. This skill is the how, triggered by the when",
+      "Edit copilot-core itself — refinements to the core are escalations handled separately with R2",
+      "Run on its own — it is model-invoked by Leo after recognizing a wrap-up signal",
+      "Skip R2 — every execution requires explicit owner approval",
+      "Handle session termination (context limit, crash) — those are recovery scenarios, not wrap-up",
+      "Invoke on every 'ok' — only when intent is clearly 'we are done, persist the learnings'",
+      "Execute without approval even if the plan is obvious — R2 is not optional",
+      "Manufacture propagation when the inventory is empty — say so briefly and stop"
+    ],
+    "output_format": "## Wrap-up complete\n\n**Committed:** [SHA] — N files, +X/-Y lines\n**Memory written:** [list, or 'none']\n**Pushed:** [yes / no / not applicable]\n**Deferred:** [list, or 'nothing']\n**Session-level learning:** [one-line summary, if any]"
+  }
+}
