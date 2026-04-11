@@ -14,14 +14,14 @@
   "updated": "2026-04-11T12:00:00Z",
   "updated_by": "leo",
   "content": {
-    "decision": "Repository renamed from copilot-core to leo-core. CLI command renamed from copilot-core to leo. LEO = Living Ecosystem Orchestrator.",
+    "decision": "Repository renamed to leo-core. CLI command is leo. LEO = Living Ecosystem Orchestrator.",
     "context": "The project evolved from a generic 'copilot' concept into a distinct identity. The name LEO emerged organically — it was already the name of the Manager of Managers agent, and the acronym Living Ecosystem Orchestrator captures the neural KB architecture.",
     "alternatives_considered": [
-      "Keep copilot-core — too generic, doesn't communicate what the project actually is"
+      "Previous name was too generic, didn't communicate what the project actually is"
     ],
     "impact": [
-      "GitHub repo: vmarinogg/leo-core (redirect from copilot-core active)",
-      "CLI command: leo (with copilot-core kept as bin alias for compatibility)",
+      "GitHub repo: vmarinogg/leo-core",
+      "CLI command: leo",
       "Package name: leo-core v0.2.0",
       "All internal references updated, RDDs keep historical references"
     ],

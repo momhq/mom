@@ -196,7 +196,7 @@ no schema, zero mudança no comportamento dos agents.
 - [ ] Como o wrap-up gera docs JSON (adaptar a skill)
 - [ ] Hook que roda os scripts automaticamente pós-sessão
 - [ ] Migração do sistema atual (memory/ + context/) para o KB
-- [ ] Nome do projeto (owner quer renomear copilot-core)
+- [ ] Nome do projeto (owner quer renomear leo-core)
 
 ## 10. Inspirações
 

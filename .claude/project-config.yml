@@ -8,7 +8,7 @@ project:
   name: leo-core
   description: LEO — Living Ecosystem Orchestrator. Multi-agent system core with JSON Knowledge Base, neural tag connections, and Token Economy (AI thinks, scripts execute). Dogfooded by opening Leo here to evolve the system itself.
   repos:
-    main: ~/Github/copilot-core
+    main: ~/Github/leo-core
   stack:
     - json (KB docs, schema, index — .claude/kb/)
     - bash (KB scripts — validate, build-index, check-stale)

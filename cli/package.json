@@ -4,8 +4,7 @@
   "description": "LEO — Living Ecosystem Orchestrator. CLI for setup, project onboarding, KB migration, and AI agent management.",
   "type": "module",
   "bin": {
-    "leo": "./dist/index.js",
-    "copilot-core": "./dist/index.js"
+    "leo": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm",

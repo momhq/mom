@@ -67,7 +67,7 @@ When closing a task that falls into the above:
 4. **Verify** with grep that no stale references remain
 5. **Report** to the owner: "Propagation done — I updated X, Y, Z"
 
-When the trigger is the **explicit end-of-session signal** (situation 1 above), Leo invokes the `session-wrap-up` skill, which orchestrates these steps deterministically (inventory → classify → plan → R2 → execute → report). See `~/.claude/skills/session-wrap-up/SKILL.md` (source in `copilot-core/skills/session-wrap-up/`).
+When the trigger is the **explicit end-of-session signal** (situation 1 above), Leo invokes the `session-wrap-up` skill, which orchestrates these steps deterministically (inventory → classify → plan → R2 → execute → report). See `~/.claude/skills/session-wrap-up/SKILL.md` (source in `leo-core/skills/session-wrap-up/`).
 
 ## Mental checklist (Leo runs mentally when closing any task)
 

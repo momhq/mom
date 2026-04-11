@@ -1,6 +1,6 @@
 # Saintfy Migration Map
 
-> **What this is:** A relational mapping between `~/Github/Saintfy-Copilot/` (the old monolithic copilot) and `~/Github/copilot-core/` (the new replicable system). Written by Leo-Saintfy for Leo-Core to use when onboarding Saintfy as a new copilot-core project.
+> **What this is:** A relational mapping between `~/Github/Saintfy-Copilot/` (the old monolithic copilot) and `~/Github/leo-core/` (the new replicable system). Written by Leo-Saintfy for Leo-Core to use when onboarding Saintfy as a new leo-core project.
 >
 > **How to use:** Read this top-to-bottom when setting up `~/Github/saintfy/.claude/`. For each section, it tells you what exists in Saintfy-Copilot, what the core already covers, what to bring over, what to skip, and why.
 >
@@ -226,7 +226,7 @@ CLAUDE.md defines Leo inline — role, team roster, delegation rules, multi-stag
 
 **Rewrite for the extends model.** The new `~/Github/saintfy/CLAUDE.md` should:
 
-1. **State that this project uses copilot-core** — Leo loads from `~/.claude/agents/leo.md` via symlink
+1. **State that this project uses leo-core** — Leo loads from `~/.claude/agents/leo.md` via symlink
 2. **Define the Saintfy team** — names (Nico, Tomé, Gil, etc.) mapped to core Managers + project specialists
 3. **Define multi-stage flows** — same table (PRD → Design → Dev), but referencing Manager roles not personas
 4. **Reference project context** — `context/project.md`, `context/brand.md`, `context/decisions/`
@@ -237,7 +237,7 @@ CLAUDE.md defines Leo inline — role, team roster, delegation rules, multi-stag
 ```markdown
 # Saintfy — Project Copilot
 
-This project uses [copilot-core](~/Github/copilot-core/).
+This project uses [leo-core](~/Github/leo-core/).
 Leo, rules, and Managers load from ~/.claude/ (symlinked from core).
 
 ## Team
@@ -304,7 +304,7 @@ No formal convention docs — conventions were learned organically via memories 
 
 ### What to do
 
-1. **Copy templates** from `copilot-core/docs/conventions/templates/` to `saintfy/.github/ISSUE_TEMPLATE/` and `saintfy/.github/pull_request_template.md`
+1. **Copy templates** from `leo-core/docs/conventions/templates/` to `saintfy/.github/ISSUE_TEMPLATE/` and `saintfy/.github/pull_request_template.md`
 2. **Set up GitHub Project v2** following the convention (Status, Agent, Type fields)
 3. **Clean default labels** per convention
 4. **Open current milestone** (whatever version Saintfy is shipping)

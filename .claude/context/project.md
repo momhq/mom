@@ -1,4 +1,4 @@
-# copilot-core — the project
+# leo-core — the project
 
 This repo **is** the core of the multi-agent system that manages all the owner's other projects. It's a meta project: the code here isn't a product, it's the definition of the working method that the products (Logbook, Saintfy, future ones) inherit.
 
@@ -35,10 +35,10 @@ The core itself follows the method it defines:
 
 ## Dogfooding
 
-The expectation is that every session on copilot-core is itself an exercise of the method: PRD if it's a big system feature, RDD if it's a technical design, adversarial peer review, evidence-over-claim, propagation at the end. If the method makes sense in self-hosting, it makes sense in downstream products.
+The expectation is that every session on leo-core is itself an exercise of the method: PRD if it's a big system feature, RDD if it's a technical design, adversarial peer review, evidence-over-claim, propagation at the end. If the method makes sense in self-hosting, it makes sense in downstream products.
 
 ## Relevant history
 
-The core was born from an initial RDD (`docs/rdds/2026-04-08-copilot-core-architecture/`) written from the accumulated learning of the Saintfy project that preceded it. Logbook is the first real pilot (Pilot Phase 1, started 2026-04-08).
+The core was born from an initial RDD (`docs/rdds/2026-04-08-leo-core-architecture/`) written from the accumulated learning of the Saintfy project that preceded it. Logbook is the first real pilot (Pilot Phase 1, started 2026-04-08).
 
 The first post-implementation refinement (ebf685b) was about wrap-up-driven propagation — it came from a real failure observed in the pilot, not from speculation. That's the expected evolution pattern: field failures → documented refinements → cross-project propagation.

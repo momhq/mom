@@ -113,7 +113,7 @@ Mention briefly any items that were in the inventory but deliberately not propag
 
 ### Step 6 — Session-level learning capture (optional)
 
-If this session produced a **learning about the copilot-core system itself** (a rule gap, a failure mode, a pattern that should be codified), ask the owner once if they want to capture it as:
+If this session produced a **learning about the leo-core system itself** (a rule gap, a failure mode, a pattern that should be codified), ask the owner once if they want to capture it as:
 
 - A feedback memory (quick, cheap — just a note for future sessions)
 - A rule refinement proposal (heavier — requires R2 and eventually a core change)
@@ -123,7 +123,7 @@ Do **not** force this step. Skip if the session was routine. Skip if the owner a
 ## What this skill does NOT do
 
 - **Does not decide *whether* to propagate** — that is in `rules/propagation.md`. This skill is the *how*, triggered by the *when*.
-- **Does not edit `copilot-core` itself.** Refinements to the core are escalations handled separately with explicit R2 outside this skill.
+- **Does not edit `leo-core` itself.** Refinements to the core are escalations handled separately with explicit R2 outside this skill.
 - **Does not run on its own.** It is model-invoked by Leo after recognizing a wrap-up signal.
 - **Does not skip R2.** Every execution of the edits requires explicit owner approval. The skill exists to make propagation *deterministic and transparent*, not *automatic*.
 - **Does not handle session termination** (context limit hit, client crash). Those are recovery scenarios, not wrap-up scenarios. Separate problem, separate solution.

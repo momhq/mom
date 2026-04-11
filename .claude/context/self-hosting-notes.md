@@ -1,6 +1,6 @@
 # Self-hosting notes — specific care when running Leo inside the core
 
-Working on copilot-core using copilot-core itself is useful dogfooding, but it has particularities that don't apply in a downstream project. This file lists what needs extra attention.
+Working on leo-core using leo-core itself is useful dogfooding, but it has particularities that don't apply in a downstream project. This file lists what needs extra attention.
 
 ## 1. Propagation is instant
 
@@ -39,8 +39,8 @@ As of 2026-04-09, all core artifacts are standardized on English:
 - `rules/*.md` — EN
 - `agents/leo.md` — EN
 - `agents/managers/*.md` — EN
-- `docs/rdds/2026-04-08-copilot-core-architecture/rdd.md` — EN
-- `docs/rdds/2026-04-08-copilot-core-architecture/refinements.md` — EN
+- `docs/rdds/2026-04-08-leo-core-architecture/rdd.md` — EN
+- `docs/rdds/2026-04-08-leo-core-architecture/refinements.md` — EN
 - `docs/conventions/github-project-management.md` — EN
 - `docs/conventions/templates/*` — EN
 - `skills/session-wrap-up/SKILL.md` — EN
@@ -59,7 +59,7 @@ Things that are messy in the core and deserve a dedicated cleanup session:
 
 ## 7. Recommended session flow in the core
 
-1. Open Claude Code in `~/Github/copilot-core/`
+1. Open Claude Code in `~/Github/leo-core/`
 2. Leo identifies it's a core session via `self_hosting: true` in `project-config.yml`
 3. Owner describes the intent
 4. Leo applies `think-before-execute`: a structural decision is almost always alignment mode

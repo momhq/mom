@@ -1,17 +1,17 @@
 #!/bin/bash
-# sync.sh — idempotent sync from copilot-core to ~/.claude/
+# sync.sh — idempotent sync from leo-core to ~/.claude/
 #
-# Symlinks every .md file from copilot-core/agents and copilot-core/rules,
-# and every skill *directory* from copilot-core/skills, into the
+# Symlinks every .md file from leo-core/agents and leo-core/rules,
+# and every skill *directory* from leo-core/skills, into the
 # corresponding ~/.claude/ locations. After first run, future updates come
-# automatically via `git pull` in copilot-core — symlinks point at live
+# automatically via `git pull` in leo-core — symlinks point at live
 # files in the repo.
 #
-# Re-run this script only when copilot-core topology changes (files added
+# Re-run this script only when leo-core topology changes (files added
 # or removed, or a new skill directory is added). Content edits don't
 # need a re-run.
 #
-# See: docs/rdds/2026-04-08-copilot-core-architecture/rdd.md §8.8 (D8)
+# See: docs/rdds/2026-04-08-leo-core-architecture/rdd.md §8.8 (D8)
 
 set -e
 
@@ -23,13 +23,13 @@ CLAUDE_DIR="$HOME/.claude"
 # --- Sanity checks ----------------------------------------------------------
 
 if [ ! -d "$CORE_DIR" ]; then
-  echo "Error: copilot-core not found at $CORE_DIR"
+  echo "Error: leo-core not found at $CORE_DIR"
   echo "Clone it first: git clone <url> $CORE_DIR"
   exit 1
 fi
 
 if [ ! -d "$CORE_DIR/agents" ] || [ ! -d "$CORE_DIR/rules" ]; then
-  echo "Error: $CORE_DIR doesn't look like a copilot-core checkout"
+  echo "Error: $CORE_DIR doesn't look like a leo-core checkout"
   echo "Expected: $CORE_DIR/agents and $CORE_DIR/rules"
   exit 1
 fi
@@ -68,7 +68,7 @@ done < <(find "$CORE_DIR/rules" -type f -name "*.md" -print0)
 # --- Sync skills ------------------------------------------------------------
 # Skills are directories containing SKILL.md (+ optional supporting files
 # like references/, examples/, scripts/). We symlink each top-level skill
-# *directory* from copilot-core/skills/ into ~/.claude/skills/. Claude Code
+# *directory* from leo-core/skills/ into ~/.claude/skills/. Claude Code
 # loads user skills from that path.
 
 skill_count=0

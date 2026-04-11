@@ -45,7 +45,7 @@
     ],
     "do_not": [
       "Decide whether to propagate — that's in the propagation rule. This skill is the how, triggered by the when",
-      "Edit copilot-core itself — refinements to the core are escalations handled separately with R2",
+      "Edit leo-core itself — refinements to the core are escalations handled separately with R2",
       "Run on its own — it is model-invoked by Leo after recognizing a wrap-up signal",
       "Skip R2 — every execution requires explicit owner approval",
       "Handle session termination (context limit, crash) — those are recovery scenarios, not wrap-up",

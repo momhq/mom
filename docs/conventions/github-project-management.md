@@ -1,6 +1,6 @@
 # GitHub project management conventions
 
-Canonical reference for how repos managed by copilot-core organize issues, PRs, labels, milestones, and Projects v2 boards. This doc is the source of truth; each project copies the templates into its own `.github/` and is expected to follow the same rules unless it has an explicit, documented override in `context/`.
+Canonical reference for how repos managed by leo-core organize issues, PRs, labels, milestones, and Projects v2 boards. This doc is the source of truth; each project copies the templates into its own `.github/` and is expected to follow the same rules unless it has an explicit, documented override in `context/`.
 
 The goal is that any Manager (Leo, Engineer, Designer, Marketing, PM) operating across any project can predict the shape of an issue or PR without learning a new convention per repo. **Standard beats clever.**
 
@@ -59,7 +59,7 @@ Which Manager owns this item. Options:
 - `marketing` — Marketing Manager
 - `pm` — PM Manager
 
-The field is named `Agent` (not `Manager`) because it reads more naturally on kanban cards and is the convention already established in the pilot. Options point to the Manager roles; the legacy persona names (`tomé`, `nico`, `davi`, etc. from pre-copilot-core Saintfy) are deprecated and replaced during migration.
+The field is named `Agent` (not `Manager`) because it reads more naturally on kanban cards and is the convention already established in the pilot. Options point to the Manager roles; the legacy persona names (`tomé`, `nico`, `davi`, etc. from pre-leo-core Saintfy) are deprecated and replaced during migration.
 
 Single-select enforces **one owner per issue**. If work crosses domains, the Manager that owns the *primary* outcome is the owner, and cross-manager coordination is handled via the body / sub-issues / comments — not by multi-selecting.
 
@@ -140,7 +140,7 @@ Native GitHub supports filtering and grouping by milestone in Projects v2 (`grou
    - `Refactor: extract FormatterRegistry`
 3. **Artifact-first** — when the issue tracks a non-code deliverable
    - `PRD: Google Sign-In native iOS`
-   - `RDD: copilot-core architecture`
+   - `RDD: leo-core architecture`
    - `Decision: weight unit is display-only`
 
 ### 4.3 Language
@@ -250,7 +250,7 @@ This prevents reviewers from losing the narrative between PRs.
 
 ## 7. Issue templates
 
-Each repo has `.github/ISSUE_TEMPLATE/` with four templates: `bug.md`, `feature.md`, `tech-debt.md`, `prd.md`. Source templates live in `docs/conventions/templates/issue/` in copilot-core and are copied into each repo's `.github/` during project setup. Template bodies define the minimum structure an issue needs; actual title is written by the human following section 4.
+Each repo has `.github/ISSUE_TEMPLATE/` with four templates: `bug.md`, `feature.md`, `tech-debt.md`, `prd.md`. Source templates live in `docs/conventions/templates/issue/` in leo-core and are copied into each repo's `.github/` during project setup. Template bodies define the minimum structure an issue needs; actual title is written by the human following section 4.
 
 Templates intentionally do **not** auto-set the `Type` field — fields can't be pre-set from issue templates, only labels can. The Type is set when the issue is added to the Project board. Templates also don't auto-set `agent:*` because ownership is set on the kanban too.
 
@@ -260,13 +260,13 @@ See `docs/conventions/templates/issue/` for the actual template files.
 
 ## 8. PR template
 
-Each repo has `.github/pull_request_template.md` — a copy of `docs/conventions/templates/pull_request_template.md` from copilot-core. GitHub shows this template when opening a new PR, pre-filling the body with the structure from section 6.
+Each repo has `.github/pull_request_template.md` — a copy of `docs/conventions/templates/pull_request_template.md` from leo-core. GitHub shows this template when opening a new PR, pre-filling the body with the structure from section 6.
 
 ---
 
 ## 9. Project setup checklist
 
-When setting up a new repo under copilot-core, run this checklist:
+When setting up a new repo under leo-core, run this checklist:
 
 1. Delete GitHub default labels (`bug`, `enhancement`, `documentation`, `duplicate`, `good first issue`, `help wanted`, `invalid`, `question`, `wontfix`)
 2. Copy `docs/conventions/templates/issue/*.md` → `.github/ISSUE_TEMPLATE/`

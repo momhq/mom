@@ -35,7 +35,7 @@ matters. Do not list every file touched — the diff is right there. -->
 type check). For UI changes: screenshot or screen recording link.
 
 Evidence discipline: "rodei e passou" without output is not acceptable.
-See copilot-core/rules/evidence-over-claim.md. -->
+See leo-core/rules/evidence-over-claim.md. -->
 
 - [ ]
 - [ ]

@@ -9,8 +9,8 @@
   "updated": "2026-04-10T00:00:00Z",
   "updated_by": "leo",
   "content": {
-    "pattern": "Working on copilot-core using copilot-core itself (dogfooding) requires extra care because changes propagate instantly to all downstream projects via symlinks.",
-    "when_to_use": "Every session where Leo is working inside the copilot-core repo itself (self_hosting: true in project-config.yml)",
+    "pattern": "Working on leo-core using leo-core itself (dogfooding) requires extra care because changes propagate instantly to all downstream projects via symlinks.",
+    "when_to_use": "Every session where Leo is working inside the leo-core repo itself (self_hosting: true in project-config.yml)",
     "how": [
       "Propagation is instant: editing rules/, agents/, skills/ here affects all projects on the next session. No staging. Escalation-triggers rule applies — Leo never edits a rule without R2",
       "Changes in a Manager propagate via inheritance: before changing a core Manager, ask 'does any project that extends this depend on current behavior?' If yes, include migration note in commit",

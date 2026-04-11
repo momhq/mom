@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const CORE_PATH_FILE = resolve(homedir(), ".claude", ".leo-core-path");
+// Legacy path file from pre-rename era — kept for backwards compatibility
 const LEGACY_PATH_FILE = resolve(homedir(), ".claude", ".copilot-core-path");
 
 /** Save the core directory path to ~/.claude/.leo-core-path */

@@ -311,7 +311,7 @@
 <div id="empty-state" class="empty" style="display:none">
   <h2>No data loaded</h2>
   <p>Run the collector script first:</p>
-  <code>bash ~/Github/copilot-core/scripts/collect-metrics.sh</code>
+  <code>bash ~/Github/leo-core/scripts/collect-metrics.sh</code>
   <p style="margin-top:16px">Then reload this page. Or drop .jsonl files below:</p>
   <div class="drop-zone" id="drop-zone">
     <p>Drop .jsonl files here or click to select</p>
@@ -406,7 +406,7 @@ async function collectAndRefresh() {
     }
   } catch (e) {
     // If /collect not available (opened as file://), show hint
-    alert('Refresh requires the local server.\n\nRun: python3 ~/Github/copilot-core/dashboard/serve.py');
+    alert('Refresh requires the local server.\n\nRun: python3 ~/Github/leo-core/dashboard/serve.py');
   } finally {
     btn.classList.remove('loading');
     btn.disabled = false;
