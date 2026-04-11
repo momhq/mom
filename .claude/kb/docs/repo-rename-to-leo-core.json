@@ -3,18 +3,21 @@
   "type": "decision",
   "lifecycle": "permanent",
   "scope": "core",
-  "tags": ["naming", "leo", "migration", "identity"],
+  "tags": [
+    "naming",
+    "leo",
+    "migration",
+    "identity"
+  ],
   "created": "2026-04-11T00:00:00Z",
   "created_by": "owner",
-  "updated": "2026-04-11T00:00:00Z",
+  "updated": "2026-04-11T12:00:00Z",
   "updated_by": "leo",
   "content": {
     "decision": "Repository renamed from copilot-core to leo-core. CLI command renamed from copilot-core to leo. LEO = Living Ecosystem Orchestrator.",
-    "context": "The project evolved from a generic 'copilot' concept into a distinct product with its own identity. The name LEO emerged organically — it was already the name of the Manager of Managers agent, and the acronym Living Ecosystem Orchestrator captures the neural KB architecture. The rename signals product intent.",
+    "context": "The project evolved from a generic 'copilot' concept into a distinct identity. The name LEO emerged organically — it was already the name of the Manager of Managers agent, and the acronym Living Ecosystem Orchestrator captures the neural KB architecture.",
     "alternatives_considered": [
-      "Engram — taken (2.4k stars on GitHub, closest competitor)",
-      "Mycel/Thallus — taken or too obscure",
-      "Keep copilot-core — too generic, doesn't signal product identity"
+      "Keep copilot-core — too generic, doesn't communicate what the project actually is"
     ],
     "impact": [
       "GitHub repo: vmarinogg/leo-core (redirect from copilot-core active)",
