@@ -15,5 +15,8 @@ dashboard/data.jsonl
 # Leo cache (ephemeral)
 .leo/cache/
 
+# Historical docs (kept local for reference)
+docs/
+
 # CLI build artifacts
 cli/bin/
