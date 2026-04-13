@@ -1,16 +1,2 @@
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/validate-kb-doc.sh",
-            "timeout": 15
-          }
-        ]
-      }
-    ]
-  }
 }
