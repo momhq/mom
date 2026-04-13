@@ -16,7 +16,14 @@ make install
 
 ### Download binary
 
-Download the latest release from [GitHub Releases](https://github.com/vmarinogg/leo-core/releases) for your platform (macOS/Linux, amd64/arm64).
+Download the latest release from [GitHub Releases](https://github.com/vmarinogg/leo-core/releases) for your platform, then:
+
+```bash
+chmod +x leo-darwin-arm64
+sudo mv leo-darwin-arm64 /usr/local/bin/leo
+```
+
+Replace `leo-darwin-arm64` with the file you downloaded (e.g. `leo-linux-amd64`).
 
 ## Quick start
 
