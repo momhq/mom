@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "leo-kb-doc-v1",
+  "title": "LEO KB Document",
+  "description": "Schema for all documents in the LEO Knowledge Base",
+  "type": "object",
+  "required": ["id", "type", "lifecycle", "scope", "tags", "created", "created_by", "updated", "updated_by", "content"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Unique identifier, kebab-case. Must match filename (minus .json)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["rule", "skill", "identity", "decision", "pattern", "fact", "feedback", "reference", "metric"],
+      "description": "Document type — determines which content sub-schema applies"
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["permanent", "learning", "state"],
+      "description": "permanent = rarely changes, learning = slow decay, state = fast decay"
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["core", "project"],
+      "description": "core = universal (from LEO core), project = specific to this project"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Tags are the synapses — lowercase kebab-case, free-form"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 datetime of creation"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Which agent or actor created this doc (e.g., leo, engineer-manager, owner)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 datetime of last modification"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Which agent or actor last modified this doc"
+    },
+    "content": {
+      "type": "object",
+      "description": "Shape depends on type — see oneOf"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "rule" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["rule", "why", "how_to_apply", "responsibility"],
+            "additionalProperties": false,
+            "properties": {
+              "rule": {
+                "type": "string",
+                "description": "The core rule statement (1-3 sentences)"
+              },
+              "why": {
+                "type": "string",
+                "description": "Why this rule exists, what problem it prevents"
+              },
+              "how_to_apply": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1,
+                "description": "Concrete instructions or sub-rules"
+              },
+              "examples": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["situation", "wrong", "right"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "situation": { "type": "string" },
+                    "wrong": { "type": "string" },
+                    "right": { "type": "string" }
+                  }
+                }
+              },
+              "anti_patterns": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "responsibility": {
+                "type": "string",
+                "description": "Who enforces this rule"
+              },
+              "mechanisms": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "description", "when"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" },
+                    "when": {
+                      "type": "string",
+                      "enum": ["preventive", "reactive", "structural", "reflective"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "skill" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["description", "triggers", "invoked_by", "steps"],
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "What this skill does"
+              },
+              "triggers": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Natural language patterns that invoke this skill"
+              },
+              "invoked_by": {
+                "type": "string",
+                "description": "Who can invoke (e.g., leo, any-manager, owner)"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "instruction", "wait_for_approval"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": { "type": "string" },
+                    "instruction": { "type": "string" },
+                    "wait_for_approval": { "type": "boolean" }
+                  }
+                },
+                "minItems": 1
+              },
+              "do_not": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "output_format": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "identity" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["what"],
+            "additionalProperties": false,
+            "properties": {
+              "what": {
+                "type": "string",
+                "description": "What this project/product is (1-3 sentences)"
+              },
+              "stack": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "philosophy": {
+                "type": "string"
+              },
+              "constraints": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "decision" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["decision", "context"],
+            "additionalProperties": false,
+            "properties": {
+              "decision": {
+                "type": "string",
+                "description": "What was decided"
+              },
+              "context": {
+                "type": "string",
+                "description": "What led to this decision"
+              },
+              "alternatives_considered": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "impact": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "reversible": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "pattern" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["pattern", "when_to_use"],
+            "additionalProperties": false,
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "What the pattern is"
+              },
+              "when_to_use": {
+                "type": "string",
+                "description": "In what situations this applies"
+              },
+              "how": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "template": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "fact" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["fact"],
+            "additionalProperties": false,
+            "properties": {
+              "fact": {
+                "type": "string",
+                "description": "The factual statement"
+              },
+              "source": {
+                "type": "string"
+              },
+              "expires": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "feedback" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["feedback", "why", "how_to_apply"],
+            "additionalProperties": false,
+            "properties": {
+              "feedback": {
+                "type": "string",
+                "description": "The correction or guidance"
+              },
+              "why": {
+                "type": "string",
+                "description": "Why the owner gave this feedback"
+              },
+              "how_to_apply": {
+                "type": "string",
+                "description": "When and where this guidance kicks in"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "reference" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["description", "purpose"],
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "What this resource is"
+              },
+              "url": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string",
+                "description": "Why this reference matters"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "metric" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["task_id", "manager", "review", "owner", "rework_cycles", "hiring_loop", "delegation", "internal_iterations", "leo_errors"],
+            "additionalProperties": false,
+            "properties": {
+              "task_id": { "type": "string" },
+              "owner_prompt_summary": { "type": "string" },
+              "manager": { "type": "string" },
+              "specialist_used": { "type": "string" },
+              "review": {
+                "type": "object",
+                "required": ["first_pass", "iterations"],
+                "additionalProperties": false,
+                "properties": {
+                  "first_pass": { "type": "boolean" },
+                  "iterations": { "type": "integer", "minimum": 0 }
+                }
+              },
+              "owner": {
+                "type": "object",
+                "required": ["accepted_on_delivery"],
+                "additionalProperties": false,
+                "properties": {
+                  "accepted_on_delivery": { "type": "boolean" }
+                }
+              },
+              "rework_cycles": { "type": "integer", "minimum": 0 },
+              "hiring_loop": {
+                "type": "object",
+                "required": ["outcome"],
+                "additionalProperties": false,
+                "properties": {
+                  "outcome": {
+                    "type": "string",
+                    "enum": ["triggered", "missed", "na"]
+                  }
+                }
+              },
+              "delegation": {
+                "type": "object",
+                "required": ["quality"],
+                "additionalProperties": false,
+                "properties": {
+                  "quality": {
+                    "type": "string",
+                    "enum": ["correct_first", "self_attempted_then_delegated", "wrong_agent_then_corrected"]
+                  }
+                }
+              },
+              "internal_iterations": { "type": "integer", "minimum": 0 },
+              "leo_errors": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "self_qa": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "honest": { "type": "boolean" }
+                }
+              },
+              "cost": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Token usage and cost data captured via /cost at session end",
+                "properties": {
+                  "tokens_in": { "type": "integer", "minimum": 0 },
+                  "tokens_out": { "type": "integer", "minimum": 0 },
+                  "cost_usd": { "type": "number", "minimum": 0 },
+                  "model": { "type": "string" }
+                }
+              },
+              "duration_minutes_approximate": { "type": "number", "minimum": 0 },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
