@@ -8,7 +8,18 @@ build:
 	go build $(LDFLAGS) -o bin/leo ./cmd/leo
 
 install:
-	go install $(LDFLAGS) ./cmd/leo
+	@go install $(LDFLAGS) ./cmd/leo
+	@GOBIN=$$(go env GOPATH)/bin; \
+	echo "leo installed to $$GOBIN/leo"; \
+	if ! echo "$$PATH" | tr ':' '\n' | grep -q "$$GOBIN"; then \
+		echo ""; \
+		echo "  WARNING: $$GOBIN is not in your PATH."; \
+		echo "  Add this to your shell profile (~/.zshrc or ~/.bashrc):"; \
+		echo ""; \
+		echo "    export PATH=\"$$GOBIN:\$$PATH\""; \
+		echo ""; \
+		echo "  Then restart your terminal or run: source ~/.zshrc"; \
+	fi
 
 test:
 	go test ./...
