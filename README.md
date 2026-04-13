@@ -1,149 +1,110 @@
-# L.E.O.
-### Living Ecosystem Orchestrator
+# Leo
 
-> Knowledge isn't documented. It's operated.
+**Living Ecosystem Orchestrator** — a CLI that gives your AI coding assistant persistent memory, specialist profiles, and structured knowledge management.
 
-A living knowledge infrastructure where humans and agents think, decide, and evolve together.
+Leo creates a `.leo/` directory in your project that stores configuration, specialist profiles, and a knowledge base. A runtime adapter translates this into whatever your AI tool expects (Claude Code's `CLAUDE.md`, Cursor's `.cursorrules`, etc.).
 
----
+## Install
 
-## What it is
-
-L.E.O. is a multi-agent system core that manages all your projects. Not a product — the definition of a working method that downstream projects inherit, extend, and operate.
-
-The knowledge base is a neural network of JSON documents connected by tags, consumed by agents, maintained by scripts. Knowledge lives as structured data. Human-readable outputs are generated on demand.
-
-This repo is the core. Projects are the edges.
-
----
-
-## How it works
-
-You talk to L.E.O. L.E.O. routes to the right Manager. Managers decompose, delegate to specialists, review adversarially, and synthesize back to you.
-
-```
-You (owner)
-  └─ L.E.O. (routing, synthesis, propagation)
-       ├─ Engineer Manager → specialists (frontend, backend, infra, ...)
-       ├─ Designer Manager → specialists (UI, assets, ...)
-       ├─ PM Manager → research, domain experts
-       └─ Marketing Manager → content, growth specialists
-```
-
-**You decide the what and why.**
-**L.E.O. decides the who.**
-**Managers decide the how.**
-
-Anything irreversible or structural comes back to you for approval.
-
----
-
-## Core principles
-
-**Operate, don't document.**
-The KB is not a wiki. Every node is a structured JSON file consumed by agents at runtime. Knowledge that isn't used gets flagged as stale and removed.
-
-**Extend, never override.**
-Projects inherit the core via `extends:`. Core behavior cannot be weakened — only extended. No rule or Manager changes without explicit owner approval.
-
-**Tokens for judgment, scripts for everything else.**
-If it's deterministic, it's a bash script. Zero tokens. AI spends cycles on reasoning and judgment, not on work that a `grep` can do better.
-
-**Review is automatic.**
-Every deliverable goes through adversarial peer review by a separate agent instance — isolated context, no access to the original reasoning. The cost is seconds and tokens, not human hours.
-
----
-
-## Getting started
-
-### 1. Clone and install
+### From source
 
 ```bash
-git clone git@github.com:vmarinogg/leo-core.git ~/Github/leo-core
-cd ~/Github/leo-core && ./install.sh
+git clone https://github.com/vmarinogg/leo-core.git
+cd leo-core/cli
+make install
 ```
 
-This builds the CLI and registers `leo` as a global command.
+### Download binary
 
-### 2. Onboard a project
+Download the latest release from [GitHub Releases](https://github.com/vmarinogg/leo-core/releases) for your platform (macOS/Linux, amd64/arm64).
+
+## Quick start
 
 ```bash
-cd ~/Github/your-project
-leo init
+# Initialize Leo in your project
+cd your-project
+leo init --runtime claude
+
+# Write a knowledge document
+leo write docs/my-decision.json
+
+# Query your knowledge base
+leo query --type rule
+leo query --tags architecture
+
+# Check KB health
+leo status
+leo doctor
+
+# Export/import for portability
+leo export --output ./backup
+leo import ./backup --merge
 ```
 
-Scans your codebase, detects the stack, generates `.claude/` structure, `CLAUDE.md` bootloader, and KB foundation. If interrupted, run `leo init` again — it picks up where you left off.
-
-### 3. Start working
-
-```bash
-claude
-```
-
-L.E.O. boots from the KB, loads rules and identity, and is ready. Describe what you need.
-
----
-
-## Knowledge Base
-
-The KB is the core — a neural network of JSON documents connected by tags.
+## Architecture
 
 ```
-.claude/kb/
-├── schema.json       ← JSON Schema for all doc types
-├── index.json        ← Neural map (by_tag, by_type, by_scope, by_lifecycle)
-├── docs/             ← Flat document store
-│   ├── think-before-execute.json    ← type: rule
-│   ├── project-identity.json        ← type: identity
-│   ├── session-wrap-up.json         ← type: skill
-│   └── ...
-└── scripts/
-    ├── validate.sh   ← Schema validation (zero tokens)
-    ├── build-index.sh ← Rebuild neural map (zero tokens)
-    └── check-stale.sh ← Detect expired docs (zero tokens)
+.leo/                          # Leo's home (runtime-agnostic)
+├── config.yaml                # owner preferences
+├── profiles/                  # specialist profiles
+│   ├── generalist.yaml
+│   └── backend-engineer.yaml
+├── kb/                        # knowledge base
+│   ├── docs/                  # JSON documents
+│   ├── schema.json            # document schema
+│   └── index.json             # tag-based index
+└── cache/
+
+.claude/                       # generated by ClaudeAdapter
+├── CLAUDE.md                  # generated from .leo/ config + profile + rules
+└── settings.json              # hooks
 ```
 
-### Doc types
+Leo reads from `.leo/` and generates runtime-specific files. Switch runtimes without losing your knowledge.
 
-| Type | Lifecycle | What it stores |
-|------|-----------|---------------|
-| `rule` | permanent | Operational rules governing agent behavior |
-| `skill` | permanent | Executable workflows agents can invoke |
-| `identity` | permanent | What the project IS — stack, philosophy, constraints |
-| `decision` | learning | Decisions with context, alternatives, impact |
-| `pattern` | learning | Reusable conventions and templates |
-| `fact` | state | Temporary info that ages fast |
-| `feedback` | learning | Owner corrections to agent behavior |
-| `reference` | state | Pointers to external resources |
-| `metric` | state | Task execution metrics |
+## Commands
 
----
-
-## CLI
-
-| Command | What it does |
+| Command | Description |
 |---------|-------------|
-| `leo init` | Interactive project onboarding (scan, configure, generate) |
-| `leo setup` | Re-sync agents/rules/skills/KB to `~/.claude/` |
-| `leo update` | Pull latest core + re-sync + migrate projects |
-| `leo status` | Show core and current project state |
-| `leo migrate-kb` | Migrate existing project to KB architecture |
+| `leo init` | Initialize `.leo/` in the current project |
+| `leo read <id>` | Read a KB document by ID |
+| `leo write <file>` | Write a document (validates + rebuilds index) |
+| `leo query` | Query by `--tags`, `--type`, `--scope`, `--lifecycle` |
+| `leo delete <id>` | Delete a document |
+| `leo reindex` | Rebuild the index from docs on disk |
+| `leo validate` | Validate docs against schema (`--all` for entire KB) |
+| `leo status` | Show KB summary (docs, tags, stale count) |
+| `leo doctor` | Run diagnostic checks on `.leo/` health |
+| `leo export` | Export KB to portable directory |
+| `leo import` | Import KB (merge or replace mode) |
+| `leo profile list` | List available profiles |
+| `leo profile show` | Show profile details |
+| `leo profile use` | Set the default profile |
+| `leo profile create` | Create a new profile |
+| `leo version` | Print version |
 
----
+## Profiles
 
-## What it is not
+Profiles define specialist behavior injected into your AI context:
 
-- Not an autonomous agent framework — you stay in the loop at every inflection point
-- Not a replacement for your project's `CLAUDE.md` — it complements it
-- Not a generic Claude Code config — it is a working method with strong opinions
-- Not a documentation system — knowledge is operated, not archived
+```yaml
+# .leo/profiles/backend-engineer.yaml
+name: Backend Engineer
+description: APIs, databases, performance, security
+focus:
+  - API design and implementation
+  - Database modeling and queries
+tone: technical, pragmatic, code-first
+default_model: sonnet
+context_injection: |
+  You are operating as a backend engineer specialist.
+  Focus on implementation quality and security.
+```
 
----
+## Contributing
 
-## Status
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, conventions, and how to submit PRs.
 
-Active development. Core architecture stable. CLI and onboarding tooling in progress.
+## License
 
----
-
-*L.E.O. is the core. Your projects are the ecosystem.*
+[MIT](LICENSE)

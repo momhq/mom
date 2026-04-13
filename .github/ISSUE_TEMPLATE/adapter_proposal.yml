@@ -1,0 +1,23 @@
+name: Runtime Adapter Proposal
+description: Propose a new runtime adapter (Cursor, Windsurf, etc.)
+labels: ["adapter"]
+body:
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime name
+      placeholder: "e.g. Cursor, Windsurf"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this adapter?
+      description: What use case does it enable?
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Implementation approach
+      description: How would the adapter work? What files does the runtime use?
