@@ -1,8 +1,12 @@
-# Leo
+# L.E.O.
 
-**Living Ecosystem Orchestrator** — a CLI that gives your AI coding assistant persistent memory, specialist profiles, and structured knowledge management.
+**"What did we decide about the auth flow?" — you, for the third time this week, to an AI that doesn't remember.**
 
-Leo creates a `.leo/` directory in your project that stores configuration, specialist profiles, and a knowledge base. A runtime adapter translates this into whatever your AI tool expects (Claude Code's `CLAUDE.md`, Cursor's `.cursorrules`, etc.).
+AI coding assistants are powerful, but they have no memory. Every session starts from scratch — you re-explain your stack, your conventions, your past decisions. The more complex the project, the more time you waste repeating yourself.
+
+L.E.O. (**Living Ecosystem Orchestrator**) gives your AI persistent memory. It's a CLI that creates a knowledge base inside your project — decisions, rules, patterns, profiles — and feeds it to your AI tool automatically. Claude Code, Cursor, Copilot — L.E.O. speaks their language through runtime adapters, so the knowledge stays with the project, not the tool.
+
+Built in Go and already running in production on its own repo.
 
 ## Install
 
