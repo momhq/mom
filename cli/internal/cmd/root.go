@@ -28,4 +28,5 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(reindexCmd)
 	rootCmd.AddCommand(validateCmd)
+	rootCmd.AddCommand(updateCmd)
 }

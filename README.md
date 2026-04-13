@@ -21,9 +21,12 @@ Download the latest release from [GitHub Releases](https://github.com/vmarinogg/
 ## Quick start
 
 ```bash
-# Initialize Leo in your project
+# Initialize Leo in your project (interactive onboarding)
 cd your-project
-leo init --runtime claude
+leo init
+
+# Or skip the wizard with flags
+leo init --runtime claude -y
 
 # Write a knowledge document
 leo write docs/my-decision.json
@@ -31,6 +34,9 @@ leo write docs/my-decision.json
 # Query your knowledge base
 leo query --type rule
 leo query --tags architecture
+
+# Pull updates from leo-core
+leo update --source ~/path/to/leo-core
 
 # Check KB health
 leo status
@@ -66,7 +72,8 @@ Leo reads from `.leo/` and generates runtime-specific files. Switch runtimes wit
 
 | Command | Description |
 |---------|-------------|
-| `leo init` | Initialize `.leo/` in the current project |
+| `leo init` | Initialize `.leo/` with interactive onboarding |
+| `leo update` | Sync core rules and profiles from leo-core ([#26](https://github.com/vmarinogg/leo-core/issues/26)) |
 | `leo read <id>` | Read a KB document by ID |
 | `leo write <file>` | Write a document (validates + rebuilds index) |
 | `leo query` | Query by `--tags`, `--type`, `--scope`, `--lifecycle` |

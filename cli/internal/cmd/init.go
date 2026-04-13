@@ -24,17 +24,42 @@ var initCmd = &cobra.Command{
 func init() {
 	initCmd.Flags().String("runtime", "claude", "AI runtime to configure (claude, cursor, windsurf)")
 	initCmd.Flags().Bool("force", false, "Overwrite existing .leo/ directory")
+	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
 	rt, _ := cmd.Flags().GetString("runtime")
 	force, _ := cmd.Flags().GetBool("force")
+	noInteractive, _ := cmd.Flags().GetBool("no-interactive")
 
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("getting working directory: %w", err)
 	}
 
+	// Run the interactive onboarding wizard unless:
+	//   • --no-interactive / -y was passed, OR
+	//   • --runtime was explicitly provided by the user (direct/scripted mode).
+	if !noInteractive && !cmd.Flags().Changed("runtime") {
+		result, err := runOnboarding(cmd.InOrStdin(), cmd.OutOrStdout(), cwd)
+		if err != nil {
+			return err
+		}
+		return runInitWithConfig(cmd, cwd, force, result)
+	}
+
+	// Non-interactive path: use flags/defaults.
+	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
+		Runtime:        rt,
+		Language:       config.Default().Owner.Language,
+		DefaultProfile: config.Default().Owner.DefaultProfile,
+		Autonomy:       config.Default().Owner.Autonomy,
+	})
+}
+
+// runInitWithConfig performs the actual directory and file creation using the
+// resolved configuration from either the wizard or flag defaults.
+func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result OnboardingResult) error {
 	leoDir := filepath.Join(cwd, ".leo")
 
 	// Check if already initialized.
@@ -57,9 +82,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Write config.yaml.
+	// Write config.yaml — start from defaults and apply wizard/flag choices.
 	cfg := config.Default()
-	cfg.Runtime = rt
+	cfg.Runtime = result.Runtime
+	cfg.CoreSource = result.CoreSource
+	cfg.Owner.Language = result.Language
+	cfg.Owner.DefaultProfile = result.DefaultProfile
+	cfg.Owner.Autonomy = result.Autonomy
+
 	if err := config.Save(leoDir, &cfg); err != nil {
 		return err
 	}
@@ -103,7 +133,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	cmd.Println("  ✔ .leo/kb/index.json")
 
 	// Generate runtime context file.
-	if rt == "claude" {
+	if result.Runtime == "claude" {
 		adapter := runtime.NewClaudeAdapter(cwd)
 		runtimeCfg := runtime.Config{
 			Version: cfg.Version,

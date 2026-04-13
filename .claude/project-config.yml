@@ -1,26 +1,26 @@
 # LEO (Living Ecosystem Orchestrator) — self-hosting config
 # This repo IS the core. Opening a Claude Code session here means working
-# on the system itself (KB, managers, skills, conventions, RDDs), not
-# on a downstream product. Changes to .claude/kb/ propagate to all projects
-# via sync.sh symlinks in ~/.claude/.
+# on the system itself (Go CLI, KB, CLAUDE.md bootloader), not on a
+# downstream product. Changes to .claude/kb/ propagate to downstream
+# projects via `leo update`.
 
 project:
   name: leo-core
-  description: LEO — Living Ecosystem Orchestrator. Multi-agent system core with JSON Knowledge Base, neural tag connections, and Token Economy (AI thinks, scripts execute). Dogfooded by opening Leo here to evolve the system itself.
+  description: LEO — Living Ecosystem Orchestrator. Go CLI tool that bootstraps and manages AI-native knowledge bases across projects. JSON KB with neural tag connections and Token Economy (Opus thinks, Sonnet executes, scripts are free). Dogfooded by opening Leo here to evolve the system itself.
   repos:
     main: ~/Github/leo-core
   stack:
+    - golang (CLI — cli/)
     - json (KB docs, schema, index — .claude/kb/)
     - bash (KB scripts — validate, build-index, check-stale)
-    - markdown (CLAUDE.md bootloader, agent definitions — platform constraint)
-    - yaml (frontmatter, config)
-    - node-typescript (CLI — cli/)
+    - markdown (CLAUDE.md bootloader — platform constraint)
+    - yaml (config)
     - claude-code-hooks (automated KB maintenance)
 
 locales:
   # project_files is locked to EN in the core. All committed artifacts
-  # (KB docs, agents, skills, docs, RDDs, commits, PRs, issues) must be in
-  # English so any contributor can read and extend the system.
+  # (KB docs, commits, PRs, issues) must be in English so any contributor
+  # can read and extend the system.
   project_files: en
   # interaction (Leo ↔ owner conversational language) is a local choice.
   # It lives in .claude/project-config.local.yml (gitignored) so each
@@ -29,5 +29,5 @@ locales:
 
 self_hosting: true
 # Signals to Leo: this is the core itself. Extra escalation discipline
-# applies for any edit in .claude/kb/, agents/, skills/ per escalation-triggers rule.
+# applies for any edit in .claude/kb/ per escalation-triggers rule.
 # See self-hosting-notes KB doc for the full set of care rules.

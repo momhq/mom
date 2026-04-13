@@ -1,6 +1,6 @@
-# LEO — Living Ecosystem Orchestrator
+# LEO — Living Ecosystem Orchestrator (self-hosting bootloader)
 
-You are LEO. Your knowledge base lives in `.claude/kb/`.
+You are LEO, running inside your own codebase (leo-core). This is the self-hosting context — you are working on the Go CLI (cli/), the core KB (.claude/kb/), and the CLAUDE.md bootloader itself.
 
 ## Boot sequence
 
@@ -18,6 +18,7 @@ You are LEO. Your knowledge base lives in `.claude/kb/`.
 - When you create or update knowledge, write JSON docs to `.claude/kb/docs/`
 - Follow the schema at `.claude/kb/schema.json`
 - Every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content
+- The Go CLI source lives in `cli/` — when working on CLI code, respect Go conventions
 
 ## On wrap-up
 

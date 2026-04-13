@@ -1,12 +1,12 @@
 {
   "version": "1",
-  "last_rebuilt": "2026-04-11T12:11:37Z",
+  "last_rebuilt": "2026-04-13T13:51:08Z",
   "stats": {
     "total_docs": 19,
-    "total_tags": 58,
+    "total_tags": 60,
     "docs_by_type": {
-      "rule": 11,
-      "decision": 3,
+      "rule": 10,
+      "decision": 4,
       "fact": 1,
       "identity": 1,
       "pattern": 1,
@@ -66,6 +66,11 @@
     "separation-of-concerns": [
       "hiring-loop"
     ],
+    "historical": [
+      "hiring-loop",
+      "md-fallback-during-migration",
+      "migration-progress"
+    ],
     "inheritance": [
       "inheritance"
     ],
@@ -75,7 +80,12 @@
     "core-project": [
       "inheritance"
     ],
-    "agent-config": [
+    "propagation": [
+      "inheritance",
+      "propagation",
+      "session-wrap-up"
+    ],
+    "leo-update": [
       "inheritance"
     ],
     "expertise": [
@@ -150,9 +160,9 @@
     "meta": [
       "project-identity"
     ],
-    "propagation": [
-      "propagation",
-      "session-wrap-up"
+    "golang": [
+      "project-identity",
+      "self-hosting-notes"
     ],
     "wrap-up": [
       "propagation",
@@ -216,7 +226,6 @@
       "anti-hallucination",
       "escalation-triggers",
       "evidence-over-claim",
-      "hiring-loop",
       "inheritance",
       "know-what-you-dont-know",
       "metrics-collection",
@@ -226,6 +235,7 @@
       "token-economy-model-selection"
     ],
     "decision": [
+      "hiring-loop",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
       "repo-rename-to-leo-core"
@@ -274,7 +284,6 @@
       "anti-hallucination",
       "escalation-triggers",
       "evidence-over-claim",
-      "hiring-loop",
       "inheritance",
       "know-what-you-dont-know",
       "lifecycle-replaces-state-vs-learning",
@@ -290,9 +299,8 @@
       "token-economy-model-selection"
     ],
     "learning": [
-      "md-fallback-during-migration"
-    ],
-    "state": [
+      "hiring-loop",
+      "md-fallback-during-migration",
       "migration-progress"
     ]
   }

@@ -7,27 +7,29 @@
     "identity",
     "leo",
     "architecture",
-    "meta"
+    "meta",
+    "golang"
   ],
   "created": "2026-04-08T00:00:00Z",
   "created_by": "owner",
-  "updated": "2026-04-11T12:00:00Z",
+  "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
-    "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together. This repo is the core — a multi-agent system that manages all the owner's projects. Projects inherit, extend, and operate the core's working method. The KB is a neural network of JSON docs connected by tags, consumed by agents, maintained by scripts.",
+    "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together. This repo is the core — a Go CLI tool that bootstraps, manages, and propagates an AI-native knowledge base across all the owner's projects. The KB is a neural network of JSON docs connected by tags, consumed by agents, maintained by scripts.",
     "stack": [
+      "Go CLI (cli/) — the leo command, built with cobra + charm/huh",
       "JSON Knowledge Base (.claude/kb/) with schema validation",
       "Bash scripts for zero-token deterministic work (validate, index, stale detection)",
-      "Node.js + TypeScript CLI (cli/) with @clack/prompts and commander",
-      "Markdown for platform-constrained files only (CLAUDE.md bootloader, agent definitions)",
+      ".leo/ directory per project — config, profiles, KB",
+      "Runtime adapters generate runtime-specific files (e.g., CLAUDE.md for Claude Code)",
       "Claude Code hooks for automated KB maintenance"
     ],
-    "philosophy": "Copilot-style, not Paperclip-style. Owner decides the what and why, Leo decides the who (routing and delegation), Managers decide the how. Token Economy: AI spends tokens on thinking and judgment, scripts handle deterministic work at zero cost. Knowledge is JSON for agents, human-readable outputs are generated on demand. Extend, never override.",
+    "philosophy": "Copilot-style, not Paperclip-style. Owner decides the what and why, Leo orchestrates (routing and delegation), Specialists execute. Token Economy: Opus thinks (Leo orchestration), Sonnet executes (Specialists), scripts handle deterministic work at zero cost. Knowledge is JSON for agents, human-readable outputs are generated on demand. Extend, never override.",
     "constraints": [
-      "All KB content is JSON — MD only exists as platform constraints (CLAUDE.md, agent files)",
+      "All KB content is JSON — MD only exists as platform constraints (CLAUDE.md bootloader)",
       "Core artifacts are English only — interaction language is personal choice (gitignored)",
-      "No rule or Manager change without explicit R2 from the owner",
-      "Specialists live in projects, never in the core — core keeps only universal managers",
+      "No rule change without explicit R2 from the owner",
+      "Leo ↔ Specialists model: Leo orchestrates with Opus, Specialists are ephemeral sub-agents running Sonnet",
       "Scripts must never require AI tokens — if it's deterministic, it's a script"
     ]
   }

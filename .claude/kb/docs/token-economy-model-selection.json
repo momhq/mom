@@ -6,25 +6,22 @@
   "tags": ["token-economy", "model-selection", "cost", "efficiency", "delegation"],
   "created": "2026-04-10T00:00:00Z",
   "created_by": "owner",
-  "updated": "2026-04-10T00:00:00Z",
+  "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
-    "rule": "Model hierarchy by role: Leo = Opus (or Mythos when available), Managers = Opus, Specialists = Sonnet always. Most expensive model for most thinking, cheapest for most execution. Enforced via model: field in agent frontmatter.",
-    "why": "AI should spend tokens on thinking and judgment, not on execution. Specialists execute — they follow playbooks, they don't make strategic decisions. Managers and Leo reason about what to do, who to delegate to, what the trade-offs are. The cost of using Opus for a specialist that follows a checklist is waste. The cost of using Sonnet for Leo when he needs to reason about cross-domain trade-offs is a false economy.",
+    "rule": "Model hierarchy by role: Leo = Opus (orchestration and judgment), Specialists = Sonnet (execution). Most expensive model for thinking, cheapest for execution. Scripts handle all deterministic work at zero token cost.",
+    "why": "AI should spend tokens on thinking and judgment, not on execution. Specialists execute — they follow playbooks, they don't make strategic decisions. Leo reasons about what to do, who to delegate to, what the trade-offs are. The cost of using Opus for a specialist that follows a checklist is waste. The cost of using Sonnet for Leo when he needs to reason about cross-domain trade-offs is a false economy.",
     "how_to_apply": [
-      "Leo: Opus (or Mythos when available) — highest reasoning depth for orchestration, cross-domain decisions, hiring, and owner communication",
-      "Managers: Opus — same reasoning depth as Leo. No excuse for Leo to not delegate if Managers can think at the same level",
-      "Specialists: Sonnet always — they execute playbooks, they don't decide. Sonnet is more than capable for execution tasks",
-      "Enforced via model: field in agent frontmatter. Not a suggestion — a structural constraint",
+      "Leo: Opus (or Mythos when available) — highest reasoning depth for orchestration, cross-domain decisions, and owner communication",
+      "Specialists: Sonnet always — they are ephemeral sub-agents that execute playbooks, they don't decide. Sonnet is more than capable for execution tasks",
       "Scripts (validate, build-index, check-stale) cost zero tokens — this is the Token Economy principle at its purest: deterministic work never touches an LLM",
       "Scales with future model releases: Mythos → Opus → Sonnet → future lighter models. The principle stays, the model names change"
     ],
     "anti_patterns": [
       "Using Opus for a specialist that follows a checklist",
       "Using Sonnet for Leo when reasoning about cross-domain trade-offs",
-      "Bypassing the model: field in frontmatter to use a more expensive model 'just in case'",
       "Running AI for deterministic tasks that scripts can handle at zero cost"
     ],
-    "responsibility": "Leo enforces model selection when hiring specialists. Owner sets the model: field in manager/leo agent files. Scripts are the responsibility of the core maintainer."
+    "responsibility": "Leo enforces model selection when delegating to specialists. Owner sets the orchestration model. Scripts are the responsibility of the core maintainer."
   }
 }

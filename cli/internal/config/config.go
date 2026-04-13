@@ -13,6 +13,7 @@ import (
 type Config struct {
 	Version     string            `yaml:"version"`
 	Runtime     string            `yaml:"runtime"`
+	CoreSource  string            `yaml:"core_source,omitempty"`
 	Owner       OwnerConfig       `yaml:"owner"`
 	KB          KBConfig          `yaml:"kb"`
 	Specialists SpecialistsConfig `yaml:"specialists"`

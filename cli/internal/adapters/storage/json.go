@@ -140,6 +140,12 @@ func (a *JSONAdapter) Health() (*HealthStatus, error) {
 	return &HealthStatus{OK: true, Message: "ok"}, nil
 }
 
+// Reindex publicly exposes rebuildIndex for callers outside this package
+// (e.g. the update command after copying files directly to the docs dir).
+func (a *JSONAdapter) Reindex() error {
+	return a.rebuildIndex()
+}
+
 // rebuildIndex scans all docs and rebuilds the index.json.
 func (a *JSONAdapter) rebuildIndex() error {
 	entries, err := os.ReadDir(a.docsDir)

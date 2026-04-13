@@ -11,7 +11,7 @@
   ],
   "created": "2026-04-11T00:00:00Z",
   "created_by": "owner",
-  "updated": "2026-04-11T12:00:00Z",
+  "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
     "decision": "Repository renamed to leo-core. CLI command is leo. LEO = Living Ecosystem Orchestrator.",
@@ -22,8 +22,8 @@
     "impact": [
       "GitHub repo: vmarinogg/leo-core",
       "CLI command: leo",
-      "Package name: leo-core v0.2.0",
-      "All internal references updated, RDDs keep historical references"
+      "Package name: leo-core",
+      "All internal references updated"
     ],
     "reversible": true
   }

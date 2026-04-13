@@ -20,15 +20,21 @@ make test
 cli/
 ├── cmd/leo/main.go              # entrypoint
 ├── internal/
-│   ├── cmd/                     # cobra command implementations
-│   ├── adapters/runtime/        # RuntimeAdapter interface + impls
-│   ├── adapters/storage/        # StorageAdapter interface + impls
+│   ├── cmd/                     # cobra commands (init, update, CRUD, ops, export)
+│   ├── adapters/runtime/        # RuntimeAdapter interface + impls (claude, cursor, …)
+│   ├── adapters/storage/        # StorageAdapter interface + impls (JSON)
 │   ├── config/                  # .leo/config.yaml handling
 │   ├── kb/                      # KB document types and validation
 │   └── profiles/                # specialist profile management
 ├── Makefile
 ├── go.mod
 └── go.sum
+
+.claude/                         # Leo's own KB (self-hosting / dogfooding)
+├── kb/docs/                     # knowledge documents (JSON)
+├── kb/schema.json               # document schema
+├── kb/index.json                # tag-based index
+└── kb/scripts/                  # build-index, validate, check-stale
 ```
 
 ## Adding a runtime adapter
