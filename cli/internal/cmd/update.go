@@ -87,7 +87,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	if !yes {
 		cmd.Print("\n  Apply changes? [Y/n]: ")
 		buf := new(strings.Builder)
-		fmt.Fscan(cmd.InOrStdin(), buf)
+		_, _ = fmt.Fscan(cmd.InOrStdin(), buf)
 		answer := strings.TrimSpace(buf.String())
 		if answer != "" && strings.ToLower(answer) != "y" {
 			return fmt.Errorf("update aborted")

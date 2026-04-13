@@ -99,7 +99,9 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 	// Load existing settings or start fresh.
 	settings := make(map[string]any)
 	if data, err := os.ReadFile(settingsPath); err == nil {
-		json.Unmarshal(data, &settings)
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return fmt.Errorf("parsing settings.json: %w", err)
+		}
 	}
 
 	// Build hooks structure.
