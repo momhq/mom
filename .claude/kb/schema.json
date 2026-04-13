@@ -406,6 +406,17 @@
                   "honest": { "type": "boolean" }
                 }
               },
+              "cost": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Token usage and cost data captured via /cost at session end",
+                "properties": {
+                  "tokens_in": { "type": "integer", "minimum": 0 },
+                  "tokens_out": { "type": "integer", "minimum": 0 },
+                  "cost_usd": { "type": "number", "minimum": 0 },
+                  "model": { "type": "string" }
+                }
+              },
               "duration_minutes_approximate": { "type": "number", "minimum": 0 },
               "notes": { "type": "string" }
             }
