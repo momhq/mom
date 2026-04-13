@@ -147,3 +147,164 @@ func TestJSONAdapter_Health(t *testing.T) {
 		t.Fatalf("expected healthy, got: %s", status.Message)
 	}
 }
+
+func TestJSONAdapter_Health_MissingDir(t *testing.T) {
+	adapter := NewJSONAdapter("/nonexistent/.leo")
+
+	status, err := adapter.Health()
+	if err != nil {
+		t.Fatalf("Health returned error: %v", err)
+	}
+	if status.OK {
+		t.Fatal("expected unhealthy for missing dir")
+	}
+}
+
+func TestJSONAdapter_Read_NotFound(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	if _, err := adapter.Read("nonexistent"); err == nil {
+		t.Fatal("expected error for missing doc")
+	}
+}
+
+func TestJSONAdapter_Delete_NotFound(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	if err := adapter.Delete("nonexistent"); err == nil {
+		t.Fatal("expected error for deleting missing doc")
+	}
+}
+
+func TestJSONAdapter_List_EmptyKB(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	idx, err := adapter.List()
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if idx.Version != "1" {
+		t.Errorf("expected version %q, got %q", "1", idx.Version)
+	}
+}
+
+func TestJSONAdapter_Query_ByTags(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	docA := testDoc("tagged-a")
+	docA.Tags = []string{"alpha", "beta"}
+	adapter.Write(docA)
+
+	docB := testDoc("tagged-b")
+	docB.Tags = []string{"beta", "gamma"}
+	adapter.Write(docB)
+
+	docC := testDoc("tagged-c")
+	docC.Tags = []string{"gamma"}
+	adapter.Write(docC)
+
+	// Query by single tag.
+	docs, err := adapter.Query(QueryFilter{Tags: []string{"alpha"}})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(docs) != 1 || docs[0].ID != "tagged-a" {
+		t.Errorf("expected tagged-a, got %v", docs)
+	}
+
+	// Query by shared tag.
+	docs, err = adapter.Query(QueryFilter{Tags: []string{"beta"}})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(docs) != 2 {
+		t.Errorf("expected 2 docs for beta, got %d", len(docs))
+	}
+}
+
+func TestJSONAdapter_Query_CombinedFilters(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	docA := testDoc("combo-a")
+	docA.Scope = "core"
+	adapter.Write(docA)
+
+	docB := testDoc("combo-b")
+	docB.Scope = "project"
+	adapter.Write(docB)
+
+	// Filter by type + scope.
+	docs, err := adapter.Query(QueryFilter{Type: "fact", Scope: "core"})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(docs) != 1 || docs[0].ID != "combo-a" {
+		t.Errorf("expected combo-a, got %v", docs)
+	}
+}
+
+func TestJSONAdapter_Query_NoFilter(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	adapter.Write(testDoc("all-a"))
+	adapter.Write(testDoc("all-b"))
+
+	docs, err := adapter.Query(QueryFilter{})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(docs) != 2 {
+		t.Errorf("expected 2 docs, got %d", len(docs))
+	}
+}
+
+func TestJSONAdapter_Write_Overwrite(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	doc := testDoc("overwrite-me")
+	doc.Content = map[string]any{"fact": "original"}
+	adapter.Write(doc)
+
+	doc.Content = map[string]any{"fact": "updated"}
+	adapter.Write(doc)
+
+	got, err := adapter.Read("overwrite-me")
+	if err != nil {
+		t.Fatalf("Read failed: %v", err)
+	}
+	if got.Content["fact"] != "updated" {
+		t.Errorf("expected updated content, got %v", got.Content["fact"])
+	}
+}
+
+func TestJSONAdapter_BulkWrite_ValidationFailure(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	docs := []*Doc{
+		testDoc("good-doc"),
+		{ID: "BAD_ID", Type: "fact"}, // invalid
+	}
+
+	if err := adapter.BulkWrite(docs); err == nil {
+		t.Fatal("expected validation error in BulkWrite")
+	}
+}
+
+func TestJSONAdapter_Index_TagConnections(t *testing.T) {
+	adapter, _ := setupAdapter(t)
+
+	doc := testDoc("connected")
+	doc.Tags = []string{"alpha", "beta", "gamma"}
+	adapter.Write(doc)
+
+	idx, err := adapter.List()
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	for _, tag := range []string{"alpha", "beta", "gamma"} {
+		if ids, ok := idx.ByTag[tag]; !ok || len(ids) == 0 {
+			t.Errorf("expected tag %q in index", tag)
+		}
+	}
+}
