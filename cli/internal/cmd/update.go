@@ -63,7 +63,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	source = expandTilde(source)
 
 	// Validate core source.
-	kbDocsDir := filepath.Join(source, ".claude", "kb", "docs")
+	kbDocsDir := filepath.Join(source, ".leo", "kb", "docs")
 	if _, err := os.Stat(kbDocsDir); err != nil {
 		return fmt.Errorf("not a valid leo-core: %s not found", kbDocsDir)
 	}
@@ -108,7 +108,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 // computeSyncPlan compares core docs against the project and produces a plan.
 func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
-	coreDocsDir := filepath.Join(coreSource, ".claude", "kb", "docs")
+	coreDocsDir := filepath.Join(coreSource, ".leo", "kb", "docs")
 	projDocsDir := filepath.Join(leoDir, "kb", "docs")
 
 	entries, err := os.ReadDir(coreDocsDir)
@@ -161,7 +161,7 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 	}
 
 	// Compare schema files.
-	coreSchema := filepath.Join(coreSource, ".claude", "kb", "schema.json")
+	coreSchema := filepath.Join(coreSource, ".leo", "kb", "schema.json")
 	projSchema := filepath.Join(leoDir, "kb", "schema.json")
 	plan.SchemaChanged = !filesEqual(coreSchema, projSchema)
 
@@ -188,7 +188,7 @@ func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command
 	}
 
 	if plan.SchemaChanged {
-		coreSchema := filepath.Join(coreSource, ".claude", "kb", "schema.json")
+		coreSchema := filepath.Join(coreSource, ".leo", "kb", "schema.json")
 		projSchema := filepath.Join(leoDir, "kb", "schema.json")
 		if err := copyFileContents(coreSchema, projSchema); err != nil {
 			return fmt.Errorf("updating schema: %w", err)

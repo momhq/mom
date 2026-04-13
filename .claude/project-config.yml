@@ -1,7 +1,7 @@
 # LEO (Living Ecosystem Orchestrator) — self-hosting config
 # This repo IS the core. Opening a Claude Code session here means working
 # on the system itself (Go CLI, KB, CLAUDE.md bootloader), not on a
-# downstream product. Changes to .claude/kb/ propagate to downstream
+# downstream product. Changes to .leo/kb/ propagate to downstream
 # projects via `leo update`.
 
 project:
@@ -11,7 +11,7 @@ project:
     main: ~/Github/leo-core
   stack:
     - golang (CLI — cli/)
-    - json (KB docs, schema, index — .claude/kb/)
+    - json (KB docs, schema, index — .leo/kb/)
     - bash (KB scripts — validate, build-index, check-stale)
     - markdown (CLAUDE.md bootloader — platform constraint)
     - yaml (config)
@@ -29,5 +29,5 @@ locales:
 
 self_hosting: true
 # Signals to Leo: this is the core itself. Extra escalation discipline
-# applies for any edit in .claude/kb/ per escalation-triggers rule.
+# applies for any edit in .leo/kb/ per escalation-triggers rule.
 # See self-hosting-notes KB doc for the full set of care rules.

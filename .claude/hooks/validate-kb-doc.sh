@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # Hook: PostToolUse — validates KB doc after Write, then rebuilds index
-# Runs after agent writes to .claude/kb/docs/*.json
+# Runs after agent writes to .leo/kb/docs/*.json
 # Token cost: 0
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KB_SCRIPTS="$SCRIPT_DIR/../kb/scripts"
+KB_SCRIPTS="$SCRIPT_DIR/../../.leo/kb/scripts"
 
 # The tool_input is passed via stdin as JSON
 input="$(cat)"
 file_path="$(echo "$input" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")"
 
-# Only act on .claude/kb/docs/*.json files
-if [[ -z "$file_path" || "$file_path" != *".claude/kb/docs/"*".json" ]]; then
+# Only act on .leo/kb/docs/*.json files
+if [[ -z "$file_path" || "$file_path" != *".leo/kb/docs/"*".json" ]]; then
   exit 0
 fi
 

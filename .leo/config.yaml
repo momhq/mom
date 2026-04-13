@@ -1,0 +1,16 @@
+version: "1"
+runtime: claude
+core_source: ""
+owner:
+  language: en
+  mode: concise
+  autonomy: balanced
+  default_profile: generalist
+kb:
+  auto_propagate: true
+  wrap_up: prompt
+  stale_threshold: 30d
+specialists:
+  default_model: sonnet
+  simple_task_model: haiku
+  validation: always

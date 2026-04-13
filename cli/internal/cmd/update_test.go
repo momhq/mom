@@ -37,31 +37,31 @@ func coreDoc(id string, scope string, updated time.Time) []byte {
 
 // setupFakeCore creates a temp directory with the leo-core structure:
 //
-//	tmpCore/.claude/kb/docs/
-//	tmpCore/.claude/kb/schema.json
+//	tmpCore/.leo/kb/docs/
+//	tmpCore/.leo/kb/schema.json
 //
 // It returns the path to the tmpCore directory.
 func setupFakeCore(t *testing.T) string {
 	t.Helper()
 	core := t.TempDir()
 
-	docsDir := filepath.Join(core, ".claude", "kb", "docs")
+	docsDir := filepath.Join(core, ".leo", "kb", "docs")
 	if err := os.MkdirAll(docsDir, 0755); err != nil {
 		t.Fatalf("setupFakeCore: creating docs dir: %v", err)
 	}
 
 	schema := []byte(`{"version":"1","description":"Leo KB schema"}`)
-	if err := os.WriteFile(filepath.Join(core, ".claude", "kb", "schema.json"), schema, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(core, ".leo", "kb", "schema.json"), schema, 0644); err != nil {
 		t.Fatalf("setupFakeCore: writing schema: %v", err)
 	}
 
 	return core
 }
 
-// addCoreDoc writes a doc JSON file into {core}/.claude/kb/docs/.
+// addCoreDoc writes a doc JSON file into {core}/.leo/kb/docs/.
 func addCoreDoc(t *testing.T, core, id, scope string, updated time.Time) {
 	t.Helper()
-	path := filepath.Join(core, ".claude", "kb", "docs", id+".json")
+	path := filepath.Join(core, ".leo", "kb", "docs", id+".json")
 	if err := os.WriteFile(path, coreDoc(id, scope, updated), 0644); err != nil {
 		t.Fatalf("addCoreDoc: %v", err)
 	}
@@ -152,8 +152,8 @@ func TestUpdateCmd_InvalidSource(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid source path")
 	}
-	if !strings.Contains(err.Error(), ".claude/kb/docs") {
-		t.Errorf("expected error about missing .claude/kb/docs, got: %v", err)
+	if !strings.Contains(err.Error(), ".leo/kb/docs") {
+		t.Errorf("expected error about missing .leo/kb/docs, got: %v", err)
 	}
 }
 
@@ -312,7 +312,7 @@ func TestUpdateCmd_SyncsSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading project schema: %v", err)
 	}
-	coreSchema, err := os.ReadFile(filepath.Join(core, ".claude", "kb", "schema.json"))
+	coreSchema, err := os.ReadFile(filepath.Join(core, ".leo", "kb", "schema.json"))
 	if err != nil {
 		t.Fatalf("reading core schema: %v", err)
 	}

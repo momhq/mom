@@ -257,7 +257,7 @@ func askCoreSource(scanner *scannerWrapper, w io.Writer) (string, error) {
 		return "", nil
 	}
 	expanded := expandTilde(line)
-	kbDocsDir := filepath.Join(expanded, ".claude", "kb", "docs")
+	kbDocsDir := filepath.Join(expanded, ".leo", "kb", "docs")
 	if _, err := os.Stat(kbDocsDir); err != nil {
 		return "", fmt.Errorf("not a valid leo-core: %s not found", kbDocsDir)
 	}

@@ -30,7 +30,9 @@ cli/
 ├── go.mod
 └── go.sum
 
-.claude/                         # Leo's own KB (self-hosting / dogfooding)
+.leo/                            # Leo's own config + KB (dogfooding)
+├── config.yaml                  # owner preferences
+├── profiles/                    # specialist profiles
 ├── kb/docs/                     # knowledge documents (JSON)
 ├── kb/schema.json               # document schema
 ├── kb/index.json                # tag-based index

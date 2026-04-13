@@ -12,5 +12,8 @@
 # Dashboard data (local metrics, not committed)
 dashboard/data.jsonl
 
+# Leo cache (ephemeral)
+.leo/cache/
+
 # CLI build artifacts
 cli/bin/
