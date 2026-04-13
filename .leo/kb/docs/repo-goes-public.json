@@ -1,0 +1,30 @@
+{
+  "id": "repo-goes-public",
+  "type": "decision",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": [
+    "github",
+    "visibility",
+    "milestone",
+    "open-source"
+  ],
+  "created": "2026-04-13T16:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-13T16:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "alternatives_considered": [
+      "Keep private until more features land",
+      "Use GitHub organization instead of personal account"
+    ],
+    "context": "Repo cleanup was complete (legacy artifacts removed, KB migrated to .leo/, CI green, README rewritten with pitch-style intro, first release published). Owner decided it was ready for public visitors.",
+    "decision": "Changed leo-core repo visibility from private to public on 2026-04-13. Enabled delete-branch-on-merge. Updated repo description to use L.E.O. branding.",
+    "impact": [
+      "Anyone can view, fork, and open PRs",
+      "Branch protection rules now available on free plan",
+      "Merge access remains restricted to owner and collaborators"
+    ],
+    "reversible": false
+  }
+}

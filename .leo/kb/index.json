@@ -1,107 +1,67 @@
 {
-  "version": "1",
-  "last_rebuilt": "2026-04-13T13:59:25Z",
-  "stats": {
-    "total_docs": 19,
-    "total_tags": 60,
-    "docs_by_type": {
-      "rule": 10,
-      "decision": 4,
-      "fact": 1,
-      "identity": 1,
-      "pattern": 1,
-      "skill": 1,
-      "feedback": 1
-    },
-    "stale_count": 0,
-    "most_connected_tag": "migration"
-  },
-  "by_tag": {
-    "honesty": [
-      "anti-hallucination"
-    ],
-    "verification": [
-      "anti-hallucination",
-      "evidence-over-claim"
-    ],
-    "trust": [
-      "anti-hallucination",
-      "know-what-you-dont-know"
-    ],
-    "evidence": [
-      "anti-hallucination",
-      "evidence-over-claim"
-    ],
-    "escalation": [
-      "escalation-triggers"
-    ],
-    "approval": [
-      "escalation-triggers"
-    ],
-    "safety": [
-      "escalation-triggers",
-      "self-hosting-notes"
-    ],
-    "owner-decision": [
-      "escalation-triggers"
-    ],
-    "delivery": [
-      "evidence-over-claim"
-    ],
-    "quality": [
-      "evidence-over-claim",
-      "metrics-collection",
-      "peer-review-automatic"
-    ],
-    "specialists": [
-      "hiring-loop"
-    ],
-    "delegation": [
-      "hiring-loop",
-      "token-economy-model-selection"
-    ],
-    "hiring": [
-      "hiring-loop"
-    ],
-    "separation-of-concerns": [
-      "hiring-loop"
-    ],
-    "historical": [
+  "by_lifecycle": {
+    "learning": [
       "hiring-loop",
       "md-fallback-during-migration",
       "migration-progress"
     ],
-    "inheritance": [
-      "inheritance"
-    ],
-    "extension": [
-      "inheritance"
-    ],
-    "core-project": [
-      "inheritance"
-    ],
-    "propagation": [
+    "permanent": [
+      "anti-hallucination",
+      "brand-name-dots",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "first-release-v020",
       "inheritance",
+      "know-what-you-dont-know",
+      "lifecycle-replaces-state-vs-learning",
+      "metrics-collection",
+      "peer-review-automatic",
+      "project-identity",
       "propagation",
-      "session-wrap-up"
+      "repo-goes-public",
+      "repo-rename-to-leo-core",
+      "self-hosting-notes",
+      "session-wrap-up",
+      "stop-hook-lesson",
+      "think-before-execute",
+      "token-economy-model-selection"
+    ]
+  },
+  "by_scope": {
+    "core": [
+      "anti-hallucination",
+      "brand-name-dots",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "first-release-v020",
+      "hiring-loop",
+      "inheritance",
+      "know-what-you-dont-know",
+      "lifecycle-replaces-state-vs-learning",
+      "md-fallback-during-migration",
+      "metrics-collection",
+      "migration-progress",
+      "peer-review-automatic",
+      "project-identity",
+      "propagation",
+      "repo-goes-public",
+      "repo-rename-to-leo-core",
+      "self-hosting-notes",
+      "session-wrap-up",
+      "stop-hook-lesson",
+      "think-before-execute",
+      "token-economy-model-selection"
+    ]
+  },
+  "by_tag": {
+    "adversarial": [
+      "peer-review-automatic"
     ],
-    "leo-update": [
-      "inheritance"
+    "alignment": [
+      "think-before-execute"
     ],
-    "expertise": [
-      "know-what-you-dont-know"
-    ],
-    "hiring-loop": [
-      "know-what-you-dont-know"
-    ],
-    "self-awareness": [
-      "know-what-you-dont-know"
-    ],
-    "meta-reasoning": [
-      "know-what-you-dont-know"
-    ],
-    "lifecycle": [
-      "lifecycle-replaces-state-vs-learning"
+    "approval": [
+      "escalation-triggers"
     ],
     "architecture": [
       "lifecycle-replaces-state-vs-learning",
@@ -109,9 +69,130 @@
       "project-identity",
       "stop-hook-lesson"
     ],
+    "autonomy": [
+      "think-before-execute"
+    ],
+    "branding": [
+      "brand-name-dots"
+    ],
+    "compatibility": [
+      "md-fallback-during-migration"
+    ],
+    "content": [
+      "brand-name-dots"
+    ],
+    "core": [
+      "self-hosting-notes"
+    ],
+    "core-project": [
+      "inheritance"
+    ],
+    "cost": [
+      "token-economy-model-selection"
+    ],
+    "decision-making": [
+      "think-before-execute"
+    ],
+    "delegation": [
+      "hiring-loop",
+      "token-economy-model-selection"
+    ],
+    "delivery": [
+      "evidence-over-claim"
+    ],
+    "distribution": [
+      "first-release-v020"
+    ],
+    "dogfooding": [
+      "self-hosting-notes"
+    ],
+    "efficiency": [
+      "token-economy-model-selection"
+    ],
+    "escalation": [
+      "escalation-triggers"
+    ],
+    "evidence": [
+      "anti-hallucination",
+      "evidence-over-claim"
+    ],
+    "execution": [
+      "think-before-execute"
+    ],
+    "expertise": [
+      "know-what-you-dont-know"
+    ],
+    "extension": [
+      "inheritance"
+    ],
+    "github": [
+      "repo-goes-public"
+    ],
+    "golang": [
+      "project-identity",
+      "self-hosting-notes"
+    ],
+    "hiring": [
+      "hiring-loop"
+    ],
+    "hiring-loop": [
+      "know-what-you-dont-know"
+    ],
+    "historical": [
+      "hiring-loop",
+      "md-fallback-during-migration",
+      "migration-progress"
+    ],
+    "honesty": [
+      "anti-hallucination"
+    ],
+    "hooks": [
+      "stop-hook-lesson"
+    ],
+    "identity": [
+      "project-identity",
+      "repo-rename-to-leo-core"
+    ],
+    "inheritance": [
+      "inheritance"
+    ],
+    "isolation": [
+      "peer-review-automatic"
+    ],
+    "kb": [
+      "migration-progress"
+    ],
     "knowledge-management": [
       "lifecycle-replaces-state-vs-learning",
       "propagation"
+    ],
+    "leo": [
+      "project-identity",
+      "repo-rename-to-leo-core"
+    ],
+    "leo-update": [
+      "inheritance"
+    ],
+    "lesson": [
+      "stop-hook-lesson"
+    ],
+    "lifecycle": [
+      "lifecycle-replaces-state-vs-learning"
+    ],
+    "marketing": [
+      "brand-name-dots"
+    ],
+    "measurement": [
+      "metrics-collection"
+    ],
+    "meta": [
+      "project-identity"
+    ],
+    "meta-reasoning": [
+      "know-what-you-dont-know"
+    ],
+    "metrics": [
+      "metrics-collection"
     ],
     "migration": [
       "lifecycle-replaces-state-vs-learning",
@@ -119,109 +200,118 @@
       "migration-progress",
       "repo-rename-to-leo-core"
     ],
-    "compatibility": [
-      "md-fallback-during-migration"
+    "milestone": [
+      "first-release-v020",
+      "repo-goes-public"
     ],
-    "rules": [
-      "md-fallback-during-migration"
+    "model-selection": [
+      "token-economy-model-selection"
     ],
-    "metrics": [
-      "metrics-collection"
+    "mvp": [
+      "first-release-v020"
     ],
-    "refinement": [
-      "metrics-collection"
-    ],
-    "measurement": [
-      "metrics-collection"
-    ],
-    "status": [
-      "migration-progress"
-    ],
-    "kb": [
-      "migration-progress"
-    ],
-    "review": [
-      "peer-review-automatic"
-    ],
-    "adversarial": [
-      "peer-review-automatic"
-    ],
-    "isolation": [
-      "peer-review-automatic"
-    ],
-    "identity": [
-      "project-identity",
+    "naming": [
+      "brand-name-dots",
       "repo-rename-to-leo-core"
     ],
-    "leo": [
-      "project-identity",
-      "repo-rename-to-leo-core"
+    "open-source": [
+      "repo-goes-public"
     ],
-    "meta": [
-      "project-identity"
+    "owner-decision": [
+      "escalation-triggers"
     ],
-    "golang": [
-      "project-identity",
-      "self-hosting-notes"
-    ],
-    "wrap-up": [
-      "propagation",
-      "session-wrap-up"
+    "performance": [
+      "stop-hook-lesson"
     ],
     "persistence": [
       "propagation",
       "session-wrap-up"
     ],
-    "naming": [
-      "repo-rename-to-leo-core"
+    "propagation": [
+      "inheritance",
+      "propagation",
+      "session-wrap-up"
+    ],
+    "quality": [
+      "evidence-over-claim",
+      "metrics-collection",
+      "peer-review-automatic"
+    ],
+    "refinement": [
+      "metrics-collection"
+    ],
+    "release": [
+      "first-release-v020"
+    ],
+    "review": [
+      "peer-review-automatic"
+    ],
+    "rules": [
+      "md-fallback-during-migration"
+    ],
+    "safety": [
+      "escalation-triggers",
+      "self-hosting-notes"
+    ],
+    "self-awareness": [
+      "know-what-you-dont-know"
     ],
     "self-hosting": [
       "self-hosting-notes"
     ],
-    "dogfooding": [
-      "self-hosting-notes"
-    ],
-    "core": [
-      "self-hosting-notes"
+    "separation-of-concerns": [
+      "hiring-loop"
     ],
     "session": [
       "session-wrap-up"
     ],
-    "hooks": [
-      "stop-hook-lesson"
+    "specialists": [
+      "hiring-loop"
     ],
-    "lesson": [
-      "stop-hook-lesson"
-    ],
-    "performance": [
-      "stop-hook-lesson"
-    ],
-    "execution": [
-      "think-before-execute"
-    ],
-    "alignment": [
-      "think-before-execute"
-    ],
-    "decision-making": [
-      "think-before-execute"
-    ],
-    "autonomy": [
-      "think-before-execute"
+    "status": [
+      "migration-progress"
     ],
     "token-economy": [
       "token-economy-model-selection"
     ],
-    "model-selection": [
-      "token-economy-model-selection"
+    "trust": [
+      "anti-hallucination",
+      "know-what-you-dont-know"
     ],
-    "cost": [
-      "token-economy-model-selection"
+    "verification": [
+      "anti-hallucination",
+      "evidence-over-claim"
     ],
-    "efficiency": [
-      "token-economy-model-selection"
+    "visibility": [
+      "repo-goes-public"
+    ],
+    "wrap-up": [
+      "propagation",
+      "session-wrap-up"
     ]
   },
   "by_type": {
+    "decision": [
+      "first-release-v020",
+      "hiring-loop",
+      "lifecycle-replaces-state-vs-learning",
+      "md-fallback-during-migration",
+      "repo-goes-public",
+      "repo-rename-to-leo-core"
+    ],
+    "fact": [
+      "migration-progress"
+    ],
+    "feedback": [
+      "brand-name-dots",
+      "stop-hook-lesson"
+    ],
+    "identity": [
+      "project-identity"
+    ],
+    "pattern": [
+      "self-hosting-notes"
+    ],
     "rule": [
       "anti-hallucination",
       "escalation-triggers",
@@ -234,74 +324,25 @@
       "think-before-execute",
       "token-economy-model-selection"
     ],
-    "decision": [
-      "hiring-loop",
-      "lifecycle-replaces-state-vs-learning",
-      "md-fallback-during-migration",
-      "repo-rename-to-leo-core"
-    ],
-    "fact": [
-      "migration-progress"
-    ],
-    "identity": [
-      "project-identity"
-    ],
-    "pattern": [
-      "self-hosting-notes"
-    ],
     "skill": [
       "session-wrap-up"
-    ],
-    "feedback": [
-      "stop-hook-lesson"
     ]
   },
-  "by_scope": {
-    "core": [
-      "anti-hallucination",
-      "escalation-triggers",
-      "evidence-over-claim",
-      "hiring-loop",
-      "inheritance",
-      "know-what-you-dont-know",
-      "lifecycle-replaces-state-vs-learning",
-      "md-fallback-during-migration",
-      "metrics-collection",
-      "migration-progress",
-      "peer-review-automatic",
-      "project-identity",
-      "propagation",
-      "repo-rename-to-leo-core",
-      "self-hosting-notes",
-      "session-wrap-up",
-      "stop-hook-lesson",
-      "think-before-execute",
-      "token-economy-model-selection"
-    ]
+  "last_rebuilt": "2026-04-13T18:08:42Z",
+  "stats": {
+    "docs_by_type": {
+      "decision": 6,
+      "fact": 1,
+      "feedback": 2,
+      "identity": 1,
+      "pattern": 1,
+      "rule": 10,
+      "skill": 1
+    },
+    "most_connected_tag": "migration",
+    "stale_count": 0,
+    "total_docs": 22,
+    "total_tags": 70
   },
-  "by_lifecycle": {
-    "permanent": [
-      "anti-hallucination",
-      "escalation-triggers",
-      "evidence-over-claim",
-      "inheritance",
-      "know-what-you-dont-know",
-      "lifecycle-replaces-state-vs-learning",
-      "metrics-collection",
-      "peer-review-automatic",
-      "project-identity",
-      "propagation",
-      "repo-rename-to-leo-core",
-      "self-hosting-notes",
-      "session-wrap-up",
-      "stop-hook-lesson",
-      "think-before-execute",
-      "token-economy-model-selection"
-    ],
-    "learning": [
-      "hiring-loop",
-      "md-fallback-during-migration",
-      "migration-progress"
-    ]
-  }
+  "version": "1"
 }
