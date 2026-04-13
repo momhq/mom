@@ -244,7 +244,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 			"by_scope": map[string]any{}, "by_lifecycle": map[string]any{},
 		}
 		if data, err := json.MarshalIndent(emptyIdx, "", "  "); err == nil {
-			os.WriteFile(indexPath, append(data, '\n'), 0644)
+			_ = os.WriteFile(indexPath, append(data, '\n'), 0644)
 		}
 	}
 

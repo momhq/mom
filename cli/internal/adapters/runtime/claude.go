@@ -36,8 +36,8 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, profile Profile, rule
 	b.WriteString("You are LEO. Your knowledge base lives in `.leo/kb/`.\n\n")
 
 	// Active profile
-	b.WriteString(fmt.Sprintf("## Active Profile: %s\n\n", profile.Name))
-	b.WriteString(fmt.Sprintf("%s\n\n", profile.Description))
+	fmt.Fprintf(&b, "## Active Profile: %s\n\n", profile.Name)
+	fmt.Fprintf(&b, "%s\n\n", profile.Description)
 	if profile.ContextInjection != "" {
 		b.WriteString(profile.ContextInjection)
 		b.WriteString("\n\n")
@@ -59,16 +59,16 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, profile Profile, rule
 		b.WriteString("If the index shows a rule was updated since your last read, re-read it.\n\n")
 		b.WriteString("Active rules:\n")
 		for _, r := range rules {
-			b.WriteString(fmt.Sprintf("- `%s`: %s\n", r.ID, truncate(r.Rule, 100)))
+			fmt.Fprintf(&b, "- `%s`: %s\n", r.ID, truncate(r.Rule, 100))
 		}
 		b.WriteString("\n")
 	}
 
 	// Owner preferences
 	b.WriteString("## Owner preferences\n\n")
-	b.WriteString(fmt.Sprintf("- Language: %s\n", config.Owner.Language))
-	b.WriteString(fmt.Sprintf("- Mode: %s\n", config.Owner.Mode))
-	b.WriteString(fmt.Sprintf("- Autonomy: %s\n", config.Owner.Autonomy))
+	fmt.Fprintf(&b, "- Language: %s\n", config.Owner.Language)
+	fmt.Fprintf(&b, "- Mode: %s\n", config.Owner.Mode)
+	fmt.Fprintf(&b, "- Autonomy: %s\n", config.Owner.Autonomy)
 	b.WriteString("\n")
 
 	// Wrap-up
