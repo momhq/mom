@@ -41,5 +41,5 @@ jobs:
 
       - uses: golangci/golangci-lint-action@v6
         with:
-          version: v2.1
+          version: v2.11
           working-directory: cli
