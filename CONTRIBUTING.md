@@ -90,8 +90,8 @@ All code must follow test-driven development:
 3. Implement with tests (TDD)
 4. Run `make test` and `make lint`
 5. Submit a PR linking the related issue
-6. Sign the CLA on your first PR
 
-## CLA
 
-All contributors must sign the Contributor License Agreement on their first pull request. The CLA bot will prompt you automatically.
+## License
+
+By contributing, you agree that your contributions will be licensed under the [Apache 2.0 License](LICENSE).

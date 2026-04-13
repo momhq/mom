@@ -107,4 +107,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, conventions, and 
 
 ## License
 
-[MIT](LICENSE)
+[Apache 2.0](LICENSE)
