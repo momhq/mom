@@ -15,8 +15,8 @@ import (
 // TestOnboarding_DefaultSelections verifies that pressing Enter for every
 // prompt accepts the default value for each step.
 func TestOnboarding_DefaultSelections(t *testing.T) {
-	// Six newlines: runtime, language, profile, autonomy, core-source, confirm.
-	input := strings.NewReader("\n\n\n\n\n\n")
+	// Seven newlines: runtime, language, mode, profile, autonomy, core-source, confirm.
+	input := strings.NewReader("\n\n\n\n\n\n\n")
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -29,6 +29,9 @@ func TestOnboarding_DefaultSelections(t *testing.T) {
 	}
 	if result.Language != "en" {
 		t.Errorf("expected language=en, got %q", result.Language)
+	}
+	if result.Mode != "concise" {
+		t.Errorf("expected mode=concise, got %q", result.Mode)
 	}
 	if result.DefaultProfile != "generalist" {
 		t.Errorf("expected profile=generalist, got %q", result.DefaultProfile)
@@ -56,9 +59,9 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 		}
 	}
 
-	// runtime=2 (cursor), language=2 (pt), profile=backend-engineer index,
+	// runtime=2 (cursor), language=2 (pt), mode=3 (caveman), profile=backend-engineer index,
 	// autonomy=3 (supervised), core-source=skip, confirm=Y
-	input := strings.NewReader(fmt.Sprintf("2\n2\n%d\n3\n\nY\n", beIdx))
+	input := strings.NewReader(fmt.Sprintf("2\n2\n3\n%d\n3\n\nY\n", beIdx))
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -71,6 +74,9 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 	}
 	if result.Language != "pt" {
 		t.Errorf("expected language=pt, got %q", result.Language)
+	}
+	if result.Mode != "caveman" {
+		t.Errorf("expected mode=caveman, got %q", result.Mode)
 	}
 	if result.DefaultProfile != "backend-engineer" {
 		t.Errorf("expected profile=backend-engineer, got %q", result.DefaultProfile)
@@ -100,8 +106,9 @@ func TestOnboarding_InvalidThenValid(t *testing.T) {
 
 	// runtime: bad input then valid "3" (windsurf)
 	// language: bad input then default Enter
+	// mode: default Enter
 	// profile: invalid then generalist index, autonomy: "1" (autonomous), core-source: skip, confirm: default Enter
-	input := strings.NewReader(fmt.Sprintf("99\n3\nXXX\n\n999\n%d\n1\n\n\n", genIdx))
+	input := strings.NewReader(fmt.Sprintf("99\n3\nXXX\n\n\n999\n%d\n1\n\n\n", genIdx))
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -131,8 +138,8 @@ func TestOnboarding_RuntimeAutoDetect_Claude(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Accept all defaults (6 newlines: runtime, language, profile, autonomy, core-source, confirm).
-	input := strings.NewReader("\n\n\n\n\n\n")
+	// Accept all defaults (7 newlines: runtime, language, mode, profile, autonomy, core-source, confirm).
+	input := strings.NewReader("\n\n\n\n\n\n\n")
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, dir)
@@ -158,8 +165,8 @@ func TestOnboarding_RuntimeAutoDetect_Cursor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Accept all defaults (6 newlines: runtime, language, profile, autonomy, core-source, confirm).
-	input := strings.NewReader("\n\n\n\n\n\n")
+	// Accept all defaults (7 newlines: runtime, language, mode, profile, autonomy, core-source, confirm).
+	input := strings.NewReader("\n\n\n\n\n\n\n")
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, dir)
@@ -175,8 +182,8 @@ func TestOnboarding_RuntimeAutoDetect_Cursor(t *testing.T) {
 // TestOnboarding_ConfirmNo verifies that answering "n" at the confirm step
 // returns an error signalling the user aborted.
 func TestOnboarding_ConfirmNo(t *testing.T) {
-	// runtime, language, profile, autonomy, core-source (skip), confirm=n
-	input := strings.NewReader("\n\n\n\n\nn\n")
+	// runtime, language, mode, profile, autonomy, core-source (skip), confirm=n
+	input := strings.NewReader("\n\n\n\n\n\nn\n")
 	output := &bytes.Buffer{}
 
 	_, err := runOnboarding(input, output, t.TempDir())
@@ -190,7 +197,7 @@ func TestOnboarding_ConfirmNo(t *testing.T) {
 
 // TestOnboarding_OutputContainsWelcome verifies the welcome banner appears.
 func TestOnboarding_OutputContainsWelcome(t *testing.T) {
-	input := strings.NewReader("\n\n\n\n\n\n")
+	input := strings.NewReader("\n\n\n\n\n\n\n")
 	output := &bytes.Buffer{}
 
 	_, err := runOnboarding(input, output, t.TempDir())
@@ -206,8 +213,8 @@ func TestOnboarding_OutputContainsWelcome(t *testing.T) {
 
 // TestOnboarding_OutputContainsSummary verifies the summary step renders.
 func TestOnboarding_OutputContainsSummary(t *testing.T) {
-	// runtime=1, language=1, profile=1, autonomy=2, core-source=skip, confirm=Y
-	input := strings.NewReader("1\n1\n1\n2\n\nY\n")
+	// runtime=1, language=1, mode=2 (concise), profile=1, autonomy=2, core-source=skip, confirm=Y
+	input := strings.NewReader("1\n1\n2\n1\n2\n\nY\n")
 	output := &bytes.Buffer{}
 
 	_, err := runOnboarding(input, output, t.TempDir())
@@ -216,7 +223,7 @@ func TestOnboarding_OutputContainsSummary(t *testing.T) {
 	}
 
 	out := output.String()
-	for _, keyword := range []string{"Runtime", "Language", "Profile", "Autonomy"} {
+	for _, keyword := range []string{"Runtime", "Language", "Mode", "Profile", "Autonomy"} {
 		if !strings.Contains(out, keyword) {
 			t.Errorf("expected summary to contain %q, got:\n%s", keyword, out)
 		}
@@ -227,10 +234,10 @@ func TestOnboarding_OutputContainsSummary(t *testing.T) {
 
 func TestAskRuntime(t *testing.T) {
 	cases := []struct {
-		name     string
-		input    string
-		cwd      string // "" means no special dir
-		wantRT   string
+		name   string
+		input  string
+		cwd    string // "" means no special dir
+		wantRT string
 	}{
 		{name: "default enter", input: "\n", wantRT: "claude"},
 		{name: "pick 1", input: "1\n", wantRT: "claude"},
@@ -280,6 +287,33 @@ func TestAskLanguage(t *testing.T) {
 			}
 			if got != tc.wantLang {
 				t.Errorf("expected %q, got %q", tc.wantLang, got)
+			}
+		})
+	}
+}
+
+func TestAskMode(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    string
+		wantMode string
+	}{
+		{name: "default enter", input: "\n", wantMode: "concise"},
+		{name: "pick 1", input: "1\n", wantMode: "verbose"},
+		{name: "pick 2", input: "2\n", wantMode: "concise"},
+		{name: "pick 3", input: "3\n", wantMode: "caveman"},
+		{name: "invalid then 3", input: "bad\n3\n", wantMode: "caveman"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			scanner, out := makeScanner(tc.input)
+			got, err := askMode(scanner, out)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.wantMode {
+				t.Errorf("expected %q, got %q", tc.wantMode, got)
 			}
 		})
 	}
@@ -379,9 +413,9 @@ func TestOnboarding_ResultMappedToConfig(t *testing.T) {
 		}
 	}
 
-	// runtime=2 (cursor), language=3 (es), profile=backend-engineer index, autonomy=1 (autonomous),
-	// core-source=skip, confirm=Y
-	input := strings.NewReader(fmt.Sprintf("2\n3\n%d\n1\n\nY\n", beIdx))
+	// runtime=2 (cursor), language=3 (es), mode=1 (verbose), profile=backend-engineer index,
+	// autonomy=1 (autonomous), core-source=skip, confirm=Y
+	input := strings.NewReader(fmt.Sprintf("2\n3\n1\n%d\n1\n\nY\n", beIdx))
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -389,12 +423,15 @@ func TestOnboarding_ResultMappedToConfig(t *testing.T) {
 		t.Fatalf("runOnboarding failed: %v", err)
 	}
 
-	// cursor, es, backend-engineer, autonomous
+	// cursor, es, verbose, backend-engineer, autonomous
 	if result.Runtime != "cursor" {
 		t.Errorf("runtime: want cursor, got %q", result.Runtime)
 	}
 	if result.Language != "es" {
 		t.Errorf("language: want es, got %q", result.Language)
+	}
+	if result.Mode != "verbose" {
+		t.Errorf("mode: want verbose, got %q", result.Mode)
 	}
 	if result.DefaultProfile != "backend-engineer" {
 		t.Errorf("profile: want backend-engineer, got %q", result.DefaultProfile)

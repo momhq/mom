@@ -46,11 +46,8 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, profile Profile, rule
 	// Boot sequence
 	b.WriteString("## Boot sequence\n\n")
 	b.WriteString("1. Read `.leo/kb/index.json` — this is your neural map\n")
-	b.WriteString("2. From the index, load all docs where `type: \"rule\"` — these govern your behavior\n")
-	b.WriteString("3. From the index, load all docs where `type: \"identity\"` — this is who the project is\n")
-	b.WriteString("4. From the index, load all docs where `type: \"skill\"` — these are your executable workflows\n")
-	b.WriteString("5. From the index, load all docs where `type: \"feedback\"` — these are owner corrections\n")
-	b.WriteString("6. You are now loaded. Greet the owner and proceed.\n\n")
+	b.WriteString("2. From the index, load all docs where `boot: true` — these govern your behavior, identity, skills, and corrections\n")
+	b.WriteString("3. You are now loaded. Greet the owner and proceed.\n\n")
 
 	// Rules summary
 	if len(rules) > 0 {

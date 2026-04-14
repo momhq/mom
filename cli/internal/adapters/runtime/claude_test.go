@@ -79,10 +79,22 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		"no filler",
 		"Balanced",
 		"Propose before",
+		"boot: true",
+	}
+	notChecks := []string{
+		`load all docs where` + " `" + `type: "rule"` + "`",
+		`load all docs where` + " `" + `type: "identity"` + "`",
+		`load all docs where` + " `" + `type: "skill"` + "`",
+		`load all docs where` + " `" + `type: "feedback"` + "`",
 	}
 	for _, check := range checks {
 		if !strings.Contains(s, check) {
 			t.Errorf("CLAUDE.md missing %q", check)
+		}
+	}
+	for _, notCheck := range notChecks {
+		if strings.Contains(s, notCheck) {
+			t.Errorf("CLAUDE.md should not contain %q", notCheck)
 		}
 	}
 }

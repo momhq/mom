@@ -52,6 +52,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
 		Runtime:        rt,
 		Language:       config.Default().Owner.Language,
+		Mode:           config.Default().Owner.Mode,
 		DefaultProfile: config.Default().Owner.DefaultProfile,
 		Autonomy:       config.Default().Owner.Autonomy,
 	})
@@ -87,6 +88,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	cfg.Runtime = result.Runtime
 	cfg.CoreSource = result.CoreSource
 	cfg.Owner.Language = result.Language
+	cfg.Owner.Mode = result.Mode
 	cfg.Owner.DefaultProfile = result.DefaultProfile
 	cfg.Owner.Autonomy = result.Autonomy
 
