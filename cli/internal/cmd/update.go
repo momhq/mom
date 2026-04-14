@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -31,6 +32,10 @@ type SyncPlan struct {
 	DocsToUpdate  []SyncItem
 	DocsUnchanged []string
 	SchemaChanged bool
+
+	ProfilesToAdd     []SyncItem
+	ProfileConflicts  []SyncItem // exist locally, content differs from core
+	ProfilesUnchanged []string
 }
 
 // SyncItem represents a single document to be copied.
@@ -84,24 +89,58 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	// Confirm unless --yes.
 	yes, _ := cmd.Flags().GetBool("yes")
+	scanner := bufio.NewScanner(cmd.InOrStdin())
 	if !yes {
 		cmd.Print("\n  Apply changes? [Y/n]: ")
-		buf := new(strings.Builder)
-		_, _ = fmt.Fscan(cmd.InOrStdin(), buf)
-		answer := strings.TrimSpace(buf.String())
+		answer := ""
+		if scanner.Scan() {
+			answer = strings.TrimSpace(scanner.Text())
+		}
 		if answer != "" && strings.ToLower(answer) != "y" {
 			return fmt.Errorf("update aborted")
 		}
 	}
 
+	// Resolve profile conflicts.
+	var profilesToReplace []SyncItem
+	conflictsKept := 0
+	if len(plan.ProfileConflicts) > 0 {
+		if yes {
+			// Safe default with --yes: keep all local.
+			for _, item := range plan.ProfileConflicts {
+				cmd.Printf("  Conflict: %s — keeping local (safe default with --yes)\n", item.ID)
+			}
+			conflictsKept = len(plan.ProfileConflicts)
+		} else {
+			// Interactive: prompt per conflict.
+			for _, item := range plan.ProfileConflicts {
+				cmd.Printf("  Profile %q differs from core. Replace with core version? [y/N]: ", item.ID)
+				answer := ""
+				if scanner.Scan() {
+					answer = strings.TrimSpace(scanner.Text())
+				}
+				if strings.ToLower(answer) == "y" {
+					profilesToReplace = append(profilesToReplace, item)
+				} else {
+					conflictsKept++
+				}
+			}
+		}
+	}
+
 	// Apply plan.
-	if err := applySyncPlan(plan, leoDir, source, cmd); err != nil {
+	if err := applySyncPlan(plan, leoDir, source, cmd, profilesToReplace); err != nil {
 		return err
 	}
 
 	// Summary.
-	cmd.Printf("\n  Done: %d new, %d updated, %d unchanged\n",
-		len(plan.DocsToAdd), len(plan.DocsToUpdate), len(plan.DocsUnchanged))
+	totalNew := len(plan.DocsToAdd) + len(plan.ProfilesToAdd)
+	totalUpdated := len(plan.DocsToUpdate)
+	totalUnchanged := len(plan.DocsUnchanged) + len(plan.ProfilesUnchanged)
+	totalConflicts := len(plan.ProfileConflicts)
+	conflictsReplaced := len(profilesToReplace)
+	cmd.Printf("\n  Done: %d new, %d updated, %d unchanged, %d conflicts (%d replaced, %d kept)\n",
+		totalNew, totalUpdated, totalUnchanged, totalConflicts, conflictsReplaced, conflictsKept)
 
 	return nil
 }
@@ -165,11 +204,47 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 	projSchema := filepath.Join(leoDir, "kb", "schema.json")
 	plan.SchemaChanged = !filesEqual(coreSchema, projSchema)
 
+	// Compare profile files.
+	coreProfilesDir := filepath.Join(coreSource, ".leo", "profiles")
+	projProfilesDir := filepath.Join(leoDir, "profiles")
+
+	profileEntries, err := os.ReadDir(coreProfilesDir)
+	if err == nil {
+		for _, e := range profileEntries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
+				continue
+			}
+
+			srcPath := filepath.Join(coreProfilesDir, e.Name())
+			tgtPath := filepath.Join(projProfilesDir, e.Name())
+			name := strings.TrimSuffix(e.Name(), ".yaml")
+
+			if filesEqual(srcPath, tgtPath) {
+				plan.ProfilesUnchanged = append(plan.ProfilesUnchanged, name)
+			} else if _, err := os.Stat(tgtPath); err != nil {
+				// Local doesn't exist — add it.
+				plan.ProfilesToAdd = append(plan.ProfilesToAdd, SyncItem{
+					ID:         name,
+					SourcePath: srcPath,
+					TargetPath: tgtPath,
+				})
+			} else {
+				// Exists but different — update it.
+				plan.ProfileConflicts = append(plan.ProfileConflicts, SyncItem{
+					ID:         name,
+					SourcePath: srcPath,
+					TargetPath: tgtPath,
+				})
+			}
+		}
+	}
+
 	return plan, nil
 }
 
 // applySyncPlan copies files according to the plan and rebuilds the index.
-func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command) error {
+// profilesToReplace contains only the conflict profiles the user chose to replace.
+func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command, profilesToReplace []SyncItem) error {
 	projDocsDir := filepath.Join(leoDir, "kb", "docs")
 	if err := os.MkdirAll(projDocsDir, 0755); err != nil {
 		return fmt.Errorf("ensuring docs dir exists: %w", err)
@@ -192,6 +267,26 @@ func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command
 		projSchema := filepath.Join(leoDir, "kb", "schema.json")
 		if err := copyFileContents(coreSchema, projSchema); err != nil {
 			return fmt.Errorf("updating schema: %w", err)
+		}
+	}
+
+	// Copy profiles.
+	if len(plan.ProfilesToAdd)+len(profilesToReplace) > 0 {
+		projProfilesDir := filepath.Join(leoDir, "profiles")
+		if err := os.MkdirAll(projProfilesDir, 0755); err != nil {
+			return fmt.Errorf("ensuring profiles dir exists: %w", err)
+		}
+
+		for _, item := range plan.ProfilesToAdd {
+			if err := copyFileContents(item.SourcePath, item.TargetPath); err != nil {
+				return fmt.Errorf("copying profile %s: %w", item.ID, err)
+			}
+		}
+
+		for _, item := range profilesToReplace {
+			if err := copyFileContents(item.SourcePath, item.TargetPath); err != nil {
+				return fmt.Errorf("replacing profile %s: %w", item.ID, err)
+			}
 		}
 	}
 
@@ -219,13 +314,29 @@ func displaySyncPlan(cmd *cobra.Command, source string, plan *SyncPlan) {
 		cmd.Printf("    = %-30s (unchanged)\n", id)
 	}
 
+	cmd.Println("\n  Profiles:")
+	for _, item := range plan.ProfilesToAdd {
+		cmd.Printf("    + %-30s (new)\n", item.ID)
+	}
+	for _, item := range plan.ProfileConflicts {
+		cmd.Printf("    ? %-30s (conflict — local differs)\n", item.ID)
+	}
+	for _, name := range plan.ProfilesUnchanged {
+		cmd.Printf("    = %-30s (unchanged)\n", name)
+	}
+
 	schemaStatus := "unchanged"
 	if plan.SchemaChanged {
 		schemaStatus = "updated"
 	}
 	cmd.Printf("\n  Schema: %s\n", schemaStatus)
-	cmd.Printf("\n  Summary: %d new, %d updated, %d unchanged\n",
-		len(plan.DocsToAdd), len(plan.DocsToUpdate), len(plan.DocsUnchanged))
+
+	totalNew := len(plan.DocsToAdd) + len(plan.ProfilesToAdd)
+	totalUpdated := len(plan.DocsToUpdate)
+	totalUnchanged := len(plan.DocsUnchanged) + len(plan.ProfilesUnchanged)
+	totalConflicts := len(plan.ProfileConflicts)
+	cmd.Printf("\n  Summary: %d new, %d updated, %d unchanged, %d conflicts\n",
+		totalNew, totalUpdated, totalUnchanged, totalConflicts)
 }
 
 // filesEqual returns true if both files exist and have identical contents.

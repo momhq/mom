@@ -55,6 +55,11 @@ func setupFakeCore(t *testing.T) string {
 		t.Fatalf("setupFakeCore: writing schema: %v", err)
 	}
 
+	profilesDir := filepath.Join(core, ".leo", "profiles")
+	if err := os.MkdirAll(profilesDir, 0755); err != nil {
+		t.Fatalf("setupFakeCore: creating profiles dir: %v", err)
+	}
+
 	return core
 }
 
@@ -75,6 +80,7 @@ func setupFakeProject(t *testing.T) string {
 	dirs := []string{
 		leoDir,
 		filepath.Join(leoDir, "kb", "docs"),
+		filepath.Join(leoDir, "profiles"),
 		filepath.Join(leoDir, "cache"),
 	}
 	for _, d := range dirs {
@@ -104,11 +110,12 @@ func setupFakeProject(t *testing.T) string {
 	return proj
 }
 
-// runUpdateCmd sets up rootCmd to run "update" with given args in the given
-// working directory (changes os cwd temporarily).
+// runUpdateCmdWithInput sets up rootCmd to run "update" with given args in the
+// given working directory (changes os cwd temporarily). It also sets stdin to
+// the provided input string for interactive prompts.
 // It resets updateCmd flags before each run to prevent cobra state leaking
 // between tests.
-func runUpdateCmd(t *testing.T, projDir string, args []string) (string, error) {
+func runUpdateCmdWithInput(t *testing.T, projDir string, args []string, input string) (string, error) {
 	t.Helper()
 
 	// Reset updateCmd flags to defaults to prevent cross-test contamination.
@@ -123,10 +130,20 @@ func runUpdateCmd(t *testing.T, projDir string, args []string) (string, error) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
+	rootCmd.SetIn(strings.NewReader(input))
 	rootCmd.SetArgs(append([]string{"update"}, args...))
 
 	err := rootCmd.Execute()
 	return buf.String(), err
+}
+
+// runUpdateCmd sets up rootCmd to run "update" with given args in the given
+// working directory (changes os cwd temporarily).
+// It resets updateCmd flags before each run to prevent cobra state leaking
+// between tests.
+func runUpdateCmd(t *testing.T, projDir string, args []string) (string, error) {
+	t.Helper()
+	return runUpdateCmdWithInput(t, projDir, args, "")
 }
 
 // ---------------------------------------------------------------------------
@@ -318,6 +335,202 @@ func TestUpdateCmd_SyncsSchema(t *testing.T) {
 	}
 	if !bytes.Equal(projSchema, coreSchema) {
 		t.Errorf("project schema not updated to match core:\nproject: %s\ncore:    %s", projSchema, coreSchema)
+	}
+}
+
+// addCoreProfile writes a profile YAML file into {core}/.leo/profiles/.
+func addCoreProfile(t *testing.T, core, name, content string) {
+	t.Helper()
+	dir := filepath.Join(core, ".leo", "profiles")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("addCoreProfile: creating profiles dir: %v", err)
+	}
+	path := filepath.Join(dir, name+".yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("addCoreProfile: %v", err)
+	}
+}
+
+// addProjectProfile writes a profile YAML file into {proj}/.leo/profiles/.
+func addProjectProfile(t *testing.T, proj, name, content string) {
+	t.Helper()
+	dir := filepath.Join(proj, ".leo", "profiles")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("addProjectProfile: creating profiles dir: %v", err)
+	}
+	path := filepath.Join(dir, name+".yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("addProjectProfile: %v", err)
+	}
+}
+
+func TestUpdateCmd_AddsNewProfiles(t *testing.T) {
+	proj := setupFakeProject(t)
+	core := setupFakeCore(t)
+
+	addCoreProfile(t, core, "go-specialist", "name: go-specialist\nmodel: sonnet\n")
+	addCoreProfile(t, core, "security-reviewer", "name: security-reviewer\nmodel: opus\n")
+
+	out, err := runUpdateCmd(t, proj, []string{"--source", core, "--yes"})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	// Both profiles should have been copied.
+	profilesDir := filepath.Join(proj, ".leo", "profiles")
+	for _, name := range []string{"go-specialist", "security-reviewer"} {
+		p := filepath.Join(profilesDir, name+".yaml")
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("expected profile %s to be created, but it's missing", name)
+		}
+	}
+
+	// Output should mention profiles.
+	if !strings.Contains(out, "go-specialist") {
+		t.Errorf("expected 'go-specialist' in output, got:\n%s", out)
+	}
+}
+
+func TestUpdateCmd_KeepsConflictingProfilesWithYes(t *testing.T) {
+	proj := setupFakeProject(t)
+	core := setupFakeCore(t)
+
+	oldContent := "name: go-specialist\nmodel: sonnet\n"
+	newContent := "name: go-specialist\nmodel: opus\nskills: [refactor]\n"
+
+	// Project has old version, core has new version.
+	addProjectProfile(t, proj, "go-specialist", oldContent)
+	addCoreProfile(t, core, "go-specialist", newContent)
+
+	_, err := runUpdateCmd(t, proj, []string{"--source", core, "--yes"})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	// With --yes, safe default is to KEEP local (don't replace).
+	data, err := os.ReadFile(filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml"))
+	if err != nil {
+		t.Fatalf("reading profile: %v", err)
+	}
+	if string(data) != oldContent {
+		t.Errorf("expected local profile to be kept with --yes, got:\n%s", string(data))
+	}
+}
+
+func TestUpdateCmd_ReplacesConflictProfileInteractively(t *testing.T) {
+	proj := setupFakeProject(t)
+	core := setupFakeCore(t)
+
+	oldContent := "name: go-specialist\nmodel: sonnet\n"
+	newContent := "name: go-specialist\nmodel: opus\nskills: [refactor]\n"
+
+	addProjectProfile(t, proj, "go-specialist", oldContent)
+	addCoreProfile(t, core, "go-specialist", newContent)
+
+	// First "y" for "Apply changes?", second "y" for the profile conflict.
+	out, err := runUpdateCmdWithInput(t, proj, []string{"--source", core}, "y\ny\n")
+	if err != nil {
+		t.Fatalf("update failed: %v\noutput:\n%s", err, out)
+	}
+
+	// Profile should have been replaced with core version.
+	data, err := os.ReadFile(filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml"))
+	if err != nil {
+		t.Fatalf("reading profile: %v", err)
+	}
+	if string(data) != newContent {
+		t.Errorf("expected profile to be replaced with core version, got:\n%s", string(data))
+	}
+}
+
+func TestUpdateCmd_KeepsConflictProfileInteractively(t *testing.T) {
+	proj := setupFakeProject(t)
+	core := setupFakeCore(t)
+
+	oldContent := "name: go-specialist\nmodel: sonnet\n"
+	newContent := "name: go-specialist\nmodel: opus\nskills: [refactor]\n"
+
+	addProjectProfile(t, proj, "go-specialist", oldContent)
+	addCoreProfile(t, core, "go-specialist", newContent)
+
+	// First "y" for "Apply changes?", second "n" for the profile conflict.
+	out, err := runUpdateCmdWithInput(t, proj, []string{"--source", core}, "y\nn\n")
+	if err != nil {
+		t.Fatalf("update failed: %v\noutput:\n%s", err, out)
+	}
+
+	// Profile should still have the local content.
+	data, err := os.ReadFile(filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml"))
+	if err != nil {
+		t.Fatalf("reading profile: %v", err)
+	}
+	if string(data) != oldContent {
+		t.Errorf("expected local profile to be kept, got:\n%s", string(data))
+	}
+}
+
+func TestUpdateCmd_SkipsUnchangedProfiles(t *testing.T) {
+	proj := setupFakeProject(t)
+	core := setupFakeCore(t)
+
+	content := "name: go-specialist\nmodel: sonnet\n"
+	addProjectProfile(t, proj, "go-specialist", content)
+	addCoreProfile(t, core, "go-specialist", content)
+
+	// Record modification time before update.
+	profPath := filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml")
+	info, _ := os.Stat(profPath)
+	modBefore := info.ModTime()
+
+	_, err := runUpdateCmd(t, proj, []string{"--source", core, "--yes"})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	// File should not have been touched.
+	info2, _ := os.Stat(profPath)
+	if !info2.ModTime().Equal(modBefore) {
+		t.Errorf("unchanged profile should not have been written (mod time changed)")
+	}
+}
+
+func TestUpdateCmd_DryRunShowsProfiles(t *testing.T) {
+	proj := setupFakeProject(t)
+	core := setupFakeCore(t)
+
+	// New profile (no local version).
+	addCoreProfile(t, core, "go-specialist", "name: go-specialist\nmodel: sonnet\n")
+
+	// Conflicting profile (local differs from core).
+	addProjectProfile(t, proj, "security-reviewer", "name: security-reviewer\nmodel: sonnet\n")
+	addCoreProfile(t, core, "security-reviewer", "name: security-reviewer\nmodel: opus\n")
+
+	out, err := runUpdateCmd(t, proj, []string{"--source", core, "--dry-run"})
+	if err != nil {
+		t.Fatalf("dry-run failed: %v", err)
+	}
+
+	// Should show profiles section with the profile name.
+	if !strings.Contains(out, "Profiles:") {
+		t.Errorf("expected 'Profiles:' section in dry-run output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "go-specialist") {
+		t.Errorf("expected 'go-specialist' in dry-run output, got:\n%s", out)
+	}
+
+	// Should show conflict marker for the differing profile.
+	if !strings.Contains(out, "conflict") {
+		t.Errorf("expected 'conflict' marker in dry-run output for differing profile, got:\n%s", out)
+	}
+
+	// No profile files should have been written.
+	profilesDir := filepath.Join(proj, ".leo", "profiles")
+	entries, _ := os.ReadDir(profilesDir)
+	// Only the one we placed (security-reviewer) should be there, not go-specialist.
+	for _, e := range entries {
+		if e.Name() == "go-specialist.yaml" {
+			t.Errorf("dry-run should not write new profiles")
+		}
 	}
 }
 
