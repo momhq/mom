@@ -1,6 +1,6 @@
 version: "1"
 runtime: claude
-core_source: ""
+core_source: "~/Github/leo-core"
 owner:
   language: en
   mode: concise

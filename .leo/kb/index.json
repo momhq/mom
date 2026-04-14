@@ -8,8 +8,11 @@
     "permanent": [
       "anti-hallucination",
       "brand-name-dots",
+      "clevel-profiles-strategy",
       "escalation-triggers",
       "evidence-over-claim",
+      "feedback-kb-not-rules",
+      "feedback-leo-must-delegate",
       "first-release-v020",
       "inheritance",
       "know-what-you-dont-know",
@@ -18,12 +21,15 @@
       "peer-review-automatic",
       "project-identity",
       "propagation",
+      "release-v040",
       "repo-goes-public",
       "repo-rename-to-leo-core",
       "self-hosting-notes",
       "session-wrap-up",
       "stop-hook-lesson",
+      "task-pipeline-selection",
       "think-before-execute",
+      "token-economy-caveman",
       "token-economy-model-selection"
     ]
   },
@@ -31,8 +37,11 @@
     "core": [
       "anti-hallucination",
       "brand-name-dots",
+      "clevel-profiles-strategy",
       "escalation-triggers",
       "evidence-over-claim",
+      "feedback-kb-not-rules",
+      "feedback-leo-must-delegate",
       "first-release-v020",
       "hiring-loop",
       "inheritance",
@@ -44,12 +53,15 @@
       "peer-review-automatic",
       "project-identity",
       "propagation",
+      "release-v040",
       "repo-goes-public",
       "repo-rename-to-leo-core",
       "self-hosting-notes",
       "session-wrap-up",
       "stop-hook-lesson",
+      "task-pipeline-selection",
       "think-before-execute",
+      "token-economy-caveman",
       "token-economy-model-selection"
     ]
   },
@@ -88,25 +100,33 @@
       "inheritance"
     ],
     "cost": [
+      "token-economy-caveman",
       "token-economy-model-selection"
     ],
     "decision-making": [
       "think-before-execute"
     ],
     "delegation": [
+      "clevel-profiles-strategy",
+      "feedback-leo-must-delegate",
       "hiring-loop",
+      "task-pipeline-selection",
+      "token-economy-caveman",
       "token-economy-model-selection"
     ],
     "delivery": [
       "evidence-over-claim"
     ],
     "distribution": [
-      "first-release-v020"
+      "clevel-profiles-strategy",
+      "first-release-v020",
+      "release-v040"
     ],
     "dogfooding": [
       "self-hosting-notes"
     ],
     "efficiency": [
+      "token-economy-caveman",
       "token-economy-model-selection"
     ],
     "escalation": [
@@ -124,6 +144,9 @@
     ],
     "extension": [
       "inheritance"
+    ],
+    "functions": [
+      "task-pipeline-selection"
     ],
     "github": [
       "repo-goes-public"
@@ -159,7 +182,11 @@
     "isolation": [
       "peer-review-automatic"
     ],
+    "json-first": [
+      "feedback-kb-not-rules"
+    ],
     "kb": [
+      "feedback-kb-not-rules",
       "migration-progress"
     ],
     "knowledge-management": [
@@ -195,6 +222,7 @@
       "metrics-collection"
     ],
     "migration": [
+      "feedback-kb-not-rules",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
       "migration-progress",
@@ -202,9 +230,11 @@
     ],
     "milestone": [
       "first-release-v020",
+      "release-v040",
       "repo-goes-public"
     ],
     "model-selection": [
+      "token-economy-caveman",
       "token-economy-model-selection"
     ],
     "mvp": [
@@ -217,6 +247,10 @@
     "open-source": [
       "repo-goes-public"
     ],
+    "orchestration": [
+      "feedback-leo-must-delegate",
+      "task-pipeline-selection"
+    ],
     "owner-decision": [
       "escalation-triggers"
     ],
@@ -226,6 +260,16 @@
     "persistence": [
       "propagation",
       "session-wrap-up"
+    ],
+    "pipeline": [
+      "task-pipeline-selection"
+    ],
+    "profiles": [
+      "clevel-profiles-strategy",
+      "task-pipeline-selection"
+    ],
+    "project-agnostic": [
+      "task-pipeline-selection"
     ],
     "propagation": [
       "inheritance",
@@ -241,12 +285,14 @@
       "metrics-collection"
     ],
     "release": [
-      "first-release-v020"
+      "first-release-v020",
+      "release-v040"
     ],
     "review": [
       "peer-review-automatic"
     ],
     "rules": [
+      "feedback-kb-not-rules",
       "md-fallback-during-migration"
     ],
     "safety": [
@@ -266,12 +312,21 @@
       "session-wrap-up"
     ],
     "specialists": [
-      "hiring-loop"
+      "clevel-profiles-strategy",
+      "feedback-leo-must-delegate",
+      "hiring-loop",
+      "task-pipeline-selection"
     ],
     "status": [
       "migration-progress"
     ],
+    "strategy": [
+      "clevel-profiles-strategy"
+    ],
     "token-economy": [
+      "feedback-leo-must-delegate",
+      "task-pipeline-selection",
+      "token-economy-caveman",
       "token-economy-model-selection"
     ],
     "trust": [
@@ -292,25 +347,27 @@
   },
   "by_type": {
     "decision": [
+      "clevel-profiles-strategy",
       "first-release-v020",
       "hiring-loop",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
+      "release-v040",
       "repo-goes-public",
-      "repo-rename-to-leo-core"
+      "repo-rename-to-leo-core",
+      "token-economy-caveman"
     ],
     "fact": [
       "migration-progress"
     ],
     "feedback": [
       "brand-name-dots",
+      "feedback-kb-not-rules",
+      "feedback-leo-must-delegate",
       "stop-hook-lesson"
     ],
     "identity": [
       "project-identity"
-    ],
-    "pattern": [
-      "self-hosting-notes"
     ],
     "rule": [
       "anti-hallucination",
@@ -321,6 +378,8 @@
       "metrics-collection",
       "peer-review-automatic",
       "propagation",
+      "self-hosting-notes",
+      "task-pipeline-selection",
       "think-before-execute",
       "token-economy-model-selection"
     ],
@@ -328,21 +387,20 @@
       "session-wrap-up"
     ]
   },
-  "last_rebuilt": "2026-04-13T18:08:42Z",
+  "last_rebuilt": "2026-04-14T17:50:07Z",
   "stats": {
     "docs_by_type": {
-      "decision": 6,
+      "decision": 9,
       "fact": 1,
-      "feedback": 2,
+      "feedback": 4,
       "identity": 1,
-      "pattern": 1,
-      "rule": 10,
+      "rule": 12,
       "skill": 1
     },
-    "most_connected_tag": "migration",
+    "most_connected_tag": "delegation",
     "stale_count": 0,
-    "total_docs": 22,
-    "total_tags": 70
+    "total_docs": 28,
+    "total_tags": 77
   },
   "version": "1"
 }
