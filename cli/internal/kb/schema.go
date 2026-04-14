@@ -28,6 +28,7 @@ var validScopes = map[string]bool{
 type Doc struct {
 	ID        string         `json:"id"`
 	Type      string         `json:"type"`
+	Boot      bool           `json:"boot,omitempty"`
 	Lifecycle string         `json:"lifecycle"`
 	Scope     string         `json:"scope"`
 	Tags      []string       `json:"tags"`

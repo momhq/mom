@@ -330,7 +330,7 @@ func intersect(a, b []string) []string {
 // Conversion helpers between storage.Doc and kb.Doc.
 func kbDocToStorage(d *kb.Doc) *Doc {
 	return &Doc{
-		ID: d.ID, Type: d.Type, Lifecycle: d.Lifecycle, Scope: d.Scope,
+		ID: d.ID, Type: d.Type, Boot: d.Boot, Lifecycle: d.Lifecycle, Scope: d.Scope,
 		Tags: d.Tags, Created: d.Created, CreatedBy: d.CreatedBy,
 		Updated: d.Updated, UpdatedBy: d.UpdatedBy, Content: d.Content,
 	}
@@ -338,7 +338,7 @@ func kbDocToStorage(d *kb.Doc) *Doc {
 
 func storageDocToKB(d *Doc) *kb.Doc {
 	return &kb.Doc{
-		ID: d.ID, Type: d.Type, Lifecycle: d.Lifecycle, Scope: d.Scope,
+		ID: d.ID, Type: d.Type, Boot: d.Boot, Lifecycle: d.Lifecycle, Scope: d.Scope,
 		Tags: d.Tags, Created: d.Created, CreatedBy: d.CreatedBy,
 		Updated: d.Updated, UpdatedBy: d.UpdatedBy, Content: d.Content,
 	}
