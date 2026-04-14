@@ -74,7 +74,11 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		"Backend Engineer",
 		"Focus on code quality.",
 		"anti-hallucination",
-		"Language: en",
+		"must be written in English",
+		"Concise",
+		"no filler",
+		"Balanced",
+		"Propose before",
 	}
 	for _, check := range checks {
 		if !strings.Contains(s, check) {

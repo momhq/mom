@@ -9,7 +9,7 @@ import (
 func TestDefaultProfiles_ContainsExpected(t *testing.T) {
 	defaults := DefaultProfiles()
 
-	expected := []string{"generalist", "backend-engineer"}
+	expected := []string{"generalist", "backend-engineer", "ceo", "cpo", "cto", "cmo", "cfo"}
 	for _, name := range expected {
 		if _, ok := defaults[name]; !ok {
 			t.Errorf("missing default profile %q", name)

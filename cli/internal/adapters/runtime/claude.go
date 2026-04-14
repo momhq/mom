@@ -64,12 +64,13 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, profile Profile, rule
 		b.WriteString("\n")
 	}
 
-	// Owner preferences
-	b.WriteString("## Owner preferences\n\n")
-	fmt.Fprintf(&b, "- Language: %s\n", config.Owner.Language)
-	fmt.Fprintf(&b, "- Mode: %s\n", config.Owner.Mode)
-	fmt.Fprintf(&b, "- Autonomy: %s\n", config.Owner.Autonomy)
-	b.WriteString("\n")
+	// Owner preferences — rich behavioral instructions
+	b.WriteString(LanguageInstructions(config.Owner.Language))
+	b.WriteString("\n\n")
+	b.WriteString(ModeInstructions(config.Owner.Mode))
+	b.WriteString("\n\n")
+	b.WriteString(AutonomyInstructions(config.Owner.Autonomy))
+	b.WriteString("\n\n")
 
 	// Wrap-up
 	b.WriteString("## On wrap-up\n\n")
