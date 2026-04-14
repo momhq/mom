@@ -6,7 +6,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/vmarinogg/leo-core/cli/internal/profiles"
 )
 
 // OnboardingResult holds the choices the user made during the interactive
@@ -192,26 +195,48 @@ func askLanguage(scanner *scannerWrapper, w io.Writer) (string, error) {
 // askProfile prompts for the default specialist profile.
 func askProfile(scanner *scannerWrapper, w io.Writer) (string, error) {
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  Choose your default specialist profile:")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  [1] Generalist — well-rounded assistant for general tasks")
-	fmt.Fprintln(w, "  [2] Backend Engineer — APIs, databases, performance, security")
+	fmt.Fprintln(w, "  Choose your default profile:")
 	fmt.Fprintln(w)
 
+	allProfiles := profiles.DefaultProfiles()
+
+	// Collect and sort names.
+	names := make([]string, 0, len(allProfiles))
+	for name := range allProfiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	// Find default index (generalist).
+	defaultIdx := 1
+	for i, name := range names {
+		if name == "generalist" {
+			defaultIdx = i + 1
+			break
+		}
+	}
+
+	// Display options.
+	for i, name := range names {
+		p := allProfiles[name]
+		fmt.Fprintf(w, "  [%d] %s — %s\n", i+1, p.Name, p.Description)
+	}
+	fmt.Fprintln(w)
+
+	maxChoice := len(names)
 	for {
-		fmt.Fprint(w, "  → Choice [1]: ")
+		fmt.Fprintf(w, "  → Choice [%d]: ", defaultIdx)
 		line := scanner.readLine()
 		if line == "" {
 			return "generalist", nil
 		}
-		switch line {
-		case "1":
-			return "generalist", nil
-		case "2":
-			return "backend-engineer", nil
-		default:
-			fmt.Fprintln(w, "  Invalid choice. Please enter 1 or 2.")
+		// Parse the number.
+		var choice int
+		if _, err := fmt.Sscanf(line, "%d", &choice); err != nil || choice < 1 || choice > maxChoice {
+			fmt.Fprintf(w, "  Invalid choice. Please enter 1 to %d.\n", maxChoice)
+			continue
 		}
+		return names[choice-1], nil
 	}
 }
 
@@ -335,12 +360,11 @@ func languageLabel(lang string) string {
 }
 
 func profileLabel(profile string) string {
-	switch profile {
-	case "backend-engineer":
-		return "Backend Engineer"
-	default:
-		return "Generalist"
+	allProfiles := profiles.DefaultProfiles()
+	if p, ok := allProfiles[profile]; ok {
+		return p.Name
 	}
+	return profile
 }
 
 func autonomyLabel(autonomy string) string {
