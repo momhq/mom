@@ -3,20 +3,26 @@
   "type": "decision",
   "lifecycle": "learning",
   "scope": "core",
-  "tags": ["migration", "architecture", "compatibility", "rules", "historical"],
+  "tags": [
+    "migration",
+    "architecture",
+    "compatibility",
+    "rules",
+    "historical"
+  ],
   "created": "2026-04-11T00:00:00Z",
   "created_by": "owner",
   "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
-    "decision": "Migration from MD rules to JSON KB is complete. The old MD rules directory no longer exists. This doc is kept as historical record of the migration decision.",
-    "context": "During the KB migration, old MD rule files in rules/ were kept as deprecated fallback so downstream projects that hadn't migrated yet could still boot. Claude Code auto-loaded files from ~/.claude/rules/ at session start via symlinks. The KB bootloader (CLAUDE.md) handled rule loading for projects that had migrated.",
-    "status": "COMPLETED — MD rules directory removed, all projects now boot from JSON KB via CLAUDE.md bootloader",
     "alternatives_considered": [
       "Remove MD immediately (option A) — would have broken downstream projects at the time",
       "Keep MD forever alongside KB — maintenance burden, risk of divergence"
     ],
+    "context": "During the KB migration, old MD rule files in rules/ were kept as deprecated fallback so downstream projects that hadn't migrated yet could still boot. Claude Code auto-loaded files from ~/.claude/rules/ at session start via symlinks. The KB bootloader (CLAUDE.md) handled rule loading for projects that had migrated.",
+    "decision": "Migration from MD rules to JSON KB is complete. The old MD rules directory no longer exists. This doc is kept as historical record of the migration decision.",
     "outcome": "The phased approach worked. MD files served as fallback during transition, then were removed once all projects migrated to JSON KB.",
-    "reversible": false
+    "reversible": false,
+    "status": "COMPLETED — MD rules directory removed, all projects now boot from JSON KB via CLAUDE.md bootloader"
   }
 }

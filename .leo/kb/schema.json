@@ -55,6 +55,11 @@
       "type": "string",
       "description": "Which agent or actor last modified this doc"
     },
+    "boot": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, Leo loads this doc at session start regardless of type. Use for operational guidance that Leo needs before receiving any task."
+    },
     "content": {
       "type": "object",
       "description": "Shape depends on type — see oneOf"

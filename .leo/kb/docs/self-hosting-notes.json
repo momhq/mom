@@ -1,16 +1,21 @@
 {
   "id": "self-hosting-notes",
-  "type": "pattern",
+  "type": "rule",
+  "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
-  "tags": ["self-hosting", "dogfooding", "core", "safety", "golang"],
+  "tags": [
+    "self-hosting",
+    "dogfooding",
+    "core",
+    "safety",
+    "golang"
+  ],
   "created": "2026-04-09T00:00:00Z",
   "created_by": "owner",
   "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
-    "pattern": "Working on leo-core using leo-core itself (dogfooding) requires extra care. This repo contains the Go CLI (cli/), the KB (.claude/kb/), and the CLAUDE.md bootloader. Changes to KB docs propagate to downstream projects via `leo update` (issue #26).",
-    "when_to_use": "Every session where Leo is working inside the leo-core repo itself (self_hosting: true in project-config.yml)",
     "how": [
       "This repo is three things: (1) the Go CLI source in cli/, (2) the core KB in .claude/kb/, (3) the CLAUDE.md bootloader. Understand which you're editing and why",
       "KB changes propagate to downstream projects when the owner runs `leo update` in those projects. Not instant like the old symlink model, but still impactful — escalation-triggers rule applies. Leo never edits a rule without R2",
@@ -18,6 +23,8 @@
       "No other projects to escalate to: meta-work is not a license for direct mode. Think-before-execute and escalation-triggers still apply without exception",
       "Core artifacts locked to English: enforced via project-config.yml locales.project_files: en",
       "Recommended flow: owner describes intent → Leo applies think-before-execute → structural decision = alignment mode → proposal for R2 → approved → edit → evidence → wrap-up on owner signal"
-    ]
+    ],
+    "pattern": "Working on leo-core using leo-core itself (dogfooding) requires extra care. This repo contains the Go CLI (cli/), the KB (.claude/kb/), and the CLAUDE.md bootloader. Changes to KB docs propagate to downstream projects via `leo update` (issue #26).",
+    "when_to_use": "Every session where Leo is working inside the leo-core repo itself (self_hosting: true in project-config.yml)"
   }
 }

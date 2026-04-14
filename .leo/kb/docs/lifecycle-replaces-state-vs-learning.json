@@ -3,18 +3,23 @@
   "type": "decision",
   "lifecycle": "permanent",
   "scope": "core",
-  "tags": ["lifecycle", "architecture", "knowledge-management", "migration"],
+  "tags": [
+    "lifecycle",
+    "architecture",
+    "knowledge-management",
+    "migration"
+  ],
   "created": "2026-04-10T00:00:00Z",
   "created_by": "leo",
   "updated": "2026-04-10T00:00:00Z",
   "updated_by": "leo",
   "content": {
-    "decision": "The state-vs-learning rule is replaced by the lifecycle field (permanent/learning/state) in the KB schema. The architecture enforces structurally what the rule enforced behaviorally.",
-    "context": "The old rule required agents to mentally classify memories as 'state' (ages fast) or 'learning' (ages slowly). With the KB schema, every doc has a lifecycle field that encodes this classification. Scripts (check-stale.sh) can enforce staleness thresholds automatically: state > 30 days = stale, learning > 90 days = stale, permanent = never stale.",
     "alternatives_considered": [
       "Keep the rule as-is alongside the lifecycle field — redundant, the schema already enforces it",
       "Remove lifecycle field and keep the rule — loses the benefit of automated staleness detection"
     ],
+    "context": "The old rule required agents to mentally classify memories as 'state' (ages fast) or 'learning' (ages slowly). With the KB schema, every doc has a lifecycle field that encodes this classification. Scripts (check-stale.sh) can enforce staleness thresholds automatically: state \u003e 30 days = stale, learning \u003e 90 days = stale, permanent = never stale.",
+    "decision": "The state-vs-learning rule is replaced by the lifecycle field (permanent/learning/state) in the KB schema. The architecture enforces structurally what the rule enforced behaviorally.",
     "impact": [
       "state-vs-learning.md rule is retired — no longer loaded at boot",
       "check-stale.sh enforces the same principle at zero token cost",

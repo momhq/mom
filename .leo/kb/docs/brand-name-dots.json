@@ -1,6 +1,7 @@
 {
   "id": "brand-name-dots",
   "type": "feedback",
+  "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
   "tags": [
