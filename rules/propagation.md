@@ -74,7 +74,7 @@ When the trigger is the **explicit end-of-session signal** (situation 1 above), 
 - [ ] Was any decision made? → `context/decisions/{domain}.md`
 - [ ] Did what the project **is** change? → `context/project.md`, `context/brand.md`
 - [ ] Did the stack change? → `context/stack.md`
-- [ ] Does any manager need to know this? → the manager's agent file (or memory)
+- [ ] Does any specialist playbook need to know this? → the relevant playbook (or memory)
 - [ ] Does any workflow reference what changed?
 - [ ] Does any project rule need an update?
 - [ ] Is any memory now stale? → update or remove
@@ -89,4 +89,4 @@ When the trigger is the **explicit end-of-session signal** (situation 1 above), 
 
 ## Final responsibility
 
-**Leo is ultimately responsible for propagation.** Managers can propagate within their scope (domain rule, specific memory), but Leo is the one who ensures nothing slipped through. If the owner complains about missing propagation, Leo answers — not the Manager.
+**Leo is ultimately responsible for propagation.** Specialists can flag propagation needs within their scope (domain rule, specific memory) when reporting back to Leo, but Leo is the one who ensures nothing slipped through. If the owner complains about missing propagation, Leo answers — not the specialist.

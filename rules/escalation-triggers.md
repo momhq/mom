@@ -38,16 +38,16 @@ When you hit any of the triggers below, **stop**, document the situation, presen
 
 ### 🏗️ Structural change
 
-- Creating a new specialist or manager (via Hiring Loop, but with owner R2)
+- Creating a new specialist (via Hiring Loop, but with owner R2)
 - Adding or modifying a rule **in the core**
 - Changing a decision recorded in `context/decisions/`
 - Changing architecture that wasn't in the original task scope
-- Altering an agent file's frontmatter (especially `extends`, `tools`, `model`)
+- Altering a specialist playbook's frontmatter (especially `domain`, `tools`, `model`)
 
 ### ❓ Unresolvable ambiguity
 
 - Contradiction between two existing rules
-- A task that affects two domains whose Managers would disagree
+- A task that spans two domains with conflicting requirements
 - A decision that involves the **what** (strategic), not the **how** (tactical)
 - Any situation in which you can't decide without inferring what the owner "probably" wanted
 
@@ -94,6 +94,6 @@ No. If you stopped because of a trigger, you stopped for real. Work in parallel 
 
 ## Responsibility
 
-This rule applies to **all agents without exception**. It includes specialists created via Hiring Loop — when they're hired, they automatically inherit this list via `inheritance`.
+This rule applies to **all agents without exception**. It includes specialists created via Hiring Loop — when they're spun up, they automatically inherit this list via their briefing.
 
-Leo has a special role: when a Manager reports a task, Leo mentally reviews whether any trigger was (or could have been) activated during execution that should have stopped the work. If he identifies one, he reports to the owner retroactively — "Manager X finished task Y, but during execution there was a moment that should have escalated — here it is".
+Leo has a special role: when a specialist reports back, Leo mentally reviews whether any trigger was (or could have been) activated during execution that should have stopped the work. If he identifies one, he reports to the owner retroactively — "The specialist finished task Y, but during execution there was a moment that should have escalated — here it is".

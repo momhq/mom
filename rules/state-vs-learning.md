@@ -49,6 +49,6 @@ If you're tempted to write a memory that says "current project status: X, Y, Z, 
 
 ## Responsibility
 
-Leo is responsible for periodically auditing memories, identifying stale state memories, updating or removing them. Managers can propose this work when they notice they're carrying outdated memory that conflicts with observed state.
+Leo is responsible for periodically auditing memories, identifying stale state memories, updating or removing them. Specialists can flag this when they notice they're working with outdated context that conflicts with observed state.
 
 **Practical rule:** if a memory has a "Pending" or "Next steps" section, it's almost certainly state and deserves review every 1-2 weeks.

@@ -53,4 +53,4 @@ If the question is "what are the pros and cons of X vs Y for this specific proje
 
 ## Responsibility
 
-This rule applies to all agents, without exception. Managers must reject deliveries from specialists that contain assertions without a marked source. Leo must reject syntheses from Managers that contain `[INFERRED]` hidden without marking.
+This rule applies to all agents, without exception. Leo rejects deliveries from specialists that contain assertions without a marked source. The owner rejects deliveries from Leo that contain `[INFERRED]` hidden without marking. Cascade of rigor.

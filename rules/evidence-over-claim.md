@@ -26,15 +26,15 @@ Evidence is the contract: you paste what ran, they look, they're at peace.
 | **Writing** | Final text pasted. Specific excerpt when the edit was point-scoped. |
 | **Product (PM)** | Link to the PRD/RDD. Traceable decisions. Not "I talked to the team and we decided...". |
 
-## Discipline-specific self-QA lives in the Manager
+## Discipline-specific self-QA lives in the specialist's briefing
 
-The universal rule requires that evidence **exists**. The **specific checklist** (what counts as "good" evidence for each discipline) lives inside the Manager's agent file, in the Self-QA section.
+The universal rule requires that evidence **exists**. The **specific checklist** (what counts as "good" evidence for each discipline) lives inside the specialist's playbook, in the Self-check section.
 
-That means: the universal rule doesn't need to say "run lint-shadcn.sh" — that's too specific. The Saintfy Engineer Manager will have that line in its extension. But the generic requirement ("lint passed, output pasted") is universal and lives here.
+That means: the universal rule doesn't need to say "run lint-shadcn.sh" — that's too specific. A project's frontend specialist will have that line in its playbook. But the generic requirement ("lint passed, output pasted") is universal and lives here.
 
 ## Anti-patterns to reject
 
-When you (Manager) are reviewing a specialist's work, **reject** immediately if you see:
+When reviewing a specialist's work (whether Leo or a review sub-agent), **reject** immediately if you see:
 
 - "Build passed" without the output
 - "Tested and it works" without a description of what was tested
@@ -48,4 +48,4 @@ Sending it back to the specialist with a request for evidence **isn't being anno
 
 ## Propagation
 
-This rule applies to all agents. Leo rejects syntheses from Managers that don't comply. Managers reject deliveries from specialists that don't comply. The owner rejects deliveries from Leo that don't comply. Cascade of rigor.
+This rule applies to all agents. Leo rejects deliveries from specialists that don't comply. The owner rejects deliveries from Leo that don't comply. Cascade of rigor.

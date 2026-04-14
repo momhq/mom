@@ -1,6 +1,6 @@
 ---
 name: know-what-you-dont-know
-description: Managers and specialists stop BEFORE executing when they detect a domain outside their capability.
+description: Specialists stop BEFORE executing when they detect a domain outside their capability. Leo stops before routing without the right playbook.
 ---
 
 ## Rule
@@ -9,7 +9,7 @@ Before writing any line of code, design, or copy, the executing agent **stops an
 
 ## Why this needs explicit enforcement
 
-Claude (the model) knows almost everything superficially. An Engineer Manager told to implement APNs will try — because it has superficial APNs knowledge from training. That's exactly the failure mode this rule prevents.
+Claude (the model) knows almost everything superficially. A specialist told to implement APNs will try — because it has superficial APNs knowledge from training. That's exactly the failure mode this rule prevents.
 
 A rule saying "ask for help when you don't know" is not enough. The model will think it knows. A mechanism is needed that **forces** meta-reasoning to be materialized.
 
@@ -45,19 +45,19 @@ If the agent tries to cheat by writing "yes" without a source or "high confidenc
 
 ### Mechanism 2 — Trust gradient by category
 
-Each Manager has a default trust table by task category. Some categories **never** execute without a specialist, even if the task looks simple.
+Leo maintains a trust table by task category for each domain. Some categories **never** execute without a dedicated specialist playbook, even if the task looks simple.
 
-Template (each Manager customizes in their own agent file):
+Template (Leo maintains per domain, specialists consult before executing):
 
-| Category | Default trust | Specialist mandatory? |
+| Category | Default trust | Specialist playbook mandatory? |
 |---|---|---|
 | [low-risk category] | High | No |
 | [medium-risk category] | Medium | Depends on scope |
 | [high-risk category] | **Low** | **Always** |
 
-Example for the Engineer Manager:
+Example for engineering tasks:
 
-| Category | Default trust | Specialist mandatory? |
+| Category | Default trust | Specialist playbook mandatory? |
 |---|---|---|
 | Text/copy/static JSON edit | High | No |
 | Pure UI (new component, styling) | High | Only if specific design system |
@@ -68,17 +68,17 @@ Example for the Engineer Manager:
 | Native bridging (Capacitor, React Native) | **Low** | **Always** |
 | Infra / deploy / CI | **Low** | **Always** |
 
-The "**Always**" column is a hard line. Even under pressure, the Manager does not execute — they fire the Hiring Loop or escalate to the owner.
+The "**Always**" column is a hard line. Even under pressure, the specialist does not execute without the right playbook — they fire the Hiring Loop or escalate to the owner via Leo.
 
 ### Mechanism 3 — Post-failure hardening
 
-When peer review (the `peer-review-automatic` rule) detects that an agent failed due to **lack of expertise in domain X**, that failure becomes **automatic** input for the trust gradient.
+When peer review (the `peer-review-automatic` rule) detects that a specialist failed due to **lack of expertise in domain X**, that failure becomes **automatic** input for the trust gradient.
 
 Process:
 1. Peer review rejects: "failed because there was no playbook for domain X"
 2. Leo records the failure
-3. Leo adds X to the "Always specialist" list for the Manager **in the current project** (via the `.claude/agents/managers/<manager>.md` extension)
-4. Next time the Manager hits a task in X, the trust gradient already blocks execution without a specialist
+3. Leo adds X to the "Always specialist playbook" list for that domain **in the current project** (via project-level configuration)
+4. Next time a specialist is briefed for a task in X, the trust gradient already blocks execution without a dedicated playbook
 
 This turns failures into automatic enforcement — each mistake corrects the system so it doesn't repeat. It's the opposite of the old pattern where lessons sat in memories nobody re-read.
 
@@ -93,14 +93,14 @@ After peer review rejects work, **before fixing the task**, the agent runs a les
   [...]
 
 - Is this lesson specific to this project or universal?
-  [ ] Project-specific → propose adding to the project's extended agent file
-  [ ] Universal → propose adding to the core agent file
+  [ ] Project-specific → propose adding to the project's specialist briefings or context
+  [ ] Universal → propose adding to the core rules
 
 - The lesson should become:
-  [ ] An item in the Manager's Self-QA
+  [ ] An item in the specialist's Self-QA checklist
   [ ] An item in the trust gradient (Mechanism 2)
   [ ] A new domain rule
-  [ ] An update to an existing specialist
+  [ ] An update to an existing specialist playbook
 
 - Written proposal (1 paragraph):
   [...]
@@ -121,4 +121,4 @@ Together, they form a system that **learns and strengthens with every real failu
 
 ## Responsibility
 
-This rule applies to **every executing agent** (Managers when they execute as an exception, specialists when they execute work). Reviewers (Managers in review mode) also consult the trust gradient when evaluating whether the execution was legitimate or an attempt to dodge the system.
+This rule applies to **every executing agent** — specialists during execution, and Leo during routing. Reviewers (Leo or review sub-agents) also consult the trust gradient when evaluating whether the execution was legitimate or an attempt to dodge the system.

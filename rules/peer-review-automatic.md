@@ -5,39 +5,38 @@ description: All work goes through automatic, transparent peer review before rea
 
 ## Rule
 
-No work reaches the owner without going through peer review. Review is done by **another instance of the same Manager**, in review mode, with isolated context, an adversarial posture, and fired automatically via sub-invocation — the owner never opens another session manually.
+No work reaches the owner without going through review. Review is done either by **Leo reviewing the specialist's output**, or by **a separate review sub-agent** (another Sonnet instance) spun up with isolated context, an adversarial posture, and fired automatically — the owner never opens another session manually.
 
 ## Why
 
-**Self-QA and peer review catch different things.** Self-QA is the author checking their own work — it catches what the author can see. Peer review is a peer with the same expertise looking with fresh eyes and without the original reasoning's context — it catches confirmation bias, shortcuts, dead code, wrong callsite, regressions, ignored edge cases. They're not redundant; they're complementary layers.
+**Self-QA and peer review catch different things.** Self-QA is the author checking their own work — it catches what the author can see. Peer review is a fresh pair of eyes without the original reasoning's context — it catches confirmation bias, shortcuts, dead code, wrong callsite, regressions, ignored edge cases. They're not redundant; they're complementary layers.
 
 **Human cost is what makes peer review expensive in human teams.** In AI, the cost is seconds and tokens. There's no rational reason not to have universal review.
 
 ## Standard flow
 
 ```
-Owner → Leo → Manager receives
-                    ↓
-                 Manager decomposes + delegates to the team's specialist
-                    ↓
-                 Specialist executes → self-QA → reports to the Manager
-                    ↓
-                 Manager (instance A) reviews — natural peer review
-                 (the Manager is the tech lead, reviewing their team)
-                    ↓ approves → synthesizes for Leo
-                    ↓ rejects → back to the specialist with comments
-                 Leo → Owner
+Owner → Leo routes the task
+                ↓
+             Leo spins up a Specialist sub-agent with briefing + context
+                ↓
+             Specialist executes → self-QA → reports to Leo
+                ↓
+             Leo reviews the output (natural review — Leo has the big picture)
+                ↓ approves → synthesizes for the owner
+                ↓ rejects → back to the specialist with comments
+             Leo → Owner
 ```
 
-When the **Manager executes directly** (exception — micro-tasks, emergency), review happens via:
+For **complex or high-risk tasks**, Leo can spin up a dedicated review sub-agent instead of reviewing directly:
 
 ```
-Manager executes → self-QA
+Specialist executes → self-QA → reports to Leo
     ↓
-Manager fires a sub-invocation of themselves in review mode
-(via Claude Code's native Task tool, analogous to sub-agents)
+Leo fires a review sub-agent (Sonnet instance in review mode)
+(via Claude Code's native Task tool)
     ↓
-New Manager instance receives:
+Review sub-agent receives:
   - Changed files / diff
   - Self-QA output
   - Adversarial context (review mode)
@@ -45,16 +44,16 @@ New Manager instance receives:
     ↓
 Reviews adversarially → approves or lists problems
     ↓
-Result returns to the main session
+Result returns to Leo
 Owner sees everything as a single thing
 ```
 
 ## Adversarial context — base template
 
-When the Manager fires their own instance in review mode, the briefing includes (at minimum):
+When Leo fires a review sub-agent, the briefing includes (at minimum):
 
 ```
-You are [Manager name] in REVIEW mode. Another instance of you just did
+You are a Specialist in REVIEW mode. Another instance just did
 the work described below. Your job is to review adversarially.
 
 REVIEW MODE RULES:
@@ -79,7 +78,7 @@ MATERIAL TO REVIEW:
 [diff / changed files / self-QA output]
 ```
 
-Each Manager can **extend** this template with discipline-specific review criteria (Engineer Manager adds code checks, Designer adds visual checks, etc.).
+Leo can **extend** this template with discipline-specific review criteria depending on the task domain (code checks for engineering, visual checks for design, etc.).
 
 ## Context isolation is mandatory
 
@@ -89,11 +88,11 @@ In Task tool terms: invoke the sub-session with a fresh prompt containing only t
 
 ## Iteration
 
-If the reviewer rejects:
-1. Goes back to the executing agent (or to the specialist, if it was delegated)
-2. Fixes based on the specific comments
+If the reviewer (Leo or a review sub-agent) rejects:
+1. Goes back to the executing specialist
+2. Specialist fixes based on the specific comments
 3. Re-submits
-4. A new review instance (or the same, with new context) reviews again
+4. A new review pass happens
 5. Loop until approval
 
 The owner doesn't see each iteration — they receive the final result once the task is approved in review. If the loop is taking too long (3+ iterations), report to the owner to decide whether to escalate or abort.
