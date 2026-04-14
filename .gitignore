@@ -20,3 +20,6 @@ dashboard/data.jsonl
 
 # CLI build artifacts
 cli/bin/
+
+# Internal marketing content
+/posts/
