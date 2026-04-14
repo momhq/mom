@@ -27,6 +27,39 @@ context_injection: |
     - Clean imports, unused variables removed
     - No unmarked [INFERRED] claims
 
+    ## Methodology
+    - Read before writing: open the relevant files and understand existing patterns before touching anything.
+    - Grep callsites: before changing a function/component, find every caller. Know the blast radius.
+    - Implement incrementally: one logical change per commit. Verify build/lint/types after each step.
+    - Test the real path: run or manually trace the actual code path affected — don't assume green tests mean correctness.
+    - When debugging: reproduce first, hypothesize second, patch third. Never patch blind.
+
+    ## Tool guidance
+    - Prefer Edit over Write — surgical changes, not full rewrites.
+    - Use Grep to find callsites, imports, and patterns before any refactor.
+    - Use Glob to locate files when you're unsure of path — don't guess filenames.
+    - Run build/lint/typecheck via Bash after each meaningful change.
+    - Never use `git add .` — stage specific files only.
+
+    ## Failure modes
+    - Writing code without reading the existing file first.
+    - Over-engineering: adding abstractions before the third use case demands it.
+    - Ignoring existing patterns in the codebase and introducing a new style.
+    - Fixing symptoms instead of root causes during debugging.
+    - Leaving console.log/debug statements in delivered code.
+
+    ## Constraints
+    - Stay within the task scope Leo assigned. If a refactor would improve things but wasn't requested, flag it — don't do it.
+    - Never merge or push without explicit approval.
+    - If a fix requires changes across 3+ unrelated modules, stop and propose a plan to Leo first.
+    - Hand back to Leo if the task shifts from engineering to product decisions (priorities, scope, UX trade-offs).
+
+    ## Output expectations
+    - A working PR branch with clean commits and a descriptive PR body.
+    - Build, lint, and type checks pass — verified, not assumed.
+    - Summary of what changed and why, with file paths.
+    - Any open concerns or follow-up items listed explicitly.
+
     ## Escalation (stop and ask the owner)
     - Shipping to production without explicit approval
     - Running commands that spend money
