@@ -18,6 +18,7 @@
       "know-what-you-dont-know",
       "lifecycle-replaces-state-vs-learning",
       "metrics-collection",
+      "milestone-v050",
       "peer-review-automatic",
       "project-identity",
       "propagation",
@@ -50,6 +51,7 @@
       "md-fallback-during-migration",
       "metrics-collection",
       "migration-progress",
+      "milestone-v050",
       "peer-review-automatic",
       "project-identity",
       "propagation",
@@ -120,6 +122,7 @@
     "distribution": [
       "clevel-profiles-strategy",
       "first-release-v020",
+      "milestone-v050",
       "release-v040"
     ],
     "dogfooding": [
@@ -230,6 +233,7 @@
     ],
     "milestone": [
       "first-release-v020",
+      "milestone-v050",
       "release-v040",
       "repo-goes-public"
     ],
@@ -286,6 +290,7 @@
     ],
     "release": [
       "first-release-v020",
+      "milestone-v050",
       "release-v040"
     ],
     "review": [
@@ -352,6 +357,7 @@
       "hiring-loop",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
+      "milestone-v050",
       "release-v040",
       "repo-goes-public",
       "repo-rename-to-leo-core",
@@ -387,10 +393,10 @@
       "session-wrap-up"
     ]
   },
-  "last_rebuilt": "2026-04-14T17:53:20Z",
+  "last_rebuilt": "2026-04-14T21:17:02Z",
   "stats": {
     "docs_by_type": {
-      "decision": 9,
+      "decision": 10,
       "fact": 1,
       "feedback": 4,
       "identity": 1,
@@ -399,7 +405,7 @@
     },
     "most_connected_tag": "delegation",
     "stale_count": 0,
-    "total_docs": 28,
+    "total_docs": 29,
     "total_tags": 77
   },
   "version": "1"

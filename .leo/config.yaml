@@ -5,7 +5,7 @@ owner:
   language: en
   mode: concise
   autonomy: balanced
-  default_profile: generalist
+  default_profile: cto
 kb:
   auto_propagate: true
   wrap_up: prompt
