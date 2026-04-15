@@ -5,21 +5,17 @@
 .vscode/
 .idea/
 
-# Claude Code local settings
-.claude/settings.local.json
-.claude/project-config.local.yml
+# Claude Code (local configs)
+.claude/
 
-# Dashboard data (local metrics, not committed)
-dashboard/data.jsonl
+# Not part of core
+/dashboard/
+/docs/
+/posts/
+/rules/
 
 # Leo cache (ephemeral)
 .leo/cache/
 
-# Historical docs (kept local for reference)
-/docs/
-
 # CLI build artifacts
 cli/bin/
-
-# Internal marketing content
-/posts/
