@@ -18,6 +18,7 @@ import (
 type OnboardingResult struct {
 	Runtime        string // "claude", "cursor", "windsurf", "other"
 	Language       string // "en", "pt", "es"
+	Mode           string // "verbose", "concise", "caveman"
 	DefaultProfile string // "generalist", "backend-engineer"
 	Autonomy       string // "autonomous", "balanced", "supervised"
 	CoreSource     string // path to leo-core clone, or "" if skipped
@@ -78,31 +79,38 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		return OnboardingResult{}, err
 	}
 
-	// ── Step 4: Profile ───────────────────────────────────────────────────────
+	// ── Step 4: Mode ─────────────────────────────────────────────────────────
+	mode, err := askMode(scanner, w)
+	if err != nil {
+		return OnboardingResult{}, err
+	}
+
+	// ── Step 5: Profile ───────────────────────────────────────────────────────
 	profile, err := askProfile(scanner, w)
 	if err != nil {
 		return OnboardingResult{}, err
 	}
 
-	// ── Step 5: Autonomy ──────────────────────────────────────────────────────
+	// ── Step 6: Autonomy ──────────────────────────────────────────────────────
 	autonomy, err := askAutonomy(scanner, w)
 	if err != nil {
 		return OnboardingResult{}, err
 	}
 
-	// ── Step 6: Core Source ───────────────────────────────────────────────────
+	// ── Step 7: Core Source ───────────────────────────────────────────────────
 	coreSource, err := askCoreSource(scanner, w)
 	if err != nil {
 		return OnboardingResult{}, err
 	}
 
-	// ── Step 7: Summary + Confirm ─────────────────────────────────────────────
+	// ── Step 8: Summary + Confirm ─────────────────────────────────────────────
 	fmt.Fprintln(w)
 	separator(w)
 	fmt.Fprintln(w, "  Here's your configuration:")
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "    Runtime:   %s\n", runtimeLabel(rt))
 	fmt.Fprintf(w, "    Language:  %s\n", languageLabel(lang))
+	fmt.Fprintf(w, "    Mode:      %s\n", modeLabel(mode))
 	fmt.Fprintf(w, "    Profile:   %s\n", profileLabel(profile))
 	fmt.Fprintf(w, "    Autonomy:  %s\n", autonomyLabel(autonomy))
 	fmt.Fprintln(w)
@@ -118,6 +126,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	return OnboardingResult{
 		Runtime:        rt,
 		Language:       lang,
+		Mode:           mode,
 		DefaultProfile: profile,
 		Autonomy:       autonomy,
 		CoreSource:     coreSource,
@@ -186,6 +195,35 @@ func askLanguage(scanner *scannerWrapper, w io.Writer) (string, error) {
 			return "pt", nil
 		case "3":
 			return "es", nil
+		default:
+			fmt.Fprintln(w, "  Invalid choice. Please enter 1, 2, or 3.")
+		}
+	}
+}
+
+// askMode prompts for the communication mode.
+func askMode(scanner *scannerWrapper, w io.Writer) (string, error) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "  How should Leo communicate?")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "  [1] Verbose  — detailed explanations and reasoning")
+	fmt.Fprintln(w, "  [2] Concise  — short and direct (recommended)")
+	fmt.Fprintln(w, "  [3] Caveman  — minimal tokens, maximum signal")
+	fmt.Fprintln(w)
+
+	for {
+		fmt.Fprint(w, "  → Choice [2]: ")
+		line := scanner.readLine()
+		if line == "" {
+			return "concise", nil
+		}
+		switch line {
+		case "1":
+			return "verbose", nil
+		case "2":
+			return "concise", nil
+		case "3":
+			return "caveman", nil
 		default:
 			fmt.Fprintln(w, "  Invalid choice. Please enter 1, 2, or 3.")
 		}
@@ -365,6 +403,17 @@ func profileLabel(profile string) string {
 		return p.Name
 	}
 	return profile
+}
+
+func modeLabel(mode string) string {
+	switch mode {
+	case "verbose":
+		return "Verbose"
+	case "caveman":
+		return "Caveman"
+	default:
+		return "Concise"
+	}
 }
 
 func autonomyLabel(autonomy string) string {
