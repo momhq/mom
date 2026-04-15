@@ -7,6 +7,7 @@
 
 # Claude Code (local configs)
 .claude/
+CLAUDE.md
 
 # Not part of core
 /dashboard/
