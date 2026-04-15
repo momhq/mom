@@ -80,6 +80,13 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		"Balanced",
 		"Propose before",
 		"boot: true",
+		"## Delegation",
+		"you route, judge, and synthesize",
+		"## During work",
+		"## Feedback and corrections",
+		"NOT as an auto-memory",
+		"## Memory boundaries",
+		"Auto-memory is the exception",
 	}
 	notChecks := []string{
 		`load all docs where` + " `" + `type: "rule"` + "`",
