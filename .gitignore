@@ -18,5 +18,8 @@ CLAUDE.md
 # Leo cache (ephemeral)
 .leo/cache/
 
+# Leo export output
+leo-export/
+
 # CLI build artifacts
 cli/bin/

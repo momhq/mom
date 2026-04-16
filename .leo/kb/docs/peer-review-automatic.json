@@ -16,11 +16,12 @@
   "updated_by": "leo",
   "content": {
     "anti_patterns": [
-      "Skipping review because the task is simple \u2014 that's exactly where bugs slip through",
-      "Giving the reviewer access to the execution reasoning \u2014 breaks isolation, reintroduces confirmation bias",
-      "Praising in the review \u2014 if it's ok, say 'approved' and stop",
+      "Skipping review because the task is simple — that's exactly where bugs slip through",
+      "Giving the reviewer access to the execution reasoning — breaks isolation, reintroduces confirmation bias",
+      "Praising in the review — if it's ok, say 'approved' and stop",
       "Listing vague problems instead of specific file:line references"
     ],
+    "constraint": "No work reaches the user without going through peer review. Review is done by a separate Specialist instance in review mode, with isolated context and adversarial posture, fired automatically via sub-invocation.",
     "examples": [
       {
         "right": "Fire sub-invocation in review mode with the diff. Reviewer checks for regressions, wrong selectors, unintended side effects",
@@ -28,21 +29,19 @@
         "wrong": "Skip review because it's trivial"
       },
       {
-        "right": "Should never see the reasoning. Review the artifacts on their merit \u2014 if context isolation is broken, the review is compromised",
+        "right": "Should never see the reasoning. Review the artifacts on their merit — if context isolation is broken, the review is compromised",
         "situation": "Reviewer reads the executor's reasoning and agrees with the approach",
         "wrong": "Approve based on understanding the reasoning"
       }
     ],
     "how_to_apply": [
-      "Standard flow: Specialist executes \u2192 self-QA \u2192 reports to Leo \u2192 Leo reviews (natural peer review as orchestrator) \u2192 approves or rejects \u2192 synthesizes for user",
+      "Standard flow: Specialist executes → self-QA → reports to Leo → Leo reviews (natural peer review as orchestrator) → approves or rejects → synthesizes for user",
       "When review needs isolation: Leo fires a separate Specialist in review mode via Task tool. New instance receives changed files/diff + self-QA output + adversarial context WITHOUT the execution session's reasoning",
       "Context isolation is mandatory: reviewer cannot see the original session's context. If it does, confirmation bias returns. Invoke sub-session with fresh prompt containing only artifacts",
-      "If reviewer rejects: back to executing agent with specific comments \u2192 fix \u2192 re-submit \u2192 new review. If loop exceeds 3 iterations, report to user",
-      "There are no exceptions. A 10-second task also gets reviewed \u2014 review of a 10-second task takes 10 seconds. The only exception is when the task IS itself a meta-review action"
+      "If reviewer rejects: back to executing agent with specific comments → fix → re-submit → new review. If loop exceeds 3 iterations, report to user",
+      "There are no exceptions. A 10-second task also gets reviewed — review of a 10-second task takes 10 seconds. The only exception is when the task IS itself a meta-review action"
     ],
     "responsibility": "All executing agents. Leo defines adversarial review criteria per domain when delegating.",
-    "why": "Self-QA and peer review catch different things. Self-QA catches what the author can see. Peer review catches confirmation bias, shortcuts, dead code, wrong callsite, regressions, ignored edge cases. Human cost makes peer review expensive in human teams \u2014 in AI, the cost is seconds and tokens.",
-    "constraint": "No work reaches the user without going through peer review. Review is done by a separate Specialist instance in review mode, with isolated context and adversarial posture, fired automatically via sub-invocation."
-  },
-  "summary": "No work reaches the user without going through peer review. Review is done by a separate Specialist instance in review "
+    "why": "Self-QA and peer review catch different things. Self-QA catches what the author can see. Peer review catches confirmation bias, shortcuts, dead code, wrong callsite, regressions, ignored edge cases. Human cost makes peer review expensive in human teams — in AI, the cost is seconds and tokens."
+  }
 }

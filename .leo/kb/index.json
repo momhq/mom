@@ -1,39 +1,74 @@
 {
-  "version": "1",
-  "last_rebuilt": "2026-04-15T18:01:03Z",
-  "stats": {
-    "total_docs": 30,
-    "total_tags": 77,
-    "docs_by_type": {
-      "constraint": 12,
-      "feedback": 4,
-      "decision": 11,
-      "fact": 1,
-      "identity": 1,
-      "skill": 1
-    },
-    "stale_count": 0,
-    "most_connected_tag": "delegation"
+  "by_lifecycle": {
+    "learning": [
+      "md-fallback-during-migration",
+      "migration-progress",
+      "v070-scoping-session"
+    ],
+    "permanent": [
+      "brand-name-dots",
+      "clevel-profiles-strategy",
+      "feedback-close-issues-on-release",
+      "feedback-kb-not-rules",
+      "feedback-leo-must-delegate",
+      "first-release-v020",
+      "ingest-architecture",
+      "lifecycle-replaces-state-vs-learning",
+      "milestone-v050",
+      "milestone-v060",
+      "peer-review-automatic",
+      "project-identity",
+      "release-v040",
+      "repo-goes-public",
+      "repo-rename-to-leo-core",
+      "self-hosting-notes",
+      "session-wrap-up",
+      "stop-hook-lesson",
+      "task-pipeline-selection",
+      "token-economy-caveman",
+      "token-economy-model-selection"
+    ]
+  },
+  "by_scope": {
+    "core": [
+      "brand-name-dots",
+      "clevel-profiles-strategy",
+      "feedback-close-issues-on-release",
+      "feedback-kb-not-rules",
+      "feedback-leo-must-delegate",
+      "first-release-v020",
+      "ingest-architecture",
+      "lifecycle-replaces-state-vs-learning",
+      "md-fallback-during-migration",
+      "migration-progress",
+      "milestone-v050",
+      "milestone-v060",
+      "peer-review-automatic",
+      "project-identity",
+      "release-v040",
+      "repo-goes-public",
+      "repo-rename-to-leo-core",
+      "self-hosting-notes",
+      "session-wrap-up",
+      "stop-hook-lesson",
+      "task-pipeline-selection",
+      "token-economy-caveman",
+      "token-economy-model-selection",
+      "v070-scoping-session"
+    ]
   },
   "by_tag": {
     "adversarial": [
       "peer-review-automatic"
     ],
-    "alignment": [
-      "think-before-execute"
-    ],
-    "approval": [
-      "escalation-triggers"
-    ],
     "architecture": [
+      "ingest-architecture",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
       "milestone-v060",
       "project-identity",
-      "stop-hook-lesson"
-    ],
-    "autonomy": [
-      "think-before-execute"
+      "stop-hook-lesson",
+      "v070-scoping-session"
     ],
     "branding": [
       "brand-name-dots"
@@ -41,32 +76,26 @@
     "compatibility": [
       "md-fallback-during-migration"
     ],
+    "connectors": [
+      "ingest-architecture",
+      "v070-scoping-session"
+    ],
     "content": [
       "brand-name-dots"
     ],
     "core": [
       "self-hosting-notes"
     ],
-    "core-project": [
-      "inheritance"
-    ],
     "cost": [
       "token-economy-caveman",
       "token-economy-model-selection"
     ],
-    "decision-making": [
-      "think-before-execute"
-    ],
     "delegation": [
       "clevel-profiles-strategy",
       "feedback-leo-must-delegate",
-      "hiring-loop",
       "task-pipeline-selection",
       "token-economy-caveman",
       "token-economy-model-selection"
-    ],
-    "delivery": [
-      "evidence-over-claim"
     ],
     "distribution": [
       "clevel-profiles-strategy",
@@ -82,43 +111,24 @@
       "token-economy-caveman",
       "token-economy-model-selection"
     ],
-    "escalation": [
-      "escalation-triggers"
-    ],
-    "evidence": [
-      "anti-hallucination",
-      "evidence-over-claim"
-    ],
-    "execution": [
-      "think-before-execute"
-    ],
-    "expertise": [
-      "know-what-you-dont-know"
-    ],
-    "extension": [
-      "inheritance"
+    "enterprise": [
+      "ingest-architecture"
     ],
     "functions": [
       "task-pipeline-selection"
     ],
     "github": [
+      "feedback-close-issues-on-release",
+      "ingest-architecture",
       "repo-goes-public"
     ],
     "golang": [
       "project-identity",
       "self-hosting-notes"
     ],
-    "hiring": [
-      "hiring-loop"
-    ],
-    "hiring-loop": [],
     "historical": [
-      "hiring-loop",
       "md-fallback-during-migration",
       "migration-progress"
-    ],
-    "honesty": [
-      "anti-hallucination"
     ],
     "hooks": [
       "stop-hook-lesson"
@@ -127,8 +137,9 @@
       "project-identity",
       "repo-rename-to-leo-core"
     ],
-    "inheritance": [
-      "inheritance"
+    "ingest": [
+      "ingest-architecture",
+      "v070-scoping-session"
     ],
     "isolation": [
       "peer-review-automatic"
@@ -141,15 +152,11 @@
       "migration-progress"
     ],
     "knowledge-management": [
-      "lifecycle-replaces-state-vs-learning",
-      "propagation"
+      "lifecycle-replaces-state-vs-learning"
     ],
     "leo": [
       "project-identity",
       "repo-rename-to-leo-core"
-    ],
-    "leo-update": [
-      "inheritance"
     ],
     "lesson": [
       "stop-hook-lesson"
@@ -160,17 +167,8 @@
     "marketing": [
       "brand-name-dots"
     ],
-    "measurement": [
-      "metrics-collection"
-    ],
     "meta": [
       "project-identity"
-    ],
-    "meta-reasoning": [
-      "know-what-you-dont-know"
-    ],
-    "metrics": [
-      "metrics-collection"
     ],
     "migration": [
       "feedback-kb-not-rules",
@@ -180,11 +178,13 @@
       "repo-rename-to-leo-core"
     ],
     "milestone": [
+      "feedback-close-issues-on-release",
       "first-release-v020",
       "milestone-v050",
       "milestone-v060",
       "release-v040",
-      "repo-goes-public"
+      "repo-goes-public",
+      "v070-scoping-session"
     ],
     "model-selection": [
       "token-economy-caveman",
@@ -204,14 +204,10 @@
       "feedback-leo-must-delegate",
       "task-pipeline-selection"
     ],
-    "owner-decision": [
-      "escalation-triggers"
-    ],
     "performance": [
       "stop-hook-lesson"
     ],
     "persistence": [
-      "propagation",
       "session-wrap-up"
     ],
     "pipeline": [
@@ -225,19 +221,13 @@
       "task-pipeline-selection"
     ],
     "propagation": [
-      "inheritance",
-      "propagation",
       "session-wrap-up"
     ],
     "quality": [
-      "evidence-over-claim",
-      "metrics-collection",
       "peer-review-automatic"
     ],
-    "refinement": [
-      "metrics-collection"
-    ],
     "release": [
+      "feedback-close-issues-on-release",
       "first-release-v020",
       "milestone-v050",
       "milestone-v060",
@@ -246,22 +236,18 @@
     "review": [
       "peer-review-automatic"
     ],
+    "roadmap": [
+      "v070-scoping-session"
+    ],
     "rules": [
       "feedback-kb-not-rules",
       "md-fallback-during-migration"
     ],
     "safety": [
-      "escalation-triggers",
       "self-hosting-notes"
-    ],
-    "self-awareness": [
-      "know-what-you-dont-know"
     ],
     "self-hosting": [
       "self-hosting-notes"
-    ],
-    "separation-of-concerns": [
-      "hiring-loop"
     ],
     "session": [
       "session-wrap-up"
@@ -269,7 +255,6 @@
     "specialists": [
       "clevel-profiles-strategy",
       "feedback-leo-must-delegate",
-      "hiring-loop",
       "task-pipeline-selection"
     ],
     "status": [
@@ -284,41 +269,30 @@
       "token-economy-caveman",
       "token-economy-model-selection"
     ],
-    "trust": [
-      "anti-hallucination",
-      "know-what-you-dont-know"
-    ],
-    "verification": [
-      "anti-hallucination",
-      "evidence-over-claim"
+    "v070": [
+      "v070-scoping-session"
     ],
     "visibility": [
       "repo-goes-public"
     ],
+    "workflow": [
+      "feedback-close-issues-on-release"
+    ],
     "wrap-up": [
-      "propagation",
       "session-wrap-up"
     ]
   },
   "by_type": {
     "constraint": [
-      "anti-hallucination",
-      "escalation-triggers",
-      "evidence-over-claim",
-      "inheritance",
-      "know-what-you-dont-know",
-      "metrics-collection",
       "peer-review-automatic",
-      "propagation",
       "self-hosting-notes",
       "task-pipeline-selection",
-      "think-before-execute",
       "token-economy-model-selection"
     ],
     "decision": [
       "clevel-profiles-strategy",
       "first-release-v020",
-      "hiring-loop",
+      "ingest-architecture",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
       "milestone-v050",
@@ -326,13 +300,15 @@
       "release-v040",
       "repo-goes-public",
       "repo-rename-to-leo-core",
-      "token-economy-caveman"
+      "token-economy-caveman",
+      "v070-scoping-session"
     ],
     "fact": [
       "migration-progress"
     ],
     "feedback": [
       "brand-name-dots",
+      "feedback-close-issues-on-release",
       "feedback-kb-not-rules",
       "feedback-leo-must-delegate",
       "stop-hook-lesson"
@@ -344,76 +320,20 @@
       "session-wrap-up"
     ]
   },
-  "by_scope": {
-    "core": [
-      "anti-hallucination",
-      "brand-name-dots",
-      "clevel-profiles-strategy",
-      "escalation-triggers",
-      "evidence-over-claim",
-      "feedback-kb-not-rules",
-      "feedback-leo-must-delegate",
-      "first-release-v020",
-      "hiring-loop",
-      "inheritance",
-      "know-what-you-dont-know",
-      "lifecycle-replaces-state-vs-learning",
-      "md-fallback-during-migration",
-      "metrics-collection",
-      "migration-progress",
-      "milestone-v050",
-      "milestone-v060",
-      "peer-review-automatic",
-      "project-identity",
-      "propagation",
-      "release-v040",
-      "repo-goes-public",
-      "repo-rename-to-leo-core",
-      "self-hosting-notes",
-      "session-wrap-up",
-      "stop-hook-lesson",
-      "task-pipeline-selection",
-      "think-before-execute",
-      "token-economy-caveman",
-      "token-economy-model-selection"
-    ]
+  "last_rebuilt": "2026-04-16T02:49:17Z",
+  "stats": {
+    "docs_by_type": {
+      "constraint": 4,
+      "decision": 12,
+      "fact": 1,
+      "feedback": 5,
+      "identity": 1,
+      "skill": 1
+    },
+    "most_connected_tag": "milestone",
+    "stale_count": 0,
+    "total_docs": 24,
+    "total_tags": 58
   },
-  "by_lifecycle": {
-    "archived": [
-      "hiring-loop"
-    ],
-    "learning": [
-      "md-fallback-during-migration",
-      "migration-progress"
-    ],
-    "permanent": [
-      "anti-hallucination",
-      "brand-name-dots",
-      "clevel-profiles-strategy",
-      "escalation-triggers",
-      "evidence-over-claim",
-      "feedback-kb-not-rules",
-      "feedback-leo-must-delegate",
-      "first-release-v020",
-      "inheritance",
-      "know-what-you-dont-know",
-      "lifecycle-replaces-state-vs-learning",
-      "metrics-collection",
-      "milestone-v050",
-      "milestone-v060",
-      "peer-review-automatic",
-      "project-identity",
-      "propagation",
-      "release-v040",
-      "repo-goes-public",
-      "repo-rename-to-leo-core",
-      "self-hosting-notes",
-      "session-wrap-up",
-      "stop-hook-lesson",
-      "task-pipeline-selection",
-      "think-before-execute",
-      "token-economy-caveman",
-      "token-economy-model-selection"
-    ]
-  }
+  "version": "1"
 }

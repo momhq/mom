@@ -1,0 +1,30 @@
+{
+  "id": "task-intake",
+  "type": "skill",
+  "boot": true,
+  "summary": "Receive task, assess complexity, select pipeline tier, check expertise, resolve profiles, delegate to specialists.",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": ["delegation", "pipeline", "orchestration", "task-sizing"],
+  "created": "2026-04-15T00:00:00Z",
+  "created_by": "system",
+  "updated": "2026-04-15T00:00:00Z",
+  "updated_by": "system",
+  "content": {
+    "description": "Sizes incoming tasks and selects the appropriate execution pipeline. Resolves abstract pipeline functions to concrete specialist profiles.",
+    "triggers": ["any task from user"],
+    "invoked_by": "leo",
+    "steps": [
+      {"name": "Assess", "instruction": "Evaluate: Direct mode (clear, bounded) or Alignment mode (ambiguous, architectural). If alignment needed, present approach and wait.", "wait_for_approval": false},
+      {"name": "Size", "instruction": "Determine pipeline tier: Small (1 file, bug fix) → execute only. Medium (multi-file, feature slice) → execute + review. Large (new feature, architecture) → analyze + execute + test + review. Security-sensitive → add security review to any tier.", "wait_for_approval": false},
+      {"name": "Pre-execution check", "instruction": "Evaluate expertise: domain, specialist availability, confidence level. If low confidence, escalate before proceeding.", "wait_for_approval": false},
+      {"name": "Resolve profiles", "instruction": "Map abstract pipeline functions (execute, review-code, analyze-architecture) to concrete profiles from .leo/profiles/ based on project context.", "wait_for_approval": false},
+      {"name": "Delegate", "instruction": "Fire specialists in sequence per the pipeline. Each specialist uses the model defined in config (default: sonnet).", "wait_for_approval": false}
+    ],
+    "do_not": [
+      "Execute the task directly — always delegate",
+      "Use Opus for specialist execution — specialists use Sonnet",
+      "Skip the pre-execution check for 'simple' tasks"
+    ]
+  }
+}

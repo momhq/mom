@@ -1,0 +1,28 @@
+{
+  "id": "metrics-collection",
+  "type": "constraint",
+  "boot": true,
+  "summary": "Every session leaves one metric entry. Collection is enforced by the system, not by Leo remembering.",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": ["metrics", "quality", "refinement", "measurement"],
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "system",
+  "updated": "2026-04-15T00:00:00Z",
+  "updated_by": "system",
+  "content": {
+    "constraint": "Every session leaves one metric entry as a KB doc (type: metric). This creates the dataset for refining agents and rules based on real data — not guesswork.",
+    "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
+    "how_to_apply": [
+      "Collection happens at session wrap-up, enforced by runtime hooks",
+      "Metrics include: delegation enforcement, pipeline compliance, user acceptance, rework cycles, review pass rate, KB consultation rate, session cost, profiles used",
+      "Leo must record his own errors with the same rigor as the team's"
+    ],
+    "responsibility": "System-enforced via hooks. Leo provides the data, the system persists it.",
+    "anti_patterns": [
+      "Skipping metric collection for 'trivial' sessions",
+      "Marking delegation.quality as correct when it wasn't",
+      "Optimizing for token cost at the expense of quality"
+    ]
+  }
+}

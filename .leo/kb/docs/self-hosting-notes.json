@@ -17,16 +17,15 @@
   "updated_by": "leo",
   "content": {
     "constraint": "Working on leo-core using leo-core itself (dogfooding) requires extra care. This repo contains the Go CLI (cli/), the KB (.claude/kb/), and the CLAUDE.md bootloader. Changes to KB docs propagate to downstream projects via `leo update` (issue #26).",
-    "why": "This repo contains the Go CLI, the KB, and the bootloader. Changes to KB docs propagate to downstream projects. Self-hosting means dogfooding with production impact.",
     "how_to_apply": [
       "This repo is three things: (1) the Go CLI source in cli/, (2) the core KB in .claude/kb/, (3) the CLAUDE.md bootloader. Understand which you're editing and why",
-      "KB changes propagate to downstream projects when the user runs `leo update` in those projects. Not instant like the old symlink model, but still impactful \u2014 escalation-triggers rule applies. Leo never edits a rule without R2",
+      "KB changes propagate to downstream projects when the user runs `leo update` in those projects. Not instant like the old symlink model, but still impactful — escalation-triggers rule applies. Leo never edits a rule without R2",
       "Editing Leo mid-session: the current session keeps old version in memory. Open new session to validate behavior changes",
       "No other projects to escalate to: meta-work is not a license for direct mode. Think-before-execute and escalation-triggers still apply without exception",
       "Core artifacts locked to English: enforced via project-config.yml locales.project_files: en",
-      "Recommended flow: user describes intent \u2192 Leo applies think-before-execute \u2192 structural decision = alignment mode \u2192 proposal for R2 \u2192 approved \u2192 edit \u2192 evidence \u2192 wrap-up on user signal"
+      "Recommended flow: user describes intent → Leo applies think-before-execute → structural decision = alignment mode → proposal for R2 → approved → edit → evidence → wrap-up on user signal"
     ],
-    "responsibility": "Leo, when operating inside the leo-core repo."
-  },
-  "summary": "Working on leo-core using leo-core itself requires extra care \u2014 changes propagate to downstream projects."
+    "responsibility": "Leo, when operating inside the leo-core repo.",
+    "why": "This repo contains the Go CLI, the KB, and the bootloader. Changes to KB docs propagate to downstream projects. Self-hosting means dogfooding with production impact."
+  }
 }

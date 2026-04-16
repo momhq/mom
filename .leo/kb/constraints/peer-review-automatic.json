@@ -1,0 +1,29 @@
+{
+  "id": "peer-review-automatic",
+  "type": "constraint",
+  "boot": true,
+  "summary": "No work reaches the user without peer review. Review is done by a separate instance with isolated context and adversarial posture.",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": ["review", "quality", "adversarial", "isolation"],
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "system",
+  "updated": "2026-04-15T00:00:00Z",
+  "updated_by": "system",
+  "content": {
+    "constraint": "No work reaches the user without going through peer review. Review is done by a separate Specialist instance in review mode, with isolated context and adversarial posture.",
+    "why": "Self-QA and peer review catch different things. Peer review catches confirmation bias, shortcuts, dead code, regressions. In AI, the cost is seconds and tokens.",
+    "how_to_apply": [
+      "Standard flow: Specialist executes → self-QA → reports to Leo → Leo reviews → approves or rejects",
+      "Context isolation is mandatory: reviewer cannot see the original session's reasoning",
+      "If reviewer rejects: back to executing agent → fix → re-submit. If loop exceeds 3 iterations, report to user",
+      "No exceptions. A 10-second task also gets reviewed"
+    ],
+    "responsibility": "All executing agents.",
+    "anti_patterns": [
+      "Skipping review because the task is simple",
+      "Giving the reviewer access to the execution reasoning",
+      "Praising in the review — if it's ok, say 'approved' and stop"
+    ]
+  }
+}

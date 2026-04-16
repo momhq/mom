@@ -1,0 +1,11 @@
+{
+  "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together.",
+  "philosophy": "Copilot-style, not Paperclip-style. User decides the what and why, Leo orchestrates (routing and delegation), Specialists execute. Token Economy: Opus thinks (Leo orchestration), Sonnet executes (Specialists), scripts handle deterministic work at zero cost.",
+  "constraints": [
+    "All KB content is JSON — runtime files (CLAUDE.md, .cursorrules) are generated artifacts",
+    "Core artifacts are English only — interaction language is personal choice",
+    "No rule change without explicit approval from the user",
+    "Leo orchestrates with Opus, Specialists are ephemeral sub-agents running Sonnet",
+    "Scripts must never require AI tokens — if it's deterministic, it's a script"
+  ]
+}

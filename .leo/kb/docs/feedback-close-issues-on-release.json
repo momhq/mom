@@ -1,0 +1,22 @@
+{
+  "id": "feedback-close-issues-on-release",
+  "type": "feedback",
+  "boot": true,
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": [
+    "release",
+    "milestone",
+    "github",
+    "workflow"
+  ],
+  "created": "2026-04-15T00:00:00Z",
+  "created_by": "user",
+  "updated": "2026-04-15T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "rule": "When a release is tagged/published, immediately close all GitHub issues that were delivered in that release. Add a comment referencing the release version.",
+    "what": "Always close related GitHub issues when delivering a release",
+    "why": "Issues left open after delivery create noise and make it hard to see what's actually pending. The owner had to manually catch that v0.6.0 issues weren't closed after the release was tagged."
+  }
+}
