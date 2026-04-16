@@ -357,19 +357,6 @@ func isDir(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-func runtimeToNum(rt string) int {
-	switch rt {
-	case "cursor":
-		return 2
-	case "windsurf":
-		return 3
-	case "other":
-		return 4
-	default:
-		return 1
-	}
-}
-
 func runtimeLabel(rt string) string {
 	switch rt {
 	case "claude":

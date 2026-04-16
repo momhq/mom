@@ -261,7 +261,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 	srcConstraints := filepath.Join(importPath, "constraints")
 	if dirExists(srcConstraints) {
 		destConstraints := filepath.Join(leoDir, "kb", "constraints")
-		os.MkdirAll(destConstraints, 0755)
+		if err := os.MkdirAll(destConstraints, 0755); err != nil {
+			return fmt.Errorf("create constraints dir: %w", err)
+		}
 		importDirFiles(srcConstraints, destConstraints, ".json", replaceMode)
 	}
 
@@ -269,7 +271,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 	srcSkills := filepath.Join(importPath, "skills")
 	if dirExists(srcSkills) {
 		destSkills := filepath.Join(leoDir, "kb", "skills")
-		os.MkdirAll(destSkills, 0755)
+		if err := os.MkdirAll(destSkills, 0755); err != nil {
+			return fmt.Errorf("create skills dir: %w", err)
+		}
 		importDirFiles(srcSkills, destSkills, ".json", replaceMode)
 	}
 
@@ -277,7 +281,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 	srcProfiles := filepath.Join(importPath, "profiles")
 	if dirExists(srcProfiles) {
 		destProfiles := filepath.Join(leoDir, "profiles")
-		os.MkdirAll(destProfiles, 0755)
+		if err := os.MkdirAll(destProfiles, 0755); err != nil {
+			return fmt.Errorf("create profiles dir: %w", err)
+		}
 		importDirFiles(srcProfiles, destProfiles, ".yaml", replaceMode)
 	}
 
