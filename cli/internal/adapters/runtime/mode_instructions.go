@@ -75,7 +75,7 @@ Act independently. Execute without asking unless:
 - Action is destructive or irreversible (delete branch, force push, drop table)
 - Decision affects architecture in ways that are hard to reverse
 - Cost or spend exceeds normal thresholds
-- You are genuinely uncertain about the owner's intent
+- You are genuinely uncertain about the user's intent
 
 For everything else: decide, act, report results.
 Do not ask permission for: file edits, running tests, creating branches,

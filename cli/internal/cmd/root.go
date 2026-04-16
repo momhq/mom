@@ -17,11 +17,6 @@ func Execute() error {
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(readCmd)
-	rootCmd.AddCommand(writeCmd)
-	rootCmd.AddCommand(queryCmd)
-	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(doctorCmd)
 	rootCmd.AddCommand(exportCmd)
@@ -29,4 +24,5 @@ func init() {
 	rootCmd.AddCommand(reindexCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(uninstallCmd)
 }

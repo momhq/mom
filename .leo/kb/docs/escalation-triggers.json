@@ -1,6 +1,6 @@
 {
   "id": "escalation-triggers",
-  "type": "rule",
+  "type": "constraint",
   "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
@@ -11,21 +11,21 @@
     "owner-decision"
   ],
   "created": "2026-04-08T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-10T00:00:00Z",
   "updated_by": "leo",
   "content": {
     "anti_patterns": [
-      "Asking permission for everything — escalation is for this list only, not every micro-step",
-      "Skipping a trigger because the owner already approved something similar before — each instance is new",
-      "Escalating without options — always present at least 2 options, even if one is 'do nothing'",
-      "Starting work while waiting for an answer on a structural decision — almost always becomes rework"
+      "Asking permission for everything \u2014 escalation is for this list only, not every micro-step",
+      "Skipping a trigger because the user already approved something similar before \u2014 each instance is new",
+      "Escalating without options \u2014 always present at least 2 options, even if one is 'do nothing'",
+      "Starting work while waiting for an answer on a structural decision \u2014 almost always becomes rework"
     ],
     "examples": [
       {
         "right": "Escalate: spending money trigger. Present the cost estimate and ask for approval",
         "situation": "Task requires calling an image generation API that costs $0.04 per call",
-        "wrong": "Just call it — it's cheap"
+        "wrong": "Just call it \u2014 it's cheap"
       },
       {
         "right": "Escalate: destructive action trigger. Present alternatives (revert commit, new branch, etc.)",
@@ -34,14 +34,15 @@
       }
     ],
     "how_to_apply": [
-      "Spending money: paid API calls, cloud deploys, domain/license purchases, ad spend — anything that shows up on the owner's invoice",
+      "Spending money: paid API calls, cloud deploys, domain/license purchases, ad spend \u2014 anything that shows up on the user's invoice",
       "External publication: git push to main/master on public repo, merging PR, social media post, email to mailing list, app store release, publishing a live page",
       "Destructive action: rm -rf, git reset --hard, git push --force on shared branch, drop table, mass delete, revoking credentials, deleting issue/PR/branch with history, overwriting uncommitted content",
       "Structural change: creating new specialist/manager, adding/modifying core rule, changing recorded decision, architecture change outside task scope, altering agent frontmatter",
-      "Unresolvable ambiguity: contradiction between rules, task affecting domains where managers would disagree, strategic (what) not tactical (how) decision, any situation requiring inference of owner intent"
+      "Unresolvable ambiguity: contradiction between rules, task affecting domains where managers would disagree, strategic (what) not tactical (how) decision, any situation requiring inference of user intent"
     ],
     "responsibility": "All agents without exception, including specialists created via Hiring Loop. Leo has special role: retroactively reviews whether any trigger should have fired during execution.",
-    "rule": "There are situations where no agent can proceed without explicit approval from the owner, no matter how obvious the next step looks. When you hit any trigger, stop, document the situation, present options, and wait.",
-    "why": "Actions taken without an answer can generate lost work or a real problem. Each instance is new — the owner approving a push yesterday does not grant permission today."
-  }
+    "why": "Actions taken without an answer can generate lost work or a real problem. Each instance is new \u2014 the user approving a push yesterday does not grant permission today.",
+    "constraint": "There are situations where no agent can proceed without explicit approval from the user, no matter how obvious the next step looks. When you hit any trigger, stop, document the situation, present options, and wait."
+  },
+  "summary": "There are situations where no agent can proceed without explicit approval from the user, no matter how obvious the next"
 }

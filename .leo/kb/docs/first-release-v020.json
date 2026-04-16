@@ -25,6 +25,7 @@
       "Version is embedded in binary via ldflags at build time",
       "Makefile build-all target produces all 4 binaries"
     ],
-    "reversible": false
+    "reversible": false,
+    "why": "README referenced GitHub Releases for binary downloads but no release existed. The CLI was stable with all MVP commands implemented (init, update, read, write, query, delete, profiles, status, doctor, export, import). Created the release to match documentation and enable non-Go users to install."
   }
 }

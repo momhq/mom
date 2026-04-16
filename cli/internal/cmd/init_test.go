@@ -25,11 +25,16 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	// Verify .leo/ structure.
 	expected := []string{
 		".leo/config.yaml",
+		".leo/identity.json",
 		".leo/kb/schema.json",
 		".leo/kb/index.json",
-		".leo/profiles/generalist.yaml",
+		".leo/profiles/general-manager.yaml",
 		".leo/profiles/backend-engineer.yaml",
 		".claude/CLAUDE.md",
+		".leo/kb/constraints/anti-hallucination.json",
+		".leo/kb/constraints/delegation-mandatory.json",
+		".leo/kb/skills/session-wrap-up.json",
+		".leo/kb/skills/task-intake.json",
 	}
 
 	for _, path := range expected {
@@ -40,7 +45,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	}
 
 	// Verify directories.
-	dirs := []string{".leo/kb/docs", ".leo/cache"}
+	dirs := []string{".leo/kb/docs", ".leo/kb/skills", ".leo/kb/constraints", ".leo/cache"}
 	for _, d := range dirs {
 		full := filepath.Join(dir, d)
 		info, err := os.Stat(full)

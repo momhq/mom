@@ -14,7 +14,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["rule", "skill", "identity", "decision", "pattern", "fact", "feedback", "reference", "metric"],
+      "enum": ["constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "metric"],
       "description": "Document type — determines which content sub-schema applies"
     },
     "lifecycle": {
@@ -26,6 +26,14 @@
       "type": "string",
       "enum": ["core", "project"],
       "description": "core = universal (from LEO core), project = specific to this project"
+    },
+    "boot": {
+      "type": "boolean",
+      "description": "If true, this doc is loaded at boot time"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Concise one-line description used by the adapter to render in the runtime context file"
     },
     "tags": {
       "type": "array",
@@ -62,21 +70,21 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "type": { "const": "rule" } } },
+      "if": { "properties": { "type": { "const": "constraint" } } },
       "then": {
         "properties": {
           "content": {
             "type": "object",
-            "required": ["rule", "why", "how_to_apply", "responsibility"],
+            "required": ["constraint", "why", "how_to_apply", "responsibility"],
             "additionalProperties": false,
             "properties": {
-              "rule": {
+              "constraint": {
                 "type": "string",
-                "description": "The core rule statement (1-3 sentences)"
+                "description": "The core constraint statement (1-3 sentences)"
               },
               "why": {
                 "type": "string",
-                "description": "Why this rule exists, what problem it prevents"
+                "description": "Why this constraint exists, what problem it prevents"
               },
               "how_to_apply": {
                 "type": "array",
@@ -103,7 +111,7 @@
               },
               "responsibility": {
                 "type": "string",
-                "description": "Who enforces this rule"
+                "description": "Who enforces this constraint"
               },
               "mechanisms": {
                 "type": "array",
@@ -209,7 +217,7 @@
         "properties": {
           "content": {
             "type": "object",
-            "required": ["decision", "context"],
+            "required": ["decision", "context", "why"],
             "additionalProperties": false,
             "properties": {
               "decision": {
@@ -219,6 +227,10 @@
               "context": {
                 "type": "string",
                 "description": "What led to this decision"
+              },
+              "why": {
+                "type": "string",
+                "description": "Why this decision was made"
               },
               "alternatives_considered": {
                 "type": "array",
@@ -237,46 +249,21 @@
       }
     },
     {
-      "if": { "properties": { "type": { "const": "pattern" } } },
-      "then": {
-        "properties": {
-          "content": {
-            "type": "object",
-            "required": ["pattern", "when_to_use"],
-            "additionalProperties": false,
-            "properties": {
-              "pattern": {
-                "type": "string",
-                "description": "What the pattern is"
-              },
-              "when_to_use": {
-                "type": "string",
-                "description": "In what situations this applies"
-              },
-              "how": {
-                "type": "array",
-                "items": { "type": "string" }
-              },
-              "template": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    {
       "if": { "properties": { "type": { "const": "fact" } } },
       "then": {
         "properties": {
           "content": {
             "type": "object",
-            "required": ["fact"],
+            "required": ["fact", "why"],
             "additionalProperties": false,
             "properties": {
               "fact": {
                 "type": "string",
                 "description": "The factual statement"
+              },
+              "why": {
+                "type": "string",
+                "description": "Why this fact matters"
               },
               "source": {
                 "type": "string"
@@ -347,78 +334,49 @@
         "properties": {
           "content": {
             "type": "object",
-            "required": ["task_id", "manager", "review", "owner", "rework_cycles", "hiring_loop", "delegation", "internal_iterations", "leo_errors"],
-            "additionalProperties": false,
+            "required": ["session_id", "timestamp"],
+            "additionalProperties": true,
             "properties": {
-              "task_id": { "type": "string" },
-              "owner_prompt_summary": { "type": "string" },
-              "manager": { "type": "string" },
-              "specialist_used": { "type": "string" },
-              "review": {
+              "session_id": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "session_cost": {
                 "type": "object",
-                "required": ["first_pass", "iterations"],
-                "additionalProperties": false,
-                "properties": {
-                  "first_pass": { "type": "boolean" },
-                  "iterations": { "type": "integer", "minimum": 0 }
-                }
-              },
-              "owner": {
-                "type": "object",
-                "required": ["accepted_on_delivery"],
-                "additionalProperties": false,
-                "properties": {
-                  "accepted_on_delivery": { "type": "boolean" }
-                }
-              },
-              "rework_cycles": { "type": "integer", "minimum": 0 },
-              "hiring_loop": {
-                "type": "object",
-                "required": ["outcome"],
-                "additionalProperties": false,
-                "properties": {
-                  "outcome": {
-                    "type": "string",
-                    "enum": ["triggered", "missed", "na"]
-                  }
-                }
-              },
-              "delegation": {
-                "type": "object",
-                "required": ["quality"],
-                "additionalProperties": false,
-                "properties": {
-                  "quality": {
-                    "type": "string",
-                    "enum": ["correct_first", "self_attempted_then_delegated", "wrong_agent_then_corrected"]
-                  }
-                }
-              },
-              "internal_iterations": { "type": "integer", "minimum": 0 },
-              "leo_errors": {
-                "type": "array",
-                "items": { "type": "string" }
-              },
-              "self_qa": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "honest": { "type": "boolean" }
-                }
-              },
-              "cost": {
-                "type": "object",
-                "additionalProperties": false,
-                "description": "Token usage and cost data captured via /cost at session end",
                 "properties": {
                   "tokens_in": { "type": "integer", "minimum": 0 },
                   "tokens_out": { "type": "integer", "minimum": 0 },
                   "cost_usd": { "type": "number", "minimum": 0 },
-                  "model": { "type": "string" }
+                  "models_used": { "type": "array", "items": { "type": "string" } }
                 }
               },
-              "duration_minutes_approximate": { "type": "number", "minimum": 0 },
-              "notes": { "type": "string" }
+              "constraints_violated": { "type": "array", "items": { "type": "string" } },
+              "skills_invoked": { "type": "array", "items": { "type": "string" } },
+              "kb_consultations": {
+                "type": "object",
+                "properties": {
+                  "count": { "type": "integer", "minimum": 0 },
+                  "docs_accessed": { "type": "array", "items": { "type": "string" } },
+                  "hit_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+                }
+              },
+              "tasks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["task_id", "summary"],
+                  "properties": {
+                    "task_id": { "type": "string" },
+                    "summary": { "type": "string" },
+                    "task_complexity": { "type": "string", "enum": ["small", "medium", "large"] },
+                    "domain_category": { "type": "string" },
+                    "delegation_enforced": { "type": "boolean" },
+                    "pipeline_followed": { "type": "boolean" },
+                    "profiles_used": { "type": "array", "items": { "type": "string" } },
+                    "review_first_pass": { "type": "boolean" },
+                    "owner_accepted": { "type": "boolean" },
+                    "rework_cycles": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
             }
           }
         }

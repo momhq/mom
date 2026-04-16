@@ -11,18 +11,19 @@
     "historical"
   ],
   "created": "2026-04-11T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
     "alternatives_considered": [
-      "Remove MD immediately (option A) — would have broken downstream projects at the time",
-      "Keep MD forever alongside KB — maintenance burden, risk of divergence"
+      "Remove MD immediately (option A) \u2014 would have broken downstream projects at the time",
+      "Keep MD forever alongside KB \u2014 maintenance burden, risk of divergence"
     ],
     "context": "During the KB migration, old MD rule files in rules/ were kept as deprecated fallback so downstream projects that hadn't migrated yet could still boot. Claude Code auto-loaded files from ~/.claude/rules/ at session start via symlinks. The KB bootloader (CLAUDE.md) handled rule loading for projects that had migrated.",
     "decision": "Migration from MD rules to JSON KB is complete. The old MD rules directory no longer exists. This doc is kept as historical record of the migration decision.",
     "outcome": "The phased approach worked. MD files served as fallback during transition, then were removed once all projects migrated to JSON KB.",
     "reversible": false,
-    "status": "COMPLETED — MD rules directory removed, all projects now boot from JSON KB via CLAUDE.md bootloader"
+    "status": "COMPLETED \u2014 MD rules directory removed, all projects now boot from JSON KB via CLAUDE.md bootloader",
+    "why": "During the KB migration, old MD rule files in rules/ were kept as deprecated fallback so downstream projects that hadn't migrated yet could still boot. Claude Code auto-loaded files from ~/.claude/rules/ at session start via symlinks. The KB bootloader (CLAUDE.md) handled rule loading for projects that had migrated."
   }
 }

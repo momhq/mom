@@ -10,14 +10,14 @@
     "identity"
   ],
   "created": "2026-04-11T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
     "alternatives_considered": [
       "Previous name was too generic, didn't communicate what the project actually is"
     ],
-    "context": "The project evolved from a generic 'copilot' concept into a distinct identity. The name LEO emerged organically — it was already the name of the Manager of Managers agent, and the acronym Living Ecosystem Orchestrator captures the neural KB architecture.",
+    "context": "The project evolved from a generic 'copilot' concept into a distinct identity. The name LEO emerged organically \u2014 it was already the name of the Manager of Managers agent, and the acronym Living Ecosystem Orchestrator captures the neural KB architecture.",
     "decision": "Repository renamed to leo-core. CLI command is leo. LEO = Living Ecosystem Orchestrator.",
     "impact": [
       "GitHub repo: vmarinogg/leo-core",
@@ -25,6 +25,7 @@
       "Package name: leo-core",
       "All internal references updated"
     ],
-    "reversible": true
+    "reversible": true,
+    "why": "The project evolved from a generic 'copilot' concept into a distinct identity. The name LEO emerged organically \u2014 it was already the name of the Manager of Managers agent, and the acronym Living Ecosystem Orchestrator captures the neural KB architecture."
   }
 }

@@ -16,10 +16,10 @@ import (
 // onboarding wizard. All values are the internal identifiers used by Leo
 // (e.g. "claude", not "Claude Code").
 type OnboardingResult struct {
-	Runtime        string // "claude", "cursor", "windsurf", "other"
+	Runtime        string // "claude", "cursor", "windsurf"
 	Language       string // "en", "pt", "es"
 	Mode           string // "verbose", "concise", "caveman"
-	DefaultProfile string // "generalist", "backend-engineer"
+	DefaultProfile string // "general-manager", "ceo", "cto", etc.
 	Autonomy       string // "autonomous", "balanced", "supervised"
 	CoreSource     string // path to leo-core clone, or "" if skipped
 }
@@ -138,36 +138,34 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 func askRuntime(scanner *scannerWrapper, w io.Writer, cwd string) (string, error) {
 	defaultRT, detected := detectRuntime(cwd)
 
-	fmt.Fprintln(w, "  Which AI runtime do you use?")
+	fmt.Fprintln(w, "  Which AI Assistant do you use?")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "  [1] Claude Code  (recommended)")
-	fmt.Fprintln(w, "  [2] Cursor")
-	fmt.Fprintln(w, "  [3] Windsurf")
-	fmt.Fprintln(w, "  [4] Other / not sure")
+	fmt.Fprintln(w, "  [2] Cursor       (coming soon)")
+	fmt.Fprintln(w, "  [3] Windsurf     (coming soon)")
 	fmt.Fprintln(w)
 
 	if detected {
 		fmt.Fprintf(w, "  Detected: %s\n", runtimeLabel(defaultRT))
 	}
 
-	defaultNum := runtimeToNum(defaultRT)
 	for {
-		fmt.Fprintf(w, "  → Choice [%d]: ", defaultNum)
+		fmt.Fprint(w, "  → Choice [1]: ")
 		line := scanner.readLine()
 		if line == "" {
-			return defaultRT, nil
+			return "claude", nil
 		}
 		switch line {
 		case "1":
 			return "claude", nil
 		case "2":
-			return "cursor", nil
+			fmt.Fprintln(w, "  Cursor support is coming soon. Please select another option.")
+			continue
 		case "3":
-			return "windsurf", nil
-		case "4":
-			return "other", nil
+			fmt.Fprintln(w, "  Windsurf support is coming soon. Please select another option.")
+			continue
 		default:
-			fmt.Fprintln(w, "  Invalid choice. Please enter 1, 2, 3, or 4.")
+			fmt.Fprintln(w, "  Invalid choice. Please enter 1.")
 		}
 	}
 }
@@ -175,7 +173,7 @@ func askRuntime(scanner *scannerWrapper, w io.Writer, cwd string) (string, error
 // askLanguage prompts for language selection.
 func askLanguage(scanner *scannerWrapper, w io.Writer) (string, error) {
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  What language should Leo communicate in?")
+	fmt.Fprintln(w, "  What output language should Leo use?")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "  [1] English")
 	fmt.Fprintln(w, "  [2] Português")
@@ -230,7 +228,7 @@ func askMode(scanner *scannerWrapper, w io.Writer) (string, error) {
 	}
 }
 
-// askProfile prompts for the default specialist profile.
+// askProfile prompts for the default profile. Only user-scoped profiles are shown.
 func askProfile(scanner *scannerWrapper, w io.Writer) (string, error) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "  Choose your default profile:")
@@ -238,17 +236,19 @@ func askProfile(scanner *scannerWrapper, w io.Writer) (string, error) {
 
 	allProfiles := profiles.DefaultProfiles()
 
-	// Collect and sort names.
-	names := make([]string, 0, len(allProfiles))
-	for name := range allProfiles {
-		names = append(names, name)
+	// Collect and sort user-scoped profile names.
+	names := make([]string, 0)
+	for name, p := range allProfiles {
+		if p.Scope == "user" {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 
-	// Find default index (generalist).
+	// Find default index (general-manager).
 	defaultIdx := 1
 	for i, name := range names {
-		if name == "generalist" {
+		if name == "general-manager" {
 			defaultIdx = i + 1
 			break
 		}
@@ -266,7 +266,7 @@ func askProfile(scanner *scannerWrapper, w io.Writer) (string, error) {
 		fmt.Fprintf(w, "  → Choice [%d]: ", defaultIdx)
 		line := scanner.readLine()
 		if line == "" {
-			return "generalist", nil
+			return "general-manager", nil
 		}
 		// Parse the number.
 		var choice int
@@ -342,16 +342,13 @@ func expandTilde(path string) string {
 
 // detectRuntime checks if a known runtime directory exists in cwd.
 // Returns the detected runtime identifier and a boolean indicating whether
-// detection actually occurred (false means "claude" is the assumed default,
-// not a positive detection). Falls back to "claude" when nothing is found.
+// detection actually occurred. Only returns runtimes that are currently
+// supported (claude). Falls back to "claude" when nothing is found.
 func detectRuntime(cwd string) (rt string, detected bool) {
-	if isDir(filepath.Join(cwd, ".cursor")) {
-		return "cursor", true
-	}
 	if isDir(filepath.Join(cwd, ".claude")) {
 		return "claude", true
 	}
-	// Neither found — default to claude (recommended) without showing "Detected".
+	// Cursor/Windsurf detection disabled until supported.
 	return "claude", false
 }
 

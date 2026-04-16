@@ -105,7 +105,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		cmd.Printf("✔ config.yaml: valid (runtime: %s)\n", cfg.Runtime)
 	}
 
-	// Check 3: KB docs dir exists.
+	// Check 3: KB dirs exist.
 	docsDir := filepath.Join(leoDir, "kb", "docs")
 	if _, statErr := os.Stat(docsDir); statErr != nil {
 		cmd.Printf("✗ kb/docs/: %v\n", statErr)
@@ -114,9 +114,43 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		cmd.Printf("✔ kb/docs/: exists\n")
 	}
 
-	// Check 4: All docs pass schema validation.
-	docErrors, diskDocIDs := validateAllDocs(cmd, docsDir)
-	if docErrors > 0 {
+	constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+	if _, statErr := os.Stat(constraintsDir); statErr != nil {
+		cmd.Printf("⚠ kb/constraints/: not found\n")
+	} else {
+		cmd.Printf("✔ kb/constraints/: exists\n")
+	}
+
+	skillsDir := filepath.Join(leoDir, "kb", "skills")
+	if _, statErr := os.Stat(skillsDir); statErr != nil {
+		cmd.Printf("⚠ kb/skills/: not found\n")
+	} else {
+		cmd.Printf("✔ kb/skills/: exists\n")
+	}
+
+	// Check 4: All docs pass schema validation (docs + constraints + skills).
+	diskDocIDs := make(map[string]bool)
+	totalErrors := 0
+
+	docErrors, docIDs := validateAllDocs(cmd, docsDir, "doc")
+	totalErrors += docErrors
+	for id := range docIDs {
+		diskDocIDs[id] = true
+	}
+
+	constraintErrors, constraintIDs := validateAllDocs(cmd, constraintsDir, "constraint")
+	totalErrors += constraintErrors
+	for id := range constraintIDs {
+		diskDocIDs[id] = true
+	}
+
+	skillErrors, skillIDs := validateAllDocs(cmd, skillsDir, "skill")
+	totalErrors += skillErrors
+	for id := range skillIDs {
+		diskDocIDs[id] = true
+	}
+
+	if totalErrors > 0 {
 		failed = true
 	}
 
@@ -138,12 +172,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// validateAllDocs reads and validates every .json file in docsDir.
+// validateAllDocs reads and validates every .json file in dir.
+// label is used for log messages (e.g. "doc", "constraint", "skill").
 // Returns (errorCount, set of valid doc IDs on disk).
-func validateAllDocs(cmd *cobra.Command, docsDir string) (int, map[string]bool) {
-	entries, err := os.ReadDir(docsDir)
+func validateAllDocs(cmd *cobra.Command, dir string, label string) (int, map[string]bool) {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		// Docs dir unreadable — check 3 already reported it.
+		// Dir unreadable or missing — already reported.
 		return 0, nil
 	}
 
@@ -155,16 +190,16 @@ func validateAllDocs(cmd *cobra.Command, docsDir string) (int, map[string]bool) 
 			continue
 		}
 
-		path := filepath.Join(docsDir, e.Name())
+		path := filepath.Join(dir, e.Name())
 		doc, loadErr := kb.LoadDoc(path)
 		if loadErr != nil {
-			cmd.Printf("✗ doc %s: %v\n", e.Name(), loadErr)
+			cmd.Printf("✗ %s %s: %v\n", label, e.Name(), loadErr)
 			errors++
 			continue
 		}
 
 		if valErr := doc.Validate(); valErr != nil {
-			cmd.Printf("✗ doc %s: %v\n", e.Name(), valErr)
+			cmd.Printf("✗ %s %s: %v\n", label, e.Name(), valErr)
 			errors++
 			continue
 		}
@@ -172,10 +207,10 @@ func validateAllDocs(cmd *cobra.Command, docsDir string) (int, map[string]bool) 
 		diskDocIDs[doc.ID] = true
 	}
 
-	if errors == 0 {
-		cmd.Printf("✔ schema validation: all docs valid\n")
-	} else {
-		cmd.Printf("✗ schema validation: %d doc(s) failed\n", errors)
+	if errors == 0 && len(diskDocIDs) > 0 {
+		cmd.Printf("✔ %ss: all %d valid\n", label, len(diskDocIDs))
+	} else if errors > 0 {
+		cmd.Printf("✗ %ss: %d failed validation\n", label, errors)
 	}
 
 	return errors, diskDocIDs

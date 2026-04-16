@@ -15,11 +15,14 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if cfg.Runtime != "claude" {
 		t.Errorf("expected runtime %q, got %q", "claude", cfg.Runtime)
 	}
-	if cfg.Owner.Mode != "concise" {
-		t.Errorf("expected mode %q, got %q", "concise", cfg.Owner.Mode)
+	if cfg.User.Mode != "concise" {
+		t.Errorf("expected mode %q, got %q", "concise", cfg.User.Mode)
 	}
-	if cfg.Owner.DefaultProfile != "generalist" {
-		t.Errorf("expected default profile %q, got %q", "generalist", cfg.Owner.DefaultProfile)
+	if cfg.User.DefaultProfile != "general-manager" {
+		t.Errorf("expected default profile %q, got %q", "general-manager", cfg.User.DefaultProfile)
+	}
+	if cfg.Specialists.OrchestratorModel != "opus" {
+		t.Errorf("expected orchestrator model %q, got %q", "opus", cfg.Specialists.OrchestratorModel)
 	}
 	if cfg.Specialists.DefaultModel != "sonnet" {
 		t.Errorf("expected default model %q, got %q", "sonnet", cfg.Specialists.DefaultModel)
@@ -34,7 +37,7 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 
 	original := Default()
 	original.Runtime = "cursor"
-	original.Owner.Language = "pt-BR"
+	original.User.Language = "pt-BR"
 
 	if err := Save(dir, &original); err != nil {
 		t.Fatalf("Save failed: %v", err)
@@ -54,8 +57,8 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 	if loaded.Runtime != "cursor" {
 		t.Errorf("expected runtime %q, got %q", "cursor", loaded.Runtime)
 	}
-	if loaded.Owner.Language != "pt-BR" {
-		t.Errorf("expected language %q, got %q", "pt-BR", loaded.Owner.Language)
+	if loaded.User.Language != "pt-BR" {
+		t.Errorf("expected language %q, got %q", "pt-BR", loaded.User.Language)
 	}
 	if loaded.Version != original.Version {
 		t.Errorf("version mismatch: %q vs %q", original.Version, loaded.Version)

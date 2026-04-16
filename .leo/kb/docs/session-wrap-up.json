@@ -11,36 +11,36 @@
     "session"
   ],
   "created": "2026-04-08T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-13T00:00:00Z",
   "updated_by": "leo",
   "content": {
-    "description": "Orchestrates end-of-session knowledge propagation. Lists what changed, classifies each item, presents a plan for owner approval, writes KB docs, commits, and reports.",
+    "description": "Orchestrates end-of-session knowledge propagation. Lists what changed, classifies each item, presents a plan for user approval, writes KB docs, commits, and reports.",
     "do_not": [
-      "Decide whether to propagate — that's in the propagation rule. This skill is the how, triggered by the when",
-      "Edit leo-core itself — refinements to the core are escalations handled separately with R2",
-      "Run on its own — it is model-invoked by Leo after recognizing a wrap-up signal",
-      "Skip R2 — every execution requires explicit owner approval",
-      "Handle session termination (context limit, crash) — those are recovery scenarios, not wrap-up",
-      "Invoke on every 'ok' — only when intent is clearly 'we are done, persist the learnings'",
-      "Execute without approval even if the plan is obvious — R2 is not optional",
-      "Manufacture propagation when the inventory is empty — say so briefly and stop"
+      "Decide whether to propagate \u2014 that's in the propagation rule. This skill is the how, triggered by the when",
+      "Edit leo-core itself \u2014 refinements to the core are escalations handled separately with R2",
+      "Run on its own \u2014 it is model-invoked by Leo after recognizing a wrap-up signal",
+      "Skip R2 \u2014 every execution requires explicit user approval",
+      "Handle session termination (context limit, crash) \u2014 those are recovery scenarios, not wrap-up",
+      "Invoke on every 'ok' \u2014 only when intent is clearly 'we are done, persist the learnings'",
+      "Execute without approval even if the plan is obvious \u2014 R2 is not optional",
+      "Manufacture propagation when the inventory is empty \u2014 say so briefly and stop"
     ],
     "invoked_by": "leo",
-    "output_format": "## Wrap-up complete\n\n**Committed:** [SHA] — N files, +X/-Y lines\n**Memory written:** [list, or 'none']\n**Pushed:** [yes / no / not applicable]\n**Deferred:** [list, or 'nothing']\n**Session-level learning:** [one-line summary, if any]",
+    "output_format": "## Wrap-up complete\n\n**Committed:** [SHA] \u2014 N files, +X/-Y lines\n**Memory written:** [list, or 'none']\n**Pushed:** [yes / no / not applicable]\n**Deferred:** [list, or 'nothing']\n**Session-level learning:** [one-line summary, if any]",
     "steps": [
       {
-        "instruction": "List what actually changed: decisions made, state changes, new artifacts, learnings/failures. Skip: implementation details in code, temporary task state, conversation turns without durable decisions. Be honest about scope — if the session produced one decision, say so. Also capture session cost: run /cost and record tokens_in, tokens_out, cost_usd, and model for the metric doc.",
+        "instruction": "List what actually changed: decisions made, state changes, new artifacts, learnings/failures. Skip: implementation details in code, temporary task state, conversation turns without durable decisions. Be honest about scope \u2014 if the session produced one decision, say so. Also capture session cost: run /cost and record tokens_in, tokens_out, cost_usd, and model for the metric doc.",
         "name": "Inventory",
         "wait_for_approval": false
       },
       {
-        "instruction": "For each inventory item, determine: type (decision, pattern, fact, feedback, reference), lifecycle (permanent, learning, state), tags for neural connections, id (kebab-case). Check index.json to see if a doc with similar tags/topic already exists — update vs create.",
+        "instruction": "For each inventory item, determine: type (decision, pattern, fact, feedback, reference), lifecycle (permanent, learning, state), tags for neural connections, id (kebab-case). Check index.json to see if a doc with similar tags/topic already exists \u2014 update vs create.",
         "name": "Classify",
         "wait_for_approval": false
       },
       {
-        "instruction": "Show the owner: new docs to create (id, type, tags), docs to update, items skipped with reason, commit strategy (files to stage, commit message draft), escalations needed. Wait for explicit approval before proceeding.",
+        "instruction": "Show the user: new docs to create (id, type, tags), docs to update, items skipped with reason, commit strategy (files to stage, commit message draft), escalations needed. Wait for explicit approval before proceeding.",
         "name": "Present propagation plan",
         "wait_for_approval": true
       },
@@ -63,16 +63,16 @@
       "done for today",
       "we're good",
       "finalize",
-      "fecha a sessão",
-      "consolida aí",
-      "tá bom assim",
+      "fecha a sess\u00e3o",
+      "consolida a\u00ed",
+      "t\u00e1 bom assim",
       "pronto por hoje",
       "salva isso",
-      "fecha aí",
+      "fecha a\u00ed",
       "pode fechar",
       "vamos consolidar",
-      "acho que tá bom por hoje",
-      "próxima vez continua daqui",
+      "acho que t\u00e1 bom por hoje",
+      "pr\u00f3xima vez continua daqui",
       "manda bala, fecha"
     ]
   }

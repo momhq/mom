@@ -1,6 +1,6 @@
 {
   "id": "token-economy-model-selection",
-  "type": "rule",
+  "type": "constraint",
   "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
@@ -12,7 +12,7 @@
     "delegation"
   ],
   "created": "2026-04-10T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
@@ -22,13 +22,14 @@
       "Running AI for deterministic tasks that scripts can handle at zero cost"
     ],
     "how_to_apply": [
-      "Leo: Opus (or Mythos when available) — highest reasoning depth for orchestration, cross-domain decisions, and owner communication",
-      "Specialists: Sonnet always — they are ephemeral sub-agents that execute playbooks, they don't decide. Sonnet is more than capable for execution tasks",
-      "Scripts (validate, build-index, check-stale) cost zero tokens — this is the Token Economy principle at its purest: deterministic work never touches an LLM",
-      "Scales with future model releases: Mythos → Opus → Sonnet → future lighter models. The principle stays, the model names change"
+      "Leo: Opus (or Mythos when available) \u2014 highest reasoning depth for orchestration, cross-domain decisions, and user communication",
+      "Specialists: Sonnet always \u2014 they are ephemeral sub-agents that execute playbooks, they don't decide. Sonnet is more than capable for execution tasks",
+      "Scripts (validate, build-index, check-stale) cost zero tokens \u2014 this is the Token Economy principle at its purest: deterministic work never touches an LLM",
+      "Scales with future model releases: Mythos \u2192 Opus \u2192 Sonnet \u2192 future lighter models. The principle stays, the model names change"
     ],
     "responsibility": "Leo enforces model selection when delegating to specialists. Owner sets the orchestration model. Scripts are the responsibility of the core maintainer.",
-    "rule": "Model hierarchy by role: Leo = Opus (orchestration and judgment), Specialists = Sonnet (execution). Most expensive model for thinking, cheapest for execution. Scripts handle all deterministic work at zero token cost.",
-    "why": "AI should spend tokens on thinking and judgment, not on execution. Specialists execute — they follow playbooks, they don't make strategic decisions. Leo reasons about what to do, who to delegate to, what the trade-offs are. The cost of using Opus for a specialist that follows a checklist is waste. The cost of using Sonnet for Leo when he needs to reason about cross-domain trade-offs is a false economy."
-  }
+    "why": "AI should spend tokens on thinking and judgment, not on execution. Specialists execute \u2014 they follow playbooks, they don't make strategic decisions. Leo reasons about what to do, who to delegate to, what the trade-offs are. The cost of using Opus for a specialist that follows a checklist is waste. The cost of using Sonnet for Leo when he needs to reason about cross-domain trade-offs is a false economy.",
+    "constraint": "Model hierarchy by role: Leo = Opus (orchestration and judgment), Specialists = Sonnet (execution). Most expensive model for thinking, cheapest for execution. Scripts handle all deterministic work at zero token cost."
+  },
+  "summary": "Model hierarchy by role: Leo = Opus (orchestration and judgment), Specialists = Sonnet (execution). Most expensive model"
 }

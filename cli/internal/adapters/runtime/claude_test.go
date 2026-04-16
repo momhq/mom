@@ -42,7 +42,7 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 	config := Config{
 		Version: "1",
 		Runtime: "claude",
-		Owner: OwnerConfig{
+		User: UserConfig{
 			Language: "en",
 			Mode:     "concise",
 			Autonomy: "balanced",
@@ -55,11 +55,19 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		ContextInjection: "Focus on code quality.",
 	}
 
-	rules := []Rule{
-		{ID: "anti-hallucination", Rule: "When you're not sure, say you don't know."},
+	constraints := []Constraint{
+		{ID: "anti-hallucination", Summary: "When unsure, say you don't know."},
 	}
 
-	if err := a.GenerateContextFile(config, profile, rules); err != nil {
+	skills := []Skill{
+		{ID: "session-wrap-up", Summary: "End-of-session knowledge propagation."},
+	}
+
+	identity := &Identity{
+		What: "L.E.O. — a living knowledge infrastructure.",
+	}
+
+	if err := a.GenerateContextFile(config, profile, constraints, skills, identity); err != nil {
 		t.Fatalf("GenerateContextFile failed: %v", err)
 	}
 
@@ -71,38 +79,61 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 	s := string(content)
 	checks := []string{
 		"LEO — Living Ecosystem Orchestrator",
+		"living knowledge infrastructure",
 		"Backend Engineer",
 		"Focus on code quality.",
+		"## Constraints",
 		"anti-hallucination",
+		"When unsure, say you don't know.",
+		"## Skills",
+		"session-wrap-up",
+		"End-of-session knowledge propagation.",
 		"must be written in English",
 		"Concise",
 		"no filler",
 		"Balanced",
 		"Propose before",
 		"boot: true",
-		"## Delegation",
-		"you route, judge, and synthesize",
 		"## During work",
-		"## Feedback and corrections",
-		"NOT as an auto-memory",
-		"## Memory boundaries",
-		"Auto-memory is the exception",
-	}
-	notChecks := []string{
-		`load all docs where` + " `" + `type: "rule"` + "`",
-		`load all docs where` + " `" + `type: "identity"` + "`",
-		`load all docs where` + " `" + `type: "skill"` + "`",
-		`load all docs where` + " `" + `type: "feedback"` + "`",
 	}
 	for _, check := range checks {
 		if !strings.Contains(s, check) {
 			t.Errorf("CLAUDE.md missing %q", check)
 		}
 	}
-	for _, notCheck := range notChecks {
-		if strings.Contains(s, notCheck) {
-			t.Errorf("CLAUDE.md should not contain %q", notCheck)
-		}
+}
+
+func TestClaudeAdapter_GenerateContextFile_NoIdentity(t *testing.T) {
+	dir := t.TempDir()
+	a := NewClaudeAdapter(dir)
+
+	config := Config{
+		Version: "1",
+		Runtime: "claude",
+		User: UserConfig{
+			Language: "en",
+			Mode:     "concise",
+			Autonomy: "balanced",
+		},
+	}
+
+	profile := Profile{
+		Name:        "Generalist",
+		Description: "General purpose",
+	}
+
+	if err := a.GenerateContextFile(config, profile, nil, nil, nil); err != nil {
+		t.Fatalf("GenerateContextFile failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("reading CLAUDE.md: %v", err)
+	}
+
+	s := string(content)
+	if !strings.Contains(s, "You are LEO") {
+		t.Error("CLAUDE.md missing fallback identity text")
 	}
 }
 

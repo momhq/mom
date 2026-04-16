@@ -14,13 +14,13 @@ type Config struct {
 	Version     string            `yaml:"version"`
 	Runtime     string            `yaml:"runtime"`
 	CoreSource  string            `yaml:"core_source,omitempty"`
-	Owner       OwnerConfig       `yaml:"owner"`
+	User        UserConfig        `yaml:"user"`
 	KB          KBConfig          `yaml:"kb"`
 	Specialists SpecialistsConfig `yaml:"specialists"`
 }
 
-// OwnerConfig holds owner preferences.
-type OwnerConfig struct {
+// UserConfig holds user preferences.
+type UserConfig struct {
 	Language       string `yaml:"language"`
 	Mode           string `yaml:"mode"`
 	Autonomy       string `yaml:"autonomy"`
@@ -36,9 +36,10 @@ type KBConfig struct {
 
 // SpecialistsConfig holds specialist delegation settings.
 type SpecialistsConfig struct {
-	DefaultModel    string `yaml:"default_model"`
-	SimpleTaskModel string `yaml:"simple_task_model"`
-	Validation      string `yaml:"validation"`
+	OrchestratorModel string `yaml:"orchestrator_model"`
+	DefaultModel      string `yaml:"default_model"`
+	SimpleTaskModel   string `yaml:"simple_task_model"`
+	Validation        string `yaml:"validation"`
 }
 
 // Default returns a Config with sane defaults.
@@ -46,11 +47,11 @@ func Default() Config {
 	return Config{
 		Version: "1",
 		Runtime: "claude",
-		Owner: OwnerConfig{
+		User: UserConfig{
 			Language:       "en",
 			Mode:           "concise",
 			Autonomy:       "balanced",
-			DefaultProfile: "generalist",
+			DefaultProfile: "general-manager",
 		},
 		KB: KBConfig{
 			AutoPropagate:  true,
@@ -58,9 +59,10 @@ func Default() Config {
 			StaleThreshold: "30d",
 		},
 		Specialists: SpecialistsConfig{
-			DefaultModel:    "sonnet",
-			SimpleTaskModel: "haiku",
-			Validation:      "always",
+			OrchestratorModel: "opus",
+			DefaultModel:      "sonnet",
+			SimpleTaskModel:   "haiku",
+			Validation:        "always",
 		},
 	}
 }

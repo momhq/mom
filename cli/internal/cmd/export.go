@@ -63,22 +63,51 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	// Copy all docs.
 	srcDocsDir := filepath.Join(leoDir, "kb", "docs")
-	entries, err := os.ReadDir(srcDocsDir)
+	docCount, err := copyJSONDir(srcDocsDir, docsOutputDir)
 	if err != nil {
-		return fmt.Errorf("reading docs dir: %w", err)
+		return fmt.Errorf("copying docs: %w", err)
 	}
 
-	var count int
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
+	// Copy constraints.
+	constraintsCount := 0
+	srcConstraints := filepath.Join(leoDir, "kb", "constraints")
+	if dirExists(srcConstraints) {
+		dstConstraints := filepath.Join(outputDir, "constraints")
+		if err := os.MkdirAll(dstConstraints, 0755); err != nil {
+			return fmt.Errorf("creating constraints dir: %w", err)
 		}
-		src := filepath.Join(srcDocsDir, e.Name())
-		dst := filepath.Join(docsOutputDir, e.Name())
-		if err := copyFileContents(src, dst); err != nil {
-			return fmt.Errorf("copying doc %s: %w", e.Name(), err)
+		constraintsCount, err = copyJSONDir(srcConstraints, dstConstraints)
+		if err != nil {
+			return fmt.Errorf("copying constraints: %w", err)
 		}
-		count++
+	}
+
+	// Copy skills.
+	skillsCount := 0
+	srcSkills := filepath.Join(leoDir, "kb", "skills")
+	if dirExists(srcSkills) {
+		dstSkills := filepath.Join(outputDir, "skills")
+		if err := os.MkdirAll(dstSkills, 0755); err != nil {
+			return fmt.Errorf("creating skills dir: %w", err)
+		}
+		skillsCount, err = copyJSONDir(srcSkills, dstSkills)
+		if err != nil {
+			return fmt.Errorf("copying skills: %w", err)
+		}
+	}
+
+	// Copy profiles.
+	profilesCount := 0
+	srcProfiles := filepath.Join(leoDir, "profiles")
+	if dirExists(srcProfiles) {
+		dstProfiles := filepath.Join(outputDir, "profiles")
+		if err := os.MkdirAll(dstProfiles, 0755); err != nil {
+			return fmt.Errorf("creating profiles dir: %w", err)
+		}
+		profilesCount, err = copyYAMLDir(srcProfiles, dstProfiles)
+		if err != nil {
+			return fmt.Errorf("copying profiles: %w", err)
+		}
 	}
 
 	// Copy index.json.
@@ -97,7 +126,26 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	cmd.Printf("Exported %d document(s) to %s\n", count, outputDir)
+	// Copy identity.json if it exists.
+	srcIdentity := filepath.Join(leoDir, "identity.json")
+	if _, err := os.Stat(srcIdentity); err == nil {
+		dstIdentity := filepath.Join(outputDir, "identity.json")
+		if err := copyFileContents(srcIdentity, dstIdentity); err != nil {
+			return fmt.Errorf("copying identity.json: %w", err)
+		}
+	}
+
+	// Copy config.yaml if it exists.
+	srcConfig := filepath.Join(leoDir, "config.yaml")
+	if _, err := os.Stat(srcConfig); err == nil {
+		dstConfig := filepath.Join(outputDir, "config.yaml")
+		if err := copyFileContents(srcConfig, dstConfig); err != nil {
+			return fmt.Errorf("copying config.yaml: %w", err)
+		}
+	}
+
+	cmd.Printf("Exported to %s: %d docs, %d constraints, %d skills, %d profiles\n",
+		outputDir, docCount, constraintsCount, skillsCount, profilesCount)
 	return nil
 }
 
@@ -106,8 +154,6 @@ func runImport(cmd *cobra.Command, args []string) error {
 	importPath := args[0]
 
 	replaceMode, _ := cmd.Flags().GetBool("replace")
-	// mergeMode is the default; --merge flag is explicit but same behavior.
-	// replaceMode takes priority if set.
 
 	leoDir, err := findLeoDir()
 	if err != nil {
@@ -211,6 +257,44 @@ func runImport(cmd *cobra.Command, args []string) error {
 		imported++
 	}
 
+	// Import constraints if present.
+	srcConstraints := filepath.Join(importPath, "constraints")
+	if dirExists(srcConstraints) {
+		destConstraints := filepath.Join(leoDir, "kb", "constraints")
+		os.MkdirAll(destConstraints, 0755)
+		importDirFiles(srcConstraints, destConstraints, ".json", replaceMode)
+	}
+
+	// Import skills if present.
+	srcSkills := filepath.Join(importPath, "skills")
+	if dirExists(srcSkills) {
+		destSkills := filepath.Join(leoDir, "kb", "skills")
+		os.MkdirAll(destSkills, 0755)
+		importDirFiles(srcSkills, destSkills, ".json", replaceMode)
+	}
+
+	// Import profiles if present.
+	srcProfiles := filepath.Join(importPath, "profiles")
+	if dirExists(srcProfiles) {
+		destProfiles := filepath.Join(leoDir, "profiles")
+		os.MkdirAll(destProfiles, 0755)
+		importDirFiles(srcProfiles, destProfiles, ".yaml", replaceMode)
+	}
+
+	// Import identity.json if present.
+	srcIdentity := filepath.Join(importPath, "identity.json")
+	if _, err := os.Stat(srcIdentity); err == nil {
+		dstIdentity := filepath.Join(leoDir, "identity.json")
+		copyFileContents(srcIdentity, dstIdentity) //nolint:errcheck
+	}
+
+	// Import config.yaml if present.
+	srcConfig := filepath.Join(importPath, "config.yaml")
+	if _, err := os.Stat(srcConfig); err == nil {
+		dstConfig := filepath.Join(leoDir, "config.yaml")
+		copyFileContents(srcConfig, dstConfig) //nolint:errcheck
+	}
+
 	// Rebuild the index after import.
 	adapter, err := newStorageAdapter()
 	if err != nil {
@@ -236,7 +320,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 			cmd.Printf("  warning: index rebuild failed: %v\n", err)
 		}
 	} else {
-		// No docs — write an empty index by removing and letting it be recreated.
+		// No docs — write an empty index.
 		indexPath := filepath.Join(leoDir, "kb", "index.json")
 		emptyIdx := map[string]any{
 			"version": "1", "last_rebuilt": time.Now().UTC().Format(time.RFC3339),
@@ -271,4 +355,64 @@ func copyFileContents(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// dirExists returns true if the path exists and is a directory.
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+// copyJSONDir copies all .json files from src to dst. Returns count.
+func copyJSONDir(src, dst string) (int, error) {
+	return copyDirByExt(src, dst, ".json")
+}
+
+// copyYAMLDir copies all .yaml files from src to dst. Returns count.
+func copyYAMLDir(src, dst string) (int, error) {
+	return copyDirByExt(src, dst, ".yaml")
+}
+
+// copyDirByExt copies all files with the given extension from src to dst.
+func copyDirByExt(src, dst, ext string) (int, error) {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return 0, fmt.Errorf("reading dir: %w", err)
+	}
+
+	var count int
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ext) {
+			continue
+		}
+		srcPath := filepath.Join(src, e.Name())
+		dstPath := filepath.Join(dst, e.Name())
+		if err := copyFileContents(srcPath, dstPath); err != nil {
+			return count, fmt.Errorf("copying %s: %w", e.Name(), err)
+		}
+		count++
+	}
+	return count, nil
+}
+
+// importDirFiles copies files with the given extension from src to dst.
+// In merge mode (replaceMode=false), existing files are skipped.
+func importDirFiles(src, dst, ext string, replaceMode bool) {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ext) {
+			continue
+		}
+		dstPath := filepath.Join(dst, e.Name())
+		if !replaceMode {
+			if _, err := os.Stat(dstPath); err == nil {
+				continue // skip existing
+			}
+		}
+		srcPath := filepath.Join(src, e.Name())
+		copyFileContents(srcPath, dstPath) //nolint:errcheck
+	}
 }

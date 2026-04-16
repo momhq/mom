@@ -33,6 +33,16 @@ type SyncPlan struct {
 	DocsUnchanged []string
 	SchemaChanged bool
 
+	ConstraintsToAdd     []SyncItem
+	ConstraintsToUpdate  []SyncItem
+	ConstraintsUnchanged []string
+
+	SkillsToAdd     []SyncItem
+	SkillsToUpdate  []SyncItem
+	SkillsUnchanged []string
+
+	IdentityChanged bool
+
 	ProfilesToAdd     []SyncItem
 	ProfileConflicts  []SyncItem // exist locally, content differs from core
 	ProfilesUnchanged []string
@@ -134,9 +144,9 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Summary.
-	totalNew := len(plan.DocsToAdd) + len(plan.ProfilesToAdd)
-	totalUpdated := len(plan.DocsToUpdate)
-	totalUnchanged := len(plan.DocsUnchanged) + len(plan.ProfilesUnchanged)
+	totalNew := len(plan.DocsToAdd) + len(plan.ProfilesToAdd) + len(plan.ConstraintsToAdd) + len(plan.SkillsToAdd)
+	totalUpdated := len(plan.DocsToUpdate) + len(plan.ConstraintsToUpdate) + len(plan.SkillsToUpdate)
+	totalUnchanged := len(plan.DocsUnchanged) + len(plan.ProfilesUnchanged) + len(plan.ConstraintsUnchanged) + len(plan.SkillsUnchanged)
 	totalConflicts := len(plan.ProfileConflicts)
 	conflictsReplaced := len(profilesToReplace)
 	cmd.Printf("\n  Done: %d new, %d updated, %d unchanged, %d conflicts (%d replaced, %d kept)\n",
@@ -198,6 +208,63 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 			plan.DocsUnchanged = append(plan.DocsUnchanged, coreDoc.ID)
 		}
 	}
+
+	// Compare constraints.
+	coreConstraintsDir := filepath.Join(coreSource, ".leo", "kb", "constraints")
+	projConstraintsDir := filepath.Join(leoDir, "kb", "constraints")
+	if constraintEntries, err := os.ReadDir(coreConstraintsDir); err == nil {
+		for _, e := range constraintEntries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+				continue
+			}
+			srcPath := filepath.Join(coreConstraintsDir, e.Name())
+			tgtPath := filepath.Join(projConstraintsDir, e.Name())
+			name := strings.TrimSuffix(e.Name(), ".json")
+
+			if filesEqual(srcPath, tgtPath) {
+				plan.ConstraintsUnchanged = append(plan.ConstraintsUnchanged, name)
+			} else if _, err := os.Stat(tgtPath); err != nil {
+				plan.ConstraintsToAdd = append(plan.ConstraintsToAdd, SyncItem{
+					ID: name, SourcePath: srcPath, TargetPath: tgtPath,
+				})
+			} else {
+				plan.ConstraintsToUpdate = append(plan.ConstraintsToUpdate, SyncItem{
+					ID: name, SourcePath: srcPath, TargetPath: tgtPath,
+				})
+			}
+		}
+	}
+
+	// Compare skills.
+	coreSkillsDir := filepath.Join(coreSource, ".leo", "kb", "skills")
+	projSkillsDir := filepath.Join(leoDir, "kb", "skills")
+	if skillEntries, err := os.ReadDir(coreSkillsDir); err == nil {
+		for _, e := range skillEntries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+				continue
+			}
+			srcPath := filepath.Join(coreSkillsDir, e.Name())
+			tgtPath := filepath.Join(projSkillsDir, e.Name())
+			name := strings.TrimSuffix(e.Name(), ".json")
+
+			if filesEqual(srcPath, tgtPath) {
+				plan.SkillsUnchanged = append(plan.SkillsUnchanged, name)
+			} else if _, err := os.Stat(tgtPath); err != nil {
+				plan.SkillsToAdd = append(plan.SkillsToAdd, SyncItem{
+					ID: name, SourcePath: srcPath, TargetPath: tgtPath,
+				})
+			} else {
+				plan.SkillsToUpdate = append(plan.SkillsToUpdate, SyncItem{
+					ID: name, SourcePath: srcPath, TargetPath: tgtPath,
+				})
+			}
+		}
+	}
+
+	// Compare identity.json.
+	coreIdentity := filepath.Join(coreSource, ".leo", "identity.json")
+	projIdentity := filepath.Join(leoDir, "identity.json")
+	plan.IdentityChanged = !filesEqual(coreIdentity, projIdentity)
 
 	// Compare schema files.
 	coreSchema := filepath.Join(coreSource, ".leo", "kb", "schema.json")
@@ -262,6 +329,51 @@ func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command
 		}
 	}
 
+	// Copy constraints.
+	constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+	if len(plan.ConstraintsToAdd)+len(plan.ConstraintsToUpdate) > 0 {
+		if err := os.MkdirAll(constraintsDir, 0755); err != nil {
+			return fmt.Errorf("ensuring constraints dir exists: %w", err)
+		}
+		for _, item := range plan.ConstraintsToAdd {
+			if err := copyFileContents(item.SourcePath, item.TargetPath); err != nil {
+				return fmt.Errorf("copying constraint %s: %w", item.ID, err)
+			}
+		}
+		for _, item := range plan.ConstraintsToUpdate {
+			if err := copyFileContents(item.SourcePath, item.TargetPath); err != nil {
+				return fmt.Errorf("updating constraint %s: %w", item.ID, err)
+			}
+		}
+	}
+
+	// Copy skills.
+	skillsDir := filepath.Join(leoDir, "kb", "skills")
+	if len(plan.SkillsToAdd)+len(plan.SkillsToUpdate) > 0 {
+		if err := os.MkdirAll(skillsDir, 0755); err != nil {
+			return fmt.Errorf("ensuring skills dir exists: %w", err)
+		}
+		for _, item := range plan.SkillsToAdd {
+			if err := copyFileContents(item.SourcePath, item.TargetPath); err != nil {
+				return fmt.Errorf("copying skill %s: %w", item.ID, err)
+			}
+		}
+		for _, item := range plan.SkillsToUpdate {
+			if err := copyFileContents(item.SourcePath, item.TargetPath); err != nil {
+				return fmt.Errorf("updating skill %s: %w", item.ID, err)
+			}
+		}
+	}
+
+	// Copy identity.json.
+	if plan.IdentityChanged {
+		coreIdentity := filepath.Join(coreSource, ".leo", "identity.json")
+		projIdentity := filepath.Join(leoDir, "identity.json")
+		if err := copyFileContents(coreIdentity, projIdentity); err != nil {
+			return fmt.Errorf("updating identity.json: %w", err)
+		}
+	}
+
 	if plan.SchemaChanged {
 		coreSchema := filepath.Join(coreSource, ".leo", "kb", "schema.json")
 		projSchema := filepath.Join(leoDir, "kb", "schema.json")
@@ -314,6 +426,28 @@ func displaySyncPlan(cmd *cobra.Command, source string, plan *SyncPlan) {
 		cmd.Printf("    = %-30s (unchanged)\n", id)
 	}
 
+	cmd.Println("\n  Constraints:")
+	for _, item := range plan.ConstraintsToAdd {
+		cmd.Printf("    + %-30s (new)\n", item.ID)
+	}
+	for _, item := range plan.ConstraintsToUpdate {
+		cmd.Printf("    ~ %-30s (updated)\n", item.ID)
+	}
+	for _, name := range plan.ConstraintsUnchanged {
+		cmd.Printf("    = %-30s (unchanged)\n", name)
+	}
+
+	cmd.Println("\n  Skills:")
+	for _, item := range plan.SkillsToAdd {
+		cmd.Printf("    + %-30s (new)\n", item.ID)
+	}
+	for _, item := range plan.SkillsToUpdate {
+		cmd.Printf("    ~ %-30s (updated)\n", item.ID)
+	}
+	for _, name := range plan.SkillsUnchanged {
+		cmd.Printf("    = %-30s (unchanged)\n", name)
+	}
+
 	cmd.Println("\n  Profiles:")
 	for _, item := range plan.ProfilesToAdd {
 		cmd.Printf("    + %-30s (new)\n", item.ID)
@@ -325,15 +459,21 @@ func displaySyncPlan(cmd *cobra.Command, source string, plan *SyncPlan) {
 		cmd.Printf("    = %-30s (unchanged)\n", name)
 	}
 
+	identityStatus := "unchanged"
+	if plan.IdentityChanged {
+		identityStatus = "updated"
+	}
+	cmd.Printf("\n  Identity: %s\n", identityStatus)
+
 	schemaStatus := "unchanged"
 	if plan.SchemaChanged {
 		schemaStatus = "updated"
 	}
-	cmd.Printf("\n  Schema: %s\n", schemaStatus)
+	cmd.Printf("  Schema: %s\n", schemaStatus)
 
-	totalNew := len(plan.DocsToAdd) + len(plan.ProfilesToAdd)
-	totalUpdated := len(plan.DocsToUpdate)
-	totalUnchanged := len(plan.DocsUnchanged) + len(plan.ProfilesUnchanged)
+	totalNew := len(plan.DocsToAdd) + len(plan.ProfilesToAdd) + len(plan.ConstraintsToAdd) + len(plan.SkillsToAdd)
+	totalUpdated := len(plan.DocsToUpdate) + len(plan.ConstraintsToUpdate) + len(plan.SkillsToUpdate)
+	totalUnchanged := len(plan.DocsUnchanged) + len(plan.ProfilesUnchanged) + len(plan.ConstraintsUnchanged) + len(plan.SkillsUnchanged)
 	totalConflicts := len(plan.ProfileConflicts)
 	cmd.Printf("\n  Summary: %d new, %d updated, %d unchanged, %d conflicts\n",
 		totalNew, totalUpdated, totalUnchanged, totalConflicts)

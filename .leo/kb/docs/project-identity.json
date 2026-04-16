@@ -12,26 +12,26 @@
     "golang"
   ],
   "created": "2026-04-08T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-13T20:00:00Z",
   "updated_by": "leo",
   "content": {
     "constraints": [
-      "All KB content is JSON — MD only exists as platform constraints (CLAUDE.md bootloader)",
-      "Core artifacts are English only — interaction language is personal choice (gitignored)",
-      "No rule change without explicit R2 from the owner",
-      "Leo ↔ Specialists model: Leo orchestrates with Opus, Specialists are ephemeral sub-agents running Sonnet",
-      "Scripts must never require AI tokens — if it's deterministic, it's a script"
+      "All KB content is JSON \u2014 MD only exists as platform constraints (CLAUDE.md bootloader)",
+      "Core artifacts are English only \u2014 interaction language is personal choice (gitignored)",
+      "No rule change without explicit R2 from the user",
+      "Leo \u2194 Specialists model: Leo orchestrates with Opus, Specialists are ephemeral sub-agents running Sonnet",
+      "Scripts must never require AI tokens \u2014 if it's deterministic, it's a script"
     ],
     "philosophy": "Copilot-style, not Paperclip-style. Owner decides the what and why, Leo orchestrates (routing and delegation), Specialists execute. Token Economy: Opus thinks (Leo orchestration), Sonnet executes (Specialists), scripts handle deterministic work at zero cost. Knowledge is JSON for agents, human-readable outputs are generated on demand. Extend, never override.",
     "stack": [
-      "Go CLI (cli/) — the leo command, built with cobra + charm/huh",
+      "Go CLI (cli/) \u2014 the leo command, built with cobra + charm/huh",
       "JSON Knowledge Base (.claude/kb/) with schema validation",
       "Bash scripts for zero-token deterministic work (validate, index, stale detection)",
-      ".leo/ directory per project — config, profiles, KB",
+      ".leo/ directory per project \u2014 config, profiles, KB",
       "Runtime adapters generate runtime-specific files (e.g., CLAUDE.md for Claude Code)",
       "Claude Code hooks for automated KB maintenance"
     ],
-    "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together. This repo is the core — a Go CLI tool that bootstraps, manages, and propagates an AI-native knowledge base across all the owner's projects. The KB is a neural network of JSON docs connected by tags, consumed by agents, maintained by scripts."
+    "what": "L.E.O. (Living Ecosystem Orchestrator) \u2014 a living knowledge infrastructure where humans and agents think, decide, and evolve together. This repo is the core \u2014 a Go CLI tool that bootstraps, manages, and propagates an AI-native knowledge base across all the user's projects. The KB is a neural network of JSON docs connected by tags, consumed by agents, maintained by scripts."
   }
 }

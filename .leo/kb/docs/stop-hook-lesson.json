@@ -11,12 +11,12 @@
     "performance"
   ],
   "created": "2026-04-11T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-11T00:00:00Z",
   "updated_by": "leo",
   "content": {
-    "feedback": "Never use Stop hooks for frequent operations. The Stop event fires after every agent response — a rebuild-index script on Stop caused constant errors in the terminal.",
+    "feedback": "Never use Stop hooks for frequent operations. The Stop event fires after every agent response \u2014 a rebuild-index script on Stop caused constant errors in the terminal.",
     "how_to_apply": "Use PostToolUse with specific matcher (e.g., Write) instead of Stop for KB maintenance. Combine validate + rebuild-index into one hook that only fires when a KB doc is actually written. Reserve Stop hooks for lightweight, silent operations only.",
-    "why": "Stop fires too frequently. Any script that takes time or produces output will spam the terminal and degrade the user experience. The owner reported constant errors from rebuild-index.sh running on every response."
+    "why": "Stop fires too frequently. Any script that takes time or produces output will spam the terminal and degrade the user experience. The user reported constant errors from rebuild-index.sh running on every response."
   }
 }

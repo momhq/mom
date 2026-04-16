@@ -1,6 +1,6 @@
 {
   "id": "think-before-execute",
-  "type": "rule",
+  "type": "constraint",
   "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
@@ -11,33 +11,34 @@
     "autonomy"
   ],
   "created": "2026-04-08T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-10T00:00:00Z",
   "updated_by": "leo",
   "content": {
     "anti_patterns": [
-      "Asking permission for everything — becomes friction",
-      "Executing an architectural decision without aligning — generates rework"
+      "Asking permission for everything \u2014 becomes friction",
+      "Executing an architectural decision without aligning \u2014 generates rework"
     ],
     "examples": [
       {
-        "right": "Direct mode — go ahead",
+        "right": "Direct mode \u2014 go ahead",
         "situation": "Change the primary button color to gold on the login screen",
-        "wrong": "Ask the owner for permission (too much friction)"
+        "wrong": "Ask the user for permission (too much friction)"
       },
       {
-        "right": "Alignment mode — explain it affects 40 components, present options (token only vs full refactor vs staged), ask which approach",
+        "right": "Alignment mode \u2014 explain it affects 40 components, present options (token only vs full refactor vs staged), ask which approach",
         "situation": "Change the app's primary color",
         "wrong": "Just change the CSS variable and ship it"
       }
     ],
     "how_to_apply": [
       "Direct mode when: clear bounded instruction, obvious bug fix with known root cause, point adjustment to existing feature, you can describe the final diff in one sentence",
-      "Alignment mode when: architectural decision, more than one reasonable way to implement with real trade-offs, affects multiple files non-trivially, you need to infer what the owner meant, task is vague with no metrics",
-      "In alignment mode: write task summary, decisions in play, options with pros/cons, recommendation, specific question for the owner. Wait for answer. Don't start while they're deciding."
+      "Alignment mode when: architectural decision, more than one reasonable way to implement with real trade-offs, affects multiple files non-trivially, you need to infer what the user meant, task is vague with no metrics",
+      "In alignment mode: write task summary, decisions in play, options with pros/cons, recommendation, specific question for the user. Wait for answer. Don't start while they're deciding."
     ],
     "responsibility": "All agents, self-enforced. The self-check is mandatory, not optional.",
-    "rule": "Before executing, decide: Direct mode (clear, bounded → execute) or Alignment mode (ambiguous, architectural → present approach and wait for approval).",
-    "why": "Claude has a tendency toward direct mode by default. It works for 70% of tasks but fails catastrophically on the 30% that need alignment — the model decides alone on points where the owner should be the decider."
-  }
+    "why": "Claude has a tendency toward direct mode by default. It works for 70% of tasks but fails catastrophically on the 30% that need alignment \u2014 the model decides alone on points where the user should be the decider.",
+    "constraint": "Before executing, decide: Direct mode (clear, bounded \u2192 execute) or Alignment mode (ambiguous, architectural \u2192 present approach and wait for approval)."
+  },
+  "summary": "Before executing, decide: Direct mode (clear, bounded \u2192 execute) or Alignment mode (ambiguous, architectural \u2192 present a"
 }

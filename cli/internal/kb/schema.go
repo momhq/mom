@@ -12,8 +12,8 @@ import (
 var validID = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 var validTypes = map[string]bool{
-	"rule": true, "skill": true, "identity": true, "decision": true,
-	"pattern": true, "fact": true, "feedback": true, "reference": true, "metric": true,
+	"constraint": true, "skill": true, "identity": true, "decision": true,
+	"fact": true, "feedback": true, "reference": true, "metric": true,
 }
 
 var validLifecycles = map[string]bool{
@@ -29,6 +29,7 @@ type Doc struct {
 	ID        string         `json:"id"`
 	Type      string         `json:"type"`
 	Boot      bool           `json:"boot,omitempty"`
+	Summary   string         `json:"summary,omitempty"`
 	Lifecycle string         `json:"lifecycle"`
 	Scope     string         `json:"scope"`
 	Tags      []string       `json:"tags"`

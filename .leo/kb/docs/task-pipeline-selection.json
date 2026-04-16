@@ -1,6 +1,6 @@
 {
   "id": "task-pipeline-selection",
-  "type": "rule",
+  "type": "constraint",
   "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
@@ -15,16 +15,16 @@
     "project-agnostic"
   ],
   "created": "2026-04-14T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-14T00:00:00Z",
   "updated_by": "leo",
   "content": {
     "anti_patterns": [
-      "Calling analyze-architecture (Opus) for a one-line fix — Token Economy violation",
-      "Skipping review-code on medium tasks — false economy, review catches bugs cheaper than production",
-      "Running full pipeline on config changes — overhead without return",
-      "Never using review-security — security debt accumulates silently",
-      "Hardcoding profile names in pipelines — pipelines must reference functions, Leo resolves profiles at delegation time"
+      "Calling analyze-architecture (Opus) for a one-line fix \u2014 Token Economy violation",
+      "Skipping review-code on medium tasks \u2014 false economy, review catches bugs cheaper than production",
+      "Running full pipeline on config changes \u2014 overhead without return",
+      "Never using review-security \u2014 security debt accumulates silently",
+      "Hardcoding profile names in pipelines \u2014 pipelines must reference functions, Leo resolves profiles at delegation time"
     ],
     "context": "Leo orchestrates development tasks by delegating to Specialists (Sonnet-powered ephemeral sub-agents). Each Specialist has a profile that defines their discipline. The question is: how many and which Specialists should Leo involve for a given task?",
     "examples": [
@@ -34,12 +34,12 @@
         "task": "Fix typo in README"
       },
       {
-        "pipeline": "execute → review-code → review-security",
+        "pipeline": "execute \u2192 review-code \u2192 review-security",
         "sizing": "medium + security",
         "task": "Add input validation to login form"
       },
       {
-        "pipeline": "analyze-architecture → execute → write-tests → review-code",
+        "pipeline": "analyze-architecture \u2192 execute \u2192 write-tests \u2192 review-code",
         "sizing": "large",
         "task": "Implement new notification subsystem"
       },
@@ -49,29 +49,29 @@
         "task": "Update dependency version"
       },
       {
-        "pipeline": "analyze-architecture → execute → write-tests → review-code → review-security",
+        "pipeline": "analyze-architecture \u2192 execute \u2192 write-tests \u2192 review-code \u2192 review-security",
         "sizing": "large + security",
         "task": "Refactor auth middleware to support OAuth"
       }
     ],
-    "problem": "Using the full pipeline (analyze-architecture → execute → write-tests → review-code → review-security) for every task wastes tokens and adds latency. Using only one function for complex tasks risks quality. Leo needs a sizing heuristic.",
+    "problem": "Using the full pipeline (analyze-architecture \u2192 execute \u2192 write-tests \u2192 review-code \u2192 review-security) for every task wastes tokens and adds latency. Using only one function for complex tasks risks quality. Leo needs a sizing heuristic.",
     "solution": {
-      "description": "Leo sizes each task before delegating and selects the appropriate pipeline. Pipelines are PROJECT-AGNOSTIC — they reference abstract functions (roles), not concrete profiles. Leo resolves each function to a concrete profile at delegation time based on project context.",
+      "description": "Leo sizes each task before delegating and selects the appropriate pipeline. Pipelines are PROJECT-AGNOSTIC \u2014 they reference abstract functions (roles), not concrete profiles. Leo resolves each function to a concrete profile at delegation time based on project context.",
       "pipeline_tiers": [
         {
-          "pipeline": "execute → self-QA → delivery",
+          "pipeline": "execute \u2192 self-QA \u2192 delivery",
           "rationale": "One function, no overhead. Self-QA in the resolved profile covers quality.",
           "tier": "small",
           "triggers": "Bug fix, config change, typo, one-file edit"
         },
         {
-          "pipeline": "execute → review-code → delivery",
+          "pipeline": "execute \u2192 review-code \u2192 delivery",
           "rationale": "Execution plus adversarial review. Most tasks land here.",
           "tier": "medium",
           "triggers": "Feature slice, refactor, multi-file change"
         },
         {
-          "pipeline": "analyze-architecture → execute → write-tests → review-code → delivery",
+          "pipeline": "analyze-architecture \u2192 execute \u2192 write-tests \u2192 review-code \u2192 delivery",
           "rationale": "analyze-architecture (Opus) evaluates approach before burning execution tokens. write-tests ensures coverage. review-code closes.",
           "tier": "large",
           "triggers": "New feature, architecture change, new subsystem"
@@ -84,7 +84,7 @@
         }
       ],
       "profile_resolution": {
-        "description": "Leo resolves abstract pipeline functions to concrete Specialist profiles based on the project's stack and context. The same pipeline pattern works identically across all projects — only the resolution changes.",
+        "description": "Leo resolves abstract pipeline functions to concrete Specialist profiles based on the project's stack and context. The same pipeline pattern works identically across all projects \u2014 only the resolution changes.",
         "examples": [
           {
             "function": "execute",
@@ -119,6 +119,16 @@
         "Does this touch auth, payments, secrets, or personal data? (yes = add security review)",
         "Is this a known pattern or a novel problem? (novel = bump up one tier)"
       ]
-    }
-  }
+    },
+    "constraint": "Leo sizes each task before delegating and selects the appropriate pipeline. Pipelines reference abstract functions (roles), not concrete profiles. Leo resolves each function to a concrete profile at delegation time based on project context.",
+    "why": "Using the full pipeline (analyze-architecture \u2192 execute \u2192 write-tests \u2192 review-code \u2192 review-security) for every task wastes tokens and adds latency. Using only one function for complex tasks risks quality. Leo needs a sizing heuristic.",
+    "how_to_apply": [
+      "small: Bug fix, config change, typo, one-file edit \u2192 execute \u2192 self-QA \u2192 delivery",
+      "medium: Feature slice, refactor, multi-file change \u2192 execute \u2192 review-code \u2192 delivery",
+      "large: New feature, architecture change, new subsystem \u2192 analyze-architecture \u2192 execute \u2192 write-tests \u2192 review-code \u2192 delivery",
+      "security-sensitive: Auth, payments, personal data, secrets, API keys \u2192 Add review-security before delivery to ANY pipeline above"
+    ],
+    "responsibility": "Leo, before every delegation decision."
+  },
+  "summary": "Size each task before delegating. Select the appropriate pipeline tier (small/medium/large/security) based on scope, complexity, and risk."
 }

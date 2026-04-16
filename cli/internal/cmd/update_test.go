@@ -18,7 +18,7 @@ import (
 func coreDoc(id string, scope string, updated time.Time) []byte {
 	doc := map[string]any{
 		"id":         id,
-		"type":       "rule",
+		"type":       "constraint",
 		"lifecycle":  "permanent",
 		"scope":      scope,
 		"tags":       []string{"test"},
@@ -27,8 +27,9 @@ func coreDoc(id string, scope string, updated time.Time) []byte {
 		"updated":    updated.UTC().Format(time.RFC3339),
 		"updated_by": "test",
 		"content": map[string]any{
-			"summary": "Test rule " + id,
-			"body":    "This is test rule " + id + ".",
+			"constraint":   "Test constraint " + id,
+			"why":          "Testing",
+			"how_to_apply": []string{"Apply " + id},
 		},
 	}
 	data, _ := json.MarshalIndent(doc, "", "  ")
@@ -58,6 +59,12 @@ func setupFakeCore(t *testing.T) string {
 	profilesDir := filepath.Join(core, ".leo", "profiles")
 	if err := os.MkdirAll(profilesDir, 0755); err != nil {
 		t.Fatalf("setupFakeCore: creating profiles dir: %v", err)
+	}
+
+	// Identity.json.
+	identity := []byte(`{"name":"Leo","version":"1"}`)
+	if err := os.WriteFile(filepath.Join(core, ".leo", "identity.json"), identity, 0644); err != nil {
+		t.Fatalf("setupFakeCore: writing identity.json: %v", err)
 	}
 
 	return core

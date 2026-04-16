@@ -1,6 +1,6 @@
 {
   "id": "evidence-over-claim",
-  "type": "rule",
+  "type": "constraint",
   "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
@@ -11,7 +11,7 @@
     "quality"
   ],
   "created": "2026-04-08T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-10T00:00:00Z",
   "updated_by": "leo",
   "content": {
@@ -31,10 +31,11 @@
       "Research: sources cited with URL, author, date. Raw data or screenshot of source",
       "Writing: final text pasted. Specific excerpt when edit was point-scoped",
       "Product (PM): link to PRD/RDD. Traceable decisions",
-      "Discipline-specific self-QA criteria are part of each Specialist's task context — this rule requires evidence exists, Leo defines what counts as good evidence per domain"
+      "Discipline-specific self-QA criteria are part of each Specialist's task context \u2014 this rule requires evidence exists, Leo defines what counts as good evidence per domain"
     ],
     "responsibility": "All agents. Leo rejects deliveries from Specialists that don't comply. Specialists must self-verify before reporting to Leo. Two-layer cascade of rigor.",
-    "rule": "The owner shouldn't need to believe you. They should be able to check. Every delivery must come with verifiable evidence. If you don't have evidence, the work is not done.",
-    "why": "Claude has a strong tendency to say 'done, passed, works' without verifying. It's structural optimism from training. 'Said it passed' and 'passed' are different things, and the owner has been burned trusting the first."
-  }
+    "why": "Claude has a strong tendency to say 'done, passed, works' without verifying. It's structural optimism from training. 'Said it passed' and 'passed' are different things, and the user has been burned trusting the first.",
+    "constraint": "The user shouldn't need to believe you. They should be able to check. Every delivery must come with verifiable evidence. If you don't have evidence, the work is not done."
+  },
+  "summary": "The user shouldn't need to believe you. They should be able to check. Every delivery must come with verifiable evidence"
 }

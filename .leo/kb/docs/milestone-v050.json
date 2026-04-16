@@ -9,12 +9,13 @@
     "distribution"
   ],
   "created": "2026-04-14T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-14T00:00:00Z",
   "updated_by": "leo",
   "content": {
-    "context": "After shipping v0.4.0, the owner identified that mode selection (verbose/concise/caveman) was missing from the onboarding wizard, and that the CLI-generated CLAUDE.md was ignoring the boot field — a bug only visible outside self-hosting. The README was also rewritten from internal documentation to a conversion-focused landing page to support upcoming distribution efforts.",
+    "context": "After shipping v0.4.0, the user identified that mode selection (verbose/concise/caveman) was missing from the onboarding wizard, and that the CLI-generated CLAUDE.md was ignoring the boot field \u2014 a bug only visible outside self-hosting. The README was also rewritten from internal documentation to a conversion-focused landing page to support upcoming distribution efforts.",
     "decision": "Created milestone v0.5.0 as the first formal GitHub milestone. Scope: onboarding mode selection (#30), boot field bug fix (#31), README rewrite for conversion, and issue #11 rescoped for input token optimization.",
-    "outcome": "PR #32 (mode + boot fix) open, PR #33 (README) merged. Milestone targets a quick release (next day after v0.4.0) with fixes that improve both DX and correctness for new users."
+    "outcome": "PR #32 (mode + boot fix) open, PR #33 (README) merged. Milestone targets a quick release (next day after v0.4.0) with fixes that improve both DX and correctness for new users.",
+    "why": "After shipping v0.4.0, the user identified that mode selection (verbose/concise/caveman) was missing from the onboarding wizard, and that the CLI-generated CLAUDE.md was ignoring the boot field \u2014 a bug only visible outside self-hosting. The README was also rewritten from internal documentation to a conversion-focused landing page to support upcoming distribution efforts."
   }
 }

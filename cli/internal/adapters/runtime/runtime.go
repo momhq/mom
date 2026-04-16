@@ -1,15 +1,15 @@
 // Package runtime defines the RuntimeAdapter interface for AI runtime integrations.
 package runtime
 
-// Config represents the owner's .leo/config.yaml configuration.
+// Config represents the user's .leo/config.yaml configuration.
 type Config struct {
 	Version string
 	Runtime string
-	Owner   OwnerConfig
+	User    UserConfig
 }
 
-// OwnerConfig holds owner preferences.
-type OwnerConfig struct {
+// UserConfig holds user preferences.
+type UserConfig struct {
 	Language       string
 	Mode           string
 	Autonomy       string
@@ -26,12 +26,25 @@ type Profile struct {
 	ContextInjection string
 }
 
-// Rule represents a KB rule document.
-type Rule struct {
-	ID   string
-	Type string
-	Tags []string
-	Rule string
+// Constraint represents a KB constraint document.
+type Constraint struct {
+	ID      string
+	Summary string
+	Tags    []string
+}
+
+// Skill represents a KB skill document.
+type Skill struct {
+	ID      string
+	Summary string
+	Tags    []string
+}
+
+// Identity represents the .leo/identity.json file.
+type Identity struct {
+	What        string
+	Philosophy  string
+	Constraints []string
 }
 
 // HookDef defines a hook to register with the runtime.
@@ -49,8 +62,8 @@ type Adapter interface {
 	Name() string
 
 	// GenerateContextFile generates the runtime's boot file
-	// (e.g. CLAUDE.md, .cursorrules) from Leo's config, active profile, and KB rules.
-	GenerateContextFile(config Config, profile Profile, rules []Rule) error
+	// (e.g. CLAUDE.md, .cursorrules) from Leo's config, active profile, constraints, skills, and identity.
+	GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error
 
 	// SupportsHooks returns whether this runtime supports hooks.
 	SupportsHooks() bool
@@ -60,4 +73,12 @@ type Adapter interface {
 
 	// DetectRuntime checks whether this runtime is present in the project.
 	DetectRuntime() bool
+
+	// GeneratedFiles returns the list of file paths (relative to project root)
+	// that this adapter generates. Used by uninstall to clean up.
+	GeneratedFiles() []string
+
+	// GeneratedDirs returns directories (relative to project root) that this
+	// adapter creates and that can be removed if empty after file cleanup.
+	GeneratedDirs() []string
 }

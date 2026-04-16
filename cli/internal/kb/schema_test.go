@@ -76,7 +76,7 @@ func TestValidate_InvalidType(t *testing.T) {
 }
 
 func TestValidate_AllValidTypes(t *testing.T) {
-	types := []string{"rule", "skill", "identity", "decision", "pattern", "fact", "feedback", "reference", "metric"}
+	types := []string{"constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "metric"}
 	for _, tp := range types {
 		t.Run(tp, func(t *testing.T) {
 			doc := validDoc()
@@ -85,6 +85,33 @@ func TestValidate_AllValidTypes(t *testing.T) {
 				t.Errorf("expected valid for type %q, got: %v", tp, err)
 			}
 		})
+	}
+}
+
+func TestValidate_SummaryField(t *testing.T) {
+	doc := validDoc()
+	doc.Summary = "A concise one-line description"
+	if err := doc.Validate(); err != nil {
+		t.Fatalf("expected valid doc with summary, got: %v", err)
+	}
+	if doc.Summary != "A concise one-line description" {
+		t.Errorf("expected summary %q, got %q", "A concise one-line description", doc.Summary)
+	}
+}
+
+func TestValidate_RuleTypeRejected(t *testing.T) {
+	doc := validDoc()
+	doc.Type = "rule"
+	if err := doc.Validate(); err == nil {
+		t.Fatal("expected error for deprecated type 'rule'")
+	}
+}
+
+func TestValidate_PatternTypeRejected(t *testing.T) {
+	doc := validDoc()
+	doc.Type = "pattern"
+	if err := doc.Validate(); err == nil {
+		t.Fatal("expected error for deprecated type 'pattern'")
 	}
 }
 

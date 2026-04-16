@@ -25,6 +25,7 @@
       "Branch protection rules now available on free plan",
       "Merge access remains restricted to owner and collaborators"
     ],
-    "reversible": false
+    "reversible": false,
+    "why": "Repo cleanup was complete (legacy artifacts removed, KB migrated to .leo/, CI green, README rewritten with pitch-style intro, first release published). Owner decided it was ready for public visitors."
   }
 }

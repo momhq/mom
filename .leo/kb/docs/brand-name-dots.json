@@ -11,9 +11,9 @@
     "marketing"
   ],
   "created": "2026-04-13T16:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-13T16:00:00Z",
-  "updated_by": "owner",
+  "updated_by": "user",
   "content": {
     "feedback": "Always write L.E.O. with dots in marketing materials, README, LinkedIn posts, and any public-facing content. Never use 'Leo' or 'LEO'. Never use lion emojis or lion-related imagery.",
     "how_to_apply": "Any content, documentation, or communication that references the product name in a public or marketing context should use 'L.E.O.' with dots. Code-level references (CLI command, directory names, package names) remain lowercase 'leo'.",

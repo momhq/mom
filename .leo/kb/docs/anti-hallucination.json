@@ -1,6 +1,6 @@
 {
   "id": "anti-hallucination",
-  "type": "rule",
+  "type": "constraint",
   "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
@@ -11,7 +11,7 @@
     "evidence"
   ],
   "created": "2026-04-08T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-10T00:00:00Z",
   "updated_by": "leo",
   "content": {
@@ -42,10 +42,11 @@
       "Mark origin when non-trivial: [INFERRED] for logical deduction from partial evidence, [RECALL] for something from training or previous sessions, [GUESS] for hunches based on general patterns",
       "Verify before asserting: read the file, grep the symbol, check official docs, run the command. If you can't verify, say '[GUESS]: ...' explicitly",
       "Memories age: a memory from 2 weeks ago may be wrong today. Before asserting based on a memory, verify against current state. If it conflicts, trust what you observe now and update the memory",
-      "Ask when the doubt is strategic: if you don't have a verifiable source in the project for a strategic question, don't make things up — ask the owner for context"
+      "Ask when the doubt is strategic: if you don't have a verifiable source in the project for a strategic question, don't make things up \u2014 ask the user for context"
     ],
     "responsibility": "All agents, without exception. Leo must reject deliveries from Specialists that contain assertions without a marked source. Specialists must self-check for unmarked [INFERRED] before reporting to Leo.",
-    "rule": "When you're not sure about something, say you don't know. Don't fill gaps with plausible-sounding assumptions. Invented information delivered with a confident tone is the worst possible failure.",
-    "why": "The owner tolerates 'I don't know' — they can verify, search, ask. The owner does not tolerate a confident answer that later turns out to be false, because decisions have already been made based on it. The cost of the second is always greater than the cost of the first."
-  }
+    "why": "The user tolerates 'I don't know' \u2014 they can verify, search, ask. The user does not tolerate a confident answer that later turns out to be false, because decisions have already been made based on it. The cost of the second is always greater than the cost of the first.",
+    "constraint": "When you're not sure about something, say you don't know. Don't fill gaps with plausible-sounding assumptions. Invented information delivered with a confident tone is the worst possible failure."
+  },
+  "summary": "When you're not sure about something, say you don't know. Don't fill gaps with plausible-sounding assumptions. Invented "
 }

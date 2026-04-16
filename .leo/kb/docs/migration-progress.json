@@ -16,6 +16,7 @@
   "content": {
     "fact": "KB migration is COMPLETE. All 4 phases finished. Phase 1: KB structure + schema + scripts. Phase 2: 15 docs migrated (11 rules + 1 decision + 1 identity + 1 pattern + 1 skill). Phase 3: CLAUDE.md bootloader + hooks + CLI v0.2.0 with migrate-kb command. Phase 4: Old MD files removed, Go CLI implemented, MD system fully retired. The JSON KB is now the sole source of truth.",
     "historical_note": "This doc is kept as a historical record. The migration from Markdown rules to JSON Knowledge Base was a foundational architectural change that defined how Leo stores and propagates knowledge.",
-    "source": "Migration completed across sessions 2026-04-11 through 2026-04-13"
+    "source": "Migration completed across sessions 2026-04-11 through 2026-04-13",
+    "why": "Recorded for historical context."
   }
 }

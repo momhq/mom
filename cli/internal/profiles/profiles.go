@@ -14,6 +14,7 @@ import (
 type Profile struct {
 	Name             string   `yaml:"name"`
 	Description      string   `yaml:"description"`
+	Scope            string   `yaml:"scope"`
 	Focus            []string `yaml:"focus"`
 	Tone             string   `yaml:"tone"`
 	DefaultModel     string   `yaml:"default_model"`
@@ -72,9 +73,10 @@ func Save(profilesDir string, name string, p *Profile) error {
 // DefaultProfiles returns the built-in profiles shipped with Leo.
 func DefaultProfiles() map[string]*Profile {
 	return map[string]*Profile{
-		"generalist": {
-			Name:        "Generalist",
-			Description: "Well-rounded assistant for general tasks",
+		"general-manager": {
+			Name:        "General Manager",
+			Description: "Well-rounded assistant for general tasks — balances technical depth with clarity",
+			Scope:       "user",
 			Focus: []string{
 				"Understanding context and intent",
 				"Clear communication",
@@ -82,13 +84,14 @@ func DefaultProfiles() map[string]*Profile {
 			},
 			Tone:         "helpful, clear, concise",
 			DefaultModel: "sonnet",
-			ContextInjection: `You are operating as a generalist specialist. Balance technical
+			ContextInjection: `You are operating as a general manager. Balance technical
 depth with clarity. Adapt your approach to the task at hand.
 Ask clarifying questions when the intent is ambiguous.`,
 		},
 		"backend-engineer": {
 			Name:        "Backend Engineer",
 			Description: "Implementation, APIs, databases, performance, security",
+			Scope:       "specialist",
 			Focus: []string{
 				"API design and implementation",
 				"Database modeling and queries",
@@ -104,6 +107,7 @@ security. Write code, not essays. Test what you build.`,
 		"ceo": {
 			Name:        "CEO",
 			Description: "Chief Executive Officer — vision, priorities, trade-offs, speed of decision",
+			Scope:       "user",
 			Focus: []string{
 				"Strategic priorities and sequencing",
 				"Trade-off analysis with business impact",
@@ -120,6 +124,7 @@ to what matters most right now.`,
 		"cpo": {
 			Name:        "CPO",
 			Description: "Chief Product Officer — user value, roadmap, impact vs effort, feature scoping",
+			Scope:       "user",
 			Focus: []string{
 				"User problems and jobs-to-be-done",
 				"Impact vs effort prioritization",
@@ -136,6 +141,7 @@ that justifies the effort?`,
 		"cto": {
 			Name:        "CTO",
 			Description: "Chief Technology Officer — architecture, scalability, tech debt, infrastructure strategy",
+			Scope:       "user",
 			Focus: []string{
 				"Architecture decisions and system design",
 				"Technical debt assessment and payoff strategy",
@@ -152,6 +158,7 @@ the product, not the other way around.`,
 		"cmo": {
 			Name:        "CMO",
 			Description: "Chief Marketing Officer — positioning, messaging, audience, brand, growth",
+			Scope:       "user",
 			Focus: []string{
 				"Positioning and differentiation",
 				"Messaging clarity and consistency",
@@ -168,6 +175,7 @@ the right audience to the right value.`,
 		"cfo": {
 			Name:        "CFO",
 			Description: "Chief Financial Officer — cost analysis, ROI, efficiency, resource optimization",
+			Scope:       "user",
 			Focus: []string{
 				"Cost structure analysis and optimization",
 				"ROI evaluation for features and investments",

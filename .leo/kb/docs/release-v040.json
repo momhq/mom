@@ -14,6 +14,7 @@
   "updated_by": "leo",
   "content": {
     "body": "Released v0.4.0 with three major changes: (1) owner.language/mode/autonomy in config.yaml now generate rich behavioral instruction blocks in CLAUDE.md instead of plain bullet points, (2) five C-level strategic profiles added (CEO, CPO, CTO, CMO, CFO) with full rich format, and (3) leo update now syncs profiles from core with interactive conflict resolution. Also made the onboarding profile list dynamic — reads from DefaultProfiles() instead of hardcoded menu.",
-    "summary": "v0.4.0 released — config behavioral effect, C-level profiles, profile sync"
+    "summary": "v0.4.0 released — config behavioral effect, C-level profiles, profile sync",
+    "why": "See context field for rationale."
   }
 }

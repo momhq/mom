@@ -43,12 +43,3 @@ func newStorageAdapter() (*storage.JSONAdapter, error) {
 	return storage.NewJSONAdapter(leoDir), nil
 }
 
-// storageFilter creates a storage.QueryFilter from command flags.
-func storageFilter(tags []string, docType, scope, lifecycle string) storage.QueryFilter {
-	return storage.QueryFilter{
-		Tags:      tags,
-		Type:      docType,
-		Scope:     scope,
-		Lifecycle: lifecycle,
-	}
-}

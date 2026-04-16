@@ -33,7 +33,7 @@ func TestOnboarding_DefaultSelections(t *testing.T) {
 	if result.Mode != "concise" {
 		t.Errorf("expected mode=concise, got %q", result.Mode)
 	}
-	if result.DefaultProfile != "generalist" {
+	if result.DefaultProfile != "general-manager" {
 		t.Errorf("expected profile=generalist, got %q", result.DefaultProfile)
 	}
 	if result.Autonomy != "balanced" {
@@ -44,24 +44,26 @@ func TestOnboarding_DefaultSelections(t *testing.T) {
 // TestOnboarding_ExplicitSelections verifies that a user can pick non-default
 // options at each step.
 func TestOnboarding_ExplicitSelections(t *testing.T) {
-	// Compute the index of "backend-engineer" in the sorted profile list.
+	// Compute the index of "cto" in the sorted user-scoped profile list.
 	allProfiles := profiles.DefaultProfiles()
-	names := make([]string, 0, len(allProfiles))
-	for name := range allProfiles {
-		names = append(names, name)
+	names := make([]string, 0)
+	for name, p := range allProfiles {
+		if p.Scope == "user" {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
-	beIdx := 1
+	ctoIdx := 1
 	for i, name := range names {
-		if name == "backend-engineer" {
-			beIdx = i + 1
+		if name == "cto" {
+			ctoIdx = i + 1
 			break
 		}
 	}
 
-	// runtime=2 (cursor), language=2 (pt), mode=3 (caveman), profile=backend-engineer index,
-	// autonomy=3 (supervised), core-source=skip, confirm=Y
-	input := strings.NewReader(fmt.Sprintf("2\n2\n3\n%d\n3\n\nY\n", beIdx))
+	// runtime=1 (claude — cursor is coming soon), language=2 (pt), mode=3 (caveman),
+	// profile=cto index, autonomy=3 (supervised), core-source=skip, confirm=Y
+	input := strings.NewReader(fmt.Sprintf("1\n2\n3\n%d\n3\n\nY\n", ctoIdx))
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -69,8 +71,8 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 		t.Fatalf("runOnboarding failed: %v", err)
 	}
 
-	if result.Runtime != "cursor" {
-		t.Errorf("expected runtime=cursor, got %q", result.Runtime)
+	if result.Runtime != "claude" {
+		t.Errorf("expected runtime=claude, got %q", result.Runtime)
 	}
 	if result.Language != "pt" {
 		t.Errorf("expected language=pt, got %q", result.Language)
@@ -78,8 +80,8 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 	if result.Mode != "caveman" {
 		t.Errorf("expected mode=caveman, got %q", result.Mode)
 	}
-	if result.DefaultProfile != "backend-engineer" {
-		t.Errorf("expected profile=backend-engineer, got %q", result.DefaultProfile)
+	if result.DefaultProfile != "cto" {
+		t.Errorf("expected profile=cto, got %q", result.DefaultProfile)
 	}
 	if result.Autonomy != "supervised" {
 		t.Errorf("expected autonomy=supervised, got %q", result.Autonomy)
@@ -89,26 +91,29 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 // TestOnboarding_InvalidThenValid verifies that invalid input causes a
 // re-prompt and the wizard accepts the subsequent valid input.
 func TestOnboarding_InvalidThenValid(t *testing.T) {
-	// Compute the index of "generalist" in the sorted profile list.
+	// Compute the index of "general-manager" in the sorted user-scoped profile list.
 	allProfiles := profiles.DefaultProfiles()
-	names := make([]string, 0, len(allProfiles))
-	for name := range allProfiles {
-		names = append(names, name)
+	names := make([]string, 0)
+	for name, p := range allProfiles {
+		if p.Scope == "user" {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 	genIdx := 1
 	for i, name := range names {
-		if name == "generalist" {
+		if name == "general-manager" {
 			genIdx = i + 1
 			break
 		}
 	}
 
-	// runtime: bad input then valid "3" (windsurf)
-	// language: bad input then default Enter
+	// runtime: bad input → re-prompt → "1" (claude)
+	// language: bad input → re-prompt → default Enter
 	// mode: default Enter
-	// profile: invalid then generalist index, autonomy: "1" (autonomous), core-source: skip, confirm: default Enter
-	input := strings.NewReader(fmt.Sprintf("99\n3\nXXX\n\n\n999\n%d\n1\n\n\n", genIdx))
+	// profile: invalid → re-prompt → general-manager index
+	// autonomy: "1" (autonomous), core-source: skip, confirm: default Enter
+	input := strings.NewReader(fmt.Sprintf("99\n1\nXXX\n\n\n999\n%d\n1\n\n\n", genIdx))
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -116,14 +121,14 @@ func TestOnboarding_InvalidThenValid(t *testing.T) {
 		t.Fatalf("runOnboarding failed: %v", err)
 	}
 
-	if result.Runtime != "windsurf" {
-		t.Errorf("expected runtime=windsurf, got %q", result.Runtime)
+	if result.Runtime != "claude" {
+		t.Errorf("expected runtime=claude, got %q", result.Runtime)
 	}
 	if result.Language != "en" {
 		t.Errorf("expected language=en, got %q", result.Language)
 	}
-	if result.DefaultProfile != "generalist" {
-		t.Errorf("expected profile=generalist, got %q", result.DefaultProfile)
+	if result.DefaultProfile != "general-manager" {
+		t.Errorf("expected profile=general-manager, got %q", result.DefaultProfile)
 	}
 	if result.Autonomy != "autonomous" {
 		t.Errorf("expected autonomy=autonomous, got %q", result.Autonomy)
@@ -158,7 +163,7 @@ func TestOnboarding_RuntimeAutoDetect_Claude(t *testing.T) {
 }
 
 // TestOnboarding_RuntimeAutoDetect_Cursor verifies that when a .cursor/
-// directory exists the wizard defaults to Cursor.
+// directory exists, the wizard still defaults to Claude (cursor is coming soon).
 func TestOnboarding_RuntimeAutoDetect_Cursor(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".cursor"), 0755); err != nil {
@@ -174,8 +179,9 @@ func TestOnboarding_RuntimeAutoDetect_Cursor(t *testing.T) {
 		t.Fatalf("runOnboarding failed: %v", err)
 	}
 
-	if result.Runtime != "cursor" {
-		t.Errorf("expected auto-detected runtime=cursor, got %q", result.Runtime)
+	// Cursor is coming soon, so even with .cursor/ detected, default is claude.
+	if result.Runtime != "claude" {
+		t.Errorf("expected runtime=claude (cursor coming soon), got %q", result.Runtime)
 	}
 }
 
@@ -241,10 +247,9 @@ func TestAskRuntime(t *testing.T) {
 	}{
 		{name: "default enter", input: "\n", wantRT: "claude"},
 		{name: "pick 1", input: "1\n", wantRT: "claude"},
-		{name: "pick 2", input: "2\n", wantRT: "cursor"},
-		{name: "pick 3", input: "3\n", wantRT: "windsurf"},
-		{name: "pick 4 other", input: "4\n", wantRT: "other"},
-		{name: "invalid then 2", input: "9\n2\n", wantRT: "cursor"},
+		{name: "pick 2 coming soon then 1", input: "2\n1\n", wantRT: "claude"},
+		{name: "pick 3 coming soon then 1", input: "3\n1\n", wantRT: "claude"},
+		{name: "invalid then 1", input: "9\n1\n", wantRT: "claude"},
 	}
 
 	for _, tc := range cases {
@@ -320,22 +325,24 @@ func TestAskMode(t *testing.T) {
 }
 
 func TestAskProfile(t *testing.T) {
-	// Compute the sorted profile names so tests are not hardcoded against indices.
+	// Compute the sorted user-scoped profile names.
 	allProfiles := profiles.DefaultProfiles()
-	names := make([]string, 0, len(allProfiles))
-	for name := range allProfiles {
-		names = append(names, name)
+	names := make([]string, 0)
+	for name, p := range allProfiles {
+		if p.Scope == "user" {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 
-	// Find index of "backend-engineer" and "generalist" (1-based).
-	beIdx := 0
+	// Find index of "ceo" and "general-manager" (1-based).
+	ceoIdx := 0
 	genIdx := 0
 	for i, name := range names {
-		if name == "backend-engineer" {
-			beIdx = i + 1
+		if name == "ceo" {
+			ceoIdx = i + 1
 		}
-		if name == "generalist" {
+		if name == "general-manager" {
 			genIdx = i + 1
 		}
 	}
@@ -345,10 +352,10 @@ func TestAskProfile(t *testing.T) {
 		input       string
 		wantProfile string
 	}{
-		{name: "default enter", input: "\n", wantProfile: "generalist"},
-		{name: "pick backend-engineer by number", input: fmt.Sprintf("%d\n", beIdx), wantProfile: "backend-engineer"},
-		{name: "pick generalist by number", input: fmt.Sprintf("%d\n", genIdx), wantProfile: "generalist"},
-		{name: "invalid then generalist", input: fmt.Sprintf("999\n%d\n", genIdx), wantProfile: "generalist"},
+		{name: "default enter", input: "\n", wantProfile: "general-manager"},
+		{name: "pick ceo by number", input: fmt.Sprintf("%d\n", ceoIdx), wantProfile: "ceo"},
+		{name: "pick general-manager by number", input: fmt.Sprintf("%d\n", genIdx), wantProfile: "general-manager"},
+		{name: "invalid then general-manager", input: fmt.Sprintf("999\n%d\n", genIdx), wantProfile: "general-manager"},
 	}
 
 	for _, tc := range cases {
@@ -392,30 +399,30 @@ func TestAskAutonomy(t *testing.T) {
 	}
 }
 
-// TestOnboarding_IntegratesWithInit verifies that running leo init without
+// TestOnboarding_ResultMappedToConfig verifies that running leo init without
 // --runtime and without --no-interactive but with a pre-configured reader
 // picks up the onboarding result and writes the correct config.
-// We can't exercise the wizard path from rootCmd (it checks cmd.Flags().Changed("runtime")),
-// so we test runOnboarding + config integration directly.
 func TestOnboarding_ResultMappedToConfig(t *testing.T) {
-	// Compute the index of "backend-engineer" in the sorted profile list.
+	// Compute the index of "ceo" in the sorted user-scoped profile list.
 	allProfiles := profiles.DefaultProfiles()
-	names := make([]string, 0, len(allProfiles))
-	for name := range allProfiles {
-		names = append(names, name)
+	names := make([]string, 0)
+	for name, p := range allProfiles {
+		if p.Scope == "user" {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
-	beIdx := 1
+	ceoIdx := 1
 	for i, name := range names {
-		if name == "backend-engineer" {
-			beIdx = i + 1
+		if name == "ceo" {
+			ceoIdx = i + 1
 			break
 		}
 	}
 
-	// runtime=2 (cursor), language=3 (es), mode=1 (verbose), profile=backend-engineer index,
+	// runtime=1 (claude), language=3 (es), mode=1 (verbose), profile=ceo index,
 	// autonomy=1 (autonomous), core-source=skip, confirm=Y
-	input := strings.NewReader(fmt.Sprintf("2\n3\n1\n%d\n1\n\nY\n", beIdx))
+	input := strings.NewReader(fmt.Sprintf("1\n3\n1\n%d\n1\n\nY\n", ceoIdx))
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -423,9 +430,8 @@ func TestOnboarding_ResultMappedToConfig(t *testing.T) {
 		t.Fatalf("runOnboarding failed: %v", err)
 	}
 
-	// cursor, es, verbose, backend-engineer, autonomous
-	if result.Runtime != "cursor" {
-		t.Errorf("runtime: want cursor, got %q", result.Runtime)
+	if result.Runtime != "claude" {
+		t.Errorf("runtime: want claude, got %q", result.Runtime)
 	}
 	if result.Language != "es" {
 		t.Errorf("language: want es, got %q", result.Language)
@@ -433,8 +439,8 @@ func TestOnboarding_ResultMappedToConfig(t *testing.T) {
 	if result.Mode != "verbose" {
 		t.Errorf("mode: want verbose, got %q", result.Mode)
 	}
-	if result.DefaultProfile != "backend-engineer" {
-		t.Errorf("profile: want backend-engineer, got %q", result.DefaultProfile)
+	if result.DefaultProfile != "ceo" {
+		t.Errorf("profile: want ceo, got %q", result.DefaultProfile)
 	}
 	if result.Autonomy != "autonomous" {
 		t.Errorf("autonomy: want autonomous, got %q", result.Autonomy)
@@ -442,25 +448,28 @@ func TestOnboarding_ResultMappedToConfig(t *testing.T) {
 }
 
 // TestOnboarding_DynamicProfileList verifies that:
-// - The wizard output contains all profile names from DefaultProfiles()
-// - Selecting a C-level profile by its sorted index works (if present)
-// - Default (empty input) still returns "generalist"
+// - The wizard output contains all user-scoped profile names
+// - Specialist profiles are not shown
+// - Selecting a C-level profile by its sorted index works
+// - Default (empty input) still returns "general-manager"
 func TestOnboarding_DynamicProfileList(t *testing.T) {
 	allProfiles := profiles.DefaultProfiles()
-	names := make([]string, 0, len(allProfiles))
-	for name := range allProfiles {
-		names = append(names, name)
+	userNames := make([]string, 0)
+	for name, p := range allProfiles {
+		if p.Scope == "user" {
+			userNames = append(userNames, name)
+		}
 	}
-	sort.Strings(names)
+	sort.Strings(userNames)
 
-	t.Run("output contains all profile names", func(t *testing.T) {
+	t.Run("output contains all user-scoped profile names", func(t *testing.T) {
 		scanner, out := makeScanner("\n")
 		_, err := askProfile(scanner, out)
 		if err != nil {
 			t.Fatalf("askProfile failed: %v", err)
 		}
 		outStr := out.String()
-		for _, name := range names {
+		for _, name := range userNames {
 			p := allProfiles[name]
 			if !strings.Contains(outStr, p.Name) {
 				t.Errorf("expected output to contain profile name %q, got:\n%s", p.Name, outStr)
@@ -468,29 +477,44 @@ func TestOnboarding_DynamicProfileList(t *testing.T) {
 		}
 	})
 
-	t.Run("default empty input returns generalist", func(t *testing.T) {
+	t.Run("specialist profiles are not shown", func(t *testing.T) {
+		scanner, out := makeScanner("\n")
+		_, err := askProfile(scanner, out)
+		if err != nil {
+			t.Fatalf("askProfile failed: %v", err)
+		}
+		outStr := out.String()
+		for name, p := range allProfiles {
+			if p.Scope == "specialist" {
+				if strings.Contains(outStr, fmt.Sprintf("] %s —", p.Name)) {
+					t.Errorf("specialist profile %q should not appear in onboarding, got:\n%s", name, outStr)
+				}
+			}
+		}
+	})
+
+	t.Run("default empty input returns general-manager", func(t *testing.T) {
 		scanner, out := makeScanner("\n")
 		got, err := askProfile(scanner, out)
 		if err != nil {
 			t.Fatalf("askProfile failed: %v", err)
 		}
 		_ = out
-		if got != "generalist" {
-			t.Errorf("expected generalist, got %q", got)
+		if got != "general-manager" {
+			t.Errorf("expected general-manager, got %q", got)
 		}
 	})
 
-	// Only run this sub-test if a C-level profile exists in DefaultProfiles.
-	t.Run("selecting ceo by index works if present", func(t *testing.T) {
+	t.Run("selecting ceo by index works", func(t *testing.T) {
 		ceoIdx := -1
-		for i, name := range names {
+		for i, name := range userNames {
 			if name == "ceo" {
 				ceoIdx = i + 1
 				break
 			}
 		}
 		if ceoIdx == -1 {
-			t.Skip("ceo profile not present in DefaultProfiles, skipping")
+			t.Skip("ceo profile not present in user-scoped profiles, skipping")
 		}
 		scanner, out := makeScanner(fmt.Sprintf("%d\n", ceoIdx))
 		got, err := askProfile(scanner, out)

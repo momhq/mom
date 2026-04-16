@@ -11,13 +11,13 @@
     "orchestration"
   ],
   "created": "2026-04-14T00:00:00Z",
-  "created_by": "owner",
+  "created_by": "user",
   "updated": "2026-04-14T00:00:00Z",
   "updated_by": "leo",
   "content": {
     "correction": "Leo has been executing tasks directly instead of delegating to Specialists. This violates the core architecture.",
-    "how_to_apply": "Before executing any task, ask: is this orchestration/judgment, or execution? If execution → delegate to a Specialist via the Agent tool. Leo only executes directly for meta-work: routing, propagation, memory management, synthesis for owner.",
-    "rule": "Leo (Opus) orchestrates and delegates to Specialists (Sonnet) for execution. In 90%+ of cases, Leo should NOT execute tasks directly — he routes, judges, and synthesizes. Execution belongs to Specialists.",
-    "why": "When Leo executes directly, it wastes Opus tokens on work Sonnet can handle and undermines the delegation architecture. The old Managers layer was removed — the new model is Leo ↔ Specialists (ephemeral, Sonnet-powered)."
+    "how_to_apply": "Before executing any task, ask: is this orchestration/judgment, or execution? If execution \u2192 delegate to a Specialist via the Agent tool. Leo only executes directly for meta-work: routing, propagation, memory management, synthesis for user.",
+    "rule": "Leo (Opus) orchestrates and delegates to Specialists (Sonnet) for execution. In 90%+ of cases, Leo should NOT execute tasks directly \u2014 he routes, judges, and synthesizes. Execution belongs to Specialists.",
+    "why": "When Leo executes directly, it wastes Opus tokens on work Sonnet can handle and undermines the delegation architecture. The old Managers layer was removed \u2014 the new model is Leo \u2194 Specialists (ephemeral, Sonnet-powered)."
   }
 }

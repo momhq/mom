@@ -1,57 +1,33 @@
 {
   "id": "know-what-you-dont-know",
-  "type": "rule",
+  "type": "constraint",
   "boot": true,
   "lifecycle": "permanent",
   "scope": "core",
   "tags": [
     "expertise",
-    "hiring-loop",
     "trust",
     "self-awareness",
     "meta-reasoning"
   ],
   "created": "2026-04-08T00:00:00Z",
-  "created_by": "owner",
-  "updated": "2026-04-10T00:00:00Z",
+  "created_by": "user",
+  "updated": "2026-04-15T00:00:00Z",
   "updated_by": "leo",
   "content": {
     "anti_patterns": [
       "Claiming high confidence without a citable source (specialist, memory, doc)",
-      "Writing 'yes' on the pre-execution check without actually verifying",
-      "Attempting a task in a 'Low/Always' trust category without a specialist",
-      "Skipping the lessons learned pass after a review rejection"
+      "Attempting a task in a low-trust category without escalating",
+      "Saying 'I can handle this' based on superficial training knowledge"
     ],
     "how_to_apply": [
-      "Mechanism 1 (Preventive): fill in the pre-execution check form before every task — specific domain, specialist availability, worst case assessment, confidence level with citable source. Writing it forces honesty",
-      "Mechanism 2 (Structural): Leo maintains a trust gradient table by task category. Some categories NEVER execute without a domain-specific Specialist (crypto/auth/security, native bridging, infra/deploy/CI)",
-      "Mechanism 3 (Reactive): when peer review detects failure due to lack of expertise in domain X, Leo adds X to the 'Always specialist' list for the current project. Each mistake corrects the system",
-      "Mechanism 4 (Reflective): after peer review rejection, before fixing, run lessons learned pass — identify which rule would have prevented the failure, propose where the lesson should live, get R2 from owner"
+      "Preventive: before every task, assess domain expertise and confidence level. If confidence is low, flag it explicitly",
+      "Structural: some categories always require domain-specific expertise (crypto/auth/security, native platform APIs, infra/deploy/CI)",
+      "Reactive: when peer review detects failure due to lack of expertise, add domain to the always-escalate list for the project"
     ],
-    "mechanisms": [
-      {
-        "description": "Mandatory form filled before every task: domain, specialist availability, worst case, confidence with source. Must be written, not just thought.",
-        "name": "Pre-execution check",
-        "when": "preventive"
-      },
-      {
-        "description": "Leo-maintained table of task categories with default trust levels. Categories marked 'Always' require a domain-specific Specialist regardless of scope or pressure.",
-        "name": "Trust gradient",
-        "when": "structural"
-      },
-      {
-        "description": "When peer review detects expertise gap failure, Leo automatically adds the domain to 'Always specialist' list for the project.",
-        "name": "Post-failure hardening",
-        "when": "reactive"
-      },
-      {
-        "description": "After review rejection, agent identifies which rule would have prevented failure, whether lesson is project-specific or universal, and proposes where it should be added. Goes through R2.",
-        "name": "Lessons learned pass",
-        "when": "reflective"
-      }
-    ],
-    "responsibility": "Every executing agent (Leo when executing directly, Specialists during delegated work). Reviewers also consult the trust gradient when evaluating whether execution was legitimate.",
-    "rule": "Before writing any code, design, or copy, the executing agent stops and evaluates whether they really have the expertise to deliver with quality. If the answer is no, fire the Hiring Loop or escalation before failing, not after.",
-    "why": "Claude knows almost everything superficially. A Specialist told to implement APNs will try — because it has superficial knowledge from training. That's exactly the failure mode. A rule saying 'ask for help when you don't know' is not enough because the model will think it knows. A mechanism that forces meta-reasoning to be materialized is needed."
-  }
+    "responsibility": "Every executing agent — specialists and Leo alike.",
+    "why": "LLMs know almost everything superficially. A specialist told to implement APNs will try — because it has superficial knowledge from training. That's exactly the failure mode. Forcing materialized meta-reasoning before execution prevents confident-sounding failures.",
+    "constraint": "Before writing any code, design, or copy, the executing agent evaluates whether it has the expertise to deliver with quality. If confidence is low, escalate to the user or request a domain-specific specialist — don't attempt and fail."
+  },
+  "summary": "Before executing, every agent evaluates whether it has the expertise to deliver with quality. If not, escalate — don't attempt and fail."
 }
