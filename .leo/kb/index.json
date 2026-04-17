@@ -2,8 +2,7 @@
   "by_lifecycle": {
     "learning": [
       "md-fallback-during-migration",
-      "migration-progress",
-      "v070-scoping-session"
+      "migration-progress"
     ],
     "permanent": [
       "brand-name-dots",
@@ -12,10 +11,10 @@
       "feedback-kb-not-rules",
       "feedback-leo-must-delegate",
       "first-release-v020",
-      "ingest-architecture",
       "lifecycle-replaces-state-vs-learning",
       "milestone-v050",
       "milestone-v060",
+      "milestone-v070",
       "peer-review-automatic",
       "project-identity",
       "release-v040",
@@ -37,12 +36,12 @@
       "feedback-kb-not-rules",
       "feedback-leo-must-delegate",
       "first-release-v020",
-      "ingest-architecture",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
       "migration-progress",
       "milestone-v050",
       "milestone-v060",
+      "milestone-v070",
       "peer-review-automatic",
       "project-identity",
       "release-v040",
@@ -53,32 +52,28 @@
       "stop-hook-lesson",
       "task-pipeline-selection",
       "token-economy-caveman",
-      "token-economy-model-selection",
-      "v070-scoping-session"
+      "token-economy-model-selection"
     ]
   },
   "by_tag": {
+    "adapters": [
+      "milestone-v070"
+    ],
     "adversarial": [
       "peer-review-automatic"
     ],
     "architecture": [
-      "ingest-architecture",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
       "milestone-v060",
       "project-identity",
-      "stop-hook-lesson",
-      "v070-scoping-session"
+      "stop-hook-lesson"
     ],
     "branding": [
       "brand-name-dots"
     ],
     "compatibility": [
       "md-fallback-during-migration"
-    ],
-    "connectors": [
-      "ingest-architecture",
-      "v070-scoping-session"
     ],
     "content": [
       "brand-name-dots"
@@ -102,6 +97,7 @@
       "first-release-v020",
       "milestone-v050",
       "milestone-v060",
+      "milestone-v070",
       "release-v040"
     ],
     "dogfooding": [
@@ -111,15 +107,11 @@
       "token-economy-caveman",
       "token-economy-model-selection"
     ],
-    "enterprise": [
-      "ingest-architecture"
-    ],
     "functions": [
       "task-pipeline-selection"
     ],
     "github": [
       "feedback-close-issues-on-release",
-      "ingest-architecture",
       "repo-goes-public"
     ],
     "golang": [
@@ -136,10 +128,6 @@
     "identity": [
       "project-identity",
       "repo-rename-to-leo-core"
-    ],
-    "ingest": [
-      "ingest-architecture",
-      "v070-scoping-session"
     ],
     "isolation": [
       "peer-review-automatic"
@@ -182,13 +170,16 @@
       "first-release-v020",
       "milestone-v050",
       "milestone-v060",
+      "milestone-v070",
       "release-v040",
-      "repo-goes-public",
-      "v070-scoping-session"
+      "repo-goes-public"
     ],
     "model-selection": [
       "token-economy-caveman",
       "token-economy-model-selection"
+    ],
+    "multi-runtime": [
+      "milestone-v070"
     ],
     "mvp": [
       "first-release-v020"
@@ -231,13 +222,11 @@
       "first-release-v020",
       "milestone-v050",
       "milestone-v060",
+      "milestone-v070",
       "release-v040"
     ],
     "review": [
       "peer-review-automatic"
-    ],
-    "roadmap": [
-      "v070-scoping-session"
     ],
     "rules": [
       "feedback-kb-not-rules",
@@ -269,9 +258,6 @@
       "token-economy-caveman",
       "token-economy-model-selection"
     ],
-    "v070": [
-      "v070-scoping-session"
-    ],
     "visibility": [
       "repo-goes-public"
     ],
@@ -292,16 +278,15 @@
     "decision": [
       "clevel-profiles-strategy",
       "first-release-v020",
-      "ingest-architecture",
       "lifecycle-replaces-state-vs-learning",
       "md-fallback-during-migration",
       "milestone-v050",
       "milestone-v060",
+      "milestone-v070",
       "release-v040",
       "repo-goes-public",
       "repo-rename-to-leo-core",
-      "token-economy-caveman",
-      "v070-scoping-session"
+      "token-economy-caveman"
     ],
     "fact": [
       "migration-progress"
@@ -320,11 +305,11 @@
       "session-wrap-up"
     ]
   },
-  "last_rebuilt": "2026-04-16T02:49:17Z",
+  "last_rebuilt": "2026-04-17T02:23:23Z",
   "stats": {
     "docs_by_type": {
       "constraint": 4,
-      "decision": 12,
+      "decision": 11,
       "fact": 1,
       "feedback": 5,
       "identity": 1,
@@ -332,8 +317,8 @@
     },
     "most_connected_tag": "milestone",
     "stale_count": 0,
-    "total_docs": 24,
-    "total_tags": 58
+    "total_docs": 23,
+    "total_tags": 55
   },
   "version": "1"
 }

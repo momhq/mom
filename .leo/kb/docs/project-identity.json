@@ -13,20 +13,20 @@
   ],
   "created": "2026-04-08T00:00:00Z",
   "created_by": "user",
-  "updated": "2026-04-13T20:00:00Z",
+  "updated": "2026-04-16T00:00:00Z",
   "updated_by": "leo",
   "content": {
     "constraints": [
       "All KB content is JSON — MD only exists as platform constraints (CLAUDE.md bootloader)",
       "Core artifacts are English only — interaction language is personal choice (gitignored)",
       "No rule change without explicit R2 from the user",
-      "Leo ↔ Specialists model: Leo orchestrates with Opus, Specialists are ephemeral sub-agents running Sonnet",
+      "Leo ↔ Specialists model: Leo orchestrates with orchestration-tier, Specialists execute with execution-tier. Tier → model mapping is per-runtime (see capability tiers #48)",
       "Scripts must never require AI tokens — if it's deterministic, it's a script"
     ],
-    "philosophy": "Copilot-style, not Paperclip-style. Owner decides the what and why, Leo orchestrates (routing and delegation), Specialists execute. Token Economy: Opus thinks (Leo orchestration), Sonnet executes (Specialists), scripts handle deterministic work at zero cost. Knowledge is JSON for agents, human-readable outputs are generated on demand. Extend, never override.",
+    "philosophy": "Copilot-style, not Paperclip-style. Owner decides the what and why, Leo orchestrates (routing and delegation), Specialists execute. Token Economy: orchestration-tier thinks, execution-tier executes, scripts handle deterministic work at zero cost. One KB, many runtimes — knowledge is JSON for agents, human-readable outputs are generated per-runtime on demand. Extend, never override.",
     "stack": [
       "Go CLI (cli/) — the leo command, built with cobra + charm/huh",
-      "JSON Knowledge Base (.claude/kb/) with schema validation",
+      "JSON Knowledge Base (.leo/kb/) with schema validation",
       "Bash scripts for zero-token deterministic work (validate, index, stale detection)",
       ".leo/ directory per project — config, profiles, KB",
       "Runtime adapters generate runtime-specific files (e.g., CLAUDE.md for Claude Code)",

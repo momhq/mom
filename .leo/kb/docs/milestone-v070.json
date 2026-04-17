@@ -1,0 +1,44 @@
+{
+  "id": "milestone-v070",
+  "type": "decision",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": [
+    "milestone",
+    "release",
+    "multi-runtime",
+    "adapters",
+    "distribution"
+  ],
+  "created": "2026-04-16T00:00:00Z",
+  "created_by": "user",
+  "updated": "2026-04-16T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "cut": [
+      "#12 (crash recovery) — crash is not L.E.O.'s problem. L.E.O. operates within the runtime, doesn't own it. Incremental propagation adds permanent token tax for occasional crashes.",
+      "#5 (KB curator) — KB has 22 docs, tag overlap analysis found zero actual problems. Premature optimization.",
+      "#11 (concise rule format) — v0.6.0 summary field already covers this.",
+      "GitHub connector — deferred to a later release. Connectors are a separate concern from multi-runtime."
+    ],
+    "decisions": [
+      "Theme: Multi-runtime support — one KB, many runtimes.",
+      "Scope: #47 (registry + multi-select onboarding + backup/watermark), #48 (capability tiers + multi-runtime config), #46 (Codex adapter), #52 (Cline adapter).",
+      "Execution order: #47 → #48 → #46 → #52. Strict dependency chain.",
+      "Adapter layer goes from single-dispatch to multi-dispatch. Registry pattern + Strategy pattern.",
+      "leo init defaults to all detected runtimes (opt-out, not opt-in). Interactive multi-select via bubbletea.",
+      "Config shape: runtimes map replaces single runtime string. Each runtime has enabled flag + tier mapping. SpecialistsConfig removed.",
+      "Capability tiers (orchestration/execution/review) replace model names in KB. Adapters provide DefaultTierMapping(). Nil means runtime manages its own models.",
+      "Codex (proprietary, widely used) + Cline (open-source, deepest integration surface) chosen as the two new adapters. Good market coverage mix.",
+      "All generated files get watermark header. Backup logic: non-watermarked files get .bkp before overwrite.",
+      "Shared BuildContextContent() helper avoids duplicating Markdown generation across adapters.",
+      "bubbletea dependency approved for interactive CLI — first interactive experience, sets UX baseline.",
+      "v0.6.0 config migration path: Load() handles old format transparently.",
+      "v0.7.0 is NOT the last release before v1.0. Roadmap has room for more releases."
+    ],
+    "status": "planned",
+    "tracking": "GitHub milestone 'v0.7.0 — Multi-runtime support' with issues #47, #48, #46, #52",
+    "what": "v0.7.0 — Multi-runtime support: one KB, many runtimes",
+    "why": "v0.6.0 built enforcement and the adapter interface. v0.7.0 proves the architecture works for multiple runtimes — the core value proposition of 'one KB, many outputs'. Codex and Cline validate the pattern with two very different runtime ecosystems. This is the foundation for all future adapters (Cursor, Windsurf, Aider in parking lot)."
+  }
+}
