@@ -4,7 +4,6 @@ package runtime
 // Config represents the user's .leo/config.yaml configuration.
 type Config struct {
 	Version string
-	Runtime string
 	User    UserConfig
 }
 
@@ -55,14 +54,15 @@ type HookDef struct {
 }
 
 // Adapter is the interface that runtime integrations must implement.
-// Each runtime (Claude, Cursor, Windsurf, etc.) provides an adapter
+// Each runtime (Claude, Codex, Cline, etc.) provides an adapter
 // that reads from .leo/ and generates runtime-specific files.
 type Adapter interface {
-	// Name returns the runtime identifier (e.g. "claude", "cursor").
+	// Name returns the runtime identifier (e.g. "claude", "codex", "cline").
 	Name() string
 
 	// GenerateContextFile generates the runtime's boot file
-	// (e.g. CLAUDE.md, .cursorrules) from Leo's config, active profile, constraints, skills, and identity.
+	// (e.g. CLAUDE.md, AGENTS.md, .clinerules/leo-context.md) from Leo's config,
+	// active profile, constraints, skills, and identity.
 	GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error
 
 	// SupportsHooks returns whether this runtime supports hooks.
@@ -81,4 +81,12 @@ type Adapter interface {
 	// GeneratedDirs returns directories (relative to project root) that this
 	// adapter creates and that can be removed if empty after file cleanup.
 	GeneratedDirs() []string
+
+	// Watermark returns the header comment inserted into generated files.
+	// Used to distinguish Leo-generated files from user-created ones.
+	Watermark() string
+
+	// DefaultTierMapping returns the default capability tier → model mapping
+	// for this runtime. Returns nil if the runtime manages its own model selection.
+	DefaultTierMapping() map[string]string
 }

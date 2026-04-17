@@ -4,10 +4,14 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
+	huhspinner "charm.land/huh/v2/spinner"
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
@@ -24,13 +28,12 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().String("runtime", "claude", "AI runtime to configure (claude, cursor, windsurf)")
+	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, cline)")
 	initCmd.Flags().Bool("force", false, "Overwrite existing .leo/ directory")
 	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	rt, _ := cmd.Flags().GetString("runtime")
 	force, _ := cmd.Flags().GetBool("force")
 	noInteractive, _ := cmd.Flags().GetBool("no-interactive")
 
@@ -40,9 +43,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run the interactive onboarding wizard unless:
-	//   • --no-interactive / -y was passed, OR
-	//   • --runtime was explicitly provided by the user (direct/scripted mode).
-	if !noInteractive && !cmd.Flags().Changed("runtime") {
+	//   - --no-interactive / -y was passed, OR
+	//   - --runtimes was explicitly provided by the user (direct/scripted mode).
+	if !noInteractive && !cmd.Flags().Changed("runtimes") {
 		result, err := runOnboarding(cmd.InOrStdin(), cmd.OutOrStdout(), cwd)
 		if err != nil {
 			return err
@@ -51,8 +54,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Non-interactive path: use flags/defaults.
+	runtimes, _ := cmd.Flags().GetStringSlice("runtimes")
+	if len(runtimes) == 0 {
+		runtimes = []string{"claude"}
+	}
+
 	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
-		Runtime:        rt,
+		Runtimes:       runtimes,
 		Language:       config.Default().User.Language,
 		Mode:           config.Default().User.Mode,
 		DefaultProfile: config.Default().User.DefaultProfile,
@@ -70,101 +78,162 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return fmt.Errorf(".leo/ already exists — use --force to overwrite")
 	}
 
-	cmd.Println("Creating .leo/ structure...")
+	showSpinner := isTerminalWriter(cmd.OutOrStdout())
 
-	// Create directories.
-	dirs := []string{
-		leoDir,
-		filepath.Join(leoDir, "profiles"),
-		filepath.Join(leoDir, "kb", "docs"),
-		filepath.Join(leoDir, "kb", "skills"),
-		filepath.Join(leoDir, "kb", "constraints"),
-		filepath.Join(leoDir, "cache"),
-	}
-	for _, d := range dirs {
-		if err := os.MkdirAll(d, 0755); err != nil {
-			return fmt.Errorf("creating %s: %w", d, err)
+	// ── Phase 1: Scaffold directories ───────────────────────────────────────
+	var scaffoldErr error
+	doScaffold := func() {
+		dirs := []string{
+			leoDir,
+			filepath.Join(leoDir, "profiles"),
+			filepath.Join(leoDir, "kb", "docs"),
+			filepath.Join(leoDir, "kb", "skills"),
+			filepath.Join(leoDir, "kb", "constraints"),
+			filepath.Join(leoDir, "kb", "logs"),
+			filepath.Join(leoDir, "cache"),
+		}
+		for _, d := range dirs {
+			if err := os.MkdirAll(d, 0755); err != nil {
+				scaffoldErr = fmt.Errorf("creating %s: %w", d, err)
+				return
+			}
+		}
+		if showSpinner {
+			time.Sleep(600 * time.Millisecond)
 		}
 	}
 
-	// Write config.yaml — start from defaults and apply wizard/flag choices.
-	cfg := config.Default()
-	cfg.Runtime = result.Runtime
-	cfg.CoreSource = result.CoreSource
-	cfg.User.Language = result.Language
-	cfg.User.Mode = result.Mode
-	cfg.User.DefaultProfile = result.DefaultProfile
-	cfg.User.Autonomy = result.Autonomy
-
-	if err := config.Save(leoDir, &cfg); err != nil {
-		return err
+	if showSpinner {
+		_ = huhspinner.New().Title("Scanning project structure...").Action(doScaffold).Run()
+	} else {
+		doScaffold()
 	}
-	cmd.Println("  ✔ .leo/config.yaml")
+	if scaffoldErr != nil {
+		return scaffoldErr
+	}
 
-	// Write default profiles.
-	profilesDir := filepath.Join(leoDir, "profiles")
-	for name, p := range profiles.DefaultProfiles() {
-		if err := profiles.Save(profilesDir, name, p); err != nil {
-			return err
+	// ── Phase 2: Write knowledge base ───────────────────────────────────────
+	registry := runtime.NewRegistry(cwd)
+
+	var kbErr error
+	doWriteKB := func() {
+		// Build runtime config from selected runtimes.
+		runtimesCfg := make(map[string]config.RuntimeConfig)
+		for _, rt := range result.Runtimes {
+			adapter, ok := registry.Get(rt)
+			if !ok {
+				continue
+			}
+			runtimesCfg[rt] = config.RuntimeConfig{
+				Enabled: true,
+				Tiers:   adapter.DefaultTierMapping(),
+			}
 		}
-		cmd.Printf("  ✔ .leo/profiles/%s.yaml\n", name)
+
+		// Write config.yaml.
+		cfg := config.Config{
+			Version:    "1",
+			CoreSource: result.CoreSource,
+			Runtimes:   runtimesCfg,
+			User: config.UserConfig{
+				Language:       result.Language,
+				Mode:           result.Mode,
+				DefaultProfile: result.DefaultProfile,
+				Autonomy:       result.Autonomy,
+			},
+			KB: config.Default().KB,
+		}
+
+		if err := config.Save(leoDir, &cfg); err != nil {
+			kbErr = err
+			return
+		}
+
+		// Write default profiles.
+		profilesDir := filepath.Join(leoDir, "profiles")
+		for name, p := range profiles.DefaultProfiles() {
+			if err := profiles.Save(profilesDir, name, p); err != nil {
+				kbErr = err
+				return
+			}
+		}
+
+		// Write schema.json.
+		schemaData, err := embeddedSchema.ReadFile("schema.json")
+		if err != nil {
+			kbErr = fmt.Errorf("reading embedded schema: %w", err)
+			return
+		}
+		schemaPath := filepath.Join(leoDir, "kb", "schema.json")
+		if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
+			kbErr = fmt.Errorf("writing schema: %w", err)
+			return
+		}
+
+		// Write identity.json.
+		identityPath := filepath.Join(leoDir, "identity.json")
+		if err := os.WriteFile(identityPath, []byte(defaultIdentity()), 0644); err != nil {
+			kbErr = fmt.Errorf("writing identity.json: %w", err)
+			return
+		}
+
+		// Write core constraints.
+		constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+		for name, content := range coreConstraints() {
+			path := filepath.Join(constraintsDir, name+".json")
+			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				kbErr = fmt.Errorf("writing constraint %s: %w", name, err)
+				return
+			}
+		}
+
+		// Write core skills.
+		skillsDir := filepath.Join(leoDir, "kb", "skills")
+		for name, content := range coreSkills() {
+			path := filepath.Join(skillsDir, name+".json")
+			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				kbErr = fmt.Errorf("writing skill %s: %w", name, err)
+				return
+			}
+		}
+
+		// Write index.json with entries for all core docs.
+		indexPath := filepath.Join(leoDir, "kb", "index.json")
+		indexData, err := buildCoreIndex()
+		if err != nil {
+			kbErr = fmt.Errorf("building index: %w", err)
+			return
+		}
+		if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+			kbErr = fmt.Errorf("writing index: %w", err)
+			return
+		}
+
+		if showSpinner {
+			time.Sleep(800 * time.Millisecond)
+		}
 	}
 
-	// Write schema.json.
-	schemaData, err := embeddedSchema.ReadFile("schema.json")
+	if showSpinner {
+		_ = huhspinner.New().Title("Writing knowledge base...").Action(doWriteKB).Run()
+	} else {
+		doWriteKB()
+	}
+	if kbErr != nil {
+		return kbErr
+	}
+
+	// Re-load config for runtime generation (needed for the cfg variable).
+	cfg, err := config.Load(leoDir)
 	if err != nil {
-		return fmt.Errorf("reading embedded schema: %w", err)
-	}
-	schemaPath := filepath.Join(leoDir, "kb", "schema.json")
-	if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
-		return fmt.Errorf("writing schema: %w", err)
-	}
-	cmd.Println("  ✔ .leo/kb/schema.json")
-
-	// Write identity.json.
-	identityPath := filepath.Join(leoDir, "identity.json")
-	if err := os.WriteFile(identityPath, []byte(defaultIdentity()), 0644); err != nil {
-		return fmt.Errorf("writing identity.json: %w", err)
-	}
-	cmd.Println("  ✔ .leo/identity.json")
-
-	// Write core constraints.
-	constraintsDir := filepath.Join(leoDir, "kb", "constraints")
-	for name, content := range coreConstraints() {
-		path := filepath.Join(constraintsDir, name+".json")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			return fmt.Errorf("writing constraint %s: %w", name, err)
-		}
-		cmd.Printf("  ✔ .leo/kb/constraints/%s.json\n", name)
+		return fmt.Errorf("loading config after write: %w", err)
 	}
 
-	// Write core skills.
-	skillsDir := filepath.Join(leoDir, "kb", "skills")
-	for name, content := range coreSkills() {
-		path := filepath.Join(skillsDir, name+".json")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			return fmt.Errorf("writing skill %s: %w", name, err)
-		}
-		cmd.Printf("  ✔ .leo/kb/skills/%s.json\n", name)
-	}
-
-	// Write index.json with entries for all core docs.
-	indexPath := filepath.Join(leoDir, "kb", "index.json")
-	indexData, err := buildCoreIndex()
-	if err != nil {
-		return fmt.Errorf("building index: %w", err)
-	}
-	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
-		return fmt.Errorf("writing index: %w", err)
-	}
-	cmd.Println("  ✔ .leo/kb/index.json")
-
-	// Generate runtime context file.
-	if result.Runtime == "claude" {
-		adapter := runtime.NewClaudeAdapter(cwd)
+	// ── Phase 3: Generate runtime context files ────────────────────────────
+	var genErr error
+	doGenerate := func() {
 		runtimeCfg := runtime.Config{
 			Version: cfg.Version,
-			Runtime: cfg.Runtime,
 			User: runtime.UserConfig{
 				Language:       cfg.User.Language,
 				Mode:           cfg.User.Mode,
@@ -194,7 +263,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				Summary: doc.Summary,
 			})
 		}
-		// Sort for deterministic output.
 		sort.Slice(runtimeConstraints, func(i, j int) bool {
 			return runtimeConstraints[i].ID < runtimeConstraints[j].ID
 		})
@@ -228,14 +296,65 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			Constraints: identityData.Constraints,
 		}
 
-		if err := adapter.GenerateContextFile(runtimeCfg, runtimeProfile, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
-			return err
+		// Generate context files for all selected runtimes.
+		for _, rt := range result.Runtimes {
+			adapter, ok := registry.Get(rt)
+			if !ok {
+				continue
+			}
+
+			// Backup existing files if needed.
+			for _, relPath := range adapter.GeneratedFiles() {
+				absPath := filepath.Join(cwd, relPath)
+				runtime.BackupIfNeeded(absPath) //nolint:errcheck
+			}
+
+			if err := adapter.GenerateContextFile(runtimeCfg, runtimeProfile, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
+				genErr = err
+				return
+			}
 		}
-		cmd.Println("  ✔ .claude/CLAUDE.md (generated)")
+
+		if showSpinner {
+			time.Sleep(500 * time.Millisecond)
+		}
 	}
 
-	cmd.Println("\nLeo is ready. Run 'leo status' to check health.")
+	if showSpinner {
+		_ = huhspinner.New().Title("Generating runtime context files...").Action(doGenerate).Run()
+	} else {
+		doGenerate()
+	}
+	if genErr != nil {
+		return genErr
+	}
+
+	// ── Done ────────────────────────────────────────────────────────────────
+	cmd.Println()
+	cmd.Println("  ✔ .leo/ structure created")
+	for _, rt := range result.Runtimes {
+		adapter, ok := registry.Get(rt)
+		if !ok {
+			continue
+		}
+		for _, f := range adapter.GeneratedFiles() {
+			absPath := filepath.Join(cwd, f)
+			if _, statErr := os.Stat(absPath); statErr == nil {
+				cmd.Printf("  ✔ %s\n", f)
+			}
+		}
+	}
+	cmd.Println()
+	cmd.Println("L.E.O. is ready. Run 'leo status' to check health.")
 	return nil
+}
+
+// isTerminalWriter returns true if w is connected to a terminal.
+func isTerminalWriter(w io.Writer) bool {
+	if f, ok := w.(*os.File); ok {
+		return term.IsTerminal(f.Fd())
+	}
+	return false
 }
 
 // buildCoreIndex builds an index.json that includes all core constraint and skill docs.
@@ -260,14 +379,14 @@ func buildCoreIndex() ([]byte, error) {
 	}
 
 	type Index struct {
-		Version     string                 `json:"version"`
-		LastRebuilt string                 `json:"last_rebuilt"`
-		Stats       IndexStats             `json:"stats"`
-		ByTag       map[string][]string    `json:"by_tag"`
-		ByType      map[string][]string    `json:"by_type"`
-		ByScope     map[string][]string    `json:"by_scope"`
-		ByLifecycle map[string][]string    `json:"by_lifecycle"`
-		Docs        map[string]IndexEntry  `json:"docs"`
+		Version     string                `json:"version"`
+		LastRebuilt string                `json:"last_rebuilt"`
+		Stats       IndexStats            `json:"stats"`
+		ByTag       map[string][]string   `json:"by_tag"`
+		ByType      map[string][]string   `json:"by_type"`
+		ByScope     map[string][]string   `json:"by_scope"`
+		ByLifecycle map[string][]string   `json:"by_lifecycle"`
+		Docs        map[string]IndexEntry `json:"docs"`
 	}
 
 	idx := Index{

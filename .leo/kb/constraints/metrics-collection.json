@@ -11,18 +11,19 @@
   "updated": "2026-04-15T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "constraint": "Every session leaves one metric entry as a KB doc (type: metric). This creates the dataset for refining agents and rules based on real data — not guesswork.",
+    "constraint": "Every session leaves one session-log doc in .leo/kb/logs/. L.E.O. produces logs at wrap-up, never consumes them — monitoring is external.",
     "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
     "how_to_apply": [
-      "Collection happens at session wrap-up, enforced by runtime hooks",
-      "Metrics include: delegation enforcement, pipeline compliance, user acceptance, rework cycles, review pass rate, KB consultation rate, session cost, profiles used",
-      "Leo must record his own errors with the same rigor as the team's"
+      "Collection happens at session wrap-up via the session-wrap-up skill step 'Write session log'",
+      "Session-logs include: tasks performed, pipeline tiers used, profile, wrap-up revision count",
+      "Session-log docs are stored in .leo/kb/logs/, never indexed, never loaded at boot",
+      "External T1 scripts read session-log files from disk for metrics dashboards"
     ],
-    "responsibility": "System-enforced via hooks. Leo provides the data, the system persists it.",
+    "responsibility": "Enforced by the session-wrap-up skill. L.E.O. provides the data, external scripts consume it.",
     "anti_patterns": [
-      "Skipping metric collection for 'trivial' sessions",
-      "Marking delegation.quality as correct when it wasn't",
-      "Optimizing for token cost at the expense of quality"
+      "Skipping session-log for 'trivial' sessions",
+      "Loading session-log docs at boot or during work",
+      "Adding session-log docs to index.json"
     ]
   }
 }

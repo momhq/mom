@@ -21,7 +21,11 @@ func setupTestKBWithConfig(t *testing.T, runtime string) string {
 
 	// Write a real config.yaml.
 	cfg := config.Default()
-	cfg.Runtime = runtime
+	// Default() already includes claude; if a different runtime is requested,
+	// add it (for test flexibility).
+	if runtime != "claude" {
+		cfg.Runtimes[runtime] = config.RuntimeConfig{Enabled: true}
+	}
 	if err := config.Save(leoDir, &cfg); err != nil {
 		t.Fatalf("writing test config: %v", err)
 	}

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -9,44 +8,21 @@ import (
 	"sort"
 	"strings"
 
+	"charm.land/huh/v2"
+	"github.com/charmbracelet/x/term"
+	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/profiles"
 )
 
 // OnboardingResult holds the choices the user made during the interactive
-// onboarding wizard. All values are the internal identifiers used by Leo
-// (e.g. "claude", not "Claude Code").
+// onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
-	Runtime        string // "claude", "cursor", "windsurf"
-	Language       string // "en", "pt", "es"
-	Mode           string // "verbose", "concise", "caveman"
-	DefaultProfile string // "general-manager", "ceo", "cto", etc.
-	Autonomy       string // "autonomous", "balanced", "supervised"
-	CoreSource     string // path to leo-core clone, or "" if skipped
-}
-
-// scannerWrapper wraps a bufio.Scanner so we can pass it through the ask*
-// helpers without exposing bufio.Scanner's concrete type in the test helper
-// signature.
-type scannerWrapper struct {
-	s *bufio.Scanner
-}
-
-func newScannerWrapper(r io.Reader) *scannerWrapper {
-	return &scannerWrapper{s: bufio.NewScanner(r)}
-}
-
-// readLine reads one line of text. Returns "" on EOF (user pressed Enter on
-// an empty line or input ended).
-func (sw *scannerWrapper) readLine() string {
-	if sw.s.Scan() {
-		return strings.TrimSpace(sw.s.Text())
-	}
-	return ""
-}
-
-// separator prints a visual divider to w.
-func separator(w io.Writer) {
-	fmt.Fprintln(w, "───────────────────────────────────────────")
+	Runtimes       []string // ["claude", "codex", "cline"]
+	Language       string   // "en", "pt", "es"
+	Mode           string   // "verbose", "concise", "caveman"
+	DefaultProfile string   // "general-manager", "ceo", "cto", etc.
+	Autonomy       string   // "autonomous", "balanced", "supervised"
+	CoreSource     string   // path to leo-core clone, or "" if skipped
 }
 
 // runOnboarding executes the interactive wizard and returns the chosen config.
@@ -54,77 +30,185 @@ func separator(w io.Writer) {
 // w is the destination for wizard output (os.Stdout in production, bytes.Buffer in tests).
 // cwd is used for runtime auto-detection.
 func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, error) {
-	scanner := newScannerWrapper(r)
+	accessible := !isTerminalReader(r)
 
-	// ── Step 1: Welcome ──────────────────────────────────────────────────────
-	separator(w)
-	fmt.Fprintln(w, "  🦁 Welcome to Leo — Living Ecosystem Orchestrator")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  Leo gives your AI coding assistant persistent memory,")
-	fmt.Fprintln(w, "  specialist profiles, and structured knowledge management.")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  Let's set up your project. This takes about 30 seconds.")
-	separator(w)
-	fmt.Fprintln(w)
+	// ── Prepare runtime options ─────────────────────────────────────────────
+	registry := runtime.NewRegistry(cwd)
+	allAdapters := registry.All()
+	detected := registry.DetectAll()
 
-	// ── Step 2: Runtime ───────────────────────────────────────────────────────
-	rt, err := askRuntime(scanner, w, cwd)
-	if err != nil {
-		return OnboardingResult{}, err
+	detectedSet := make(map[string]bool)
+	for _, a := range detected {
+		detectedSet[a.Name()] = true
+	}
+	if len(detectedSet) == 0 {
+		detectedSet["claude"] = true
 	}
 
-	// ── Step 3: Language ──────────────────────────────────────────────────────
-	lang, err := askLanguage(scanner, w)
-	if err != nil {
-		return OnboardingResult{}, err
+	var runtimeOptions []huh.Option[string]
+	for _, a := range allAdapters {
+		opt := huh.NewOption(runtimeLabel(a.Name()), a.Name())
+		if detectedSet[a.Name()] {
+			opt = opt.Selected(true)
+		}
+		runtimeOptions = append(runtimeOptions, opt)
 	}
 
-	// ── Step 4: Mode ─────────────────────────────────────────────────────────
-	mode, err := askMode(scanner, w)
-	if err != nil {
-		return OnboardingResult{}, err
+	// ── Prepare profile options ─────────────────────────────────────────────
+	allProfiles := profiles.DefaultProfiles()
+	profileNames := make([]string, 0)
+	for name, p := range allProfiles {
+		if p.Scope == "user" {
+			profileNames = append(profileNames, name)
+		}
+	}
+	sort.Strings(profileNames)
+
+	var profileOptions []huh.Option[string]
+	for _, name := range profileNames {
+		p := allProfiles[name]
+		label := fmt.Sprintf("%s — %s", p.Name, p.Description)
+		profileOptions = append(profileOptions, huh.NewOption(label, name))
 	}
 
-	// ── Step 5: Profile ───────────────────────────────────────────────────────
-	profile, err := askProfile(scanner, w)
-	if err != nil {
-		return OnboardingResult{}, err
+	// ── Bind variables ──────────────────────────────────────────────────────
+	var selectedRuntimes []string
+	lang := "en"
+	mode := "concise"
+	profile := "general-manager"
+	autonomy := "balanced"
+	coreSource := ""
+
+	// ── Build the form ──────────────────────────────────────────────────────
+	form := huh.NewForm(
+		// Group 1: Welcome
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Welcome to L.E.O.").
+				Description(
+					"Living Ecosystem Orchestrator\n\n"+
+						"L.E.O. gives your AI coding assistant persistent memory,\n"+
+						"specialist profiles, and structured knowledge management.\n\n"+
+						"Let's set up your project. This takes about 30 seconds.",
+				),
+		),
+
+		// Group 2: Runtimes
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Which AI Assistants do you want to enable?").
+				Options(runtimeOptions...).
+				Height(len(runtimeOptions)+2).
+				Value(&selectedRuntimes).
+				Validate(func(selected []string) error {
+					if len(selected) == 0 {
+						return fmt.Errorf("select at least one runtime")
+					}
+					return nil
+				}),
+		),
+
+		// Group 3: Language + Mode
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What output language should L.E.O. use?").
+				Options(
+					huh.NewOption("English", "en"),
+					huh.NewOption("Português", "pt"),
+					huh.NewOption("Español", "es"),
+				).
+				Value(&lang),
+
+			huh.NewSelect[string]().
+				Title("How should L.E.O. communicate?").
+				Options(
+					huh.NewOption("Verbose — detailed explanations and reasoning", "verbose"),
+					huh.NewOption("Concise — short and direct (recommended)", "concise"),
+					huh.NewOption("Caveman — minimal tokens, maximum signal", "caveman"),
+				).
+				Value(&mode),
+		),
+
+		// Group 4: Profile + Autonomy
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Choose your default profile").
+				Options(profileOptions...).
+				Value(&profile),
+
+			huh.NewSelect[string]().
+				Title("How much autonomy should L.E.O. have?").
+				Options(
+					huh.NewOption("Autonomous — acts independently, asks only when critical", "autonomous"),
+					huh.NewOption("Balanced — proposes plans, confirms before major changes", "balanced"),
+					huh.NewOption("Supervised — confirms every significant action", "supervised"),
+				).
+				Value(&autonomy),
+		),
+
+		// Group 5: Core Source
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Path to your leo-core clone (for updates)").
+				Description("Leave blank to skip — configure later in .leo/config.yaml").
+				Value(&coreSource),
+		),
+	).WithAccessible(accessible).
+		WithInput(r).
+		WithOutput(w).
+		WithTheme(huh.ThemeFunc(huh.ThemeDracula))
+
+	if err := form.Run(); err != nil {
+		return OnboardingResult{}, fmt.Errorf("onboarding aborted: %w", err)
 	}
 
-	// ── Step 6: Autonomy ──────────────────────────────────────────────────────
-	autonomy, err := askAutonomy(scanner, w)
-	if err != nil {
-		return OnboardingResult{}, err
+	// Validate and expand core source path.
+	if coreSource != "" {
+		expanded := expandTilde(coreSource)
+		kbDocsDir := filepath.Join(expanded, ".leo", "kb", "docs")
+		if _, err := os.Stat(kbDocsDir); err != nil {
+			return OnboardingResult{}, fmt.Errorf("not a valid leo-core: %s not found", kbDocsDir)
+		}
+		coreSource = expanded
 	}
 
-	// ── Step 7: Core Source ───────────────────────────────────────────────────
-	coreSource, err := askCoreSource(scanner, w)
-	if err != nil {
-		return OnboardingResult{}, err
+	// ── Summary + Confirm ───────────────────────────────────────────────────
+	summaryText := fmt.Sprintf(
+		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Profile:   %s\n  Autonomy:  %s",
+		runtimesLabel(selectedRuntimes),
+		languageLabel(lang),
+		modeLabel(mode),
+		profileLabel(profile),
+		autonomyLabel(autonomy),
+	)
+
+	confirmed := true
+	confirmForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Configuration Summary").
+				Description(summaryText),
+			huh.NewConfirm().
+				Title("Create .leo/ with these settings?").
+				Affirmative("Yes").
+				Negative("No").
+				Value(&confirmed),
+		),
+	).WithAccessible(accessible).
+		WithInput(r).
+		WithOutput(w).
+		WithTheme(huh.ThemeFunc(huh.ThemeDracula))
+
+	if err := confirmForm.Run(); err != nil {
+		return OnboardingResult{}, fmt.Errorf("onboarding aborted: %w", err)
 	}
 
-	// ── Step 8: Summary + Confirm ─────────────────────────────────────────────
-	fmt.Fprintln(w)
-	separator(w)
-	fmt.Fprintln(w, "  Here's your configuration:")
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "    Runtime:   %s\n", runtimeLabel(rt))
-	fmt.Fprintf(w, "    Language:  %s\n", languageLabel(lang))
-	fmt.Fprintf(w, "    Mode:      %s\n", modeLabel(mode))
-	fmt.Fprintf(w, "    Profile:   %s\n", profileLabel(profile))
-	fmt.Fprintf(w, "    Autonomy:  %s\n", autonomyLabel(autonomy))
-	fmt.Fprintln(w)
-	fmt.Fprint(w, "  Create .leo/ with these settings? [Y/n]: ")
-
-	answer := scanner.readLine()
-	separator(w)
-
-	if answer != "" && strings.ToLower(answer) != "y" {
+	if !confirmed {
 		return OnboardingResult{}, fmt.Errorf("onboarding aborted by user")
 	}
 
 	return OnboardingResult{
-		Runtime:        rt,
+		Runtimes:       selectedRuntimes,
 		Language:       lang,
 		Mode:           mode,
 		DefaultProfile: profile,
@@ -133,198 +217,12 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}, nil
 }
 
-// askRuntime prompts for AI runtime selection. It auto-detects .claude/ or
-// .cursor/ in cwd and adjusts the default accordingly.
-func askRuntime(scanner *scannerWrapper, w io.Writer, cwd string) (string, error) {
-	defaultRT, detected := detectRuntime(cwd)
-
-	fmt.Fprintln(w, "  Which AI Assistant do you use?")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  [1] Claude Code  (recommended)")
-	fmt.Fprintln(w, "  [2] Cursor       (coming soon)")
-	fmt.Fprintln(w, "  [3] Windsurf     (coming soon)")
-	fmt.Fprintln(w)
-
-	if detected {
-		fmt.Fprintf(w, "  Detected: %s\n", runtimeLabel(defaultRT))
+// isTerminalReader returns true if r is connected to a terminal.
+func isTerminalReader(r io.Reader) bool {
+	if f, ok := r.(*os.File); ok {
+		return term.IsTerminal(f.Fd())
 	}
-
-	for {
-		fmt.Fprint(w, "  → Choice [1]: ")
-		line := scanner.readLine()
-		if line == "" {
-			return "claude", nil
-		}
-		switch line {
-		case "1":
-			return "claude", nil
-		case "2":
-			fmt.Fprintln(w, "  Cursor support is coming soon. Please select another option.")
-			continue
-		case "3":
-			fmt.Fprintln(w, "  Windsurf support is coming soon. Please select another option.")
-			continue
-		default:
-			fmt.Fprintln(w, "  Invalid choice. Please enter 1.")
-		}
-	}
-}
-
-// askLanguage prompts for language selection.
-func askLanguage(scanner *scannerWrapper, w io.Writer) (string, error) {
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  What output language should Leo use?")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  [1] English")
-	fmt.Fprintln(w, "  [2] Português")
-	fmt.Fprintln(w, "  [3] Español")
-	fmt.Fprintln(w)
-
-	for {
-		fmt.Fprint(w, "  → Choice [1]: ")
-		line := scanner.readLine()
-		if line == "" {
-			return "en", nil
-		}
-		switch line {
-		case "1":
-			return "en", nil
-		case "2":
-			return "pt", nil
-		case "3":
-			return "es", nil
-		default:
-			fmt.Fprintln(w, "  Invalid choice. Please enter 1, 2, or 3.")
-		}
-	}
-}
-
-// askMode prompts for the communication mode.
-func askMode(scanner *scannerWrapper, w io.Writer) (string, error) {
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  How should Leo communicate?")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  [1] Verbose  — detailed explanations and reasoning")
-	fmt.Fprintln(w, "  [2] Concise  — short and direct (recommended)")
-	fmt.Fprintln(w, "  [3] Caveman  — minimal tokens, maximum signal")
-	fmt.Fprintln(w)
-
-	for {
-		fmt.Fprint(w, "  → Choice [2]: ")
-		line := scanner.readLine()
-		if line == "" {
-			return "concise", nil
-		}
-		switch line {
-		case "1":
-			return "verbose", nil
-		case "2":
-			return "concise", nil
-		case "3":
-			return "caveman", nil
-		default:
-			fmt.Fprintln(w, "  Invalid choice. Please enter 1, 2, or 3.")
-		}
-	}
-}
-
-// askProfile prompts for the default profile. Only user-scoped profiles are shown.
-func askProfile(scanner *scannerWrapper, w io.Writer) (string, error) {
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  Choose your default profile:")
-	fmt.Fprintln(w)
-
-	allProfiles := profiles.DefaultProfiles()
-
-	// Collect and sort user-scoped profile names.
-	names := make([]string, 0)
-	for name, p := range allProfiles {
-		if p.Scope == "user" {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-
-	// Find default index (general-manager).
-	defaultIdx := 1
-	for i, name := range names {
-		if name == "general-manager" {
-			defaultIdx = i + 1
-			break
-		}
-	}
-
-	// Display options.
-	for i, name := range names {
-		p := allProfiles[name]
-		fmt.Fprintf(w, "  [%d] %s — %s\n", i+1, p.Name, p.Description)
-	}
-	fmt.Fprintln(w)
-
-	maxChoice := len(names)
-	for {
-		fmt.Fprintf(w, "  → Choice [%d]: ", defaultIdx)
-		line := scanner.readLine()
-		if line == "" {
-			return "general-manager", nil
-		}
-		// Parse the number.
-		var choice int
-		if _, err := fmt.Sscanf(line, "%d", &choice); err != nil || choice < 1 || choice > maxChoice {
-			fmt.Fprintf(w, "  Invalid choice. Please enter 1 to %d.\n", maxChoice)
-			continue
-		}
-		return names[choice-1], nil
-	}
-}
-
-// askAutonomy prompts for the autonomy level.
-func askAutonomy(scanner *scannerWrapper, w io.Writer) (string, error) {
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  How much autonomy should Leo have?")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  [1] Autonomous — acts independently, asks only when critical")
-	fmt.Fprintln(w, "  [2] Balanced   — proposes plans, confirms before major changes")
-	fmt.Fprintln(w, "  [3] Supervised — confirms every significant action")
-	fmt.Fprintln(w)
-
-	for {
-		fmt.Fprint(w, "  → Choice [2]: ")
-		line := scanner.readLine()
-		if line == "" {
-			return "balanced", nil
-		}
-		switch line {
-		case "1":
-			return "autonomous", nil
-		case "2":
-			return "balanced", nil
-		case "3":
-			return "supervised", nil
-		default:
-			fmt.Fprintln(w, "  Invalid choice. Please enter 1, 2, or 3.")
-		}
-	}
-}
-
-// askCoreSource prompts the user for the path to their leo-core clone.
-// Returns "" if the user skips, or the expanded path if valid.
-func askCoreSource(scanner *scannerWrapper, w io.Writer) (string, error) {
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "  Path to your leo-core clone (for updates)?")
-	fmt.Fprintln(w, "  (Leave blank to skip — configure later in .leo/config.yaml)")
-	fmt.Fprintln(w)
-	fmt.Fprint(w, "  → Path [skip]: ")
-	line := scanner.readLine()
-	if line == "" {
-		return "", nil
-	}
-	expanded := expandTilde(line)
-	kbDocsDir := filepath.Join(expanded, ".leo", "kb", "docs")
-	if _, err := os.Stat(kbDocsDir); err != nil {
-		return "", fmt.Errorf("not a valid leo-core: %s not found", kbDocsDir)
-	}
-	return expanded, nil
+	return false
 }
 
 // expandTilde replaces a leading "~/" with the user's home directory.
@@ -340,34 +238,29 @@ func expandTilde(path string) string {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-// detectRuntime checks if a known runtime directory exists in cwd.
-// Returns the detected runtime identifier and a boolean indicating whether
-// detection actually occurred. Only returns runtimes that are currently
-// supported (claude). Falls back to "claude" when nothing is found.
-func detectRuntime(cwd string) (rt string, detected bool) {
-	if isDir(filepath.Join(cwd, ".claude")) {
-		return "claude", true
-	}
-	// Cursor/Windsurf detection disabled until supported.
-	return "claude", false
-}
-
-func isDir(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
-}
-
 func runtimeLabel(rt string) string {
 	switch rt {
 	case "claude":
 		return "Claude Code"
+	case "codex":
+		return "Codex"
+	case "cline":
+		return "Cline"
 	case "cursor":
 		return "Cursor"
 	case "windsurf":
 		return "Windsurf"
 	default:
-		return "Other"
+		return rt
 	}
+}
+
+func runtimesLabel(rts []string) string {
+	labels := make([]string, len(rts))
+	for i, rt := range rts {
+		labels[i] = runtimeLabel(rt)
+	}
+	return strings.Join(labels, ", ")
 }
 
 func languageLabel(lang string) string {

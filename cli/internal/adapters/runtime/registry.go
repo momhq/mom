@@ -1,0 +1,70 @@
+package runtime
+
+// Registry holds all known runtime adapters and provides lookup,
+// detection, and multi-dispatch capabilities.
+type Registry struct {
+	adapters map[string]Adapter
+	order    []string // preserves registration order
+	root     string
+}
+
+// NewRegistry creates a Registry for the given project root and
+// auto-registers all known adapters.
+func NewRegistry(projectRoot string) *Registry {
+	r := &Registry{
+		adapters: make(map[string]Adapter),
+		root:     projectRoot,
+	}
+	r.Register(NewClaudeAdapter(projectRoot))
+	r.Register(NewCodexAdapter(projectRoot))
+	r.Register(NewClineAdapter(projectRoot))
+	return r
+}
+
+// Register adds an adapter to the registry.
+func (r *Registry) Register(adapter Adapter) {
+	name := adapter.Name()
+	r.adapters[name] = adapter
+	r.order = append(r.order, name)
+}
+
+// Get returns the adapter for the given runtime name.
+func (r *Registry) Get(name string) (Adapter, bool) {
+	a, ok := r.adapters[name]
+	return a, ok
+}
+
+// DetectAll returns adapters whose runtime is detected in the project.
+func (r *Registry) DetectAll() []Adapter {
+	var detected []Adapter
+	for _, name := range r.order {
+		a := r.adapters[name]
+		if a.DetectRuntime() {
+			detected = append(detected, a)
+		}
+	}
+	return detected
+}
+
+// All returns all registered adapters in registration order.
+func (r *Registry) All() []Adapter {
+	all := make([]Adapter, 0, len(r.order))
+	for _, name := range r.order {
+		all = append(all, r.adapters[name])
+	}
+	return all
+}
+
+// GenerateAll calls GenerateContextFile on each enabled adapter.
+func (r *Registry) GenerateAll(enabled []string, config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error {
+	for _, name := range enabled {
+		adapter, ok := r.adapters[name]
+		if !ok {
+			continue
+		}
+		if err := adapter.GenerateContextFile(config, profile, constraints, skills, identity); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -14,7 +14,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "metric"],
+      "enum": ["constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "session-log"],
       "description": "Document type — determines which content sub-schema applies"
     },
     "lifecycle": {
@@ -62,6 +62,10 @@
     "updated_by": {
       "type": "string",
       "description": "Which agent or actor last modified this doc"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Links this document to the session that produced it"
     },
     "content": {
       "type": "object",
@@ -140,7 +144,7 @@
         "properties": {
           "content": {
             "type": "object",
-            "required": ["description", "triggers", "invoked_by", "steps"],
+            "required": ["description", "triggers", "invoked_by", "steps", "do_not"],
             "additionalProperties": false,
             "properties": {
               "description": {
@@ -217,7 +221,7 @@
         "properties": {
           "content": {
             "type": "object",
-            "required": ["decision", "context", "why"],
+            "required": ["decision", "context", "why", "alternatives_considered", "impact", "reversible"],
             "additionalProperties": false,
             "properties": {
               "decision": {
@@ -254,7 +258,7 @@
         "properties": {
           "content": {
             "type": "object",
-            "required": ["fact", "why"],
+            "required": ["fact", "why", "source"],
             "additionalProperties": false,
             "properties": {
               "fact": {
@@ -329,51 +333,32 @@
       }
     },
     {
-      "if": { "properties": { "type": { "const": "metric" } } },
+      "if": { "properties": { "type": { "const": "session-log" } } },
       "then": {
         "properties": {
           "content": {
             "type": "object",
-            "required": ["session_id", "timestamp"],
-            "additionalProperties": true,
+            "required": ["session_id", "timestamp", "repo", "profile", "tasks"],
+            "additionalProperties": false,
             "properties": {
               "session_id": { "type": "string" },
               "timestamp": { "type": "string", "format": "date-time" },
-              "session_cost": {
-                "type": "object",
-                "properties": {
-                  "tokens_in": { "type": "integer", "minimum": 0 },
-                  "tokens_out": { "type": "integer", "minimum": 0 },
-                  "cost_usd": { "type": "number", "minimum": 0 },
-                  "models_used": { "type": "array", "items": { "type": "string" } }
-                }
-              },
-              "constraints_violated": { "type": "array", "items": { "type": "string" } },
-              "skills_invoked": { "type": "array", "items": { "type": "string" } },
-              "kb_consultations": {
-                "type": "object",
-                "properties": {
-                  "count": { "type": "integer", "minimum": 0 },
-                  "docs_accessed": { "type": "array", "items": { "type": "string" } },
-                  "hit_rate": { "type": "number", "minimum": 0, "maximum": 1 }
-                }
-              },
+              "repo": { "type": "string" },
+              "profile": { "type": "string" },
+              "wrap_up_revisions": { "type": "integer", "minimum": 0 },
               "tasks": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": ["task_id", "summary"],
+                  "required": ["task_id", "timestamp", "summary"],
+                  "additionalProperties": false,
                   "properties": {
                     "task_id": { "type": "string" },
+                    "timestamp": { "type": "string", "format": "date-time" },
                     "summary": { "type": "string" },
-                    "task_complexity": { "type": "string", "enum": ["small", "medium", "large"] },
-                    "domain_category": { "type": "string" },
-                    "delegation_enforced": { "type": "boolean" },
-                    "pipeline_followed": { "type": "boolean" },
-                    "profiles_used": { "type": "array", "items": { "type": "string" } },
-                    "review_first_pass": { "type": "boolean" },
-                    "owner_accepted": { "type": "boolean" },
-                    "rework_cycles": { "type": "integer", "minimum": 0 }
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "pipeline_tier": { "type": "string" },
+                    "profile": { "type": "string" }
                   }
                 }
               }
