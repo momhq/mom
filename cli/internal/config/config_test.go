@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 )
 
@@ -12,20 +13,27 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if cfg.Version != "1" {
 		t.Errorf("expected version %q, got %q", "1", cfg.Version)
 	}
-	if cfg.Runtime != "claude" {
-		t.Errorf("expected runtime %q, got %q", "claude", cfg.Runtime)
+	if len(cfg.Runtimes) == 0 {
+		t.Fatal("expected at least one runtime in defaults")
+	}
+	rc, ok := cfg.Runtimes["claude"]
+	if !ok {
+		t.Fatal("expected claude runtime in defaults")
+	}
+	if !rc.Enabled {
+		t.Error("expected claude runtime to be enabled")
+	}
+	if rc.Tiers["orchestration"] != "opus" {
+		t.Errorf("expected orchestration tier %q, got %q", "opus", rc.Tiers["orchestration"])
+	}
+	if rc.Tiers["execution"] != "sonnet" {
+		t.Errorf("expected execution tier %q, got %q", "sonnet", rc.Tiers["execution"])
 	}
 	if cfg.User.Mode != "concise" {
 		t.Errorf("expected mode %q, got %q", "concise", cfg.User.Mode)
 	}
 	if cfg.User.DefaultProfile != "general-manager" {
 		t.Errorf("expected default profile %q, got %q", "general-manager", cfg.User.DefaultProfile)
-	}
-	if cfg.Specialists.OrchestratorModel != "opus" {
-		t.Errorf("expected orchestrator model %q, got %q", "opus", cfg.Specialists.OrchestratorModel)
-	}
-	if cfg.Specialists.DefaultModel != "sonnet" {
-		t.Errorf("expected default model %q, got %q", "sonnet", cfg.Specialists.DefaultModel)
 	}
 	if !cfg.KB.AutoPropagate {
 		t.Error("expected auto_propagate to be true")
@@ -36,7 +44,10 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 
 	original := Default()
-	original.Runtime = "cursor"
+	original.Runtimes["codex"] = RuntimeConfig{
+		Enabled: true,
+		Tiers:   map[string]string{"orchestration": "o3", "execution": "gpt-4.1", "review": "gpt-4.1-mini"},
+	}
 	original.User.Language = "pt-BR"
 
 	if err := Save(dir, &original); err != nil {
@@ -54,8 +65,8 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if loaded.Runtime != "cursor" {
-		t.Errorf("expected runtime %q, got %q", "cursor", loaded.Runtime)
+	if _, ok := loaded.Runtimes["codex"]; !ok {
+		t.Error("expected codex runtime after round-trip")
 	}
 	if loaded.User.Language != "pt-BR" {
 		t.Errorf("expected language %q, got %q", "pt-BR", loaded.User.Language)
@@ -85,5 +96,133 @@ func TestLeoDir(t *testing.T) {
 	expected := filepath.Join("/home/user/project", ".leo")
 	if got != expected {
 		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestConfigMigrationFromV06(t *testing.T) {
+	dir := t.TempDir()
+	legacyCfg := `version: "1"
+runtime: claude
+core_source: /tmp/leo-core
+user:
+  language: en
+  mode: concise
+  autonomy: balanced
+  default_profile: general-manager
+kb:
+  auto_propagate: true
+  wrap_up: prompt
+  stale_threshold: 30d
+specialists:
+  orchestrator_model: opus
+  default_model: sonnet
+  simple_task_model: haiku
+  validation: always
+`
+	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(legacyCfg), 0644)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	rc, ok := cfg.Runtimes["claude"]
+	if !ok {
+		t.Fatal("expected claude runtime after migration")
+	}
+	if !rc.Enabled {
+		t.Error("expected claude to be enabled after migration")
+	}
+	if rc.Tiers["orchestration"] != "opus" {
+		t.Errorf("expected orchestration=opus, got %q", rc.Tiers["orchestration"])
+	}
+	if rc.Tiers["execution"] != "sonnet" {
+		t.Errorf("expected execution=sonnet, got %q", rc.Tiers["execution"])
+	}
+	if cfg.CoreSource != "/tmp/leo-core" {
+		t.Errorf("expected core_source preserved, got %q", cfg.CoreSource)
+	}
+}
+
+func TestConfigNilTiers(t *testing.T) {
+	dir := t.TempDir()
+	cfgYaml := `version: "1"
+runtimes:
+  cline:
+    enabled: true
+user:
+  language: en
+  mode: concise
+  autonomy: balanced
+  default_profile: general-manager
+kb:
+  auto_propagate: true
+  wrap_up: prompt
+  stale_threshold: 30d
+`
+	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(cfgYaml), 0644)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	rc, ok := cfg.Runtimes["cline"]
+	if !ok {
+		t.Fatal("expected cline runtime")
+	}
+	if rc.Tiers != nil {
+		t.Errorf("expected nil tiers for cline, got %v", rc.Tiers)
+	}
+}
+
+func TestConfigEnabledRuntimes(t *testing.T) {
+	cfg := Config{
+		Runtimes: map[string]RuntimeConfig{
+			"claude": {Enabled: true},
+			"codex":  {Enabled: true},
+			"cline":  {Enabled: false},
+		},
+	}
+
+	enabled := cfg.EnabledRuntimes()
+	sort.Strings(enabled)
+
+	if len(enabled) != 2 {
+		t.Fatalf("expected 2 enabled runtimes, got %d", len(enabled))
+	}
+	if enabled[0] != "claude" || enabled[1] != "codex" {
+		t.Errorf("expected [claude, codex], got %v", enabled)
+	}
+}
+
+func TestConfigMultiRuntime(t *testing.T) {
+	dir := t.TempDir()
+
+	cfg := Config{
+		Version: "1",
+		Runtimes: map[string]RuntimeConfig{
+			"claude": {Enabled: true, Tiers: map[string]string{"orchestration": "opus", "execution": "sonnet", "review": "sonnet"}},
+			"codex":  {Enabled: true, Tiers: map[string]string{"orchestration": "o3", "execution": "gpt-4.1", "review": "gpt-4.1-mini"}},
+			"cline":  {Enabled: true},
+		},
+		User: UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced", DefaultProfile: "general-manager"},
+		KB:   KBConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
+	}
+
+	if err := Save(dir, &cfg); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if len(loaded.Runtimes) != 3 {
+		t.Errorf("expected 3 runtimes, got %d", len(loaded.Runtimes))
+	}
+	if loaded.Runtimes["codex"].Tiers["orchestration"] != "o3" {
+		t.Error("codex orchestration tier not preserved")
 	}
 }

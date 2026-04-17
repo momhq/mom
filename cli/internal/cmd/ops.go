@@ -62,7 +62,13 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Stale count from raw JSON stats block.
 	staleCount := readRawIndexInt(leoDir, "stats", "stale_count")
 
-	cmd.Printf("Runtime:      %s\n", cfg.Runtime)
+	// Show enabled runtimes.
+	enabledRTs := cfg.EnabledRuntimes()
+	if len(enabledRTs) > 0 {
+		cmd.Printf("Runtimes:     %s\n", strings.Join(enabledRTs, ", "))
+	} else {
+		cmd.Printf("Runtimes:     (none)\n")
+	}
 	cmd.Printf("Storage:      json\n")
 	cmd.Printf("Total docs:   %d\n", totalDocs)
 	cmd.Printf("Tags:         %d unique\n", totalTags)
@@ -102,7 +108,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		cmd.Printf("✗ config.yaml: %v\n", cfgErr)
 		failed = true
 	} else {
-		cmd.Printf("✔ config.yaml: valid (runtime: %s)\n", cfg.Runtime)
+		cmd.Printf("✔ config.yaml: valid (runtimes: %s)\n", strings.Join(cfg.EnabledRuntimes(), ", "))
 	}
 
 	// Check 3: KB dirs exist.

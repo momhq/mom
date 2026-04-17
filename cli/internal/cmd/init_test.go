@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/vmarinogg/leo-core/cli/internal/config"
 )
 
 func TestInitCmd_CreatesLeoStructure(t *testing.T) {
@@ -16,7 +18,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"init", "--runtime", "claude"})
+	rootCmd.SetArgs([]string{"init", "--runtimes", "claude"})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("init failed: %v", err)
@@ -28,6 +30,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 		".leo/identity.json",
 		".leo/kb/schema.json",
 		".leo/kb/index.json",
+		".leo/kb/logs",
 		".leo/profiles/general-manager.yaml",
 		".leo/profiles/backend-engineer.yaml",
 		".claude/CLAUDE.md",
@@ -45,7 +48,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	}
 
 	// Verify directories.
-	dirs := []string{".leo/kb/docs", ".leo/kb/skills", ".leo/kb/constraints", ".leo/cache"}
+	dirs := []string{".leo/kb/docs", ".leo/kb/skills", ".leo/kb/constraints", ".leo/kb/logs", ".leo/cache"}
 	for _, d := range dirs {
 		full := filepath.Join(dir, d)
 		info, err := os.Stat(full)
@@ -68,7 +71,7 @@ func TestInitCmd_FailsIfAlreadyExists(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"init", "--runtime", "claude"})
+	rootCmd.SetArgs([]string{"init", "--runtimes", "claude"})
 
 	if err := rootCmd.Execute(); err == nil {
 		t.Fatal("expected error when .leo/ already exists")
@@ -86,7 +89,7 @@ func TestInitCmd_ForceOverwrite(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"init", "--runtime", "claude", "--force"})
+	rootCmd.SetArgs([]string{"init", "--runtimes", "claude", "--force"})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("init --force failed: %v", err)
@@ -95,5 +98,74 @@ func TestInitCmd_ForceOverwrite(t *testing.T) {
 	// Should have created the structure despite existing .leo/.
 	if _, err := os.Stat(filepath.Join(dir, ".leo", "config.yaml")); err != nil {
 		t.Error("config.yaml not created with --force")
+	}
+}
+
+func TestInitCmd_MultiRuntime(t *testing.T) {
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"init", "--runtimes", "claude,codex,cline"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	// All three runtime outputs should exist.
+	files := map[string]string{
+		".claude/CLAUDE.md":             "Claude",
+		"AGENTS.md":                     "Codex",
+		".clinerules/leo-context.md":    "Cline",
+	}
+
+	for path, name := range files {
+		full := filepath.Join(dir, path)
+		if _, err := os.Stat(full); err != nil {
+			t.Errorf("missing %s output: %s", name, path)
+		}
+	}
+
+	// Config should have all three runtimes.
+	cfg, err := config.Load(filepath.Join(dir, ".leo"))
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+
+	enabled := cfg.EnabledRuntimes()
+	if len(enabled) != 3 {
+		t.Errorf("expected 3 enabled runtimes, got %d: %v", len(enabled), enabled)
+	}
+}
+
+func TestInitCmd_BackupExistingFile(t *testing.T) {
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	// Create a user-owned AGENTS.md
+	os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# My custom agents"), 0644)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"init", "--runtimes", "codex"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	// Original should be backed up
+	bkpContent, err := os.ReadFile(filepath.Join(dir, "AGENTS.md.bkp"))
+	if err != nil {
+		t.Fatal("backup file not created")
+	}
+	if string(bkpContent) != "# My custom agents" {
+		t.Error("backup content doesn't match original")
 	}
 }

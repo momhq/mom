@@ -1,0 +1,39 @@
+{
+  "id": "metrics-tier-model",
+  "type": "decision",
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": [
+    "metrics",
+    "architecture",
+    "observability",
+    "session-log"
+  ],
+  "created": "2026-04-17T00:00:00Z",
+  "created_by": "user",
+  "updated": "2026-04-17T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "decision": "Metrics collection follows a three-tier model. Tier 1: external scripts read KB files (metadata + structured session-log docs). Tier 2: scripts parse doc content for semantic signals (errors, violations, quality). Tier 3: runtime telemetry (tokens, cost, duration) — out of scope until L.E.O. owns the runtime.",
+    "context": "Post v0.6.0, zero metric docs existed despite the metrics-collection constraint. Investigation revealed the metric type was designed around L.E.O. self-reporting session data from recall — unreliable. The solution separates data production (L.E.O. writes structured docs at wrap-up) from data collection (external scripts read files).",
+    "why": "You cannot improve an orchestrator without metrics. But metrics must come from artifacts on disk, not from agent recall. L.E.O. produces logs, never consumes them. Monitoring is external — scripts, dashboards, SREs.",
+    "alternatives_considered": [
+      "CLI hook to auto-generate metrics at session end — rejected: requires Go code, adds v0.7.0 scope, and runtime hooks don't exist yet",
+      "L.E.O. self-reports all metrics from recall at wrap-up — rejected: same memory-dependent pattern that caused the gap in the first place",
+      "Hybrid: fix skill now, CLI hook later — rejected by user: both fixes needed in v0.7.0"
+    ],
+    "impact": [
+      "metric type dropped from schema, replaced by session-log",
+      "session_id becomes mandatory on base schema — links all KB docs to their producing session",
+      "session-log docs stored in .leo/kb/logs/, never loaded at boot, never rendered by adapters",
+      "decision type: alternatives_considered, impact, reversible become mandatory",
+      "fact type: source becomes mandatory",
+      "skill type: do_not[] becomes mandatory",
+      "leo init must create .leo/kb/logs/ directory",
+      "export/import must include .leo/kb/logs/",
+      "Delegation enforcement inferred from profile mismatch (session.profile != task.profile), not self-reported",
+      "session_cost dropped entirely — not runtime-agnostic"
+    ],
+    "reversible": false
+  }
+}

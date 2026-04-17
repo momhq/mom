@@ -206,27 +206,28 @@ func coreConstraints() map[string]string {
   "id": "metrics-collection",
   "type": "constraint",
   "boot": true,
-  "summary": "Every session leaves one metric entry. Collection is enforced by the system, not by Leo remembering.",
+  "summary": "Every session leaves one session-log doc in .leo/kb/logs/. Collection is enforced by the session-wrap-up skill.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["metrics", "quality", "refinement", "measurement"],
   "created": "2026-04-08T00:00:00Z",
   "created_by": "system",
-  "updated": "2026-04-15T00:00:00Z",
+  "updated": "2026-04-17T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "constraint": "Every session leaves one metric entry as a KB doc (type: metric). This creates the dataset for refining agents and rules based on real data — not guesswork.",
+    "constraint": "Every session leaves one session-log doc in .leo/kb/logs/. L.E.O. produces logs at wrap-up, never consumes them — monitoring is external.",
     "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
     "how_to_apply": [
-      "Collection happens at session wrap-up, enforced by runtime hooks",
-      "Metrics include: delegation enforcement, pipeline compliance, user acceptance, rework cycles, review pass rate, KB consultation rate, session cost, profiles used",
-      "Leo must record his own errors with the same rigor as the team's"
+      "Collection happens at session wrap-up via the session-wrap-up skill step 'Write session log'",
+      "Session-logs include: tasks performed, pipeline tiers used, profile, wrap-up revision count",
+      "Session-log docs are stored in .leo/kb/logs/, never indexed, never loaded at boot",
+      "External T1 scripts read session-log files from disk for metrics dashboards"
     ],
-    "responsibility": "System-enforced via hooks. Leo provides the data, the system persists it.",
+    "responsibility": "Enforced by the session-wrap-up skill. L.E.O. provides the data, external scripts consume it.",
     "anti_patterns": [
-      "Skipping metric collection for 'trivial' sessions",
-      "Marking delegation.quality as correct when it wasn't",
-      "Optimizing for token cost at the expense of quality"
+      "Skipping session-log for 'trivial' sessions",
+      "Loading session-log docs at boot or during work",
+      "Adding session-log docs to index.json"
     ]
   }
 }`,
@@ -297,32 +298,34 @@ func coreSkills() map[string]string {
   "id": "session-wrap-up",
   "type": "skill",
   "boot": true,
-  "summary": "End-of-session knowledge propagation: inventory changes, classify, present plan, write KB docs, collect metrics, report.",
+  "summary": "End-of-session knowledge propagation: inventory changes, classify, present plan, write KB docs, write session log, report.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["wrap-up", "propagation", "persistence", "session"],
   "created": "2026-04-08T00:00:00Z",
   "created_by": "system",
-  "updated": "2026-04-15T00:00:00Z",
+  "updated": "2026-04-17T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "description": "Orchestrates end-of-session knowledge propagation and metrics collection.",
+    "description": "Orchestrates end-of-session knowledge propagation and session logging.",
     "triggers": ["wrap up", "close the session", "done for today", "finalize", "fecha a sessão", "consolida aí", "pronto por hoje", "pode fechar"],
     "invoked_by": "leo",
     "steps": [
-      {"name": "Inventory", "instruction": "List what changed: decisions, state changes, artifacts, learnings. Skip implementation details. Capture session cost.", "wait_for_approval": false},
+      {"name": "Inventory", "instruction": "List what changed: decisions, state changes, artifacts, learnings. Skip implementation details.", "wait_for_approval": false},
       {"name": "Classify", "instruction": "For each item: determine type, lifecycle, tags, id. Check index for existing docs to update.", "wait_for_approval": false},
       {"name": "Present plan", "instruction": "Show the user: new docs, updates, skipped items, commit strategy. Wait for approval.", "wait_for_approval": true},
       {"name": "Execute", "instruction": "Write JSON docs to KB following schema. Stage exact files. Commit with clear message.", "wait_for_approval": false},
-      {"name": "Collect metrics", "instruction": "Compile session metric entry and write to KB as type: metric doc.", "wait_for_approval": false},
-      {"name": "Report", "instruction": "Brief report: commit SHA, files changed, metrics collected, deferred items.", "wait_for_approval": false}
+      {"name": "Write session log", "instruction": "Write a session-log doc to .leo/kb/logs/ using this template: {id: 'session-YYYY-MM-DD-profile-XXXX', type: 'session-log', lifecycle: 'state', scope: 'project', tags: ['session-log'], content: {session_id: (same as id), timestamp: (now), repo: (repo name), profile: (active profile), wrap_up_revisions: (count of rejected plans), tasks: [{task_id, timestamp, summary, tags, pipeline_tier, profile}]}}. Create .leo/kb/logs/ directory if it doesn't exist. Session-logs are NOT indexed and NOT loaded at boot.", "wait_for_approval": false},
+      {"name": "Report", "instruction": "Brief report: commit SHA, files changed, session log written, deferred items.", "wait_for_approval": false}
     ],
     "do_not": [
       "Run without explicit trigger from user",
       "Skip the approval step",
-      "Manufacture propagation when inventory is empty"
+      "Manufacture propagation when inventory is empty",
+      "Load or read session-log docs — monitoring is external",
+      "Index session-log docs in index.json"
     ],
-    "output_format": "## Wrap-up complete\n\n**Committed:** [SHA]\n**Metrics:** [collected/skipped]\n**Deferred:** [list or nothing]"
+    "output_format": "## Wrap-up complete\n\n**Committed:** [SHA]\n**Session log:** [written/skipped]\n**Deferred:** [list or nothing]"
   }
 }`,
 		"task-intake": `{
