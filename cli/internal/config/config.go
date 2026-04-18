@@ -94,6 +94,7 @@ type legacyConfig struct {
 	Version     string            `yaml:"version"`
 	Runtime     string            `yaml:"runtime"`
 	CoreSource  string            `yaml:"core_source"`
+	Owner       UserConfig        `yaml:"owner"`
 	User        UserConfig        `yaml:"user"`
 	KB          KBConfig          `yaml:"kb"`
 	Specialists legacySpecialists `yaml:"specialists"`
@@ -166,6 +167,17 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 		rt = "claude"
 	}
 
+	// v0.6.0 used "owner:" key, v0.6.x transitional used "user:".
+	user := legacy.User
+	if user.Language == "" && user.Mode == "" && legacy.Owner.Language != "" {
+		user = legacy.Owner
+	}
+
+	// Map old profile name "generalist" → "general-manager".
+	if user.DefaultProfile == "generalist" {
+		user.DefaultProfile = "general-manager"
+	}
+
 	return &Config{
 		Version:    legacy.Version,
 		CoreSource: legacy.CoreSource,
@@ -175,7 +187,7 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 				Tiers:   tiers,
 			},
 		},
-		User: legacy.User,
+		User: user,
 		KB:   legacy.KB,
 	}
 }

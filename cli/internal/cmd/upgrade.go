@@ -328,6 +328,9 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 	}
 
 	defaultProfile := profiles.DefaultProfiles()[cfg.User.DefaultProfile]
+	if defaultProfile == nil {
+		defaultProfile = profiles.DefaultProfiles()["general-manager"]
+	}
 	runtimeProfile := runtime.Profile{
 		Name:             defaultProfile.Name,
 		Description:      defaultProfile.Description,

@@ -243,6 +243,9 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		}
 
 		defaultProfile := profiles.DefaultProfiles()[cfg.User.DefaultProfile]
+		if defaultProfile == nil {
+			defaultProfile = profiles.DefaultProfiles()["general-manager"]
+		}
 		runtimeProfile := runtime.Profile{
 			Name:             defaultProfile.Name,
 			Description:      defaultProfile.Description,

@@ -37,10 +37,10 @@ func setupV060Project(t *testing.T) string {
 		os.MkdirAll(d, 0755)
 	}
 
-	// Write v0.6.0-style config (legacy format).
+	// Write v0.6.0-style config (legacy format with "owner:" key).
 	legacyConfig := `version: "1"
 runtime: claude
-user:
+owner:
   language: pt
   mode: caveman
   default_profile: cto
@@ -341,6 +341,51 @@ func TestUpgradeCmd_GeneratesRuntimeFiles(t *testing.T) {
 	claudeMD := filepath.Join(dir, ".claude", "CLAUDE.md")
 	if _, err := os.Stat(claudeMD); err != nil {
 		t.Error("CLAUDE.md not generated during upgrade")
+	}
+}
+
+func TestUpgradeCmd_MigratesGeneralistProfile(t *testing.T) {
+	resetUpgradeFlags(t)
+	dir := setupV060Project(t)
+	leoDir := filepath.Join(dir, ".leo")
+
+	// Override config with old "generalist" profile name.
+	legacyConfig := `version: "1"
+runtime: claude
+owner:
+  language: pt
+  mode: concise
+  default_profile: generalist
+  autonomy: balanced
+kb:
+  auto_propagate: true
+  wrap_up: prompt
+  stale_threshold: 30d
+`
+	os.WriteFile(filepath.Join(leoDir, "config.yaml"), []byte(legacyConfig), 0644)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"upgrade"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("upgrade failed: %v\noutput:\n%s", err, buf.String())
+	}
+
+	cfg, err := config.Load(leoDir)
+	if err != nil {
+		t.Fatalf("loading config after upgrade: %v", err)
+	}
+	if cfg.User.DefaultProfile != "general-manager" {
+		t.Errorf("expected generalist→general-manager migration, got %q", cfg.User.DefaultProfile)
+	}
+	if cfg.User.Language != "pt" {
+		t.Errorf("expected language=pt preserved from owner field, got %q", cfg.User.Language)
 	}
 }
 
