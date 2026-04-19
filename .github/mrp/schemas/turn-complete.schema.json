@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/turn-complete",
+  "title": "MRP v0 — turn.complete event",
+  "description": "Emitted when one full turn finishes (user prompt + runtime response). Opt-in — adapters that cannot track turn boundaries must not synthesize this event.",
+  "type": "object",
+  "required": ["mrp_version", "event", "session_id", "runtime", "timestamp", "turn_index"],
+  "additionalProperties": false,
+  "properties": {
+    "mrp_version": {
+      "type": "string",
+      "const": "v0",
+      "description": "MRP protocol version"
+    },
+    "event": {
+      "type": "string",
+      "const": "turn.complete",
+      "description": "Event type discriminator"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique session identifier"
+    },
+    "runtime": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event was emitted (RFC3339)"
+    },
+    "turn_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Zero-based index of this turn within the session"
+    },
+    "prompt_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Token count for the user prompt (optional)"
+    },
+    "completion_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Token count for the runtime response (optional)"
+    }
+  }
+}
