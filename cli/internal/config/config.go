@@ -11,8 +11,8 @@ import (
 
 // Config represents the .leo/config.yaml file.
 type Config struct {
-	Version       string                   `yaml:"version"`
-	CoreSource    string                   `yaml:"core_source,omitempty"`
+	Version    string `yaml:"version"`
+	CoreSource string `yaml:"core_source,omitempty"`
 	// Scope declares this install's position in the hierarchy.
 	// Valid values: user | org | repo | workspace | custom.
 	// Absent or empty is treated as "repo" for backward compatibility.

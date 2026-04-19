@@ -168,8 +168,8 @@ func TestMemoryCount(t *testing.T) {
 
 	// Write 2 JSON files and 1 non-JSON.
 	memDir := filepath.Join(root, ".leo", "memory")
-	os.WriteFile(filepath.Join(memDir, "a.json"), []byte("{}"), 0644) //nolint:errcheck
-	os.WriteFile(filepath.Join(memDir, "b.json"), []byte("{}"), 0644) //nolint:errcheck
+	os.WriteFile(filepath.Join(memDir, "a.json"), []byte("{}"), 0644)    //nolint:errcheck
+	os.WriteFile(filepath.Join(memDir, "b.json"), []byte("{}"), 0644)    //nolint:errcheck
 	os.WriteFile(filepath.Join(memDir, "notes.txt"), []byte("hi"), 0644) //nolint:errcheck
 
 	t.Setenv("HOME", root)
