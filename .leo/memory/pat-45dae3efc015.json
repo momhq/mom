@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "WriteTagGraph builds a tag co-occurrence graph from memDir and writes it to cacheDir/tag-graph.json. Creates cacheDir if it does not exist.",
+    "kind": "function",
+    "language": "go",
+    "name": "WriteTagGraph",
+    "summary": "Function: WriteTagGraph — WriteTagGraph builds a tag co-occurrence graph from memDir and writes it to cacheDir/tag-graph.js..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-45dae3efc015",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-gardener"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

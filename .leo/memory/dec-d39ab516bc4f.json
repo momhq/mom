@@ -1,0 +1,33 @@
+{
+  "centrality_score": 1,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Removes delegation-mandatory, think-before-execute, know-what-you-dont-know,\npeer-review-automatic from coreConstraints(). Removes task-intake from\ncoreSkills(). Simplifies session-wrap-up (removes profile/pipeline refs).\nStrips orchestration model language from defaultIdentity().\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "ae0ddfca4916c84774cd0eed7776bb915897e9ce",
+    "prefix": "feat",
+    "scope": "kb",
+    "subject": "feat(kb): remove retired constraints/skills from embedded core KB",
+    "summary": "remove retired constraints/skills from embedded core KB. Removes delegation-mandatory, think-before-execute, know-what-you-dont-know,\npeer-review-automatic from coreConstraints(). Removes task-inta..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-d39ab516bc4f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "ae0ddfca4916c84774cd0eed7776bb915897e9ce",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "kb"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

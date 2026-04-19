@@ -1,19 +1,7 @@
 {
-  "id": "milestone-v070",
-  "type": "decision",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "milestone",
-    "release",
-    "multi-runtime",
-    "adapters",
-    "distribution"
-  ],
-  "created": "2026-04-16T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-19T00:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.0098159509202454,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "cut": [
       "#12 (crash recovery) — crash is not L.E.O.'s problem. L.E.O. operates within the runtime, doesn't own it. Incremental propagation adds permanent token tax for occasional crashes.",
@@ -40,5 +28,23 @@
     "tracking": "GitHub milestone 'v0.7.0 — Multi-runtime support' with issues #47, #48, #46, #52",
     "what": "v0.7.0 — Multi-runtime support: one KB, many runtimes",
     "why": "v0.6.0 built enforcement and the adapter interface. v0.7.0 proves the architecture works for multiple runtimes — the core value proposition of 'one KB, many outputs'. Codex and Cline validate the pattern with two very different runtime ecosystems. This is the foundation for all future adapters (Cursor, Windsurf, Aider in parking lot)."
-  }
+  },
+  "created": "2026-04-16T00:00:00Z",
+  "created_by": "user",
+  "id": "milestone-v070",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "milestone",
+    "release",
+    "multi-runtime",
+    "adapters",
+    "distribution"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T00:00:00Z",
+  "updated_by": "leo"
 }

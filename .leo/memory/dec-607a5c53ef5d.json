@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "",
+    "commit_sha": "3b1683ab06f9c05d1197e51629d195769245a267",
+    "prefix": "refactor",
+    "scope": "",
+    "subject": "refactor: rename all copilot-core references to leo-core",
+    "summary": "rename all copilot-core references to leo-core"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-607a5c53ef5d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "3b1683ab06f9c05d1197e51629d195769245a267",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "refactor"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

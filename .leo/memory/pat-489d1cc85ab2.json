@@ -1,0 +1,31 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TagGraph represents tag co-occurrence data for incremental updates.",
+    "kind": "type",
+    "language": "go",
+    "name": "TagGraph",
+    "summary": "Type: TagGraph — TagGraph represents tag co-occurrence data for incremental updates."
+  },
+  "created": "2026-04-19T16:44:23Z",
+  "created_by": "cartographer",
+  "id": "pat-489d1cc85ab2",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "type",
+    "go",
+    "ast",
+    "bootstrap"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T16:44:23Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,34 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "EmitCaptureEvent emits a CaptureEvent, stamping the Kind field.",
+    "kind": "method",
+    "language": "go",
+    "name": "EmitCaptureEvent",
+    "receiver": "(e *Emitter)",
+    "summary": "Method: (e *Emitter)EmitCaptureEvent — EmitCaptureEvent emits a CaptureEvent, stamping the Kind field."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-cd5490b2d3c0",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-transponder",
+    "receiver-emitter"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

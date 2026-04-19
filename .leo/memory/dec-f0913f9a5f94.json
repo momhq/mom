@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Introduces cli/internal/cartographer/ with the core types (Extractor,\nSource, Draft, ProvenanceMeta, Config, Result, Cartographer) and the\nSHA256 file cache stored at .leo/cache/bootstrap/manifest.json.\nAdds BootstrapConfig to cli/internal/config/config.go.\nAdds github.com/smacker/go-tree-sitter as a dependency.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "70f674f5936bbf35c5edad275afc0143761b8520",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add package skeleton, types, cache, and config schema",
+    "summary": "add package skeleton, types, cache, and config schema. Introduces cli/internal/cartographer/ with the core types (Extractor,\nSource, Draft, ProvenanceMeta, Config, Result, Cartographer) and the\nSHA..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-f0913f9a5f94",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "70f674f5936bbf35c5edad275afc0143761b8520",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

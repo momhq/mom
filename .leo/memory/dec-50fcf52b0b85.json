@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- Add OnProgress callback to Config; Scan calls it after each file so callers can show live progress\n- Add ByLanguage map[string]int to Result — populated from AST draft content[\"language\"]\n- Add CacheHits / CacheMisses counters to Result — tracked in Scan\n- Add bootstrapSpinner (goroutine + ticker, stderr-only) for interactive TTY scans\n- Wire spinner and OnProgress into runBootstrap, runMultiRepoBootstrap, runBootstrapInline\n- Replace hardcoded \"AST (Go)\" label with \"AST\" + per-language indented breakdown\n- Add cache summary line \"✓ N cached · processing M new\" after extractor breakdown\n- Spinner and colors suppressed when stdout is not a TTY (isTerminalWriter)\n- New tests: TestScan_ByLanguage, TestScan_CacheHitsMisses, TestScan_OnProgress\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "1ed9a6dab9fdbaaa4db5e8057dcad258db5fb9b8",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): polish bootstrap UX with spinner, per-language AST, and cache stats (#80)",
+    "summary": "polish bootstrap UX with spinner, per-language AST, and cache stats (#80). - Add OnProgress callback to Config; Scan calls it after each file so callers can show live progress\n- Add ByLanguage map[..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-50fcf52b0b85",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "1ed9a6dab9fdbaaa4db5e8057dcad258db5fb9b8",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "\u003e Resultado da sessão de design entre owner e Leo em 2026-04-10.\n\u003e Este documento captura as decisões conceituais e arquiteturais\n\u003e para o sistema de Knowledge Base (KB) do projeto.",
+    "heading": "Knowledge Base Architecture — Vision Document",
+    "summary": "\u003e Resultado da sessão de design entre owner e Leo em 2026-04-10.\n\u003e Este documento captura as decisões conceituais e a..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-be36104a5fe5",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "decision",
+    "bootstrap"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

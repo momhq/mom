@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- init: creates new flat layout (memory/, constraints/, skills/, logs/,\n  telemetry/) — no kb/ wrapper ever created\n- upgrade: Phase 0 detects legacy .leo/kb/ and migrates to flat layout;\n  idempotent; partial-migration conflicts reported and skipped safely\n- All read/write paths updated: storage adapter, doctor, status, reindex,\n  validate, export, import, update, runtime content generator\n- update command accepts both new (memory/) and legacy (kb/docs/) core\n  source layouts for backward compatibility\n- Tests updated throughout; four new tests: MigratesKBLayout,\n  MigrationIdempotent, PartialMigrationSkipsExisting, NewLayout_NoKBDir\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "8fde8b00a307e18311f09c289724cd0c4c7dad75",
+    "prefix": "feat",
+    "scope": "cli",
+    "subject": "feat(cli): update all code paths + add layout migration to leo upgrade",
+    "summary": "update all code paths + add layout migration to leo upgrade. - init: creates new flat layout (memory/, constraints/, skills/, logs/,\n  telemetry/) — no kb/ wrapper ever created\n- upgrade: Phase 0 d..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-4aab9552d937",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "8fde8b00a307e18311f09c289724cd0c4c7dad75",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cli"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

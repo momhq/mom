@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "leo init creates the full .leo/ structure: config.yaml, default profiles\n(generalist, backend-engineer), KB schema, empty index, and generates\nCLAUDE.md via ClaudeAdapter. Supports --runtime and --force flags.\n\nCRUD commands use JSONAdapter for all operations:\n- read: fetch doc by ID, output formatted JSON\n- write: validate schema + persist + rebuild index\n- query: filter by --tags, --type, --scope, --lifecycle\n- delete: remove doc + rebuild index (requires --force)\n- reindex: full index rebuild from docs on disk\n- validate: single file or --all KB validation\n\nAll commands auto-discover .leo/ by walking up from cwd.\n\nCloses #19, closes #20\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "04e700ac72cb91f179f789f5f384951bcb08496b",
+    "prefix": "feat",
+    "scope": "cli",
+    "subject": "feat(cli): implement leo init and CRUD commands (read, write, query, delete, reindex, validate)",
+    "summary": "implement leo init and CRUD commands (read, write, query, delete, reindex, validate). leo init creates the full .leo/ structure: config.yaml, default profiles\n(generalist, backend-engineer), KB sch..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-bc1c1b01d04e",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "04e700ac72cb91f179f789f5f384951bcb08496b",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cli"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

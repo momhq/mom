@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "New cli/internal/cmd/doctor.go hosts the expanded doctor command with flags:\n- --verbose: memory breakdowns by confidence, promotion_state, classification\n- --telemetry-preview: event counts from today's JSONL + most recent sample\n- --landmarks: top landmark memories at current scope (empty until #65 ships)\n- --bundle: redacted diagnostic bundle to stdout only (no file, no upload)\n\nRemoved the old runDoctor from ops.go (helpers kept and shared). Dropped\nduplicate shortenPath from promote.go (single definition in doctor.go).\n\nHelp text explicitly states the transparency promise: \"No network calls;\nthis command reads only local files.\"\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "35e794a455c1f1d3eb99730d945b37a71ec0f2cf",
+    "prefix": "feat",
+    "scope": "doctor",
+    "subject": "feat(doctor): unified diagnostic + telemetry preview + bundle + landmarks (#70)",
+    "summary": "unified diagnostic + telemetry preview + bundle + landmarks (#70). New cli/internal/cmd/doctor.go hosts the expanded doctor command with flags:\n- --verbose: memory breakdowns by confidence, promoti..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-edb8429be546",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "35e794a455c1f1d3eb99730d945b37a71ec0f2cf",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "doctor"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

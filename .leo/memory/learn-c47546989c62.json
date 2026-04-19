@@ -1,0 +1,33 @@
+{
+  "centrality_score": 1,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Config migrated from legacy runtime/user/specialists format to v0.8\nruntimes map + communication.mode. Identity philosophy updated to v0.8\nvocabulary (memory layer, not orchestration model).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "c81d5f8c5ab74a4ec3510520f09e982622f756f8",
+    "prefix": "chore",
+    "scope": "leo",
+    "subject": "chore(leo): apply upgrade migrations to self-hosted .leo/",
+    "summary": "apply upgrade migrations to self-hosted .leo/. Config migrated from legacy runtime/user/specialists format to v0.8\nruntimes map + communication.mode. Identity philosophy updated to v0.8\nvocabulary ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-c47546989c62",
+  "landmark": true,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "c81d5f8c5ab74a4ec3510520f09e982622f756f8",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "chore",
+    "leo"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

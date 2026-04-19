@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestDiscoverUninitializedChildRepos returns repos with .git but no .leo.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestDiscoverUninitializedChildRepos_ReturnsReposWithoutLeo",
+    "summary": "Function: TestDiscoverUninitializedChildRepos_ReturnsReposWithoutLeo — TestDiscoverUninitializedChildRepos returns repos with .git but no .leo."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-d959a18f282f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

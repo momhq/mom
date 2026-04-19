@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "",
+    "commit_sha": "fec06b3e3195cd6c79a8d6a42709d43b846b5aa1",
+    "prefix": "feat",
+    "scope": "schema",
+    "subject": "feat(schema): add pattern and learning as first-class memory types (#75)",
+    "summary": "add pattern and learning as first-class memory types (#75)"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-07700ab7c227",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "fec06b3e3195cd6c79a8d6a42709d43b846b5aa1",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "schema"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

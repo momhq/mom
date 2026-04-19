@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Extends TreeSitterASTExtractor with JVM/CLR OOP grammar support. Java\nextracts class/interface/enum declarations and method declarations. C#\nextracts class/interface/record/enum declarations and method declarations.\n\nFixtures: sample.java, sample.cs.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "b93f069d0ede85b439e4d1ca828344e2fcc078cc",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add Java and C# AST extraction",
+    "summary": "add Java and C# AST extraction. Extends TreeSitterASTExtractor with JVM/CLR OOP grammar support. Java\nextracts class/interface/enum declarations and method declarations. C#\nextracts class/interface..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-f608392d8f17",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "b93f069d0ede85b439e4d1ca828344e2fcc078cc",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

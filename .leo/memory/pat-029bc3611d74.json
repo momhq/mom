@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "AdapterCapability describes which MRP v0 events an adapter natively supports. Loaded from the adapter's embedded YAML capability file.",
+    "kind": "type",
+    "language": "go",
+    "name": "AdapterCapability",
+    "summary": "Type: AdapterCapability — AdapterCapability describes which MRP v0 events an adapter natively supports. Loaded from the ada..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-029bc3611d74",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-runtime"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

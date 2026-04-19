@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "AutonomyInstructions returns behavioral instructions for the given autonomy level. Supported values: \"autonomous\", \"balanced\", \"supervised\". Defaults to \"balanced\".",
+    "kind": "function",
+    "language": "go",
+    "name": "AutonomyInstructions",
+    "summary": "Function: AutonomyInstructions — AutonomyInstructions returns behavioral instructions for the given autonomy level. Supported valu..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-a4f065543af6",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-runtime"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

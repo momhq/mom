@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestUpgradeCmd_ScrubsDeadConfigFields verifies that upgrade removes the retired tiers and autonomy fields from an existing config.yaml on disk.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestUpgradeCmd_ScrubsDeadConfigFields",
+    "summary": "Function: TestUpgradeCmd_ScrubsDeadConfigFields — TestUpgradeCmd_ScrubsDeadConfigFields verifies that upgrade removes the retired tiers and autonom..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-560f876213d3",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

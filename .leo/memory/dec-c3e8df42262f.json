@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Inspired by app-onboarding-questionnaire skill patterns:\n\n1. Status-first — shows what already exists before asking anything\n   (managers, specialists, context files, CLAUDE.md, test framework,\n   design system, CI)\n\n2. Contextual confirmation — infers project type from stack and asks\n   \"is that right?\" instead of a blind dropdown. Pre-fills description\n   from package.json when available.\n\n3. Discovery inteligente — expanded scanner detects test frameworks\n   (Vitest, Jest, Playwright, Cypress), design systems (shadcn/ui,\n   Tailwind), and CI (GitHub Actions). Questions are conditional —\n   skips what code already answers.\n\n4. Resumability — saves state to .claude/.init-state.json at each\n   phase. If interrupted, next run offers to resume or start fresh.\n   State expires after 24h.\n\n5. Gap-filling mode — when project is already set up, offers to only\n   fill missing pieces instead of overwriting everything.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "9319bbe62cd44c490ef630e2f4da28c6853c833a",
+    "prefix": "feat",
+    "scope": "cli",
+    "subject": "feat(cli): smarter init with 5 onboarding patterns",
+    "summary": "smarter init with 5 onboarding patterns. Inspired by app-onboarding-questionnaire skill patterns:\n\n1. Status-first — shows what already exists before asking anything\n   (managers, specialists, cont..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-c3e8df42262f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "9319bbe62cd44c490ef630e2f4da28c6853c833a",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cli"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

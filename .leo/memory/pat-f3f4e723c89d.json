@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestCollectFiles_ScansChildWithoutLeo verifies that a child dir WITHOUT .leo/ is still walked normally.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestCollectFiles_ScansChildWithoutLeo",
+    "summary": "Function: TestCollectFiles_ScansChildWithoutLeo — TestCollectFiles_ScansChildWithoutLeo verifies that a child dir WITHOUT .leo/ is still walked nor..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-f3f4e723c89d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cartographer",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

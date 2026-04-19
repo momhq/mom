@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- .leo/kb/architecture/ — internal strategy/architecture drafts, not for public repo\n- AGENTS.md — Codex-adapter-generated, analogous to CLAUDE.md (already ignored)\n- .clinerules/ — Cline-adapter-generated\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "58710cc4d5409e671d4df5e02ad2a6791c7a4653",
+    "prefix": "chore",
+    "scope": "",
+    "subject": "chore: gitignore architecture drafts + runtime-generated adapter files",
+    "summary": "gitignore architecture drafts + runtime-generated adapter files. - .leo/kb/architecture/ — internal strategy/architecture drafts, not for public repo\n- AGENTS.md — Codex-adapter-generated, analogou..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-ec3140738a36",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "58710cc4d5409e671d4df5e02ad2a6791c7a4653",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "chore"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

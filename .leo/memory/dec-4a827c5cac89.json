@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Scans source files for TODO/FIXME/HACK/NOTE/WHY comments. Only captures\nstructured comments (\u003e= 20 chars, multiple words). Each produces a\nlearning draft with AMBIGUOUS confidence. FIXME/HACK entries also\nreceive a tech-debt tag.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "96f0bb66ed70e04bf2330b5adb6a4a857cad65b5",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add TodoFixmeExtractor with tests",
+    "summary": "add TodoFixmeExtractor with tests. Scans source files for TODO/FIXME/HACK/NOTE/WHY comments. Only captures\nstructured comments (\u003e= 20 chars, multiple words). Each produces a\nlearning draft with AMB..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-4a827c5cac89",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "96f0bb66ed70e04bf2330b5adb6a4a857cad65b5",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

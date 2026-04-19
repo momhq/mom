@@ -1,19 +1,8 @@
 {
-  "id": "session-wrap-up",
-  "type": "skill",
   "boot": true,
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "wrap-up",
-    "propagation",
-    "persistence",
-    "session"
-  ],
-  "created": "2026-04-08T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-13T00:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.001226993865030675,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "description": "Orchestrates end-of-session knowledge propagation. Lists what changed, classifies each item, presents a plan for user approval, writes KB docs, commits, and reports.",
     "do_not": [
@@ -75,5 +64,22 @@
       "próxima vez continua daqui",
       "manda bala, fecha"
     ]
-  }
+  },
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "user",
+  "id": "session-wrap-up",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "wrap-up",
+    "propagation",
+    "persistence",
+    "session"
+  ],
+  "type": "skill",
+  "updated": "2026-04-13T00:00:00Z",
+  "updated_by": "leo"
 }

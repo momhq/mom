@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "```\n\n**First comment:** \"This structured approach is the core of L.E.O. — a JSON knowledge base with schema validation, tag-based indexing, and selective boot loading. Each document has a type (rule, decision, feedback, skill), a lifecycle, and connections to related docs: https://github.com/vmarinogg/leo-core\"\n\n---",
+    "heading": "KnowledgeManagement #AIArchitecture #DeveloperTools",
+    "summary": "```\n\n**First comment:** \"This structured approach is the core of L.E.O. — a JSON knowledge base with schema validatio..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-ab4976df9a81",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "decision",
+    "bootstrap"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "The Go CLI already provides validate, reindex, and stale detection.\nShell scripts and the Claude Code hook were redundant.\n\n- Removed .leo/kb/scripts/ (validate.sh, build-index.sh, check-stale.sh)\n- Removed .claude/hooks/validate-kb-doc.sh\n- Cleaned .claude/settings.json (no hooks)\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "b45559b5342630b879fe50f1cbb0bb43bb40f91d",
+    "prefix": "refactor",
+    "scope": "",
+    "subject": "refactor: remove legacy shell scripts and hooks — CLI Go handles everything",
+    "summary": "remove legacy shell scripts and hooks — CLI Go handles everything. The Go CLI already provides validate, reindex, and stale detection.\nShell scripts and the Claude Code hook were redundant.\n\n- Remo..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-e493fecaeb30",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "b45559b5342630b879fe50f1cbb0bb43bb40f91d",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "refactor"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,20 +1,8 @@
 {
-  "id": "self-hosting-notes",
-  "type": "constraint",
   "boot": true,
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "self-hosting",
-    "dogfooding",
-    "core",
-    "safety",
-    "golang"
-  ],
-  "created": "2026-04-09T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-13T20:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.0036809815950920245,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "constraint": "Working on leo-core using leo-core itself (dogfooding) requires extra care. This repo contains the Go CLI (cli/), the KB (.claude/kb/), and the CLAUDE.md bootloader. Changes to KB docs propagate to downstream projects via `leo update` (issue #26).",
     "how_to_apply": [
@@ -27,5 +15,23 @@
     ],
     "responsibility": "Leo, when operating inside the leo-core repo.",
     "why": "This repo contains the Go CLI, the KB, and the bootloader. Changes to KB docs propagate to downstream projects. Self-hosting means dogfooding with production impact."
-  }
+  },
+  "created": "2026-04-09T00:00:00Z",
+  "created_by": "user",
+  "id": "self-hosting-notes",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "self-hosting",
+    "dogfooding",
+    "core",
+    "safety",
+    "golang"
+  ],
+  "type": "constraint",
+  "updated": "2026-04-13T20:00:00Z",
+  "updated_by": "leo"
 }

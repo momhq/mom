@@ -1,0 +1,28 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "feedback": "Cartographer bootstrap at user/org scope ignores .leo/ boundaries in child repos. collectFiles walks the entire tree and dumps all drafts into the root memory/. Result: 230k docs in root instead of distributed across each repo's own memory/.",
+    "how_to_apply": "collectFiles must detect directories with .leo/ and treat them as scope boundaries — skip those subtrees. Each repo should be bootstrapped independently via its own .leo/. Issue #77 tracks the fix. See also: cartographer generated docs with underscore tags (variable_declarator) violating kebab-case schema constraint — AST extractor tag sanitization needed.",
+    "why": "User ran bootstrap from ~/Github (user scope) expecting each repo's memories to land in their respective .leo/memory/. Instead, all 230k docs (including 41k with invalid variable_declarator tags from AST extraction) landed in the root. Had to nuke the entire root memory/ and start over."
+  },
+  "created": "2026-04-19T14:30:00Z",
+  "created_by": "user",
+  "id": "feedback-cartographer-scope",
+  "landmark": true,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "cartographer",
+    "bootstrap",
+    "scope",
+    "multi-repo",
+    "boundaries"
+  ],
+  "type": "feedback",
+  "updated": "2026-04-19T14:30:00Z",
+  "updated_by": "leo"
+}

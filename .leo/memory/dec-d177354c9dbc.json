@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Each adapter (claude, codex, cline) now embeds a YAML capability file\ndeclaring which MRP v0 events it natively supports vs experimental.\nAdapterCapability type and Capabilities() method added to the Adapter\ninterface; all three adapters implement it via //go:embed.\nUnit tests verify correct supports/experimental lists per adapter.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "34b98b0a16df2f0a9ce4037a047bdef30262ce97",
+    "prefix": "feat",
+    "scope": "mrp",
+    "subject": "feat(mrp): add adapter capability YAMLs and Capabilities() interface method",
+    "summary": "add adapter capability YAMLs and Capabilities() interface method. Each adapter (claude, codex, cline) now embeds a YAML capability file\ndeclaring which MRP v0 events it natively supports vs experim..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-d177354c9dbc",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "34b98b0a16df2f0a9ce4037a047bdef30262ce97",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "mrp"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

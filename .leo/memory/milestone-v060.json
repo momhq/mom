@@ -1,18 +1,7 @@
 {
-  "id": "milestone-v060",
-  "type": "decision",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "milestone",
-    "release",
-    "distribution",
-    "architecture"
-  ],
-  "created": "2026-04-15T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-15T00:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.018404907975460124,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "decisions": [
       "New doc taxonomy: knowledge types (decision, fact, feedback) + behavior types (skill, constraint). Rule type eliminated — each becomes skill (has steps) or constraint (guardrail).",
@@ -33,5 +22,22 @@
     "tracking": "GitHub epic #34 with sub-issues #35-#43",
     "what": "v0.6.0 — Core Refactor: new doc taxonomy, enforcement layer, metrics system",
     "why": "v0.5.x revealed structural problems: metrics weren't collected because enforcement depended on Leo remembering (text rules, not code). Delegation wasn't enforced — Leo executed more than delegated. The KB doc types were ambiguous (everything was 'rule' but some were procedures, some guardrails, some config). The adapter had hardcoded text instead of generating from KB data. These issues compound: without enforcement, the system that's supposed to measure and improve itself can't do either."
-  }
+  },
+  "created": "2026-04-15T00:00:00Z",
+  "created_by": "user",
+  "id": "milestone-v060",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "milestone",
+    "release",
+    "distribution",
+    "architecture"
+  ],
+  "type": "decision",
+  "updated": "2026-04-15T00:00:00Z",
+  "updated_by": "leo"
 }

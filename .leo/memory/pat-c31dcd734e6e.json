@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "Load reads a config.yaml from the given .leo/ directory. Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats.",
+    "kind": "function",
+    "language": "go",
+    "name": "Load",
+    "summary": "Function: Load — Load reads a config.yaml from the given .leo/ directory. Handles both v0.6.0 (single runtime) and..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-c31dcd734e6e",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-config"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

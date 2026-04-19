@@ -1,0 +1,30 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "kind": "variable_declarator",
+    "language": "tsx",
+    "summary": "tsx variable_declarator: Card",
+    "symbol": "Card"
+  },
+  "created": "2026-04-19T16:44:23Z",
+  "created_by": "cartographer",
+  "id": "pat-04b3a235e37a",
+  "landmark": true,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "tsx",
+    "variable-declarator",
+    "ast",
+    "bootstrap"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T16:44:23Z",
+  "updated_by": "cartographer"
+}

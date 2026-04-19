@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- kb: validation (IDs, types, lifecycles, scopes, tags, content),\n  load/save round-trip, error cases (94.1% coverage)\n- config: defaults, save/load round-trip, invalid YAML, missing file (88.2%)\n- profiles: default profiles validation, save/load, list filtering,\n  edge cases (88.0%)\n- storage: edge cases — read/delete not found, empty KB, query by tags,\n  combined filters, no filter, overwrite, bulk validation failure,\n  tag connections, health on missing dir (85.1%)\n- cmd: init (structure creation, idempotency, --force), CRUD commands\n  (read, write, query, delete, validate, reindex) with end-to-end\n  tests using temp dirs (69.0%)\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "276a0ff501de1b751aca9aedd5ea086ed0333c8a",
+    "prefix": "test",
+    "scope": "",
+    "subject": "test: add comprehensive test coverage across all packages",
+    "summary": "add comprehensive test coverage across all packages. - kb: validation (IDs, types, lifecycles, scopes, tags, content),\n  load/save round-trip, error cases (94.1% coverage)\n- config: defaults, save/..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-c2f341eecfcd",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "276a0ff501de1b751aca9aedd5ea086ed0333c8a",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "test"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

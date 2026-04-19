@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.001226993865030675,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "feedback": "leo update --source copies all memory/ docs from leo-core into the target project's memory/. This includes core decisions, feedbacks, and milestones that are specific to leo-core development — not relevant to downstream projects. The 24 core memory docs ended up mixed with each project's own docs.",
+    "how_to_apply": "leo update should sync constraints/, skills/, schema.json, and identity.json from source. It should NOT copy memory/ docs from the source — those are the source project's knowledge, not universal core rules. Review computeSyncPlan to exclude memory/ from the sync scope.",
+    "why": "User ran leo update on 6 repos. Each got 24 leo-core memory docs injected alongside their own project docs. Had to manually remove them. The update command should only sync constraints, skills, schema, and identity — not memory docs, which are project-specific by nature."
+  },
+  "created": "2026-04-19T14:30:00Z",
+  "created_by": "user",
+  "id": "feedback-update-copies-core",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "update",
+    "memory",
+    "core-docs",
+    "propagation"
+  ],
+  "type": "feedback",
+  "updated": "2026-04-19T14:30:00Z",
+  "updated_by": "leo"
+}

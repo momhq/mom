@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestResolveScopeChoice_ParentRepoLabel verifies parent with repo label resolves correctly.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestResolveScopeChoice_ParentRepoLabel",
+    "summary": "Function: TestResolveScopeChoice_ParentRepoLabel — TestResolveScopeChoice_ParentRepoLabel verifies parent with repo label resolves correctly."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-c6a61a1b1129",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

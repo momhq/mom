@@ -1,0 +1,30 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "kind": "function_declarator",
+    "language": "c",
+    "summary": "c function_declarator: process_record",
+    "symbol": "process_record"
+  },
+  "created": "2026-04-19T16:44:23Z",
+  "created_by": "cartographer",
+  "id": "pat-06bc7610db12",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "c",
+    "function-declarator",
+    "ast",
+    "bootstrap"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T16:44:23Z",
+  "updated_by": "cartographer"
+}

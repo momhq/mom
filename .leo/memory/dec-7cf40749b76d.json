@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Move kb/ subtree one level up: kb/docs→memory, kb/constraints→constraints,\nkb/skills→skills, kb/index.json→index.json, kb/schema.json→schema.json.\nUpdate .gitignore: add .leo/logs/ and .leo/telemetry/, replace\n.leo/kb/architecture/ with .leo/architecture/ and .leo/kb/ blanket entry.\nApply path updates inside tracked memory and constraint JSON docs.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "b18a45d599ea2f445d2d0680bc43f78a0b296e4c",
+    "prefix": "feat",
+    "scope": "fs",
+    "subject": "feat(fs): flatten .leo/kb/ to canonical layout (issue #72)",
+    "summary": "flatten .leo/kb/ to canonical layout (issue #72). Move kb/ subtree one level up: kb/docs→memory, kb/constraints→constraints,\nkb/skills→skills, kb/index.json→index.json, kb/schema.json→schema.json.\n..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-7cf40749b76d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "b18a45d599ea2f445d2d0680bc43f78a0b296e4c",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "fs"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestContainsGitRepos_DotGitOnlyAtRoot verifies that .git in root itself is not counted as a child git repo.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestContainsGitRepos_DotGitOnlyAtRoot",
+    "summary": "Function: TestContainsGitRepos_DotGitOnlyAtRoot — TestContainsGitRepos_DotGitOnlyAtRoot verifies that .git in root itself is not counted as a child..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-ac0295368ee8",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

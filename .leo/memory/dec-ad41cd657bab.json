@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "init: removes profiles/ scaffold dir, profile file seeding, profile-based\nruntime config. Extracts buildRuntimeConfig/Constraints/Skills/Identity\nhelpers. Writes communication.mode from onboarding mode selection.\nonboarding: removes profile select group and DefaultProfile field from\nOnboardingResult. Adds normal mode option. One fewer form group.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "d2e1f0df1f2f40fc11057cc6d1a5dcfc2f267fcb",
+    "prefix": "feat",
+    "scope": "init,onboarding",
+    "subject": "feat(init,onboarding): remove profile selection, wire communication mode",
+    "summary": "remove profile selection, wire communication mode. init: removes profiles/ scaffold dir, profile file seeding, profile-based\nruntime config. Extracts buildRuntimeConfig/Constraints/Skills/Identity\n..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-ad41cd657bab",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "d2e1f0df1f2f40fc11057cc6d1a5dcfc2f267fcb",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "initonboarding"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

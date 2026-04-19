@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "New profiles: architect (Opus), code-reviewer, security-reviewer,\ntest-engineer, debugger (all Sonnet). Existing profiles enriched with\nMethodology, Tool guidance, Failure modes, Constraints, and Output\nexpectations sections. Inspired by oh-my-claudecode agent structure.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "2e04653d665686bd4fc82376f2fa9f5e357b784e",
+    "prefix": "feat",
+    "scope": "",
+    "subject": "feat: add 5 specialist profiles + enrich existing 6",
+    "summary": "add 5 specialist profiles + enrich existing 6. New profiles: architect (Opus), code-reviewer, security-reviewer,\ntest-engineer, debugger (all Sonnet). Existing profiles enriched with\nMethodology, T..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-eb7ac8451d82",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "2e04653d665686bd4fc82376f2fa9f5e357b784e",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

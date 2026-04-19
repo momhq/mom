@@ -1,19 +1,7 @@
 {
-  "id": "peer-review-automatic",
-  "type": "constraint",
   "boot": true,
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "review",
-    "quality",
-    "adversarial",
-    "isolation"
-  ],
-  "created": "2026-04-08T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-10T00:00:00Z",
-  "updated_by": "leo",
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "anti_patterns": [
       "Skipping review because the task is simple — that's exactly where bugs slip through",
@@ -43,5 +31,22 @@
     ],
     "responsibility": "All executing agents. Leo defines adversarial review criteria per domain when delegating.",
     "why": "Self-QA and peer review catch different things. Self-QA catches what the author can see. Peer review catches confirmation bias, shortcuts, dead code, wrong callsite, regressions, ignored edge cases. Human cost makes peer review expensive in human teams — in AI, the cost is seconds and tokens."
-  }
+  },
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "user",
+  "id": "peer-review-automatic",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "review",
+    "quality",
+    "adversarial",
+    "isolation"
+  ],
+  "type": "constraint",
+  "updated": "2026-04-10T00:00:00Z",
+  "updated_by": "leo"
 }

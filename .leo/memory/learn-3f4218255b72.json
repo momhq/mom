@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "AMBIGUOUS",
+  "content": {
+    "marker": "NOTE",
+    "summary": "NOTE: this doc is in legacy kb/docs/ — upgrade will migrate it to memory/",
+    "text": "this doc is in legacy kb/docs/ — upgrade will migrate it to memory/"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-3f4218255b72",
+  "landmark": true,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "note",
+    "bootstrap"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

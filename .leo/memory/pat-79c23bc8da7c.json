@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "❌ **A specialist creating another specialist without going through Leo.**\nWithout Leo's cross-cutting view, you generate duplicates and inconsistency.\n\n❌ **Specialists that are too generic.**\nA \"Frontend generalist\" trying to cover React + Vue + Svelte is useless. Be specific.\n\n❌ **Specialists that replicate Leo's routing knowledge.**\nIf Leo already knows it well enough to route and brief, no specialist playbook is needed. Specialists exist for **deep** or **specific** execution knowledge.\n\n❌ **Hiring loop for a 5-minute task.**\nIf the task is so small that creating a specialist costs more than executing carefully, the specialist can execute (with strict self-QA + review). The hiring loop is for tasks where the cost of being wrong justifies the cost of creating a playbook.",
+    "heading": "Anti-patterns",
+    "summary": "❌ **A specialist creating another specialist without going through Leo.**\nWithout Leo's cross-cutting view, you gener..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-79c23bc8da7c",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "pattern",
+    "bootstrap"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

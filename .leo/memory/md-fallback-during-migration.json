@@ -1,19 +1,7 @@
 {
-  "id": "md-fallback-during-migration",
-  "type": "decision",
-  "lifecycle": "learning",
-  "scope": "core",
-  "tags": [
-    "migration",
-    "architecture",
-    "compatibility",
-    "rules",
-    "historical"
-  ],
-  "created": "2026-04-11T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-13T20:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.012269938650306749,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "alternatives_considered": [
       "Remove MD immediately (option A) — would have broken downstream projects at the time",
@@ -25,5 +13,23 @@
     "reversible": false,
     "status": "COMPLETED — MD rules directory removed, all projects now boot from JSON KB via CLAUDE.md bootloader",
     "why": "During the KB migration, old MD rule files in rules/ were kept as deprecated fallback so downstream projects that hadn't migrated yet could still boot. Claude Code auto-loaded files from ~/.claude/rules/ at session start via symlinks. The KB bootloader (CLAUDE.md) handled rule loading for projects that had migrated."
-  }
+  },
+  "created": "2026-04-11T00:00:00Z",
+  "created_by": "user",
+  "id": "md-fallback-during-migration",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "migration",
+    "architecture",
+    "compatibility",
+    "rules",
+    "historical"
+  ],
+  "type": "decision",
+  "updated": "2026-04-13T20:00:00Z",
+  "updated_by": "leo"
 }

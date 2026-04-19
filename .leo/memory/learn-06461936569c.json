@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Check os.MkdirAll return values in import command, remove unused\ntruncate and runtimeToNum functions.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "b462d0858a1bdd5a38b206510b43eda8d1f02a91",
+    "prefix": "fix",
+    "scope": "",
+    "subject": "fix: resolve golangci-lint errors — unchecked MkdirAll + dead code",
+    "summary": "resolve golangci-lint errors — unchecked MkdirAll + dead code. Check os.MkdirAll return values in import command, remove unused\ntruncate and runtimeToNum functions.\n\nCo-Authored-By: Claude Opus 4.6..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-06461936569c",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "b462d0858a1bdd5a38b206510b43eda8d1f02a91",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "collectFiles now stops descending into subdirectories that contain\ntheir own .leo/ directory, preventing cross-scope contamination.\n\nAdds MultiScan(ctx, []ScanTarget, Config) and ScanTarget struct to\nscan multiple repo roots independently, each writing to its own .leo/.\n\nUpdates runBootstrap to detect user/org scope and fan out to\nrunMultiRepoBootstrap, which scans each initialized child repo\nseparately and groups progress output by repo name.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "dcd8605a29aa05727b6eb0e9353c1b1c41639187",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add .leo/ boundary detection and MultiScan for multi-repo bootstrap",
+    "summary": "add .leo/ boundary detection and MultiScan for multi-repo bootstrap. collectFiles now stops descending into subdirectories that contain\ntheir own .leo/ directory, preventing cross-scope contaminati..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-c91c2b521a7e",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "dcd8605a29aa05727b6eb0e9353c1b1c41639187",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "AMBIGUOUS",
+  "content": {
+    "marker": "WHY",
+    "summary": "WHY: We use polling instead of webhooks because the upstream API lacks support.",
+    "text": "We use polling instead of webhooks because the upstream API lacks support."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-6783bc86281c",
+  "landmark": true,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "why",
+    "bootstrap"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

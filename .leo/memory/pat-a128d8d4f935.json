@@ -1,0 +1,34 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "EmitSessionEvent emits a SessionEvent, stamping the Kind field.",
+    "kind": "method",
+    "language": "go",
+    "name": "EmitSessionEvent",
+    "receiver": "(e *Emitter)",
+    "summary": "Method: (e *Emitter)EmitSessionEvent — EmitSessionEvent emits a SessionEvent, stamping the Kind field."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-a128d8d4f935",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-transponder",
+    "receiver-emitter"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

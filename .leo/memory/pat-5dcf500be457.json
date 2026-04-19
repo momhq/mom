@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestLegacyDoc_LoadFillsDefaults verifies that a legacy memory file (no new fields) loads without error and gets safe defaults applied.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestLegacyDoc_LoadFillsDefaults",
+    "summary": "Function: TestLegacyDoc_LoadFillsDefaults — TestLegacyDoc_LoadFillsDefaults verifies that a legacy memory file (no new fields) loads without ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-5dcf500be457",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-kb",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

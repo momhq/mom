@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Co-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "1eafa392f8a04eed25b80d6401d12227a24a3ce8",
+    "prefix": "fix",
+    "scope": "ci",
+    "subject": "fix(ci): use golangci-lint v2.11 (valid release with Go 1.26 support)",
+    "summary": "use golangci-lint v2.11 (valid release with Go 1.26 support). Co-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-36ac41687468",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "1eafa392f8a04eed25b80d6401d12227a24a3ce8",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix",
+    "ci"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

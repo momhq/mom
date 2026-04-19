@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestOnboarding_OutputContainsSummary verifies the summary step renders. Input: confirm runtimes, mode=2(normal), scope=default, core-source=skip, bootstrap=default, confirm=y",
+    "kind": "function",
+    "language": "go",
+    "name": "TestOnboarding_OutputContainsSummary",
+    "summary": "Function: TestOnboarding_OutputContainsSummary — TestOnboarding_OutputContainsSummary verifies the summary step renders. Input: confirm runtimes, ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-64d4bd215ec5",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

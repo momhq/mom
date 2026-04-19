@@ -1,8 +1,20 @@
 {
-  "id": "brand-name-dots",
-  "type": "feedback",
   "boot": true,
+  "centrality_score": 0.00245398773006135,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "feedback": "Always write L.E.O. with dots in marketing materials, README, LinkedIn posts, and any public-facing content. Never use 'Leo' or 'LEO'. Never use lion emojis or lion-related imagery.",
+    "how_to_apply": "Any content, documentation, or communication that references the product name in a public or marketing context should use 'L.E.O.' with dots. Code-level references (CLI command, directory names, package names) remain lowercase 'leo'.",
+    "why": "L.E.O. stands for Living Ecosystem Orchestrator. The dots make it immediately clear it's an acronym with meaning. 'Leo' looks like a name or lion reference, which is off-brand."
+  },
+  "created": "2026-04-13T16:00:00Z",
+  "created_by": "user",
+  "id": "brand-name-dots",
+  "landmark": false,
   "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
   "scope": "core",
   "tags": [
     "branding",
@@ -10,13 +22,7 @@
     "content",
     "marketing"
   ],
-  "created": "2026-04-13T16:00:00Z",
-  "created_by": "user",
+  "type": "feedback",
   "updated": "2026-04-13T16:00:00Z",
-  "updated_by": "user",
-  "content": {
-    "feedback": "Always write L.E.O. with dots in marketing materials, README, LinkedIn posts, and any public-facing content. Never use 'Leo' or 'LEO'. Never use lion emojis or lion-related imagery.",
-    "how_to_apply": "Any content, documentation, or communication that references the product name in a public or marketing context should use 'L.E.O.' with dots. Code-level references (CLI command, directory names, package names) remain lowercase 'leo'.",
-    "why": "L.E.O. stands for Living Ecosystem Orchestrator. The dots make it immediately clear it's an acronym with meaning. 'Leo' looks like a name or lion reference, which is off-brand."
-  }
+  "updated_by": "user"
 }

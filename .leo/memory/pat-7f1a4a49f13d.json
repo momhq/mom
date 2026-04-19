@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestLiveMemoryFiles verifies all memory files in the repo's own .leo/memory/ continue to load and validate without error after the schema evolution.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestLiveMemoryFiles",
+    "summary": "Function: TestLiveMemoryFiles — TestLiveMemoryFiles verifies all memory files in the repo's own .leo/memory/ continue to load and..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-7f1a4a49f13d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-kb",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

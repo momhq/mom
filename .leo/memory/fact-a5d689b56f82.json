@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- Remove stale profiles/ references (retired in #66)\n- Drop \"Adding a profile\" section (profile system is gone)\n- Link to new repo surface manifest\n- Document future-package naming convention so contributors don't invent alternate names for Watchman/Drafter/Gardener/etc. when those components land\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "189e8b53ef78a96a2231e621d34421664b87bd1f",
+    "prefix": "docs",
+    "scope": "",
+    "subject": "docs: update CONTRIBUTING for v0.8 structure (issue #67)",
+    "summary": "update CONTRIBUTING for v0.8 structure (issue #67). - Remove stale profiles/ references (retired in #66)\n- Drop \"Adding a profile\" section (profile system is gone)\n- Link to new repo surface manife..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-a5d689b56f82",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "189e8b53ef78a96a2231e621d34421664b87bd1f",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "docs"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

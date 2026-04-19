@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "InheritedDoc wraps a Doc with metadata about which scope it came from and whether it is inherited (read-only from the child's perspective).",
+    "kind": "type",
+    "language": "go",
+    "name": "InheritedDoc",
+    "summary": "Type: InheritedDoc — InheritedDoc wraps a Doc with metadata about which scope it came from and whether it is inherited..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-857e286177ef",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-storage"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

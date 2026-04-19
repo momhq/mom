@@ -1,0 +1,34 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "Emit writes one event as a single JSON line. Filesystem failures are logged at warn level; the call always returns (never crashes the caller).",
+    "kind": "method",
+    "language": "go",
+    "name": "Emit",
+    "receiver": "(e *Emitter)",
+    "summary": "Method: (e *Emitter)Emit — Emit writes one event as a single JSON line. Filesystem failures are logged at warn level; the ca..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-b06b4e9a099d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-transponder",
+    "receiver-emitter"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Extends TreeSitterASTExtractor with Python and Ruby grammar support via\nsmacker/go-tree-sitter. Extracts class/def (Python) and class/module/method\n(Ruby) top-level symbols as EXTRACTED fact drafts.\n\nFixture files testdata/sample.py and testdata/sample.rb added.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "9c32a8beb19753831532304ca04ba44efc469f7c",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add Python and Ruby AST extraction",
+    "summary": "add Python and Ruby AST extraction. Extends TreeSitterASTExtractor with Python and Ruby grammar support via\nsmacker/go-tree-sitter. Extracts class/def (Python) and class/module/method\n(Ruby) top-le..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-7795d847925f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "9c32a8beb19753831532304ca04ba44efc469f7c",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}
