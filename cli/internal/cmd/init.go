@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	huhspinner "charm.land/huh/v2/spinner"
@@ -299,9 +300,38 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			}
 		}
 	}
+	// Warn about adapters with experimental MRP features.
+	printExperimentalWarnings(cmd, registry, result.Runtimes)
+
 	cmd.Println()
 	cmd.Println("L.E.O. is ready. Run 'leo status' to check health.")
 	return nil
+}
+
+// printExperimentalWarnings prints a warning for each adapter that carries
+// experimental MRP v0 events — informing the user that capture may be less reliable.
+func printExperimentalWarnings(cmd *cobra.Command, reg *runtime.Registry, runtimes []string) {
+	for _, name := range runtimes {
+		adapter, ok := reg.Get(name)
+		if !ok {
+			continue
+		}
+		cap := adapter.Capabilities()
+		if len(cap.Experimental) == 0 {
+			continue
+		}
+		adapterLabel := cap.Name
+		if adapterLabel == "" {
+			adapterLabel = name
+		}
+		version := cap.Version
+		if version == "" {
+			version = "unknown"
+		}
+		cmd.Printf("  ⚠ %s adapter installed (v%s)\n", adapterLabel, version)
+		cmd.Printf("    Experimental: %s\n", strings.Join(cap.Experimental, ", "))
+		cmd.Printf("    These events are emitted best-effort; capture may fire less reliably.\n")
+	}
 }
 
 // isTerminalWriter returns true if w is connected to a terminal.
