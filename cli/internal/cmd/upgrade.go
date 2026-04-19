@@ -274,7 +274,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Updating knowledge base...").Action(doPhase2).Run()
+		_ = huhspinner.New().Title("Updating memory structure...").Action(doPhase2).Run()
 	} else {
 		doPhase2()
 	}

@@ -66,13 +66,20 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 		// Run bootstrap inline if the user opted in (non-interactive -y always skips).
 		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
-			scanDir := installDir
-			if result.BootstrapChoice == "repo" {
-				scanDir = cwd
-			}
 			cmd.Println()
-			if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".leo")); err != nil {
-				cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
+			if result.ScopeLabel == "user" || result.ScopeLabel == "org" {
+				// Multi-repo: bootstrap each child repo that has .leo/.
+				if err := bootstrapAllChildRepos(cmd, installDir); err != nil {
+					cmd.Printf("  ⚠ multi-repo bootstrap error: %v\n", err)
+				}
+			} else {
+				scanDir := installDir
+				if result.BootstrapChoice == "repo" {
+					scanDir = cwd
+				}
+				if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".leo")); err != nil {
+					cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
+				}
 			}
 		}
 		return nil
@@ -151,7 +158,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return scaffoldErr
 	}
 
-	// ── Phase 2: Write knowledge base ───────────────────────────────────────
+	// ── Phase 2: Write memory structure ──────────────────────────────────────
 	registry := runtime.NewRegistry(cwd)
 
 	var kbErr error
@@ -255,7 +262,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Writing knowledge base...").Action(doWriteKB).Run()
+		_ = huhspinner.New().Title("Writing memory structure...").Action(doWriteKB).Run()
 	} else {
 		doWriteKB()
 	}
@@ -350,6 +357,40 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 
 	cmd.Println()
 	cmd.Println("L.E.O. is ready. Run 'leo status' to check health.")
+	return nil
+}
+
+// bootstrapAllChildRepos walks rootDir recursively, finds every directory that
+// has .leo/, and runs bootstrapInline for each one. Org folders (scope: org)
+// are skipped because they don't contain source code directly.
+func bootstrapAllChildRepos(cmd *cobra.Command, rootDir string) error {
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		childPath := filepath.Join(rootDir, e.Name())
+		childLeo := filepath.Join(childPath, ".leo")
+
+		// If this child has .leo/ and .git/, it's a repo — bootstrap it.
+		gitPath := filepath.Join(childPath, ".git")
+		if _, err := os.Stat(childLeo); err == nil {
+			if _, err := os.Stat(gitPath); err == nil {
+				cmd.Printf("\n  Bootstrapping %s...\n", e.Name())
+				if err := runBootstrapInline(cmd, childPath, childLeo); err != nil {
+					cmd.Printf("  ⚠ %s: %v\n", e.Name(), err)
+				}
+			} else {
+				// Org folder — recurse into its children.
+				if err := bootstrapAllChildRepos(cmd, childPath); err != nil {
+					cmd.Printf("  ⚠ %s: %v\n", e.Name(), err)
+				}
+			}
+		}
+	}
 	return nil
 }
 

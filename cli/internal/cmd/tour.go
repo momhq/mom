@@ -16,7 +16,7 @@ var tourCmd = &cobra.Command{
 	Use:   "tour",
 	Short: "Show top landmark memories at current scope",
 	Long: `Display the top landmark memories — high-centrality docs that sit at
-structural crossroads of the knowledge base.
+structural crossroads of the memory graph.
 
 Landmarks are computed by 'leo reindex --landmarks' or automatically during
 'leo bootstrap' (when doc count >= 100).`,
