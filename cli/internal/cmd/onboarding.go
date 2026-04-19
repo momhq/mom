@@ -16,9 +16,8 @@ import (
 // onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
 	Runtimes   []string // ["claude", "codex", "cline"]
-	Language   string   // "en", "pt", "es"
+	Language   string   // always "en" — language selection removed in v0.9
 	Mode       string   // "verbose", "concise", "normal", "caveman"
-	Autonomy   string   // "autonomous", "balanced", "supervised"
 	CoreSource string   // path to leo-core clone, or "" if skipped
 	// InstallDir is the directory where .leo/ should be created.
 	// Defaults to cwd (current project). Set to a parent for multi-repo installs.
@@ -62,9 +61,9 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 
 	// ── Bind variables ──────────────────────────────────────────────────────
 	var selectedRuntimes []string
+	// Language is fixed to "en"; the prompt was removed in v0.9.
 	lang := "en"
 	mode := "concise"
-	autonomy := "balanced"
 	coreSource := ""
 	bootstrapChoice := "skip" // default: skip
 
@@ -107,17 +106,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				}),
 		),
 
-		// Group 3: Language + Communication mode
+		// Group 3: Communication mode
 		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("What output language should L.E.O. use?").
-				Options(
-					huh.NewOption("English", "en"),
-					huh.NewOption("Português", "pt"),
-					huh.NewOption("Español", "es"),
-				).
-				Value(&lang),
-
 			huh.NewSelect[string]().
 				Title("Communication mode").
 				Options(
@@ -129,19 +119,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&mode),
 		),
 
-		// Group 4: Autonomy
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("How much autonomy should L.E.O. have?").
-				Options(
-					huh.NewOption("Autonomous — acts independently, asks only when critical", "autonomous"),
-					huh.NewOption("Balanced — proposes plans, confirms before major changes", "balanced"),
-					huh.NewOption("Supervised — confirms every significant action", "supervised"),
-				).
-				Value(&autonomy),
-		),
-
-		// Group 5: Scope / install location
+		// Group 4: Scope / install location
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Where should L.E.O. be installed?").
@@ -150,7 +128,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&scopeChoice),
 		),
 
-		// Group 6: Core Source
+		// Group 5: Core Source
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Path to your leo-core clone (for updates)").
@@ -158,7 +136,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&coreSource),
 		),
 
-		// Group 7: Bootstrap
+		// Group 6: Bootstrap
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Scan existing content to seed your memory?").
@@ -204,11 +182,10 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		scopeDisplay = "current directory (repo)"
 	}
 	summaryText := fmt.Sprintf(
-		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Autonomy:  %s\n  Scope:     %s (%s)",
+		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Scope:     %s (%s)",
 		runtimesLabel(selectedRuntimes),
 		languageLabel(lang),
 		modeLabel(mode),
-		autonomyLabel(autonomy),
 		scopeLabel,
 		scopeDisplay,
 	)
@@ -238,11 +215,22 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		return OnboardingResult{}, fmt.Errorf("onboarding aborted by user")
 	}
 
+	// If scope is user or org, print a notice about uninitialized child repos.
+	if scopeLabel == "user" || scopeLabel == "org" {
+		uninit := discoverUninitializedChildRepos(installDir)
+		if len(uninit) > 0 {
+			_, _ = fmt.Fprintf(w, "\n  Note: the following repos under %s do not have .leo/ yet:\n", installDir)
+			for _, p := range uninit {
+				_, _ = fmt.Fprintf(w, "    · %s\n", p)
+			}
+			_, _ = fmt.Fprintf(w, "  Run 'leo init' in each to initialize them individually.\n")
+		}
+	}
+
 	return OnboardingResult{
 		Runtimes:        selectedRuntimes,
 		Language:        lang,
 		Mode:            mode,
-		Autonomy:        autonomy,
 		CoreSource:      coreSource,
 		InstallDir:      installDir,
 		ScopeLabel:      scopeLabel,
@@ -250,21 +238,97 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}, nil
 }
 
-// detectParentDirs returns up to 2 parent directories above cwd that are
-// likely "repository roots" (e.g. ~/Github, ~/projects). It stops at home.
-func detectParentDirs(cwd, home string) []string {
-	var parents []string
-	dir := filepath.Dir(cwd)
-	for dir != cwd && dir != filepath.Dir(home) {
-		if dir == home {
-			break
+// ParentScope holds role information about a parent directory detected above cwd.
+type ParentScope struct {
+	Path       string   // absolute path
+	Label      string   // "user", "org", "repo"
+	HasGit     bool     // true if the directory itself contains .git/
+	ChildRepos []string // paths of immediate children that contain .git/
+}
+
+// containsGitRepos returns true if dir has at least one immediate child
+// directory that itself contains a .git/ subdirectory.
+func containsGitRepos(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
 		}
-		parents = append(parents, dir)
-		if len(parents) >= 2 {
+		gitPath := filepath.Join(dir, e.Name(), ".git")
+		if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+// childGitRepos returns paths of all immediate children of dir that contain .git/.
+func childGitRepos(dir string) []string {
+	var result []string
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		child := filepath.Join(dir, e.Name())
+		gitPath := filepath.Join(child, ".git")
+		if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
+			result = append(result, child)
+		}
+	}
+	return result
+}
+
+// detectParentDirs returns up to 2 parent directories above cwd with role labels.
+// Role assignment:
+//   - directory whose immediate children contain .git/ → "org"
+//   - directory with .git/ in itself → "repo"
+//   - otherwise → "workspace"
+//
+// Stops walking at home (home itself is excluded; it gets "user" role only if
+// it appears as a direct parent and containsGitRepos).
+func detectParentDirs(cwd, home string) []ParentScope {
+	var parents []ParentScope
+	dir := filepath.Dir(cwd)
+	for dir != cwd {
+		if dir == home || dir == filepath.Dir(home) {
 			break
 		}
 		next := filepath.Dir(dir)
 		if next == dir {
+			break
+		}
+
+		hasGit := false
+		if info, err := os.Stat(filepath.Join(dir, ".git")); err == nil && info.IsDir() {
+			hasGit = true
+		}
+		children := childGitRepos(dir)
+
+		var label string
+		switch {
+		case len(children) > 0:
+			label = "org"
+		case hasGit:
+			label = "repo"
+		default:
+			label = "workspace"
+		}
+
+		parents = append(parents, ParentScope{
+			Path:       dir,
+			Label:      label,
+			HasGit:     hasGit,
+			ChildRepos: children,
+		})
+
+		if len(parents) >= 2 {
 			break
 		}
 		dir = next
@@ -272,22 +336,46 @@ func detectParentDirs(cwd, home string) []string {
 	return parents
 }
 
+// discoverUninitializedChildRepos returns paths of immediate children of dir
+// that have .git/ but do not have .leo/.
+func discoverUninitializedChildRepos(dir string) []string {
+	var result []string
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		child := filepath.Join(dir, e.Name())
+		gitPath := filepath.Join(child, ".git")
+		leoPath := filepath.Join(child, ".leo")
+		gitInfo, gitErr := os.Stat(gitPath)
+		_, leoErr := os.Stat(leoPath)
+		if gitErr == nil && gitInfo.IsDir() && os.IsNotExist(leoErr) {
+			result = append(result, child)
+		}
+	}
+	return result
+}
+
 // buildScopeOptions builds the huh Select options for the scope question.
 // Options: detected parents (up to 2), current dir, custom.
-func buildScopeOptions(cwd string, parents []string) []huh.Option[string] {
+func buildScopeOptions(cwd string, parents []ParentScope) []huh.Option[string] {
 	home, _ := os.UserHomeDir()
 	var opts []huh.Option[string]
 
 	for i, p := range parents {
-		display := p
-		if strings.HasPrefix(p, home) {
-			display = "~" + p[len(home):]
+		display := p.Path
+		if strings.HasPrefix(p.Path, home) {
+			display = "~" + p.Path[len(home):]
 		}
-		label := fmt.Sprintf("%s  (spans all repos here)", display)
+		label := fmt.Sprintf("%s  (%s — spans all repos here)", display, p.Label)
 		if i == 0 {
 			label += " — recommended"
 		}
-		opts = append(opts, huh.NewOption(label, "parent:"+p))
+		opts = append(opts, huh.NewOption(label, "parent:"+p.Path))
 	}
 
 	cwdDisplay := cwd
@@ -300,8 +388,9 @@ func buildScopeOptions(cwd string, parents []string) []huh.Option[string] {
 }
 
 // resolveScopeChoice converts the user's scopeChoice into an install directory
-// and a scope label for config.yaml.
-func resolveScopeChoice(choice, customPath, cwd string, parents []string) (installDir, scopeLabel string) {
+// and a scope label for config.yaml. Labels are derived from the ParentScope
+// role, not array position.
+func resolveScopeChoice(choice, customPath, cwd string, parents []ParentScope) (installDir, scopeLabel string) {
 	switch {
 	case choice == "cwd":
 		return cwd, "repo"
@@ -313,20 +402,12 @@ func resolveScopeChoice(choice, customPath, cwd string, parents []string) (insta
 		return expanded, "custom"
 	case strings.HasPrefix(choice, "parent:"):
 		dir := strings.TrimPrefix(choice, "parent:")
-		// Assign scope label based on position in the parent list.
-		// First parent → "user", second → "org", any deeper → "workspace".
-		for i, p := range parents {
-			if p == dir {
-				switch i {
-				case 0:
-					return dir, "user"
-				case 1:
-					return dir, "org"
-				default:
-					return dir, "workspace"
-				}
+		for _, p := range parents {
+			if p.Path == dir {
+				return dir, p.Label
 			}
 		}
+		// Fallback: unknown parent, default to "user".
 		return dir, "user"
 	default:
 		return cwd, "repo"
@@ -400,16 +481,5 @@ func modeLabel(mode string) string {
 		return "Normal"
 	default:
 		return "Concise"
-	}
-}
-
-func autonomyLabel(autonomy string) string {
-	switch autonomy {
-	case "autonomous":
-		return "Autonomous"
-	case "supervised":
-		return "Supervised"
-	default:
-		return "Balanced"
 	}
 }
