@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/cartographer"
+	"github.com/vmarinogg/leo-core/cli/internal/gardener"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 	"github.com/vmarinogg/leo-core/cli/internal/transponder"
 )
@@ -143,6 +144,25 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	} else {
 		cmd.Printf("Total: %d memories seeded in %.1fs.\n",
 			written, result.Duration().Seconds())
+	}
+
+	// After a real write, attempt landmark computation when corpus is large enough.
+	if !dryRun {
+		memDir := filepath.Join(targetScope.Path, "memory")
+		cacheDir := filepath.Join(targetScope.Path, "cache")
+		totalDocs := countMemoryDocs(memDir)
+
+		// Always write tag graph for incremental future updates.
+		_ = gardener.WriteTagGraph(memDir, cacheDir)
+
+		if totalDocs >= gardener.MinDocsForLandmarks {
+			n, err := gardener.ComputeLandmarks(memDir, 2.0)
+			if err == nil {
+				_ = n
+				landmarkCount := countLandmarks(memDir)
+				cmd.Printf("✓ %d landmarks identified\n", landmarkCount)
+			}
+		}
 	}
 
 	cmd.Println()
@@ -469,6 +489,21 @@ func draftTypePrefix(t string) string {
 	default:
 		return "mem-"
 	}
+}
+
+// countMemoryDocs returns the total number of .json files in memDir.
+func countMemoryDocs(memDir string) int {
+	entries, err := os.ReadDir(memDir)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() && filepath.Ext(e.Name()) == ".json" {
+			n++
+		}
+	}
+	return n
 }
 
 // runBootstrapInline runs a bootstrap scan from within the init flow.

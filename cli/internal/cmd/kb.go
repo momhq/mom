@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vmarinogg/leo-core/cli/internal/gardener"
 	"github.com/vmarinogg/leo-core/cli/internal/kb"
 )
 
@@ -15,6 +16,8 @@ var reindexCmd = &cobra.Command{
 	Use:   "reindex",
 	Short: "Rebuild the KB index from docs",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		landmarksFlag, _ := cmd.Flags().GetBool("landmarks")
+
 		leoDir, err := findLeoDir()
 		if err != nil {
 			return err
@@ -61,6 +64,24 @@ var reindexCmd = &cobra.Command{
 		}
 
 		cmd.Printf("✔ Index rebuilt: %d documents indexed.\n", count)
+
+		if landmarksFlag {
+			if count < gardener.MinDocsForLandmarks {
+				cmd.Printf("⚠ Landmark computation skipped: %d/%d memories (below threshold).\n",
+					count, gardener.MinDocsForLandmarks)
+			} else {
+				n, err := gardener.ComputeLandmarks(docsDir, 2.0)
+				if err != nil {
+					cmd.Printf("⚠ Landmark computation failed: %v\n", err)
+				} else {
+					landmarkCount := countLandmarks(docsDir)
+					cmd.Printf("✔ Computed landmarks: %d docs marked as landmarks out of %d total.\n",
+						landmarkCount, count)
+					_ = n
+				}
+			}
+		}
+
 		return nil
 	},
 }
@@ -100,7 +121,27 @@ var validateCmd = &cobra.Command{
 }
 
 func init() {
+	reindexCmd.Flags().Bool("landmarks", false, "Compute landmark centrality scores after reindexing")
 	validateCmd.Flags().Bool("all", false, "Validate all KB documents")
+}
+
+// countLandmarks returns the number of docs with landmark=true in memDir.
+func countLandmarks(memDir string) int {
+	entries, _ := os.ReadDir(memDir)
+	n := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		if doc.Landmark {
+			n++
+		}
+	}
+	return n
 }
 
 func validateAll(cmd *cobra.Command) error {
