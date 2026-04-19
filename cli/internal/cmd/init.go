@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/profiles"
 )
 
 //go:embed schema.json
@@ -59,12 +58,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 		runtimes = []string{"claude"}
 	}
 
+	defaults := config.Default()
 	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
-		Runtimes:       runtimes,
-		Language:       config.Default().User.Language,
-		Mode:           config.Default().User.Mode,
-		DefaultProfile: config.Default().User.DefaultProfile,
-		Autonomy:       config.Default().User.Autonomy,
+		Runtimes: runtimes,
+		Language: defaults.User.Language,
+		Mode:     defaults.User.Mode,
+		Autonomy: defaults.User.Autonomy,
 	})
 }
 
@@ -85,7 +84,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	doScaffold := func() {
 		dirs := []string{
 			leoDir,
-			filepath.Join(leoDir, "profiles"),
 			filepath.Join(leoDir, "kb", "docs"),
 			filepath.Join(leoDir, "kb", "skills"),
 			filepath.Join(leoDir, "kb", "constraints"),
@@ -130,16 +128,24 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			}
 		}
 
+		// Infer communication.mode from the onboarding mode selection.
+		commMode := result.Mode
+		if commMode == "" {
+			commMode = "concise"
+		}
+
 		// Write config.yaml.
 		cfg := config.Config{
 			Version:    "1",
 			CoreSource: result.CoreSource,
 			Runtimes:   runtimesCfg,
 			User: config.UserConfig{
-				Language:       result.Language,
-				Mode:           result.Mode,
-				DefaultProfile: result.DefaultProfile,
-				Autonomy:       result.Autonomy,
+				Language: result.Language,
+				Mode:     result.Mode,
+				Autonomy: result.Autonomy,
+			},
+			Communication: config.CommunicationConfig{
+				Mode: commMode,
 			},
 			KB: config.Default().KB,
 		}
@@ -147,15 +153,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		if err := config.Save(leoDir, &cfg); err != nil {
 			kbErr = err
 			return
-		}
-
-		// Write default profiles.
-		profilesDir := filepath.Join(leoDir, "profiles")
-		for name, p := range profiles.DefaultProfiles() {
-			if err := profiles.Save(profilesDir, name, p); err != nil {
-				kbErr = err
-				return
-			}
 		}
 
 		// Write schema.json.
@@ -223,7 +220,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return kbErr
 	}
 
-	// Re-load config for runtime generation (needed for the cfg variable).
+	// Re-load config for runtime generation.
 	cfg, err := config.Load(leoDir)
 	if err != nil {
 		return fmt.Errorf("loading config after write: %w", err)
@@ -232,72 +229,12 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	// ── Phase 3: Generate runtime context files ────────────────────────────
 	var genErr error
 	doGenerate := func() {
-		runtimeCfg := runtime.Config{
-			Version: cfg.Version,
-			User: runtime.UserConfig{
-				Language:       cfg.User.Language,
-				Mode:           cfg.User.Mode,
-				Autonomy:       cfg.User.Autonomy,
-				DefaultProfile: cfg.User.DefaultProfile,
-			},
-		}
-
-		defaultProfile := profiles.DefaultProfiles()[cfg.User.DefaultProfile]
-		if defaultProfile == nil {
-			defaultProfile = profiles.DefaultProfiles()["general-manager"]
-		}
-		runtimeProfile := runtime.Profile{
-			Name:             defaultProfile.Name,
-			Description:      defaultProfile.Description,
-			Focus:            defaultProfile.Focus,
-			Tone:             defaultProfile.Tone,
-			ContextInjection: defaultProfile.ContextInjection,
-		}
+		runtimeCfg := buildRuntimeConfig(cfg)
 
 		// Build constraints list from core constraints.
-		var runtimeConstraints []runtime.Constraint
-		for id := range coreConstraints() {
-			var doc struct {
-				Summary string `json:"summary"`
-			}
-			json.Unmarshal([]byte(coreConstraints()[id]), &doc) //nolint:errcheck
-			runtimeConstraints = append(runtimeConstraints, runtime.Constraint{
-				ID:      id,
-				Summary: doc.Summary,
-			})
-		}
-		sort.Slice(runtimeConstraints, func(i, j int) bool {
-			return runtimeConstraints[i].ID < runtimeConstraints[j].ID
-		})
-
-		// Build skills list from core skills.
-		var runtimeSkills []runtime.Skill
-		for id := range coreSkills() {
-			var doc struct {
-				Summary string `json:"summary"`
-			}
-			json.Unmarshal([]byte(coreSkills()[id]), &doc) //nolint:errcheck
-			runtimeSkills = append(runtimeSkills, runtime.Skill{
-				ID:      id,
-				Summary: doc.Summary,
-			})
-		}
-		sort.Slice(runtimeSkills, func(i, j int) bool {
-			return runtimeSkills[i].ID < runtimeSkills[j].ID
-		})
-
-		// Parse identity.
-		var identityData struct {
-			What        string   `json:"what"`
-			Philosophy  string   `json:"philosophy"`
-			Constraints []string `json:"constraints"`
-		}
-		json.Unmarshal([]byte(defaultIdentity()), &identityData) //nolint:errcheck
-		runtimeIdentity := &runtime.Identity{
-			What:        identityData.What,
-			Philosophy:  identityData.Philosophy,
-			Constraints: identityData.Constraints,
-		}
+		runtimeConstraints := buildRuntimeConstraints()
+		runtimeSkills := buildRuntimeSkills()
+		runtimeIdentity := buildRuntimeIdentity()
 
 		// Generate context files for all selected runtimes.
 		for _, rt := range result.Runtimes {
@@ -312,7 +249,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				runtime.BackupIfNeeded(absPath) //nolint:errcheck
 			}
 
-			if err := adapter.GenerateContextFile(runtimeCfg, runtimeProfile, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
+			if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
 				genErr = err
 				return
 			}
@@ -358,6 +295,79 @@ func isTerminalWriter(w io.Writer) bool {
 		return term.IsTerminal(f.Fd())
 	}
 	return false
+}
+
+// buildRuntimeConfig converts a config.Config to a runtime.Config.
+func buildRuntimeConfig(cfg *config.Config) runtime.Config {
+	commMode := cfg.Communication.Mode
+	if commMode == "" {
+		commMode = cfg.User.Mode // fallback to user.mode for pre-v0.8 configs
+	}
+	if commMode == "" {
+		commMode = "concise"
+	}
+	return runtime.Config{
+		Version: cfg.Version,
+		User: runtime.UserConfig{
+			Language:          cfg.User.Language,
+			Mode:              cfg.User.Mode,
+			Autonomy:          cfg.User.Autonomy,
+			CommunicationMode: commMode,
+		},
+	}
+}
+
+// buildRuntimeConstraints extracts constraint summaries from coreConstraints().
+func buildRuntimeConstraints() []runtime.Constraint {
+	var runtimeConstraints []runtime.Constraint
+	for id := range coreConstraints() {
+		var doc struct {
+			Summary string `json:"summary"`
+		}
+		json.Unmarshal([]byte(coreConstraints()[id]), &doc) //nolint:errcheck
+		runtimeConstraints = append(runtimeConstraints, runtime.Constraint{
+			ID:      id,
+			Summary: doc.Summary,
+		})
+	}
+	sort.Slice(runtimeConstraints, func(i, j int) bool {
+		return runtimeConstraints[i].ID < runtimeConstraints[j].ID
+	})
+	return runtimeConstraints
+}
+
+// buildRuntimeSkills extracts skill summaries from coreSkills().
+func buildRuntimeSkills() []runtime.Skill {
+	var runtimeSkills []runtime.Skill
+	for id := range coreSkills() {
+		var doc struct {
+			Summary string `json:"summary"`
+		}
+		json.Unmarshal([]byte(coreSkills()[id]), &doc) //nolint:errcheck
+		runtimeSkills = append(runtimeSkills, runtime.Skill{
+			ID:      id,
+			Summary: doc.Summary,
+		})
+	}
+	sort.Slice(runtimeSkills, func(i, j int) bool {
+		return runtimeSkills[i].ID < runtimeSkills[j].ID
+	})
+	return runtimeSkills
+}
+
+// buildRuntimeIdentity parses the identity JSON into a runtime.Identity.
+func buildRuntimeIdentity() *runtime.Identity {
+	var identityData struct {
+		What        string   `json:"what"`
+		Philosophy  string   `json:"philosophy"`
+		Constraints []string `json:"constraints"`
+	}
+	json.Unmarshal([]byte(defaultIdentity()), &identityData) //nolint:errcheck
+	return &runtime.Identity{
+		What:        identityData.What,
+		Philosophy:  identityData.Philosophy,
+		Constraints: identityData.Constraints,
+	}
 }
 
 // buildCoreIndex builds an index.json that includes all core constraint and skill docs.

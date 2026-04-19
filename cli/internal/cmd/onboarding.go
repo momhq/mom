@@ -5,24 +5,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
-	"github.com/vmarinogg/leo-core/cli/internal/profiles"
 )
 
 // OnboardingResult holds the choices the user made during the interactive
 // onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
-	Runtimes       []string // ["claude", "codex", "cline"]
-	Language       string   // "en", "pt", "es"
-	Mode           string   // "verbose", "concise", "caveman"
-	DefaultProfile string   // "general-manager", "ceo", "cto", etc.
-	Autonomy       string   // "autonomous", "balanced", "supervised"
-	CoreSource     string   // path to leo-core clone, or "" if skipped
+	Runtimes   []string // ["claude", "codex", "cline"]
+	Language   string   // "en", "pt", "es"
+	Mode       string   // "verbose", "concise", "normal", "caveman"
+	Autonomy   string   // "autonomous", "balanced", "supervised"
+	CoreSource string   // path to leo-core clone, or "" if skipped
 }
 
 // runOnboarding executes the interactive wizard and returns the chosen config.
@@ -54,28 +51,10 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		runtimeOptions = append(runtimeOptions, opt)
 	}
 
-	// ── Prepare profile options ─────────────────────────────────────────────
-	allProfiles := profiles.DefaultProfiles()
-	profileNames := make([]string, 0)
-	for name, p := range allProfiles {
-		if p.Scope == "user" {
-			profileNames = append(profileNames, name)
-		}
-	}
-	sort.Strings(profileNames)
-
-	var profileOptions []huh.Option[string]
-	for _, name := range profileNames {
-		p := allProfiles[name]
-		label := fmt.Sprintf("%s — %s", p.Name, p.Description)
-		profileOptions = append(profileOptions, huh.NewOption(label, name))
-	}
-
 	// ── Bind variables ──────────────────────────────────────────────────────
 	var selectedRuntimes []string
 	lang := "en"
 	mode := "concise"
-	profile := "general-manager"
 	autonomy := "balanced"
 	coreSource := ""
 
@@ -87,8 +66,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Title("Welcome to L.E.O.").
 				Description(
 					"Living Ecosystem Orchestrator\n\n"+
-						"L.E.O. gives your AI coding assistant persistent memory,\n"+
-						"specialist profiles, and structured knowledge management.\n\n"+
+						"L.E.O. gives your AI coding assistant persistent memory\n"+
+						"and structured knowledge management.\n\n"+
 						"Let's set up your project. This takes about 30 seconds.",
 				),
 		),
@@ -108,7 +87,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				}),
 		),
 
-		// Group 3: Language + Mode
+		// Group 3: Language + Communication mode
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("What output language should L.E.O. use?").
@@ -120,22 +99,18 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&lang),
 
 			huh.NewSelect[string]().
-				Title("How should L.E.O. communicate?").
+				Title("Communication mode").
 				Options(
-					huh.NewOption("Verbose — detailed explanations and reasoning", "verbose"),
 					huh.NewOption("Concise — short and direct (recommended)", "concise"),
+					huh.NewOption("Normal — standard prose", "normal"),
+					huh.NewOption("Verbose — detailed explanations", "verbose"),
 					huh.NewOption("Caveman — minimal tokens, maximum signal", "caveman"),
 				).
 				Value(&mode),
 		),
 
-		// Group 4: Profile + Autonomy
+		// Group 4: Autonomy
 		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Choose your default profile").
-				Options(profileOptions...).
-				Value(&profile),
-
 			huh.NewSelect[string]().
 				Title("How much autonomy should L.E.O. have?").
 				Options(
@@ -174,11 +149,10 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 
 	// ── Summary + Confirm ───────────────────────────────────────────────────
 	summaryText := fmt.Sprintf(
-		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Profile:   %s\n  Autonomy:  %s",
+		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Autonomy:  %s",
 		runtimesLabel(selectedRuntimes),
 		languageLabel(lang),
 		modeLabel(mode),
-		profileLabel(profile),
 		autonomyLabel(autonomy),
 	)
 
@@ -208,12 +182,11 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}
 
 	return OnboardingResult{
-		Runtimes:       selectedRuntimes,
-		Language:       lang,
-		Mode:           mode,
-		DefaultProfile: profile,
-		Autonomy:       autonomy,
-		CoreSource:     coreSource,
+		Runtimes:   selectedRuntimes,
+		Language:   lang,
+		Mode:       mode,
+		Autonomy:   autonomy,
+		CoreSource: coreSource,
 	}, nil
 }
 
@@ -274,20 +247,14 @@ func languageLabel(lang string) string {
 	}
 }
 
-func profileLabel(profile string) string {
-	allProfiles := profiles.DefaultProfiles()
-	if p, ok := allProfiles[profile]; ok {
-		return p.Name
-	}
-	return profile
-}
-
 func modeLabel(mode string) string {
 	switch mode {
 	case "verbose":
 		return "Verbose"
 	case "caveman":
 		return "Caveman"
+	case "normal":
+		return "Normal"
 	default:
 		return "Concise"
 	}
