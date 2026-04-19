@@ -25,12 +25,12 @@
     "impact": [
       "metric type dropped from schema, replaced by session-log",
       "session_id becomes mandatory on base schema — links all KB docs to their producing session",
-      "session-log docs stored in .leo/kb/logs/, never loaded at boot, never rendered by adapters",
+      "session-log docs stored in .leo/logs/, never loaded at boot, never rendered by adapters",
       "decision type: alternatives_considered, impact, reversible become mandatory",
       "fact type: source becomes mandatory",
       "skill type: do_not[] becomes mandatory",
-      "leo init must create .leo/kb/logs/ directory",
-      "export/import must include .leo/kb/logs/",
+      "leo init must create .leo/logs/ directory",
+      "export/import must include .leo/logs/",
       "Delegation enforcement inferred from profile mismatch (session.profile != task.profile), not self-reported",
       "session_cost dropped entirely — not runtime-agnostic"
     ],

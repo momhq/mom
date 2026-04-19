@@ -45,7 +45,7 @@
         "wait_for_approval": true
       },
       {
-        "instruction": "Write JSON docs to .claude/kb/docs/ following schema.json. validate.sh hook checks each write. Run grep sanity checks for stale references. Stage exact files planned (no git add -A). Commit with clear message + Co-Authored-By footer.",
+        "instruction": "Write JSON docs to .leo/memory/ following schema.json. validate.sh hook checks each write. Run grep sanity checks for stale references. Stage exact files planned (no git add -A). Commit with clear message + Co-Authored-By footer.",
         "name": "Execute",
         "wait_for_approval": false
       },

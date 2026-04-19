@@ -18,8 +18,13 @@ CLAUDE.md
 # Leo cache (ephemeral)
 .leo/cache/
 
+# Leo runtime directories (gitignored, generated at runtime)
+.leo/logs/
+.leo/telemetry/
+
 # Architecture drafts (internal, do not publish)
-.leo/kb/architecture/
+.leo/architecture/
+.leo/kb/
 
 # Leo export output
 leo-export/
