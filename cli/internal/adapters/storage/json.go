@@ -208,7 +208,7 @@ func (a *JSONAdapter) rebuildIndex() error {
 
 	idx := map[string]any{
 		"version":      "1",
-		"last_rebuilt":  time.Now().UTC().Format(time.RFC3339),
+		"last_rebuilt": time.Now().UTC().Format(time.RFC3339),
 		"stats": map[string]any{
 			"total_docs":         total,
 			"total_tags":         totalTags,

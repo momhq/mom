@@ -43,7 +43,6 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		Version: "1",
 		User: UserConfig{
 			Language:          "en",
-			Mode:              "concise",
 			Autonomy:          "balanced",
 			CommunicationMode: "concise",
 		},
@@ -104,7 +103,7 @@ func TestClaudeAdapter_GenerateContextFile_NoProfile(t *testing.T) {
 
 	config := Config{
 		Version: "1",
-		User:    UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced", CommunicationMode: "concise"},
+		User:    UserConfig{Language: "en", Autonomy: "balanced", CommunicationMode: "concise"},
 	}
 
 	if err := a.GenerateContextFile(config, nil, nil, nil); err != nil {
@@ -135,7 +134,6 @@ func TestClaudeAdapter_GenerateContextFile_NoIdentity(t *testing.T) {
 		Version: "1",
 		User: UserConfig{
 			Language: "en",
-			Mode:     "concise",
 			Autonomy: "balanced",
 		},
 	}
@@ -241,7 +239,7 @@ func TestWatermarkPresent(t *testing.T) {
 	dir := t.TempDir()
 	a := NewClaudeAdapter(dir)
 
-	config := Config{Version: "1", User: UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced"}}
+	config := Config{Version: "1", User: UserConfig{Language: "en", Autonomy: "balanced"}}
 
 	if err := a.GenerateContextFile(config, nil, nil, nil); err != nil {
 		t.Fatalf("GenerateContextFile failed: %v", err)

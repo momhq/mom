@@ -34,7 +34,7 @@ func TestCodexAdapter_GenerateContextFile(t *testing.T) {
 
 	config := Config{
 		Version: "1",
-		User:    UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced", CommunicationMode: "concise"},
+		User:    UserConfig{Language: "en", Autonomy: "balanced", CommunicationMode: "concise"},
 	}
 	constraints := []Constraint{{ID: "anti-hallucination", Summary: "Don't guess."}}
 	skills := []Skill{{ID: "session-wrap-up", Summary: "End-of-session."}}
@@ -68,7 +68,7 @@ func TestCodexAdapter_GenerateContextFileWatermark(t *testing.T) {
 	dir := t.TempDir()
 	a := NewCodexAdapter(dir)
 
-	config := Config{Version: "1", User: UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced"}}
+	config := Config{Version: "1", User: UserConfig{Language: "en", Autonomy: "balanced"}}
 
 	if err := a.GenerateContextFile(config, nil, nil, nil); err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestCodexAdapter_NoIdentity(t *testing.T) {
 	dir := t.TempDir()
 	a := NewCodexAdapter(dir)
 
-	config := Config{Version: "1", User: UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced"}}
+	config := Config{Version: "1", User: UserConfig{Language: "en", Autonomy: "balanced"}}
 
 	if err := a.GenerateContextFile(config, nil, nil, nil); err != nil {
 		t.Fatal(err)

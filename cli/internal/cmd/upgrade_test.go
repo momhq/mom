@@ -141,16 +141,8 @@ func TestUpgradeCmd_MigratesConfig(t *testing.T) {
 	if cfg.User.Language != "pt" {
 		t.Errorf("expected language=pt preserved, got %q", cfg.User.Language)
 	}
-	if cfg.User.Mode != "caveman" {
-		t.Errorf("expected mode=caveman preserved, got %q", cfg.User.Mode)
-	}
 	if cfg.User.Autonomy != "autonomous" {
 		t.Errorf("expected autonomy=autonomous preserved, got %q", cfg.User.Autonomy)
-	}
-
-	// DefaultProfile must be dropped.
-	if cfg.User.DefaultProfile != "" {
-		t.Errorf("expected DefaultProfile dropped, got %q", cfg.User.DefaultProfile)
 	}
 
 	// communication.mode must be inferred (caveman → caveman).

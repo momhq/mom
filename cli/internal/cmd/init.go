@@ -62,7 +62,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
 		Runtimes: runtimes,
 		Language: defaults.User.Language,
-		Mode:     defaults.User.Mode,
+		Mode:     defaults.Communication.Mode,
 		Autonomy: defaults.User.Autonomy,
 	})
 }
@@ -141,7 +141,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			Runtimes:   runtimesCfg,
 			User: config.UserConfig{
 				Language: result.Language,
-				Mode:     result.Mode,
 				Autonomy: result.Autonomy,
 			},
 			Communication: config.CommunicationConfig{
@@ -301,16 +300,12 @@ func isTerminalWriter(w io.Writer) bool {
 func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 	commMode := cfg.Communication.Mode
 	if commMode == "" {
-		commMode = cfg.User.Mode // fallback to user.mode for pre-v0.8 configs
-	}
-	if commMode == "" {
 		commMode = "concise"
 	}
 	return runtime.Config{
 		Version: cfg.Version,
 		User: runtime.UserConfig{
 			Language:          cfg.User.Language,
-			Mode:              cfg.User.Mode,
 			Autonomy:          cfg.User.Autonomy,
 			CommunicationMode: commMode,
 		},

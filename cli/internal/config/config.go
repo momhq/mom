@@ -28,12 +28,7 @@ type RuntimeConfig struct {
 // UserConfig holds user preferences.
 type UserConfig struct {
 	Language string `yaml:"language"`
-	Mode     string `yaml:"mode"`
 	Autonomy string `yaml:"autonomy"`
-	// DefaultProfile was removed in v0.8.0. The field is kept here only for
-	// reading old config files so migrateFromLegacy can drop it gracefully.
-	// Do not add logic that relies on this value.
-	DefaultProfile string `yaml:"default_profile,omitempty"`
 }
 
 // CommunicationConfig holds communication style settings.
@@ -65,7 +60,6 @@ func Default() Config {
 		},
 		User: UserConfig{
 			Language: "en",
-			Mode:     "concise",
 			Autonomy: "balanced",
 		},
 		Communication: CommunicationConfig{
@@ -144,9 +138,8 @@ func Load(leoDir string) (*Config, error) {
 
 	// If Runtimes is populated, it's the new format.
 	if len(cfg.Runtimes) > 0 {
-		// Scrub legacy field that may still appear in v0.7 configs.
-		cfg.User.DefaultProfile = ""
-		// Back-fill communication.mode if absent.
+		// Back-fill communication.mode if absent (pre-v0.8 configs that had
+		// user.mode but no communication block are handled via legacyConfig).
 		if cfg.Communication.Mode == "" {
 			cfg.Communication.Mode = "concise"
 		}
@@ -208,9 +201,7 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 
 	user := UserConfig{
 		Language: legacyUser.Language,
-		Mode:     legacyUser.Mode,
 		Autonomy: legacyUser.Autonomy,
-		// DefaultProfile intentionally omitted — retired in v0.8.0.
 	}
 
 	return &Config{

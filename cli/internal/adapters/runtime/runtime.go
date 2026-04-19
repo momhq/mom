@@ -10,7 +10,6 @@ type Config struct {
 // UserConfig holds user preferences.
 type UserConfig struct {
 	Language          string
-	Mode              string
 	Autonomy          string
 	CommunicationMode string
 }

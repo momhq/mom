@@ -79,7 +79,7 @@ func TestRegistryGenerateAll(t *testing.T) {
 	dir := t.TempDir()
 	r := NewRegistry(dir)
 
-	config := Config{Version: "1", User: UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced"}}
+	config := Config{Version: "1", User: UserConfig{Language: "en", Autonomy: "balanced"}}
 
 	err := r.GenerateAll([]string{"claude", "codex"}, config, nil, nil, nil)
 	if err != nil {

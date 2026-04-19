@@ -29,9 +29,6 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if rc.Tiers["execution"] != "sonnet" {
 		t.Errorf("expected execution tier %q, got %q", "sonnet", rc.Tiers["execution"])
 	}
-	if cfg.User.Mode != "concise" {
-		t.Errorf("expected mode %q, got %q", "concise", cfg.User.Mode)
-	}
 	if cfg.Communication.Mode != "concise" {
 		t.Errorf("expected communication.mode %q, got %q", "concise", cfg.Communication.Mode)
 	}
@@ -142,10 +139,6 @@ specialists:
 	if cfg.CoreSource != "/tmp/leo-core" {
 		t.Errorf("expected core_source preserved, got %q", cfg.CoreSource)
 	}
-	// default_profile must be dropped.
-	if cfg.User.DefaultProfile != "" {
-		t.Errorf("expected default_profile to be dropped, got %q", cfg.User.DefaultProfile)
-	}
 	// communication.mode must be inferred.
 	if cfg.Communication.Mode == "" {
 		t.Error("expected communication.mode to be inferred from legacy config")
@@ -177,10 +170,6 @@ kb:
 		t.Fatalf("Load failed on legacy config with default_profile: %v", err)
 	}
 
-	// Profile field must be dropped.
-	if cfg.User.DefaultProfile != "" {
-		t.Errorf("expected DefaultProfile to be dropped, got %q", cfg.User.DefaultProfile)
-	}
 	// communication.mode must be back-filled.
 	if cfg.Communication.Mode == "" {
 		t.Error("expected communication.mode to be back-filled")
@@ -218,9 +207,6 @@ kb:
 
 	if cfg.Communication.Mode != "caveman" {
 		t.Errorf("expected caveman mode to be preserved, got %q", cfg.Communication.Mode)
-	}
-	if cfg.User.DefaultProfile != "" {
-		t.Errorf("expected DefaultProfile dropped, got %q", cfg.User.DefaultProfile)
 	}
 }
 
@@ -285,7 +271,7 @@ func TestConfigMultiRuntime(t *testing.T) {
 			"codex":  {Enabled: true, Tiers: map[string]string{"orchestration": "o3", "execution": "gpt-4.1", "review": "gpt-4.1-mini"}},
 			"cline":  {Enabled: true},
 		},
-		User:          UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced"},
+		User:          UserConfig{Language: "en", Autonomy: "balanced"},
 		Communication: CommunicationConfig{Mode: "concise"},
 		KB:            KBConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
 	}
