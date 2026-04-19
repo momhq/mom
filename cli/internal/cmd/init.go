@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/vmarinogg/leo-core/cli/internal/transponder"
 )
 
 //go:embed schema.json
@@ -284,6 +285,24 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	if genErr != nil {
 		return genErr
 	}
+
+	// ── Telemetry: emit smoke events ────────────────────────────────────────
+	startedAt := time.Now().UTC().Format(time.RFC3339)
+	emitter := transponder.New(leoDir, cfg.Telemetry.TelemetryEnabled())
+	emitter.EmitSessionEvent(transponder.SessionEvent{
+		SessionID: "s-init",
+		RepoID:    filepath.Base(cwd),
+		Runtime:   cfg.PrimaryRuntime(),
+		Tier:      "execution",
+		StartedAt: startedAt,
+		Trigger:   "normal",
+	})
+	emitter.EmitRuntimeHealth(transponder.RuntimeHealth{
+		Runtime:       cfg.PrimaryRuntime(),
+		TS:            time.Now().UTC().Format(time.RFC3339),
+		WrapUpSuccess: true,
+		LatencyMS:     0,
+	})
 
 	// ── Done ────────────────────────────────────────────────────────────────
 	cmd.Println()
