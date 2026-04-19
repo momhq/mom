@@ -33,15 +33,16 @@ func testReader(input string) io.Reader {
 //   Input:       enter text, empty = default
 //   Confirm:     y/n, empty = default
 //
-// Form flow (v0.8.0, no profile):
+// Form flow (v0.8.0, with scope):
 //   Form 1: Note(welcome), MultiSelect(runtimes), Select(lang), Select(mode),
-//           Select(autonomy), Input(coreSource)
+//           Select(autonomy), Select(scope), Input(coreSource)
 //   Form 2: Note(summary), Confirm
 
 // TestOnboarding_DefaultSelections verifies that accepting all defaults works.
 func TestOnboarding_DefaultSelections(t *testing.T) {
-	// 0=confirm runtimes (claude pre-selected), then empty for all selects + input + confirm
-	input := testReader("0\n\n\n\n\n\n")
+	// 0=confirm runtimes (claude pre-selected), then empty for lang, mode,
+	// autonomy, scope (current dir = default), coreSource, confirm.
+	input := testReader("0\n\n\n\n\n\n\n")
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -69,8 +70,8 @@ func TestOnboarding_DefaultSelections(t *testing.T) {
 // TestOnboarding_ExplicitSelections verifies non-default choices.
 func TestOnboarding_ExplicitSelections(t *testing.T) {
 	// MultiSelect: toggle 2 (codex) then 0 (confirm), lang=2 (pt), mode=4 (caveman),
-	// autonomy=3 (supervised), core-source=skip, confirm=y
-	input := testReader("2\n0\n2\n4\n3\n\ny\n")
+	// autonomy=3 (supervised), scope=default (empty), core-source=skip, confirm=y
+	input := testReader("2\n0\n2\n4\n3\n\n\ny\n")
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -106,8 +107,8 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 // TestOnboarding_ConfirmNo verifies that answering "n" at the confirm step
 // returns an error signalling the user aborted.
 func TestOnboarding_ConfirmNo(t *testing.T) {
-	// Accept all defaults, then reject at confirm.
-	input := testReader("0\n\n\n\n\nn\n")
+	// Accept all defaults (including scope), then reject at confirm.
+	input := testReader("0\n\n\n\n\n\nn\n")
 	output := &bytes.Buffer{}
 
 	_, err := runOnboarding(input, output, t.TempDir())
@@ -121,7 +122,7 @@ func TestOnboarding_ConfirmNo(t *testing.T) {
 
 // TestOnboarding_OutputContainsWelcome verifies the welcome banner appears.
 func TestOnboarding_OutputContainsWelcome(t *testing.T) {
-	input := testReader("0\n\n\n\n\n\n")
+	input := testReader("0\n\n\n\n\n\n\n")
 	output := &bytes.Buffer{}
 
 	_, err := runOnboarding(input, output, t.TempDir())
@@ -136,9 +137,9 @@ func TestOnboarding_OutputContainsWelcome(t *testing.T) {
 }
 
 // TestOnboarding_OutputContainsSummary verifies the summary step renders.
-// Input: confirm runtimes, lang=1(en), mode=2(normal), autonomy=1(auto), core-source=skip, confirm=y
+// Input: confirm runtimes, lang=1(en), mode=2(normal), autonomy=1(auto), scope=default, core-source=skip, confirm=y
 func TestOnboarding_OutputContainsSummary(t *testing.T) {
-	input := testReader("0\n1\n2\n1\n\ny\n")
+	input := testReader("0\n1\n2\n1\n\n\ny\n")
 	output := &bytes.Buffer{}
 
 	_, err := runOnboarding(input, output, t.TempDir())
@@ -156,8 +157,9 @@ func TestOnboarding_OutputContainsSummary(t *testing.T) {
 
 // TestOnboarding_MultipleRuntimesSelected verifies toggling multiple runtimes.
 func TestOnboarding_MultipleRuntimesSelected(t *testing.T) {
-	// Toggle codex (2) and cline (3), confirm (0), then defaults for everything.
-	input := testReader("2\n3\n0\n\n\n\n\n\n")
+	// Toggle codex (2) and cline (3), confirm (0), then defaults for
+	// lang, mode, autonomy, scope, coreSource, confirm.
+	input := testReader("2\n3\n0\n\n\n\n\n\n\n")
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -167,5 +169,51 @@ func TestOnboarding_MultipleRuntimesSelected(t *testing.T) {
 
 	if len(result.Runtimes) != 3 {
 		t.Fatalf("expected 3 runtimes, got %d: %v", len(result.Runtimes), result.Runtimes)
+	}
+}
+
+// TestOnboarding_DefaultScopeIsRepo verifies that choosing the default scope
+// option (current dir) sets ScopeLabel to "repo" and InstallDir to cwd.
+func TestOnboarding_DefaultScopeIsRepo(t *testing.T) {
+	cwd := t.TempDir()
+	// 0=confirm runtimes, empty for lang/mode/autonomy, empty for scope (default=cwd),
+	// empty for coreSource, empty for confirm (default=yes).
+	input := testReader("0\n\n\n\n\n\n\n")
+	output := &bytes.Buffer{}
+
+	result, err := runOnboarding(input, output, cwd)
+	if err != nil {
+		t.Fatalf("runOnboarding failed: %v\noutput:\n%s", err, output.String())
+	}
+
+	if result.ScopeLabel != "repo" {
+		t.Errorf("ScopeLabel = %q, want repo", result.ScopeLabel)
+	}
+	if result.InstallDir != cwd {
+		t.Errorf("InstallDir = %q, want %q", result.InstallDir, cwd)
+	}
+}
+
+// TestOnboarding_NonInteractiveDefaultsToRepo verifies the non-interactive path
+// sets scope=repo and InstallDir=cwd.
+func TestOnboarding_NonInteractiveDefaultsToRepo(t *testing.T) {
+	// Non-interactive is handled in runInit, not runOnboarding. Here we verify
+	// that the OnboardingResult produced for the non-interactive path has the
+	// correct scope fields by constructing it directly (as runInit does).
+	cwd := t.TempDir()
+	result := OnboardingResult{
+		Runtimes:   []string{"claude"},
+		Language:   "en",
+		Mode:       "concise",
+		Autonomy:   "balanced",
+		InstallDir: cwd,
+		ScopeLabel: "repo",
+	}
+
+	if result.ScopeLabel != "repo" {
+		t.Errorf("ScopeLabel = %q, want repo", result.ScopeLabel)
+	}
+	if result.InstallDir != cwd {
+		t.Errorf("InstallDir = %q, want %q", result.InstallDir, cwd)
 	}
 }

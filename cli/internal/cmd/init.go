@@ -49,10 +49,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		return runInitWithConfig(cmd, cwd, force, result)
+		installDir := result.InstallDir
+		if installDir == "" {
+			installDir = cwd
+		}
+		return runInitWithConfig(cmd, installDir, force, result)
 	}
 
-	// Non-interactive path: use flags/defaults.
+	// Non-interactive path: use flags/defaults. Always installs at cwd with repo scope.
 	runtimes, _ := cmd.Flags().GetStringSlice("runtimes")
 	if len(runtimes) == 0 {
 		runtimes = []string{"claude"}
@@ -60,15 +64,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	defaults := config.Default()
 	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
-		Runtimes: runtimes,
-		Language: defaults.User.Language,
-		Mode:     defaults.Communication.Mode,
-		Autonomy: defaults.User.Autonomy,
+		Runtimes:   runtimes,
+		Language:   defaults.User.Language,
+		Mode:       defaults.Communication.Mode,
+		Autonomy:   defaults.User.Autonomy,
+		InstallDir: cwd,
+		ScopeLabel: "repo",
 	})
 }
 
 // runInitWithConfig performs the actual directory and file creation using the
 // resolved configuration from either the wizard or flag defaults.
+// cwd is the directory where .leo/ will be created (may differ from os.Getwd()
+// when the user chose a parent install location during onboarding).
 func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result OnboardingResult) error {
 	leoDir := filepath.Join(cwd, ".leo")
 
@@ -135,10 +143,17 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			commMode = "concise"
 		}
 
+		// Determine scope label — default to "repo" for backward compat.
+		scopeLabel := result.ScopeLabel
+		if scopeLabel == "" {
+			scopeLabel = "repo"
+		}
+
 		// Write config.yaml.
 		cfg := config.Config{
 			Version:    "1",
 			CoreSource: result.CoreSource,
+			Scope:      scopeLabel,
 			Runtimes:   runtimesCfg,
 			User: config.UserConfig{
 				Language: result.Language,
