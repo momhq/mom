@@ -3,6 +3,7 @@ package cartographer
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	sitter "github.com/smacker/go-tree-sitter"
@@ -53,6 +54,55 @@ func (e *TreeSitterASTExtractor) Extract(ctx context.Context, src Source) ([]Dra
 	}
 
 	return extractViaQuery(handler, root, src, srcHash)
+}
+
+// packageTag returns a "pkg-<dir>" tag derived from the source file's parent directory.
+// For example, "cli/internal/cmd/bootstrap.go" → "pkg-cmd".
+func packageTag(srcPath string) string {
+	dir := filepath.Dir(srcPath)
+	base := filepath.Base(dir)
+	if base == "." || base == "/" {
+		return ""
+	}
+	return "pkg-" + strings.ToLower(base)
+}
+
+// buildTags constructs the tag list for an AST draft, adding semantic tags
+// beyond the base [language, kind, "ast", "bootstrap"] set.
+func buildTags(lang, kind, srcPath, symbolName string, extras ...string) []string {
+	tags := []string{lang, kind, "ast", "bootstrap"}
+
+	// Package tag from source path.
+	if pkg := packageTag(srcPath); pkg != "" {
+		tags = append(tags, pkg)
+	}
+
+	// Test tag for Go/Python test functions.
+	if strings.HasPrefix(symbolName, "Test") || strings.HasPrefix(symbolName, "test_") {
+		tags = append(tags, "test")
+	}
+
+	// Append any extras (e.g., receiver tag for methods).
+	tags = append(tags, extras...)
+
+	return tags
+}
+
+// extractReceiverType extracts the type name from a Go receiver string like "(s *Server)" → "server".
+func extractReceiverType(recv string) string {
+	// Strip parentheses.
+	recv = strings.TrimSpace(recv)
+	recv = strings.TrimPrefix(recv, "(")
+	recv = strings.TrimSuffix(recv, ")")
+	// Split on space to get the type part.
+	parts := strings.Fields(recv)
+	if len(parts) == 0 {
+		return ""
+	}
+	// Take the last part (the type), strip pointer.
+	typeName := parts[len(parts)-1]
+	typeName = strings.TrimPrefix(typeName, "*")
+	return strings.ToLower(typeName)
 }
 
 // extractViaQuery uses a tree-sitter Scheme query to extract named symbols.
@@ -123,7 +173,7 @@ func extractViaQuery(h *languageHandler, root *sitter.Node, src Source, srcHash 
 			drafts = append(drafts, Draft{
 				Type:       "pattern",
 				Summary:    summary,
-				Tags:       []string{h.name, kind, "ast", "bootstrap"},
+				Tags:       buildTags(h.name, kind, src.Path, name),
 				Confidence: ConfidenceExtracted,
 				Content:    content,
 				Provenance: ProvenanceMeta{
@@ -338,7 +388,7 @@ func goTypeDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	return []Draft{{
 		Type:       "pattern",
 		Summary:    summary,
-		Tags:       []string{"type", "go", "ast", "bootstrap"},
+		Tags:       buildTags("go", "type", src.Path, name),
 		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
@@ -390,7 +440,7 @@ func goFuncDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	return &Draft{
 		Type:       "pattern",
 		Summary:    summary,
-		Tags:       []string{"function", "go", "ast", "bootstrap"},
+		Tags:       buildTags("go", "function", src.Path, name),
 		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
@@ -449,10 +499,19 @@ func goMethodDraft(node *sitter.Node, src Source, srcHash string, lines []string
 		content["doc"] = docComment
 	}
 
+	// Extract receiver type name for tagging.
+	var extras []string
+	if receiver != "" {
+		recType := extractReceiverType(receiver)
+		if recType != "" {
+			extras = append(extras, "receiver-"+recType)
+		}
+	}
+
 	return &Draft{
 		Type:       "pattern",
 		Summary:    summary,
-		Tags:       []string{"method", "go", "ast", "bootstrap"},
+		Tags:       buildTags("go", "method", src.Path, name, extras...),
 		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{

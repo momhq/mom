@@ -26,12 +26,12 @@ type docEntry struct {
 }
 
 // ComputeLandmarks loads all memory docs from memDir, builds a tag co-occurrence
-// graph, computes weighted degree centrality, and marks the top thresholdPct% as
-// landmarks. Returns the number of doc files updated.
+// graph, computes degree centrality (number of unique neighbours), and marks the
+// top thresholdPct% as landmarks. Returns the number of doc files updated.
 //
-// Edge weight between two docs that share a tag is 1/count(docs with that tag),
-// so rare shared tags produce higher weights. The weighted degree of each doc is
-// the sum of all its edge weights. Scores are normalised to [0, 1].
+// Degree is the count of distinct other docs that share at least one tag with a
+// given doc. Docs with the most connections are structural hubs — high blast
+// radius. Scores are normalised to [0, 1].
 //
 // If len(docs) < MinDocsForLandmarks, computation is skipped and (0, nil) is
 // returned.
@@ -73,57 +73,63 @@ func ComputeLandmarks(memDir string, thresholdPct float64) (int, error) {
 		}
 	}
 
-	// Compute weighted degree: for each doc, sum edge weights over all neighbours.
-	// Two docs share an edge per shared tag; weight of that edge = 1/len(tagDocIndices[tag]).
-	// Use a set to avoid double-counting the same pair from multiple shared tags.
-	// We accumulate all pair weights into a per-doc score.
-	scores := make([]float64, len(docs))
+	// Compute degree centrality: for each doc, count unique neighbours.
+	// Two docs are neighbours if they share at least one tag.
+	neighbours := make([]map[int]struct{}, len(docs))
+	for i := range neighbours {
+		neighbours[i] = make(map[int]struct{})
+	}
 	for _, indices := range tagDocIndices {
-		count := len(indices)
-		if count < 2 {
-			// Tag shared by only one doc — no edges.
+		if len(indices) < 2 {
 			continue
 		}
-		w := 1.0 / float64(count)
-		// Each doc in the group gets credit for edges to all other docs in the group.
-		// We add w for each other member (undirected, but we add to both sides).
-		for _, i := range indices {
-			// Weight contribution: (count-1) edges × w each.
-			scores[i] += float64(count-1) * w
+		for x := 0; x < len(indices); x++ {
+			for y := x + 1; y < len(indices); y++ {
+				neighbours[indices[x]][indices[y]] = struct{}{}
+				neighbours[indices[y]][indices[x]] = struct{}{}
+			}
 		}
 	}
 
-	// Normalise to [0, 1].
-	maxScore := 0.0
-	for _, s := range scores {
-		if s > maxScore {
-			maxScore = s
+	degree := make([]float64, len(docs))
+	for i := range docs {
+		degree[i] = float64(len(neighbours[i]))
+	}
+
+	// Normalise degree to [0, 1].
+	maxDegree := 0.0
+	for _, d := range degree {
+		if d > maxDegree {
+			maxDegree = d
 		}
 	}
-	if maxScore > 0 {
-		for i := range scores {
-			scores[i] /= maxScore
+	if maxDegree > 0 {
+		for i := range degree {
+			degree[i] /= maxDegree
 		}
 	}
 
-	// Determine landmark threshold index.
-	// thresholdPct is a percentage (e.g. 2.0 = top 2%).
+	// Determine landmark count: top N%.
 	cutoffCount := int(math.Ceil(float64(len(docs)) * thresholdPct / 100.0))
-	if cutoffCount < 0 {
+	if cutoffCount < 1 {
 		cutoffCount = 0
 	}
 
-	// Build a sorted index of docs by score descending to find the cutoff score.
-	// We avoid a full sort by computing the minimum score in the top cutoffCount
-	// using a simple threshold: a doc is a landmark if its normalised rank is
-	// within the top cutoffCount. We do a partial sort via score ranking.
-	cutoffScore := findCutoffScore(scores, cutoffCount)
+	// Greedy landmark selection: degree + diversity penalty.
+	// Each round picks the candidate with the highest effective score.
+	// After picking a landmark, candidates sharing tags with it get penalised
+	// so that subsequent picks spread across different topic clusters.
+	landmarkSet := selectLandmarksDiverse(docs, degree, tagDocIndices, cutoffCount)
+
+	// Compute final scores: landmarks get their degree; non-landmarks keep degree
+	// for centrality_score (useful for graph sizing).
+	scores := degree
 
 	// Write updated landmark and centrality_score fields back to each doc file.
 	updated := 0
 	for i, d := range docs {
 		score := scores[i]
-		isLandmark := cutoffCount > 0 && score >= cutoffScore && score > 0
+		isLandmark := landmarkSet[i]
 
 		changed := false
 
@@ -163,35 +169,72 @@ func ComputeLandmarks(memDir string, thresholdPct float64) (int, error) {
 	return updated, nil
 }
 
-// findCutoffScore returns the minimum score that qualifies a doc as a landmark
-// given the top cutoffCount docs. If cutoffCount <= 0 it returns +Inf (nothing qualifies).
-func findCutoffScore(scores []float64, cutoffCount int) float64 {
-	if cutoffCount <= 0 {
-		return math.Inf(1)
-	}
-	if cutoffCount >= len(scores) {
-		return 0
+// selectLandmarksDiverse picks landmarks using greedy degree + diversity.
+// Each iteration selects the candidate with the highest effective score, then
+// penalises all candidates that share tags with the selected landmark. This
+// ensures landmarks spread across different topic clusters rather than
+// concentrating in the densest one.
+//
+// The diversity penalty for a candidate is: 0.5 * (shared_tags / total_tags)
+// where shared_tags is the count of tags this candidate shares with any
+// already-selected landmark, and total_tags is the candidate's tag count.
+func selectLandmarksDiverse(docs []docEntry, degree []float64, tagDocIndices map[string][]int, k int) map[int]bool {
+	n := len(docs)
+	if k <= 0 || n == 0 {
+		return make(map[int]bool)
 	}
 
-	// Find the cutoffCount-th largest score without a full sort.
-	// We use a simple O(n*cutoffCount) selection — corpus is at most a few thousand docs.
-	remaining := make([]float64, len(scores))
-	copy(remaining, scores)
+	selected := make(map[int]bool, k)
+	// Track which tags are already "covered" by selected landmarks.
+	coveredTags := make(map[string]bool)
 
-	for k := 0; k < cutoffCount; k++ {
-		maxIdx := 0
-		for j := 1; j < len(remaining); j++ {
-			if remaining[j] > remaining[maxIdx] {
-				maxIdx = j
+	// Penalty per doc — starts at 0, increases as landmarks are selected.
+	penalty := make([]float64, n)
+
+	for round := 0; round < k && round < n; round++ {
+		bestIdx := -1
+		bestScore := -1.0
+
+		for i := 0; i < n; i++ {
+			if selected[i] || degree[i] == 0 {
+				continue
+			}
+			effective := degree[i] - penalty[i]
+			if effective < 0 {
+				effective = 0
+			}
+			if effective > bestScore {
+				bestScore = effective
+				bestIdx = i
 			}
 		}
-		if k == cutoffCount-1 {
-			return remaining[maxIdx]
+
+		if bestIdx < 0 || bestScore <= 0 {
+			break
 		}
-		remaining[maxIdx] = -1 // mark as selected
+
+		selected[bestIdx] = true
+
+		// Penalise candidates sharing tags with the newly selected landmark.
+		for _, tag := range docs[bestIdx].tags {
+			if coveredTags[tag] {
+				continue // already penalised for this tag
+			}
+			coveredTags[tag] = true
+			// Apply penalty to all docs sharing this tag.
+			for _, idx := range tagDocIndices[tag] {
+				if selected[idx] {
+					continue
+				}
+				tagCount := len(docs[idx].tags)
+				if tagCount > 0 {
+					penalty[idx] += 0.5 / float64(tagCount)
+				}
+			}
+		}
 	}
 
-	return 0
+	return selected
 }
 
 // TagGraph represents tag co-occurrence data for incremental updates.
@@ -252,6 +295,165 @@ func WriteTagGraph(memDir, cacheDir string) error {
 	}
 
 	return nil
+}
+
+// GraphNode represents a document node in the visualization graph.
+type GraphNode struct {
+	ID        string   `json:"id"`
+	Score     float64  `json:"score"`
+	Landmark  bool     `json:"landmark"`
+	Type      string   `json:"type"`
+	Summary   string   `json:"summary"`
+	Tags      []string `json:"tags"`
+	EdgeCount int      `json:"edge_count"`
+}
+
+// GraphEdge represents a weighted edge between two docs.
+type GraphEdge struct {
+	Source string  `json:"source"`
+	Target string  `json:"target"`
+	Weight float64 `json:"weight"`
+	Tag    string  `json:"tag"` // the shared tag that created this edge
+}
+
+// GraphData holds the full visualization payload.
+type GraphData struct {
+	Nodes []GraphNode `json:"nodes"`
+	Edges []GraphEdge `json:"edges"`
+	Stats GraphStats  `json:"stats"`
+}
+
+// GraphStats holds summary statistics.
+type GraphStats struct {
+	TotalDocs     int `json:"total_docs"`
+	TotalEdges    int `json:"total_edges"`
+	LandmarkCount int `json:"landmark_count"`
+	TagCount      int `json:"tag_count"`
+}
+
+// BuildGraphData reads memory docs and constructs the visualization graph.
+// It includes all docs as nodes and edges for shared tags (limited to tags
+// shared by <= maxTagSize docs to avoid overwhelming the graph).
+func BuildGraphData(memDir string, maxTagSize int) (*GraphData, error) {
+	entries, err := os.ReadDir(memDir)
+	if err != nil {
+		return nil, fmt.Errorf("reading memory dir: %w", err)
+	}
+
+	type docInfo struct {
+		id  string
+		tags []string
+		raw  map[string]any
+	}
+
+	var docs []docInfo
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		raw, err := loadRaw(filepath.Join(memDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		id, _ := raw["id"].(string)
+		if id == "" {
+			id = strings.TrimSuffix(e.Name(), ".json")
+		}
+		tags := extractTags(raw)
+		docs = append(docs, docInfo{id: id, tags: tags, raw: raw})
+	}
+
+	// Build tag → doc indices
+	tagDocIndices := make(map[string][]int)
+	for i, d := range docs {
+		for _, tag := range d.tags {
+			tagDocIndices[tag] = append(tagDocIndices[tag], i)
+		}
+	}
+
+	// Build nodes
+	nodes := make([]GraphNode, len(docs))
+	for i, d := range docs {
+		landmark, _ := d.raw["landmark"].(bool)
+		score := 0.0
+		if s, ok := d.raw["centrality_score"].(float64); ok {
+			score = s
+		}
+		docType, _ := d.raw["type"].(string)
+		summary, _ := d.raw["summary"].(string)
+		if summary == "" {
+			if content, ok := d.raw["content"].(map[string]any); ok {
+				summary, _ = content["summary"].(string)
+			}
+		}
+
+		nodes[i] = GraphNode{
+			ID:       d.id,
+			Score:    score,
+			Landmark: landmark,
+			Type:     docType,
+			Summary:  summary,
+			Tags:     d.tags,
+		}
+	}
+
+	// Build edges — only for tags shared by <= maxTagSize docs
+	type edgeKey struct{ a, b int }
+	edgeWeights := make(map[edgeKey]float64)
+	edgeTags := make(map[edgeKey]string) // store the strongest tag per edge
+
+	for tag, indices := range tagDocIndices {
+		if len(indices) < 2 || len(indices) > maxTagSize {
+			continue
+		}
+		w := 1.0 / float64(len(indices))
+		for i := 0; i < len(indices); i++ {
+			for j := i + 1; j < len(indices); j++ {
+				key := edgeKey{indices[i], indices[j]}
+				if w > edgeWeights[key] {
+					edgeTags[key] = tag
+				}
+				edgeWeights[key] += w
+			}
+		}
+	}
+
+	// Count edges per node and build edge list.
+	edgeCounts := make(map[int]int, len(docs))
+	edges := make([]GraphEdge, 0, len(edgeWeights))
+	for key, weight := range edgeWeights {
+		edgeCounts[key.a]++
+		edgeCounts[key.b]++
+		edges = append(edges, GraphEdge{
+			Source: docs[key.a].id,
+			Target: docs[key.b].id,
+			Weight: weight,
+			Tag:    edgeTags[key],
+		})
+	}
+
+	// Set edge counts on nodes.
+	for i := range nodes {
+		nodes[i].EdgeCount = edgeCounts[i]
+	}
+
+	landmarkCount := 0
+	for _, n := range nodes {
+		if n.Landmark {
+			landmarkCount++
+		}
+	}
+
+	return &GraphData{
+		Nodes: nodes,
+		Edges: edges,
+		Stats: GraphStats{
+			TotalDocs:     len(docs),
+			TotalEdges:    len(edges),
+			LandmarkCount: landmarkCount,
+			TagCount:      len(tagDocIndices),
+		},
+	}, nil
 }
 
 // loadRaw reads a JSON file and returns its content as a raw map.

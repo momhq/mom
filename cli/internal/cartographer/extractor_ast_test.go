@@ -400,6 +400,76 @@ func TestASTExtractor_CSharp(t *testing.T) {
 	assertLanguageFixture(t, "sample.cs", ".cs", "csharp", "DataProcessor")
 }
 
+func TestASTExtractor_EnrichedTags(t *testing.T) {
+	src := Source{
+		Path:      "cli/internal/cmd/bootstrap.go",
+		Content:   []byte("package cmd\n\n// TestBootstrapRun tests bootstrap.\nfunc TestBootstrapRun() {}\n\nfunc ProcessData() {}\n"),
+		Extension: ".go",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	for _, d := range drafts {
+		name, _ := d.Content["name"].(string)
+		hasTag := func(tag string) bool {
+			for _, tg := range d.Tags {
+				if tg == tag {
+					return true
+				}
+			}
+			return false
+		}
+
+		// All drafts should have pkg-cmd tag.
+		if !hasTag("pkg-cmd") {
+			t.Errorf("draft %q missing pkg-cmd tag, got %v", name, d.Tags)
+		}
+
+		// TestBootstrapRun should have "test" tag.
+		if name == "TestBootstrapRun" && !hasTag("test") {
+			t.Errorf("TestBootstrapRun missing 'test' tag, got %v", d.Tags)
+		}
+
+		// ProcessData should NOT have "test" tag.
+		if name == "ProcessData" && hasTag("test") {
+			t.Errorf("ProcessData should not have 'test' tag, got %v", d.Tags)
+		}
+	}
+}
+
+func TestASTExtractor_MethodReceiverTag(t *testing.T) {
+	src := Source{
+		Path:      "internal/server/handler.go",
+		Content:   []byte("package server\n\ntype Handler struct{}\n\n// Process handles a request.\nfunc (h *Handler) Process() {}\n"),
+		Extension: ".go",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	for _, d := range drafts {
+		name, _ := d.Content["name"].(string)
+		if name == "Process" {
+			hasReceiverTag := false
+			for _, tag := range d.Tags {
+				if tag == "receiver-handler" {
+					hasReceiverTag = true
+				}
+			}
+			if !hasReceiverTag {
+				t.Errorf("method Process missing receiver-handler tag, got %v", d.Tags)
+			}
+		}
+	}
+}
+
 func TestASTExtractor_MultiLanguageIntegration(t *testing.T) {
 	// Integration test: scan the testdata directory and assert ≥1 draft per language.
 	type langCase struct {

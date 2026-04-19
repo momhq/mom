@@ -273,6 +273,75 @@ func TestComputeLandmarks_AllFalseAfterReset(t *testing.T) {
 	}
 }
 
+// TestComputeLandmarks_DiverseSelection verifies that the greedy diversity
+// penalty spreads landmarks across different tag clusters instead of
+// concentrating them in the largest cluster.
+func TestComputeLandmarks_DiverseSelection(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create 100 docs in two clusters:
+	// Cluster A (docs 0..59):  tags ["go", "function", "ast", "pkg-cmd"]
+	// Cluster B (docs 60..79): tags ["go", "type", "ast", "pkg-gardener"]
+	// Cluster C (docs 80..99): tags ["commit", "feat", "bootstrap"]
+	//
+	// Cluster A is largest. Without diversity, all landmarks would come from A.
+	// With diversity, landmarks should spread across A, B, and C.
+	for i := 0; i < 100; i++ {
+		var tags []string
+		switch {
+		case i < 60:
+			tags = []string{"go", "function", "ast", "pkg-cmd"}
+		case i < 80:
+			tags = []string{"go", "type", "ast", "pkg-gardener"}
+		default:
+			tags = []string{"commit", "feat", "bootstrap"}
+		}
+		writeDoc(t, dir, minimalDoc(id50(i), tags))
+	}
+
+	// 5% = 5 landmarks.
+	_, err := gardener.ComputeLandmarks(dir, 5.0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Count landmarks per cluster.
+	clusterA, clusterB, clusterC := 0, 0, 0
+	for i := 0; i < 100; i++ {
+		path := filepath.Join(dir, id50(i)+".json")
+		data, _ := os.ReadFile(path)
+		var doc map[string]any
+		json.Unmarshal(data, &doc) //nolint:errcheck
+		if lm, ok := doc["landmark"].(bool); ok && lm {
+			switch {
+			case i < 60:
+				clusterA++
+			case i < 80:
+				clusterB++
+			default:
+				clusterC++
+			}
+		}
+	}
+
+	// Diversity guarantee: at least 2 clusters should have landmarks.
+	clustersWithLandmarks := 0
+	if clusterA > 0 {
+		clustersWithLandmarks++
+	}
+	if clusterB > 0 {
+		clustersWithLandmarks++
+	}
+	if clusterC > 0 {
+		clustersWithLandmarks++
+	}
+
+	if clustersWithLandmarks < 2 {
+		t.Errorf("expected landmarks in ≥2 clusters, got: A=%d B=%d C=%d",
+			clusterA, clusterB, clusterC)
+	}
+}
+
 func readCentralityScore(t *testing.T, path string) float64 {
 	t.Helper()
 	data, err := os.ReadFile(path)

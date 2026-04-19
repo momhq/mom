@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vmarinogg/leo-core/cli/internal/gardener"
 	"github.com/vmarinogg/leo-core/cli/internal/kb"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 )
@@ -26,6 +28,7 @@ Landmarks are computed by 'leo reindex --landmarks' or automatically during
 func init() {
 	tourCmd.Flags().String("scope", "", "Target scope label (repo/org/user)")
 	tourCmd.Flags().Int("limit", 10, "Maximum landmarks to show")
+	tourCmd.Flags().Bool("graph", false, "Generate interactive HTML graph and open in browser")
 }
 
 func runTour(cmd *cobra.Command, _ []string) error {
@@ -44,6 +47,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	}
 
 	var targetScope scope.Scope
+	graphMode, _ := cmd.Flags().GetBool("graph")
 	if scopeLabel != "" {
 		found := false
 		for _, s := range scopes {
@@ -58,6 +62,10 @@ func runTour(cmd *cobra.Command, _ []string) error {
 		}
 	} else {
 		targetScope = scopes[0]
+	}
+
+	if graphMode {
+		return runTourGraph(cmd, targetScope)
 	}
 
 	memDir := filepath.Join(targetScope.Path, "memory")
@@ -131,4 +139,40 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
+}
+
+func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
+	memDir := filepath.Join(targetScope.Path, "memory")
+
+	// Build graph data (max tag group size 50 to keep graph readable).
+	data, err := gardener.BuildGraphData(memDir, 50)
+	if err != nil {
+		return fmt.Errorf("building graph data: %w", err)
+	}
+
+	if data.Stats.TotalDocs == 0 {
+		cmd.Println("No memories found. Run 'leo bootstrap' first.")
+		return nil
+	}
+
+	// Write HTML to a temp file.
+	outPath := filepath.Join(os.TempDir(), "leo-memory-graph.html")
+	if err := gardener.WriteGraphHTML(data, outPath); err != nil {
+		return fmt.Errorf("writing graph HTML: %w", err)
+	}
+
+	cmd.Printf("Graph written to %s\n", outPath)
+	cmd.Printf("  %d nodes, %d edges, %d landmarks\n", data.Stats.TotalDocs, data.Stats.TotalEdges, data.Stats.LandmarkCount)
+
+	// Try to open in browser.
+	if err := openBrowser(outPath); err != nil {
+		cmd.Printf("  Open the file in your browser to view the graph.\n")
+	}
+
+	return nil
+}
+
+// openBrowser opens a URL in the default browser.
+func openBrowser(url string) error {
+	return exec.Command("open", url).Start()
 }
