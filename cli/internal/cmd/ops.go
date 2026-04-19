@@ -110,27 +110,27 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		cmd.Printf("✔ config.yaml: valid (runtimes: %s)\n", strings.Join(cfg.EnabledRuntimes(), ", "))
 	}
 
-	// Check 3: KB dirs exist.
-	docsDir := filepath.Join(leoDir, "kb", "docs")
+	// Check 3: memory and core dirs exist.
+	docsDir := filepath.Join(leoDir, "memory")
 	if _, statErr := os.Stat(docsDir); statErr != nil {
-		cmd.Printf("✗ kb/docs/: %v\n", statErr)
+		cmd.Printf("✗ memory/: %v\n", statErr)
 		failed = true
 	} else {
-		cmd.Printf("✔ kb/docs/: exists\n")
+		cmd.Printf("✔ memory/: exists\n")
 	}
 
-	constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+	constraintsDir := filepath.Join(leoDir, "constraints")
 	if _, statErr := os.Stat(constraintsDir); statErr != nil {
-		cmd.Printf("⚠ kb/constraints/: not found\n")
+		cmd.Printf("⚠ constraints/: not found\n")
 	} else {
-		cmd.Printf("✔ kb/constraints/: exists\n")
+		cmd.Printf("✔ constraints/: exists\n")
 	}
 
-	skillsDir := filepath.Join(leoDir, "kb", "skills")
+	skillsDir := filepath.Join(leoDir, "skills")
 	if _, statErr := os.Stat(skillsDir); statErr != nil {
-		cmd.Printf("⚠ kb/skills/: not found\n")
+		cmd.Printf("⚠ skills/: not found\n")
 	} else {
-		cmd.Printf("✔ kb/skills/: exists\n")
+		cmd.Printf("✔ skills/: exists\n")
 	}
 
 	// Check 4: All docs pass schema validation (docs + constraints + skills).
@@ -290,7 +290,7 @@ func checkDirWritable(dir string) error {
 
 // readRawIndexInt reads a nested integer from the raw index JSON.
 func readRawIndexInt(leoDir string, keys ...string) int {
-	indexPath := filepath.Join(leoDir, "kb", "index.json")
+	indexPath := filepath.Join(leoDir, "index.json")
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
 		return 0

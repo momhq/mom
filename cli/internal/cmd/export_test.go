@@ -111,8 +111,8 @@ func TestExportCmd_CustomOutputPath(t *testing.T) {
 func TestExportCmd_CopiesSchema(t *testing.T) {
 	dir := setupTestKB(t)
 
-	// Write a schema.json into the KB directory.
-	schemaPath := filepath.Join(dir, ".leo", "kb", "schema.json")
+	// Write a schema.json into the .leo/ directory.
+	schemaPath := filepath.Join(dir, ".leo", "schema.json")
 	os.WriteFile(schemaPath, []byte(`{"version":"1"}`), 0644)
 
 	origDir, _ := os.Getwd()
@@ -149,11 +149,11 @@ func TestImportCmd_MergeMode_AddsNewDocs(t *testing.T) {
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "kb", "docs"),
+		filepath.Join(srcDir, ".leo", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "kb", "index.json"),
+		filepath.Join(srcDir, ".leo", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
@@ -175,7 +175,7 @@ func TestImportCmd_MergeMode_AddsNewDocs(t *testing.T) {
 
 	// Both docs should now exist in the destination.
 	for _, id := range []string{"import-new-a", "import-new-b"} {
-		docPath := filepath.Join(destDir, ".leo", "kb", "docs", id+".json")
+		docPath := filepath.Join(destDir, ".leo", "memory", id+".json")
 		if _, err := os.Stat(docPath); err != nil {
 			t.Errorf("imported doc %s not found in dest KB", id)
 		}
@@ -197,11 +197,11 @@ func TestImportCmd_MergeMode_SkipsExistingDocs(t *testing.T) {
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "kb", "docs"),
+		filepath.Join(srcDir, ".leo", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "kb", "index.json"),
+		filepath.Join(srcDir, ".leo", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
@@ -225,7 +225,7 @@ func TestImportCmd_MergeMode_SkipsExistingDocs(t *testing.T) {
 	}
 
 	// The destination doc should still have "local" content.
-	data, err := os.ReadFile(filepath.Join(destDir, ".leo", "kb", "docs", "existing-doc.json"))
+	data, err := os.ReadFile(filepath.Join(destDir, ".leo", "memory", "existing-doc.json"))
 	if err != nil {
 		t.Fatalf("reading destination doc: %v", err)
 	}
@@ -250,11 +250,11 @@ func TestImportCmd_ReplaceMode_BacksUpFirst(t *testing.T) {
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "kb", "docs"),
+		filepath.Join(srcDir, ".leo", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "kb", "index.json"),
+		filepath.Join(srcDir, ".leo", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
@@ -275,11 +275,11 @@ func TestImportCmd_ReplaceMode_BacksUpFirst(t *testing.T) {
 		t.Fatalf("import --replace failed: %v", err)
 	}
 
-	// A backup directory should exist.
+	// A backup directory should exist at the flat level.
 	leoDir := filepath.Join(destDir, ".leo")
-	entries, err := os.ReadDir(filepath.Join(leoDir, "kb"))
+	entries, err := os.ReadDir(leoDir)
 	if err != nil {
-		t.Fatalf("reading .leo/kb/: %v", err)
+		t.Fatalf("reading .leo/: %v", err)
 	}
 
 	foundBackup := false
@@ -287,7 +287,7 @@ func TestImportCmd_ReplaceMode_BacksUpFirst(t *testing.T) {
 		if e.IsDir() && strings.HasPrefix(e.Name(), "backup-") {
 			foundBackup = true
 			// Backup should contain existing-before-replace.
-			backupDoc := filepath.Join(leoDir, "kb", e.Name(), "docs", "existing-before-replace.json")
+			backupDoc := filepath.Join(leoDir, e.Name(), "docs", "existing-before-replace.json")
 			if _, err := os.Stat(backupDoc); err != nil {
 				t.Error("backup does not contain original doc")
 			}
@@ -307,11 +307,11 @@ func TestImportCmd_ReplaceMode_ReplacesAllDocs(t *testing.T) {
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "kb", "docs"),
+		filepath.Join(srcDir, ".leo", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "kb", "index.json"),
+		filepath.Join(srcDir, ".leo", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
@@ -333,12 +333,12 @@ func TestImportCmd_ReplaceMode_ReplacesAllDocs(t *testing.T) {
 	}
 
 	// source-doc-replace should exist.
-	if _, err := os.Stat(filepath.Join(destDir, ".leo", "kb", "docs", "source-doc-replace.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(destDir, ".leo", "memory", "source-doc-replace.json")); err != nil {
 		t.Error("source doc not found after replace import")
 	}
 
 	// old-doc-to-be-gone should NOT exist.
-	if _, err := os.Stat(filepath.Join(destDir, ".leo", "kb", "docs", "old-doc-to-be-gone.json")); err == nil {
+	if _, err := os.Stat(filepath.Join(destDir, ".leo", "memory", "old-doc-to-be-gone.json")); err == nil {
 		t.Error("old doc should be gone after replace import, but still exists")
 	}
 }
@@ -390,18 +390,18 @@ func TestImportCmd_RebuildsIndexAfterImport(t *testing.T) {
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "kb", "docs"),
+		filepath.Join(srcDir, ".leo", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "kb", "index.json"),
+		filepath.Join(srcDir, ".leo", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
 	destDir := setupTestKB(t)
 
 	// Corrupt the destination index.
-	indexPath := filepath.Join(destDir, ".leo", "kb", "index.json")
+	indexPath := filepath.Join(destDir, ".leo", "index.json")
 	os.WriteFile(indexPath, []byte(`{}`), 0644)
 
 	origDir, _ := os.Getwd()
@@ -462,7 +462,7 @@ func TestExportImport_RoundTrip(t *testing.T) {
 
 	// Both docs should be present.
 	for _, id := range []string{"roundtrip-alpha", "roundtrip-beta"} {
-		docPath := filepath.Join(newKBDir, ".leo", "kb", "docs", id+".json")
+		docPath := filepath.Join(newKBDir, ".leo", "memory", id+".json")
 		if _, err := os.Stat(docPath); err != nil {
 			t.Errorf("round-trip: doc %s not found in imported KB", id)
 		}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	huhspinner "charm.land/huh/v2/spinner"
@@ -17,7 +18,7 @@ var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Upgrade .leo/ to the latest version (preserves your KB docs)",
 	Long: `Upgrades core infrastructure (schema, constraints, skills, runtime files)
-to match the installed leo binary. Your documents in .leo/kb/docs/ are never touched.`,
+to match the installed leo binary. Your documents in .leo/memory/ are never touched.`,
 	RunE: runUpgrade,
 }
 
@@ -47,6 +48,21 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		actions = append(actions, upgradeAction{symbol, desc})
 	}
 
+	// ── Phase 0: Migrate legacy kb/ layout to flat layout ───────────────────
+	if !dryRun {
+		layoutActions, err := migrateKBLayout(leoDir)
+		if err != nil {
+			return fmt.Errorf("migrating layout: %w", err)
+		}
+		for _, a := range layoutActions {
+			addAction(a.symbol, a.desc)
+		}
+	} else {
+		if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
+			addAction("⚠", "legacy .leo/kb/ detected — would flatten to new layout (run without --dry-run)")
+		}
+	}
+
 	// ── Phase 1: Load, migrate, and persist config ───────────────────────────
 	cfg, err := config.Load(leoDir)
 	if err != nil {
@@ -71,7 +87,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 		// Create missing directories.
 		newDirs := []string{
-			filepath.Join(leoDir, "kb", "logs"),
+			filepath.Join(leoDir, "logs"),
+			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
 		}
 		for _, d := range newDirs {
@@ -108,7 +125,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			"token-economy-caveman",
 			"token-economy-model-selection",
 		}
-		constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+		constraintsDir := filepath.Join(leoDir, "constraints")
 		for _, name := range retiredConstraints {
 			path := filepath.Join(constraintsDir, name+".json")
 			if _, statErr := os.Stat(path); statErr == nil {
@@ -124,7 +141,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 		// Remove retired skill JSON files (idempotent).
 		retiredSkills := []string{"task-intake"}
-		skillsDir := filepath.Join(leoDir, "kb", "skills")
+		skillsDir := filepath.Join(leoDir, "skills")
 		for _, name := range retiredSkills {
 			path := filepath.Join(skillsDir, name+".json")
 			if _, statErr := os.Stat(path); statErr == nil {
@@ -161,7 +178,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			phase2Err = fmt.Errorf("reading embedded schema: %w", err)
 			return
 		}
-		schemaPath := filepath.Join(leoDir, "kb", "schema.json")
+		schemaPath := filepath.Join(leoDir, "schema.json")
 		if changed := fileChanged(schemaPath, schemaData); changed {
 			if !dryRun {
 				if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
@@ -186,7 +203,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 
 		// Update core constraints.
-		constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+		constraintsDir := filepath.Join(leoDir, "constraints")
 		for name, content := range coreConstraints() {
 			path := filepath.Join(constraintsDir, name+".json")
 			if changed := fileChanged(path, []byte(content)); changed {
@@ -201,7 +218,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 
 		// Update core skills.
-		skillsDir := filepath.Join(leoDir, "kb", "skills")
+		skillsDir := filepath.Join(leoDir, "skills")
 		for name, content := range coreSkills() {
 			path := filepath.Join(skillsDir, name+".json")
 			if changed := fileChanged(path, []byte(content)); changed {
@@ -216,7 +233,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 
 		// Migrate metric → session-log docs.
-		docsDir := filepath.Join(leoDir, "kb", "docs")
+		docsDir := filepath.Join(leoDir, "memory")
 		migrated := migrateMetricDocs(docsDir, dryRun)
 		for _, docID := range migrated {
 			addAction("✔", fmt.Sprintf("doc %s migrated metric → session-log", docID))
@@ -240,7 +257,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	var phase3Err error
 	doPhase3 := func() {
 		// Rebuild index.
-		indexPath := filepath.Join(leoDir, "kb", "index.json")
+		indexPath := filepath.Join(leoDir, "index.json")
 		if !dryRun {
 			indexData, err := buildCoreIndex()
 			if err != nil {
@@ -307,6 +324,90 @@ func fileChanged(path string, data []byte) bool {
 		return true
 	}
 	return string(existing) != string(data)
+}
+
+// migrateKBLayout detects a legacy .leo/kb/ layout and promotes each subdirectory
+// one level up to the new flat layout. It is idempotent: if the destination already
+// exists it skips that step and reports a conflict rather than overwriting.
+func migrateKBLayout(leoDir string) ([]upgradeAction, error) {
+	kbDir := filepath.Join(leoDir, "kb")
+	if _, err := os.Stat(kbDir); os.IsNotExist(err) {
+		// Already on new layout — nothing to do.
+		return nil, nil
+	}
+
+	var actions []upgradeAction
+
+	type migration struct {
+		src  string
+		dst  string
+		desc string
+	}
+
+	moves := []migration{
+		{filepath.Join(kbDir, "docs"), filepath.Join(leoDir, "memory"), "kb/docs/ → memory/"},
+		{filepath.Join(kbDir, "constraints"), filepath.Join(leoDir, "constraints"), "kb/constraints/ → constraints/"},
+		{filepath.Join(kbDir, "skills"), filepath.Join(leoDir, "skills"), "kb/skills/ → skills/"},
+		{filepath.Join(kbDir, "logs"), filepath.Join(leoDir, "logs"), "kb/logs/ → logs/"},
+	}
+
+	for _, m := range moves {
+		if _, err := os.Stat(m.src); os.IsNotExist(err) {
+			// Source doesn't exist — skip silently.
+			continue
+		}
+		if _, err := os.Stat(m.dst); err == nil {
+			// Destination already exists — partial migration; skip to avoid data loss.
+			actions = append(actions, upgradeAction{"⚠", fmt.Sprintf("skipped %s — destination already exists", m.desc)})
+			continue
+		}
+		if err := os.Rename(m.src, m.dst); err != nil {
+			return nil, fmt.Errorf("moving %s: %w", m.desc, err)
+		}
+		actions = append(actions, upgradeAction{"✔", fmt.Sprintf("migrated %s", m.desc)})
+	}
+
+	// Move flat files.
+	fileMovs := []migration{
+		{filepath.Join(kbDir, "index.json"), filepath.Join(leoDir, "index.json"), "kb/index.json → index.json"},
+		{filepath.Join(kbDir, "schema.json"), filepath.Join(leoDir, "schema.json"), "kb/schema.json → schema.json"},
+	}
+	for _, m := range fileMovs {
+		if _, err := os.Stat(m.src); os.IsNotExist(err) {
+			continue
+		}
+		if _, err := os.Stat(m.dst); err == nil {
+			actions = append(actions, upgradeAction{"⚠", fmt.Sprintf("skipped %s — destination already exists", m.desc)})
+			continue
+		}
+		if err := os.Rename(m.src, m.dst); err != nil {
+			return nil, fmt.Errorf("moving %s: %w", m.desc, err)
+		}
+		actions = append(actions, upgradeAction{"✔", fmt.Sprintf("migrated %s", m.desc)})
+	}
+
+	// Remove kb/ if it is now empty (ignoring hidden files like .gitkeep).
+	remaining, _ := os.ReadDir(kbDir)
+	hasVisible := false
+	for _, e := range remaining {
+		if !strings.HasPrefix(e.Name(), ".") {
+			hasVisible = true
+			break
+		}
+	}
+	if !hasVisible {
+		if err := os.RemoveAll(kbDir); err != nil {
+			actions = append(actions, upgradeAction{"⚠", fmt.Sprintf("could not remove empty kb/: %v", err)})
+		} else {
+			actions = append(actions, upgradeAction{"✔", "removed empty kb/ directory"})
+		}
+	}
+
+	if len(actions) > 0 {
+		actions = append([]upgradeAction{{"✔", "filesystem layout migrated to v0.8 (kb/ flattened)"}}, actions...)
+	}
+
+	return actions, nil
 }
 
 // migrateMetricDocs finds docs with type "metric" and migrates them to "session-log".

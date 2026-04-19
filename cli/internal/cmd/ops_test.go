@@ -241,7 +241,7 @@ func TestDoctorCmd_InvalidDocFails(t *testing.T) {
 
 	// Write a corrupt JSON doc directly (bypassing adapter validation).
 	corruptDoc := []byte(`{"id": "corrupt", "type": ""}`)
-	os.WriteFile(filepath.Join(leoDir, "kb", "docs", "corrupt.json"), corruptDoc, 0644)
+	os.WriteFile(filepath.Join(leoDir, "memory", "corrupt.json"), corruptDoc, 0644)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
@@ -295,7 +295,7 @@ func TestDoctorCmd_OrphanIndexEntry(t *testing.T) {
 
 	// Write a doc, then remove it from disk (leaving index orphan).
 	writeTestDoc(t, dir, sampleDoc("orphan-doc"))
-	os.Remove(filepath.Join(leoDir, "kb", "docs", "orphan-doc.json"))
+	os.Remove(filepath.Join(leoDir, "memory", "orphan-doc.json"))
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)

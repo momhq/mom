@@ -84,10 +84,11 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	doScaffold := func() {
 		dirs := []string{
 			leoDir,
-			filepath.Join(leoDir, "kb", "docs"),
-			filepath.Join(leoDir, "kb", "skills"),
-			filepath.Join(leoDir, "kb", "constraints"),
-			filepath.Join(leoDir, "kb", "logs"),
+			filepath.Join(leoDir, "memory"),
+			filepath.Join(leoDir, "skills"),
+			filepath.Join(leoDir, "constraints"),
+			filepath.Join(leoDir, "logs"),
+			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
 		}
 		for _, d := range dirs {
@@ -160,7 +161,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			kbErr = fmt.Errorf("reading embedded schema: %w", err)
 			return
 		}
-		schemaPath := filepath.Join(leoDir, "kb", "schema.json")
+		schemaPath := filepath.Join(leoDir, "schema.json")
 		if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
 			kbErr = fmt.Errorf("writing schema: %w", err)
 			return
@@ -174,7 +175,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		}
 
 		// Write core constraints.
-		constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+		constraintsDir := filepath.Join(leoDir, "constraints")
 		for name, content := range coreConstraints() {
 			path := filepath.Join(constraintsDir, name+".json")
 			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -184,7 +185,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		}
 
 		// Write core skills.
-		skillsDir := filepath.Join(leoDir, "kb", "skills")
+		skillsDir := filepath.Join(leoDir, "skills")
 		for name, content := range coreSkills() {
 			path := filepath.Join(skillsDir, name+".json")
 			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -194,7 +195,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		}
 
 		// Write index.json with entries for all core docs.
-		indexPath := filepath.Join(leoDir, "kb", "index.json")
+		indexPath := filepath.Join(leoDir, "index.json")
 		indexData, err := buildCoreIndex()
 		if err != nil {
 			kbErr = fmt.Errorf("building index: %w", err)
@@ -453,13 +454,13 @@ func buildCoreIndex() ([]byte, error) {
 	}
 
 	for _, content := range coreConstraints() {
-		if err := addDoc(content, "kb/constraints/"); err != nil {
+		if err := addDoc(content, "constraints/"); err != nil {
 			return nil, fmt.Errorf("indexing constraint: %w", err)
 		}
 	}
 
 	for _, content := range coreSkills() {
-		if err := addDoc(content, "kb/skills/"); err != nil {
+		if err := addDoc(content, "skills/"); err != nil {
 			return nil, fmt.Errorf("indexing skill: %w", err)
 		}
 	}

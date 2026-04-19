@@ -137,12 +137,16 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		return OnboardingResult{}, fmt.Errorf("onboarding aborted: %w", err)
 	}
 
-	// Validate and expand core source path.
+	// Validate and expand core source path — accept both new (memory) and legacy (kb/docs) layouts.
 	if coreSource != "" {
 		expanded := expandTilde(coreSource)
-		kbDocsDir := filepath.Join(expanded, ".leo", "kb", "docs")
-		if _, err := os.Stat(kbDocsDir); err != nil {
-			return OnboardingResult{}, fmt.Errorf("not a valid leo-core: %s not found", kbDocsDir)
+		memoryDir := filepath.Join(expanded, ".leo", "memory")
+		if _, err := os.Stat(memoryDir); err != nil {
+			// Fall back to legacy layout.
+			legacyDir := filepath.Join(expanded, ".leo", "kb", "docs")
+			if _, err := os.Stat(legacyDir); err != nil {
+				return OnboardingResult{}, fmt.Errorf("not a valid leo-core: %s not found", memoryDir)
+			}
 		}
 		coreSource = expanded
 	}

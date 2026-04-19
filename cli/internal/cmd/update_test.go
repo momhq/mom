@@ -36,23 +36,23 @@ func coreDoc(id string, scope string, updated time.Time) []byte {
 	return append(data, '\n')
 }
 
-// setupFakeCore creates a temp directory with the leo-core structure:
+// setupFakeCore creates a temp directory with the leo-core structure (new flat layout):
 //
-//	tmpCore/.leo/kb/docs/
-//	tmpCore/.leo/kb/schema.json
+//	tmpCore/.leo/memory/
+//	tmpCore/.leo/schema.json
 //
 // It returns the path to the tmpCore directory.
 func setupFakeCore(t *testing.T) string {
 	t.Helper()
 	core := t.TempDir()
 
-	docsDir := filepath.Join(core, ".leo", "kb", "docs")
+	docsDir := filepath.Join(core, ".leo", "memory")
 	if err := os.MkdirAll(docsDir, 0755); err != nil {
-		t.Fatalf("setupFakeCore: creating docs dir: %v", err)
+		t.Fatalf("setupFakeCore: creating memory dir: %v", err)
 	}
 
 	schema := []byte(`{"version":"1","description":"Leo KB schema"}`)
-	if err := os.WriteFile(filepath.Join(core, ".leo", "kb", "schema.json"), schema, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(core, ".leo", "schema.json"), schema, 0644); err != nil {
 		t.Fatalf("setupFakeCore: writing schema: %v", err)
 	}
 
@@ -70,23 +70,23 @@ func setupFakeCore(t *testing.T) string {
 	return core
 }
 
-// addCoreDoc writes a doc JSON file into {core}/.leo/kb/docs/.
+// addCoreDoc writes a doc JSON file into {core}/.leo/memory/.
 func addCoreDoc(t *testing.T, core, id, scope string, updated time.Time) {
 	t.Helper()
-	path := filepath.Join(core, ".leo", "kb", "docs", id+".json")
+	path := filepath.Join(core, ".leo", "memory", id+".json")
 	if err := os.WriteFile(path, coreDoc(id, scope, updated), 0644); err != nil {
 		t.Fatalf("addCoreDoc: %v", err)
 	}
 }
 
-// setupFakeProject creates a temp directory with the project .leo/ structure.
+// setupFakeProject creates a temp directory with the project .leo/ structure (new flat layout).
 func setupFakeProject(t *testing.T) string {
 	t.Helper()
 	proj := t.TempDir()
 	leoDir := filepath.Join(proj, ".leo")
 	dirs := []string{
 		leoDir,
-		filepath.Join(leoDir, "kb", "docs"),
+		filepath.Join(leoDir, "memory"),
 		filepath.Join(leoDir, "profiles"),
 		filepath.Join(leoDir, "cache"),
 	}
@@ -104,13 +104,13 @@ func setupFakeProject(t *testing.T) string {
 
 	// Empty index.json.
 	emptyIdx := []byte(`{"version":"1","last_rebuilt":"","by_tag":{},"by_type":{},"by_scope":{},"by_lifecycle":{}}` + "\n")
-	if err := os.WriteFile(filepath.Join(leoDir, "kb", "index.json"), emptyIdx, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(leoDir, "index.json"), emptyIdx, 0644); err != nil {
 		t.Fatalf("setupFakeProject: writing index: %v", err)
 	}
 
 	// Minimal schema.json (different from core default).
 	schema := []byte(`{"version":"0","description":"old schema"}`)
-	if err := os.WriteFile(filepath.Join(leoDir, "kb", "schema.json"), schema, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(leoDir, "schema.json"), schema, 0644); err != nil {
 		t.Fatalf("setupFakeProject: writing schema: %v", err)
 	}
 
@@ -176,8 +176,8 @@ func TestUpdateCmd_InvalidSource(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid source path")
 	}
-	if !strings.Contains(err.Error(), ".leo/kb/docs") {
-		t.Errorf("expected error about missing .leo/kb/docs, got: %v", err)
+	if !strings.Contains(err.Error(), ".leo/memory") && !strings.Contains(err.Error(), ".leo/kb/docs") {
+		t.Errorf("expected error about missing memory dir, got: %v", err)
 	}
 }
 
@@ -203,7 +203,7 @@ func TestUpdateCmd_DryRun(t *testing.T) {
 	}
 
 	// No files should have been copied.
-	entries, _ := os.ReadDir(filepath.Join(proj, ".leo", "kb", "docs"))
+	entries, _ := os.ReadDir(filepath.Join(proj, ".leo", "memory"))
 	if len(entries) > 0 {
 		t.Errorf("dry-run should not write files, found %d file(s)", len(entries))
 	}
@@ -222,7 +222,7 @@ func TestUpdateCmd_AddsNewDocs(t *testing.T) {
 		t.Fatalf("update failed: %v", err)
 	}
 
-	docsDir := filepath.Join(proj, ".leo", "kb", "docs")
+	docsDir := filepath.Join(proj, ".leo", "memory")
 	for _, id := range []string{"evidence-over-claim", "anti-hallucination"} {
 		p := filepath.Join(docsDir, id+".json")
 		if _, err := os.Stat(p); err != nil {
@@ -242,7 +242,7 @@ func TestUpdateCmd_UpdatesNewerDocs(t *testing.T) {
 	addCoreDoc(t, core, "my-rule", "core", t2)
 
 	// Write project doc with t1.
-	projDocPath := filepath.Join(proj, ".leo", "kb", "docs", "my-rule.json")
+	projDocPath := filepath.Join(proj, ".leo", "memory", "my-rule.json")
 	if err := os.WriteFile(projDocPath, coreDoc("my-rule", "core", t1), 0644); err != nil {
 		t.Fatalf("writing project doc: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestUpdateCmd_SkipsUnchangedDocs(t *testing.T) {
 	addCoreDoc(t, core, "stable-rule", "core", ts)
 
 	// Project already has the same doc with the same timestamp.
-	projDocPath := filepath.Join(proj, ".leo", "kb", "docs", "stable-rule.json")
+	projDocPath := filepath.Join(proj, ".leo", "memory", "stable-rule.json")
 	origContent := coreDoc("stable-rule", "core", ts)
 	if err := os.WriteFile(projDocPath, origContent, 0644); err != nil {
 		t.Fatalf("writing project doc: %v", err)
@@ -301,7 +301,7 @@ func TestUpdateCmd_PreservesProjectDocs(t *testing.T) {
 	addCoreDoc(t, core, "core-rule", "core", t1)
 
 	// Project has its own project-scoped doc.
-	projDocPath := filepath.Join(proj, ".leo", "kb", "docs", "project-decision.json")
+	projDocPath := filepath.Join(proj, ".leo", "memory", "project-decision.json")
 	projDocContent := coreDoc("project-decision", "project", t1)
 	if err := os.WriteFile(projDocPath, projDocContent, 0644); err != nil {
 		t.Fatalf("writing project doc: %v", err)
@@ -332,11 +332,11 @@ func TestUpdateCmd_SyncsSchema(t *testing.T) {
 	}
 
 	// Project schema should now match core schema.
-	projSchema, err := os.ReadFile(filepath.Join(proj, ".leo", "kb", "schema.json"))
+	projSchema, err := os.ReadFile(filepath.Join(proj, ".leo", "schema.json"))
 	if err != nil {
 		t.Fatalf("reading project schema: %v", err)
 	}
-	coreSchema, err := os.ReadFile(filepath.Join(core, ".leo", "kb", "schema.json"))
+	coreSchema, err := os.ReadFile(filepath.Join(core, ".leo", "schema.json"))
 	if err != nil {
 		t.Fatalf("reading core schema: %v", err)
 	}
@@ -556,7 +556,7 @@ func TestUpdateCmd_SkipsNonCoreScopeDocs(t *testing.T) {
 		t.Fatalf("update failed: %v", err)
 	}
 
-	docsDir := filepath.Join(proj, ".leo", "kb", "docs")
+	docsDir := filepath.Join(proj, ".leo", "memory")
 
 	// project-specific should NOT be copied.
 	if _, err := os.Stat(filepath.Join(docsDir, "project-specific.json")); err == nil {

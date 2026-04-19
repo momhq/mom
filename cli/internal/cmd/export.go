@@ -62,7 +62,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Copy all docs.
-	srcDocsDir := filepath.Join(leoDir, "kb", "docs")
+	srcDocsDir := filepath.Join(leoDir, "memory")
 	docCount, err := copyJSONDir(srcDocsDir, docsOutputDir)
 	if err != nil {
 		return fmt.Errorf("copying docs: %w", err)
@@ -70,7 +70,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	// Copy constraints.
 	constraintsCount := 0
-	srcConstraints := filepath.Join(leoDir, "kb", "constraints")
+	srcConstraints := filepath.Join(leoDir, "constraints")
 	if dirExists(srcConstraints) {
 		dstConstraints := filepath.Join(outputDir, "constraints")
 		if err := os.MkdirAll(dstConstraints, 0755); err != nil {
@@ -84,7 +84,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	// Copy skills.
 	skillsCount := 0
-	srcSkills := filepath.Join(leoDir, "kb", "skills")
+	srcSkills := filepath.Join(leoDir, "skills")
 	if dirExists(srcSkills) {
 		dstSkills := filepath.Join(outputDir, "skills")
 		if err := os.MkdirAll(dstSkills, 0755); err != nil {
@@ -111,14 +111,14 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Copy index.json.
-	srcIndex := filepath.Join(leoDir, "kb", "index.json")
+	srcIndex := filepath.Join(leoDir, "index.json")
 	dstIndex := filepath.Join(outputDir, "index.json")
 	if err := copyFileContents(srcIndex, dstIndex); err != nil {
 		return fmt.Errorf("copying index.json: %w", err)
 	}
 
 	// Copy schema.json if it exists.
-	srcSchema := filepath.Join(leoDir, "kb", "schema.json")
+	srcSchema := filepath.Join(leoDir, "schema.json")
 	if _, err := os.Stat(srcSchema); err == nil {
 		dstSchema := filepath.Join(outputDir, "schema.json")
 		if err := copyFileContents(srcSchema, dstSchema); err != nil {
@@ -165,12 +165,12 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("import path must contain a docs/ directory: %w", err)
 	}
 
-	destDocsDir := filepath.Join(leoDir, "kb", "docs")
+	destDocsDir := filepath.Join(leoDir, "memory")
 
 	if replaceMode {
-		// Back up current KB to .leo/kb/backup-{timestamp}/.
+		// Back up current memory to .leo/backup-{timestamp}/.
 		timestamp := time.Now().UTC().Format("20060102-150405")
-		backupDir := filepath.Join(leoDir, "kb", "backup-"+timestamp)
+		backupDir := filepath.Join(leoDir, "backup-"+timestamp)
 		backupDocsDir := filepath.Join(backupDir, "docs")
 		if err := os.MkdirAll(backupDocsDir, 0755); err != nil {
 			return fmt.Errorf("creating backup dir: %w", err)
@@ -193,7 +193,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		}
 
 		// Copy index.json to backup if it exists.
-		srcIdx := filepath.Join(leoDir, "kb", "index.json")
+		srcIdx := filepath.Join(leoDir, "index.json")
 		if _, err := os.Stat(srcIdx); err == nil {
 			copyFileContents(srcIdx, filepath.Join(backupDir, "index.json")) //nolint:errcheck
 		}
@@ -260,7 +260,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	// Import constraints if present.
 	srcConstraints := filepath.Join(importPath, "constraints")
 	if dirExists(srcConstraints) {
-		destConstraints := filepath.Join(leoDir, "kb", "constraints")
+		destConstraints := filepath.Join(leoDir, "constraints")
 		if err := os.MkdirAll(destConstraints, 0755); err != nil {
 			return fmt.Errorf("create constraints dir: %w", err)
 		}
@@ -270,7 +270,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	// Import skills if present.
 	srcSkills := filepath.Join(importPath, "skills")
 	if dirExists(srcSkills) {
-		destSkills := filepath.Join(leoDir, "kb", "skills")
+		destSkills := filepath.Join(leoDir, "skills")
 		if err := os.MkdirAll(destSkills, 0755); err != nil {
 			return fmt.Errorf("create skills dir: %w", err)
 		}
@@ -327,7 +327,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// No docs — write an empty index.
-		indexPath := filepath.Join(leoDir, "kb", "index.json")
+		indexPath := filepath.Join(leoDir, "index.json")
 		emptyIdx := map[string]any{
 			"version": "1", "last_rebuilt": time.Now().UTC().Format(time.RFC3339),
 			"by_tag": map[string]any{}, "by_type": map[string]any{},

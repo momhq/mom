@@ -43,7 +43,7 @@ type HealthStatus struct {
 }
 
 // Adapter is the interface that storage backends must implement.
-// The JSON adapter (free tier) reads/writes flat JSON files in .leo/kb/docs/.
+// The JSON adapter (free tier) reads/writes flat JSON files in .leo/memory/.
 // Future adapters (MongoDB, etc.) implement the same interface.
 type Adapter interface {
 	Read(id string) (*Doc, error)

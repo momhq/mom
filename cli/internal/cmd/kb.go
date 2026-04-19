@@ -21,7 +21,7 @@ var reindexCmd = &cobra.Command{
 		}
 
 		// Read all docs, write them back to trigger index rebuild.
-		docsDir := filepath.Join(leoDir, "kb", "docs")
+		docsDir := filepath.Join(leoDir, "memory")
 		entries, err := os.ReadDir(docsDir)
 		if err != nil {
 			return fmt.Errorf("reading docs dir: %w", err)
@@ -37,7 +37,7 @@ var reindexCmd = &cobra.Command{
 		}
 
 		// Force a full rebuild by deleting and recreating the index.
-		indexPath := filepath.Join(leoDir, "kb", "index.json")
+		indexPath := filepath.Join(leoDir, "index.json")
 		os.Remove(indexPath)
 
 		// Read all docs and bulk-write to rebuild.
@@ -109,7 +109,7 @@ func validateAll(cmd *cobra.Command) error {
 		return err
 	}
 
-	docsDir := filepath.Join(leoDir, "kb", "docs")
+	docsDir := filepath.Join(leoDir, "memory")
 	entries, err := os.ReadDir(docsDir)
 	if err != nil {
 		return fmt.Errorf("reading docs dir: %w", err)

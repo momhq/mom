@@ -26,7 +26,7 @@ func setupAdapter(t *testing.T) (*JSONAdapter, string) {
 	t.Helper()
 	dir := t.TempDir()
 	leoDir := filepath.Join(dir, ".leo")
-	os.MkdirAll(filepath.Join(leoDir, "kb", "docs"), 0755)
+	os.MkdirAll(filepath.Join(leoDir, "memory"), 0755)
 	return NewJSONAdapter(leoDir), leoDir
 }
 

@@ -17,7 +17,7 @@ func setupTestKB(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	leoDir := filepath.Join(dir, ".leo")
-	os.MkdirAll(filepath.Join(leoDir, "kb", "docs"), 0755)
+	os.MkdirAll(filepath.Join(leoDir, "memory"), 0755)
 
 	// Write empty index.
 	idx := map[string]any{
@@ -26,7 +26,7 @@ func setupTestKB(t *testing.T) string {
 		"by_lifecycle": map[string]any{},
 	}
 	data, _ := json.MarshalIndent(idx, "", "  ")
-	os.WriteFile(filepath.Join(leoDir, "kb", "index.json"), data, 0644)
+	os.WriteFile(filepath.Join(leoDir, "index.json"), data, 0644)
 
 	return dir
 }

@@ -28,19 +28,20 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	expected := []string{
 		".leo/config.yaml",
 		".leo/identity.json",
-		".leo/kb/schema.json",
-		".leo/kb/index.json",
-		".leo/kb/logs",
+		".leo/schema.json",
+		".leo/index.json",
+		".leo/logs",
 		".claude/CLAUDE.md",
-		".leo/kb/constraints/anti-hallucination.json",
-		".leo/kb/skills/session-wrap-up.json",
+		".leo/constraints/anti-hallucination.json",
+		".leo/skills/session-wrap-up.json",
 	}
 	// Retired files must NOT exist.
 	retired := []string{
 		".leo/profiles/general-manager.yaml",
 		".leo/profiles/backend-engineer.yaml",
-		".leo/kb/constraints/delegation-mandatory.json",
-		".leo/kb/skills/task-intake.json",
+		".leo/constraints/delegation-mandatory.json",
+		".leo/skills/task-intake.json",
+		".leo/kb",
 	}
 	for _, path := range retired {
 		full := filepath.Join(dir, path)
@@ -57,7 +58,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	}
 
 	// Verify directories.
-	dirs := []string{".leo/kb/docs", ".leo/kb/skills", ".leo/kb/constraints", ".leo/kb/logs", ".leo/cache"}
+	dirs := []string{".leo/memory", ".leo/skills", ".leo/constraints", ".leo/logs", ".leo/telemetry", ".leo/cache"}
 	for _, d := range dirs {
 		full := filepath.Join(dir, d)
 		info, err := os.Stat(full)
