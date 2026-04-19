@@ -204,13 +204,3 @@ func scopeList(scopes []scope.Scope) string {
 }
 
 // shortenPath replaces the home directory prefix with "~".
-func shortenPath(p string) string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return p
-	}
-	if len(p) > len(home) && p[:len(home)] == home {
-		return "~" + p[len(home):]
-	}
-	return p
-}
