@@ -85,8 +85,12 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 		addAction("✔", "config.yaml migrated to latest format")
 
-		// Create missing directories.
+		// Create missing directories. All canonical v0.8 dirs must exist before
+		// Phase 2 writes core constraints/skills and the layout migration.
 		newDirs := []string{
+			filepath.Join(leoDir, "memory"),
+			filepath.Join(leoDir, "constraints"),
+			filepath.Join(leoDir, "skills"),
 			filepath.Join(leoDir, "logs"),
 			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
