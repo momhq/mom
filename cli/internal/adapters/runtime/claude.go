@@ -1,12 +1,18 @@
 package runtime
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
+
+//go:embed capabilities/claude.yaml
+var claudeCapabilitiesYAML []byte
 
 // ClaudeAdapter implements the Adapter interface for Claude Code.
 // It reads from .leo/ and generates .claude/CLAUDE.md + settings.json.
@@ -109,6 +115,15 @@ func (a *ClaudeAdapter) DefaultTierMapping() map[string]string {
 		"execution":     "sonnet",
 		"review":        "sonnet",
 	}
+}
+
+func (a *ClaudeAdapter) Capabilities() AdapterCapability {
+	var cap AdapterCapability
+	if err := yaml.Unmarshal(claudeCapabilitiesYAML, &cap); err != nil {
+		// Fallback: return minimal capability if YAML is malformed.
+		return AdapterCapability{Name: "claude-code", Version: "1.0"}
+	}
+	return cap
 }
 
 // HasWatermark checks if a file contains the L.E.O. watermark.

@@ -1,10 +1,16 @@
 package runtime
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
+
+//go:embed capabilities/cline.yaml
+var clineCapabilitiesYAML []byte
 
 // ClineAdapter implements the Adapter interface for Cline.
 // It reads from .leo/ and generates .clinerules/leo-context.md.
@@ -68,4 +74,12 @@ func (a *ClineAdapter) Watermark() string {
 // Model selection happens in Cline's UI, not in generated instructions.
 func (a *ClineAdapter) DefaultTierMapping() map[string]string {
 	return nil
+}
+
+func (a *ClineAdapter) Capabilities() AdapterCapability {
+	var cap AdapterCapability
+	if err := yaml.Unmarshal(clineCapabilitiesYAML, &cap); err != nil {
+		return AdapterCapability{Name: "cline", Version: "0.1"}
+	}
+	return cap
 }

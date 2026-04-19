@@ -35,6 +35,19 @@ type Identity struct {
 	Constraints []string
 }
 
+// AdapterCapability describes which MRP v0 events an adapter natively supports.
+// Loaded from the adapter's embedded YAML capability file.
+type AdapterCapability struct {
+	// Name is the adapter identifier (matches Name()).
+	Name string `yaml:"adapter"`
+	// Version is the adapter version string.
+	Version string `yaml:"version"`
+	// Supports lists MRP events natively supported by this adapter.
+	Supports []string `yaml:"supports"`
+	// Experimental lists MRP events emitted best-effort — may fire unreliably.
+	Experimental []string `yaml:"experimental"`
+}
+
 // HookDef defines a hook to register with the runtime.
 type HookDef struct {
 	Event   string // e.g. "PostToolUse"
@@ -78,4 +91,8 @@ type Adapter interface {
 	// DefaultTierMapping returns the default capability tier → model mapping
 	// for this runtime. Returns nil if the runtime manages its own model selection.
 	DefaultTierMapping() map[string]string
+
+	// Capabilities returns the MRP v0 capability declaration for this adapter.
+	// Loaded from the embedded YAML file in capabilities/.
+	Capabilities() AdapterCapability
 }

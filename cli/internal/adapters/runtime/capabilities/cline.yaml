@@ -1,0 +1,9 @@
+adapter: cline
+version: "0.1"
+supports:
+  - session.start
+  - session.end
+experimental:
+  - turn.complete
+  - compact.triggered
+  - clear.triggered
