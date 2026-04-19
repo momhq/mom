@@ -256,7 +256,9 @@ func nodeTypeToKind(lang, nodeType string) string {
 	case "lexical_declaration", "variable_declaration":
 		return "const"
 	default:
-		return nodeType
+		// Sanitise tree-sitter node types (e.g. "variable_declarator") to
+		// kebab-case so they are valid KB tags.
+		return strings.ReplaceAll(nodeType, "_", "-")
 	}
 }
 
