@@ -21,6 +21,20 @@ type Config struct {
 	User          UserConfig               `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
 	KB            KBConfig                 `yaml:"kb"`
+	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
+}
+
+// TelemetryConfig holds telemetry settings.
+type TelemetryConfig struct {
+	// Enabled controls whether events are written to disk. Default: true (nil == enabled).
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// Path overrides the default telemetry directory (<leoDir>/telemetry/).
+	Path string `yaml:"path,omitempty"`
+}
+
+// TelemetryEnabled returns true unless Enabled is explicitly set to false.
+func (tc TelemetryConfig) TelemetryEnabled() bool {
+	return tc.Enabled == nil || *tc.Enabled
 }
 
 // RuntimeConfig holds per-runtime settings.

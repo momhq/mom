@@ -261,6 +261,51 @@ func TestConfigEnabledRuntimes(t *testing.T) {
 	}
 }
 
+func TestTelemetryEnabledDefault(t *testing.T) {
+	// Absent Telemetry config (nil Enabled) must default to enabled.
+	cfg := Config{}
+	if !cfg.Telemetry.TelemetryEnabled() {
+		t.Error("expected telemetry to be enabled by default (nil Enabled)")
+	}
+}
+
+func TestTelemetryExplicitFalse(t *testing.T) {
+	f := false
+	cfg := Config{Telemetry: TelemetryConfig{Enabled: &f}}
+	if cfg.Telemetry.TelemetryEnabled() {
+		t.Error("expected telemetry to be disabled when Enabled=false")
+	}
+}
+
+func TestTelemetryExplicitTrue(t *testing.T) {
+	tr := true
+	cfg := Config{Telemetry: TelemetryConfig{Enabled: &tr}}
+	if !cfg.Telemetry.TelemetryEnabled() {
+		t.Error("expected telemetry to be enabled when Enabled=true")
+	}
+}
+
+func TestTelemetryRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	f := false
+	cfg := Default()
+	cfg.Telemetry = TelemetryConfig{Enabled: &f, Path: "/custom/path"}
+
+	if err := Save(dir, &cfg); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if loaded.Telemetry.Enabled == nil || *loaded.Telemetry.Enabled != false {
+		t.Error("expected telemetry.enabled=false after round-trip")
+	}
+	if loaded.Telemetry.Path != "/custom/path" {
+		t.Errorf("expected path=/custom/path, got %q", loaded.Telemetry.Path)
+	}
+}
+
 func TestConfigMultiRuntime(t *testing.T) {
 	dir := t.TempDir()
 
