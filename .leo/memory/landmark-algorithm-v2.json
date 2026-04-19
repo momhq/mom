@@ -1,0 +1,31 @@
+{
+  "id": "landmark-algorithm-v2",
+  "type": "decision",
+  "lifecycle": "permanent",
+  "scope": "project",
+  "tags": ["gardener", "landmarks", "centrality", "algorithm"],
+  "created": "2026-04-19T22:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-19T22:00:00Z",
+  "updated_by": "leo",
+  "confidence": "EXTRACTED",
+  "promotion_state": "validated",
+  "classification": "INTERNAL",
+  "content": {
+    "decision": "Landmark selection uses degree centrality (unique neighbour count) with a greedy diversity penalty that spreads landmarks across different tag clusters.",
+    "context": "Initial weighted-degree approach produced identical scores for docs sharing common tags. All landmarks concentrated in the densest cluster. Reviewed Khuller et al. 'Landmarks in Graphs' paper for academic grounding.",
+    "why": "Degree centrality identifies structural hubs with high blast radius. The diversity penalty (0.5 * covered_tags/total_tags per round) prevents all landmarks from clustering in one topic area, ensuring navigational coverage across the graph.",
+    "alternatives_considered": [
+      "Weighted degree centrality — all docs with common tags scored identically",
+      "Pure degree centrality without diversity — landmarks concentrated in largest cluster",
+      "Metric dimension / resolving sets from Khuller paper — NP-complete, overkill for this use case",
+      "NetworkX or data science library — Go ecosystem lacks equivalent, algorithm is ~40 lines"
+    ],
+    "impact": [
+      "Top 2% of docs marked as landmarks with spread across tag clusters",
+      "centrality_score field normalized to [0,1] on all memory docs",
+      "Graph visualization uses landmark status for node highlighting"
+    ],
+    "reversible": true
+  }
+}

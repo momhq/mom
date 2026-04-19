@@ -1,0 +1,30 @@
+{
+  "id": "enriched-ast-tags",
+  "type": "decision",
+  "lifecycle": "permanent",
+  "scope": "project",
+  "tags": ["cartographer", "tags", "ast", "extractor"],
+  "created": "2026-04-19T22:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-19T22:00:00Z",
+  "updated_by": "leo",
+  "confidence": "EXTRACTED",
+  "promotion_state": "validated",
+  "classification": "INTERNAL",
+  "content": {
+    "decision": "AST extractor generates enriched tags: pkg-<dir> (package directory), test (for Test* symbols), receiver-<type> (Go method receiver type).",
+    "context": "All bootstrap-extracted docs shared identical tags (function, go, ast, bootstrap), producing only ~5 unique tag combinations. Landmark computation could not differentiate docs meaningfully.",
+    "why": "Richer tags produce 50+ unique combinations, enabling 141 distinct centrality scores. This makes landmark selection meaningful and the graph visualization informative.",
+    "alternatives_considered": [
+      "Manual tag curation — does not scale",
+      "Using colons in tags (pkg:cmd) — fails kebab-case validation",
+      "Adding file-path tags — too granular, low co-occurrence"
+    ],
+    "impact": [
+      "Tags use hyphens (pkg-cmd, receiver-handler) for kebab-case compliance",
+      "buildTags() centralizes tag construction in extractor_ast.go",
+      "All 4 extraction paths (query, goType, goFunc, goMethod) use enriched tags"
+    ],
+    "reversible": true
+  }
+}
