@@ -244,6 +244,120 @@ func BenchFunc%d() {}
 	t.Logf("500-file scan: %d memories in %v", len(result.Drafts), elapsed)
 }
 
+func TestScan_ByLanguage(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile(t, filepath.Join(dir, "main.go"), `package main
+
+// Application is the main entry point.
+type Application struct{ Name string }
+
+// Run starts the application.
+func Run() {}
+`)
+
+	writeFile(t, filepath.Join(dir, "app.py"), `class DataProcessor:
+    def process(self):
+        pass
+
+def top_level():
+    pass
+`)
+
+	cfg := DefaultConfig()
+	cart := New(cfg)
+	result, err := cart.Scan(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	if result.ByLanguage["go"] == 0 {
+		t.Error("expected ByLanguage[go] > 0")
+	}
+	if result.ByLanguage["python"] == 0 {
+		t.Error("expected ByLanguage[python] > 0")
+	}
+}
+
+func TestScan_CacheHitsMisses(t *testing.T) {
+	dir := t.TempDir()
+	leoDir := filepath.Join(dir, ".leo")
+	_ = os.MkdirAll(leoDir, 0755)
+
+	writeFile(t, filepath.Join(dir, "go.mod"), `module github.com/test/cache2
+
+go 1.21
+
+require github.com/spf13/cobra v1.7.0
+`)
+
+	cfg := DefaultConfig()
+	cfg.ScopeDir = leoDir
+
+	// First run: all misses.
+	cart1 := New(cfg)
+	result1, err := cart1.Scan(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("first Scan: %v", err)
+	}
+	if result1.CacheMisses == 0 {
+		t.Error("first run: expected CacheMisses > 0")
+	}
+	if result1.CacheHits != 0 {
+		t.Errorf("first run: expected CacheHits == 0, got %d", result1.CacheHits)
+	}
+
+	// Second run: file unchanged, should be all hits.
+	cart2 := New(cfg)
+	result2, err := cart2.Scan(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("second Scan: %v", err)
+	}
+	if result2.CacheHits == 0 {
+		t.Error("second run: expected CacheHits > 0")
+	}
+}
+
+func TestScan_OnProgress(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile(t, filepath.Join(dir, "a.go"), `package a
+
+// AFunc does something.
+func AFunc() {}
+`)
+	writeFile(t, filepath.Join(dir, "b.go"), `package b
+
+// BFunc does something.
+func BFunc() {}
+`)
+
+	cfg := DefaultConfig()
+	var callCount int
+	var lastProcessed, lastTotal int
+	cfg.OnProgress = func(processed, total int) {
+		callCount++
+		lastProcessed = processed
+		lastTotal = total
+	}
+
+	cart := New(cfg)
+	_, err := cart.Scan(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	if callCount == 0 {
+		t.Error("OnProgress was never called")
+	}
+	if lastTotal == 0 {
+		t.Error("OnProgress total should be > 0")
+	}
+	if lastProcessed != lastTotal {
+		t.Errorf("OnProgress: final processed=%d should equal total=%d", lastProcessed, lastTotal)
+	}
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 func writeFile(t *testing.T, path, content string) {

@@ -83,6 +83,9 @@ type Config struct {
 	DryRun bool
 	// ScopeDir is the .leo/ directory to write memories into.
 	ScopeDir string
+	// OnProgress is called after each file is processed, with the count of
+	// files processed so far and the total file count. May be nil.
+	OnProgress func(processed, total int)
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -113,6 +116,14 @@ type Result struct {
 
 	// Breakdown by extractor name.
 	ByExtractor map[string]ExtractorResult
+
+	// ByLanguage holds AST draft counts per language (e.g. "go": 89, "python": 14).
+	ByLanguage map[string]int
+
+	// CacheHits is the number of files skipped because their SHA256 matched the cache.
+	CacheHits int
+	// CacheMisses is the number of files that were processed (not in cache or changed).
+	CacheMisses int
 }
 
 // ExtractorResult holds per-extractor counts.
@@ -165,6 +176,7 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 		RootDir:     rootDir,
 		StartedAt:   time.Now(),
 		ByExtractor: make(map[string]ExtractorResult),
+		ByLanguage:  make(map[string]int),
 	}
 
 	// Collect file paths.
@@ -173,15 +185,21 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 		return nil, fmt.Errorf("collecting files: %w", err)
 	}
 
+	total := len(paths)
+
 	// Run file-based extractors.
 	var mu sync.Mutex
-	for _, path := range paths {
+	for i, path := range paths {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 
 		content, err := c.readFile(path)
 		if err != nil {
+			// Still report progress for unreadable files.
+			if c.cfg.OnProgress != nil {
+				c.cfg.OnProgress(i+1, total)
+			}
 			continue // skip unreadable files
 		}
 
@@ -195,9 +213,19 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 		// Check cache.
 		if !c.cfg.Refresh && c.cache != nil {
 			if entry, ok := c.cache.Get(path); ok && entry.SHA256 == srcHash {
+				mu.Lock()
+				result.CacheHits++
+				mu.Unlock()
+				if c.cfg.OnProgress != nil {
+					c.cfg.OnProgress(i+1, total)
+				}
 				continue // not changed
 			}
 		}
+
+		mu.Lock()
+		result.CacheMisses++
+		mu.Unlock()
 
 		for _, ext := range c.extractors {
 			if ext.Name() == "commits" || !ext.Matches(path) {
@@ -211,6 +239,14 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 			mu.Lock()
 			result.Drafts = append(result.Drafts, drafts...)
 			addToResult(result, ext.Name(), drafts)
+			// Accumulate per-language counts for AST drafts.
+			if ext.Name() == "ast" {
+				for _, d := range drafts {
+					if lang, ok := d.Content["language"].(string); ok && lang != "" {
+						result.ByLanguage[lang]++
+					}
+				}
+			}
 			mu.Unlock()
 		}
 
@@ -221,6 +257,10 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 				LastScannedAt: time.Now().UTC().Format(time.RFC3339),
 				DraftCount:    0, // updated below
 			})
+		}
+
+		if c.cfg.OnProgress != nil {
+			c.cfg.OnProgress(i+1, total)
 		}
 	}
 
