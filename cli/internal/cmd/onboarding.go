@@ -16,9 +16,8 @@ import (
 // onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
 	Runtimes   []string // ["claude", "codex", "cline"]
-	Language   string   // "en", "pt", "es"
+	Language   string   // always "en" — language selection removed in v0.9
 	Mode       string   // "verbose", "concise", "normal", "caveman"
-	Autonomy   string   // "autonomous", "balanced", "supervised"
 	CoreSource string   // path to leo-core clone, or "" if skipped
 	// InstallDir is the directory where .leo/ should be created.
 	// Defaults to cwd (current project). Set to a parent for multi-repo installs.
@@ -62,9 +61,9 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 
 	// ── Bind variables ──────────────────────────────────────────────────────
 	var selectedRuntimes []string
+	// Language is fixed to "en"; the prompt was removed in v0.9.
 	lang := "en"
 	mode := "concise"
-	autonomy := "balanced"
 	coreSource := ""
 	bootstrapChoice := "skip" // default: skip
 
@@ -107,17 +106,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				}),
 		),
 
-		// Group 3: Language + Communication mode
+		// Group 3: Communication mode
 		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("What output language should L.E.O. use?").
-				Options(
-					huh.NewOption("English", "en"),
-					huh.NewOption("Português", "pt"),
-					huh.NewOption("Español", "es"),
-				).
-				Value(&lang),
-
 			huh.NewSelect[string]().
 				Title("Communication mode").
 				Options(
@@ -129,19 +119,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&mode),
 		),
 
-		// Group 4: Autonomy
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("How much autonomy should L.E.O. have?").
-				Options(
-					huh.NewOption("Autonomous — acts independently, asks only when critical", "autonomous"),
-					huh.NewOption("Balanced — proposes plans, confirms before major changes", "balanced"),
-					huh.NewOption("Supervised — confirms every significant action", "supervised"),
-				).
-				Value(&autonomy),
-		),
-
-		// Group 5: Scope / install location
+		// Group 4: Scope / install location
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Where should L.E.O. be installed?").
@@ -204,11 +182,10 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		scopeDisplay = "current directory (repo)"
 	}
 	summaryText := fmt.Sprintf(
-		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Autonomy:  %s\n  Scope:     %s (%s)",
+		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Scope:     %s (%s)",
 		runtimesLabel(selectedRuntimes),
 		languageLabel(lang),
 		modeLabel(mode),
-		autonomyLabel(autonomy),
 		scopeLabel,
 		scopeDisplay,
 	)
@@ -242,7 +219,6 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		Runtimes:        selectedRuntimes,
 		Language:        lang,
 		Mode:            mode,
-		Autonomy:        autonomy,
 		CoreSource:      coreSource,
 		InstallDir:      installDir,
 		ScopeLabel:      scopeLabel,
@@ -403,13 +379,3 @@ func modeLabel(mode string) string {
 	}
 }
 
-func autonomyLabel(autonomy string) string {
-	switch autonomy {
-	case "autonomous":
-		return "Autonomous"
-	case "supervised":
-		return "Supervised"
-	default:
-		return "Balanced"
-	}
-}
