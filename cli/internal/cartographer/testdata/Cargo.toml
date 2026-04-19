@@ -1,0 +1,11 @@
+[package]
+name = "my-project"
+version = "0.1.0"
+
+[dependencies]
+serde = "1.0"
+tokio = { version = "1", features = ["full"] }
+clap = "4.0"
+
+[dev-dependencies]
+mockall = "0.11"
