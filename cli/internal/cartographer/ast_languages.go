@@ -63,6 +63,7 @@ var astLanguageRegistry = []languageHandler{
 		extensions: []string{".ts"},
 		query: `
 (class_declaration name: (type_identifier) @name)
+(interface_declaration name: (type_identifier) @name)
 (function_declaration name: (identifier) @name)
 (lexical_declaration
   (variable_declarator
