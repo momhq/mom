@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
 	"github.com/vmarinogg/leo-core/cli/internal/kb"
@@ -180,11 +181,48 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		printScopesSection(cmd, cwd)
 	}
 
+	// Check 8: Adapter capabilities.
+	if cfg != nil {
+		printAdapterCapabilities(cmd, cwd, cfg)
+	}
+
 	if failed {
 		return fmt.Errorf("one or more doctor checks failed")
 	}
 
 	return nil
+}
+
+// printAdapterCapabilities prints the MRP v0 capability summary for each enabled adapter.
+func printAdapterCapabilities(cmd *cobra.Command, projectRoot string, cfg *config.Config) {
+	enabled := cfg.EnabledRuntimes()
+	if len(enabled) == 0 {
+		return
+	}
+	registry := runtime.NewRegistry(projectRoot)
+	cmd.Printf("\nAdapter capabilities (MRP v0):\n")
+	for _, name := range enabled {
+		adapter, ok := registry.Get(name)
+		if !ok {
+			continue
+		}
+		cap := adapter.Capabilities()
+		adapterName := cap.Name
+		if adapterName == "" {
+			adapterName = name
+		}
+		version := cap.Version
+		if version == "" {
+			version = "unknown"
+		}
+		cmd.Printf("  Adapter: %s (v%s)\n", adapterName, version)
+		if len(cap.Supports) > 0 {
+			cmd.Printf("    Supported:    %s\n", strings.Join(cap.Supports, ", "))
+		}
+		if len(cap.Experimental) > 0 {
+			cmd.Printf("    Experimental: %s\n", strings.Join(cap.Experimental, ", "))
+		}
+	}
 }
 
 // printScopesSection prints the active scopes discovered by walk-up from cwd.

@@ -230,6 +230,7 @@ func TestDoctorCmd_ShowsCheckSymbols(t *testing.T) {
 		}
 		// Section headers and indented detail lines are allowed without a symbol.
 		if strings.HasPrefix(line, "Active scopes") ||
+			strings.HasPrefix(line, "Adapter capabilities") ||
 			strings.HasPrefix(line, "  ") {
 			continue
 		}
@@ -347,6 +348,59 @@ func TestDoctorCmd_OrphanIndexEntry(t *testing.T) {
 	hasIssue := strings.Contains(out, "✗") || strings.Contains(out, "⚠")
 	if !hasIssue {
 		t.Errorf("expected warning or failure for orphan index entry, got:\n%s", out)
+	}
+}
+
+// TestDoctorCmd_ShowsAdapterCapabilities verifies that `leo doctor` prints the
+// MRP v0 capability section for each enabled adapter.
+func TestDoctorCmd_ShowsAdapterCapabilities(t *testing.T) {
+	dir := setupTestKBWithConfig(t, "claude")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"doctor"})
+
+	rootCmd.Execute()
+
+	out := buf.String()
+	if !strings.Contains(out, "Adapter capabilities") {
+		t.Errorf("expected 'Adapter capabilities' section in doctor output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "claude-code") {
+		t.Errorf("expected adapter name 'claude-code' in doctor output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "session.start") {
+		t.Errorf("expected 'session.start' in doctor output, got:\n%s", out)
+	}
+}
+
+// TestDoctorCmd_ShowsExperimentalAdapterCapabilities verifies that adapters
+// with experimental events are reported separately in `leo doctor`.
+func TestDoctorCmd_ShowsExperimentalAdapterCapabilities(t *testing.T) {
+	dir := setupTestKBWithConfig(t, "codex")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"doctor"})
+
+	rootCmd.Execute()
+
+	out := buf.String()
+	if !strings.Contains(out, "Experimental") {
+		t.Errorf("expected 'Experimental' in doctor output for codex, got:\n%s", out)
+	}
+	if !strings.Contains(out, "compact.triggered") {
+		t.Errorf("expected 'compact.triggered' in doctor experimental output, got:\n%s", out)
 	}
 }
 
