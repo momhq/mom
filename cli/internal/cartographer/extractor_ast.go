@@ -468,7 +468,7 @@ func goMethodDraft(node *sitter.Node, src Source, srcHash string, lines []string
 // preceding node, if any. It looks at the lines immediately above node's start.
 func extractLeadingComment(node *sitter.Node, lines []string) string {
 	startLine := int(node.StartPoint().Row)
-	if startLine == 0 {
+	if startLine == 0 || len(lines) == 0 || startLine > len(lines) {
 		return ""
 	}
 
