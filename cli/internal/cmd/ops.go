@@ -11,6 +11,7 @@ import (
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
 	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/scope"
 )
 
 var statusCmd = &cobra.Command{
@@ -173,11 +174,30 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		cmd.Printf("✔ communication mode: %s\n", commMode)
 	}
 
+	// Check 7: Active scopes (walk-up discovery).
+	cwd, cwdErr := os.Getwd()
+	if cwdErr == nil {
+		printScopesSection(cmd, cwd)
+	}
+
 	if failed {
 		return fmt.Errorf("one or more doctor checks failed")
 	}
 
 	return nil
+}
+
+// printScopesSection prints the active scopes discovered by walk-up from cwd.
+func printScopesSection(cmd *cobra.Command, cwd string) {
+	scopes := scope.Walk(cwd)
+	if len(scopes) == 0 {
+		return
+	}
+	cmd.Printf("\nActive scopes (nearest first):\n")
+	for _, s := range scopes {
+		cmd.Printf("  %-12s %s  (%d memories)\n",
+			s.Label, shortenPath(s.Path), s.MemoryCount())
+	}
 }
 
 // validateAllDocs reads and validates every .json file in dir.

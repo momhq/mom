@@ -220,10 +220,17 @@ func TestDoctorCmd_ShowsCheckSymbols(t *testing.T) {
 	rootCmd.Execute()
 
 	out := buf.String()
-	// Each line should have a check or cross symbol.
+	// Most lines should have a check/cross/warning symbol.
+	// Exceptions: blank lines, section headers (e.g. "Active scopes…:"),
+	// and indented scope entries.
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	for _, line := range lines {
 		if line == "" {
+			continue
+		}
+		// Section headers and indented detail lines are allowed without a symbol.
+		if strings.HasPrefix(line, "Active scopes") ||
+			strings.HasPrefix(line, "  ") {
 			continue
 		}
 		hasSymbol := strings.Contains(line, "✔") ||
@@ -232,6 +239,33 @@ func TestDoctorCmd_ShowsCheckSymbols(t *testing.T) {
 		if !hasSymbol {
 			t.Errorf("line missing check symbol: %q", line)
 		}
+	}
+}
+
+func TestDoctorCmd_ShowsScopesSection(t *testing.T) {
+	dir := setupTestKBWithConfig(t, "claude")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	// Set HOME to dir so scope.Walk finds the .leo/ there.
+	t.Setenv("HOME", dir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"doctor"})
+
+	rootCmd.Execute()
+
+	out := buf.String()
+	if !strings.Contains(out, "Active scopes") {
+		t.Errorf("expected 'Active scopes' section in doctor output, got:\n%s", out)
+	}
+	// The nearest scope should appear (repo label since no scope: in config from setupTestKBWithConfig).
+	if !strings.Contains(out, "repo") {
+		t.Errorf("expected 'repo' scope label in doctor output, got:\n%s", out)
 	}
 }
 

@@ -26,4 +26,6 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(upgradeCmd)
+	rootCmd.AddCommand(promoteCmd)
+	rootCmd.AddCommand(demoteCmd)
 }
