@@ -330,16 +330,48 @@ func intersect(a, b []string) []string {
 // Conversion helpers between storage.Doc and kb.Doc.
 func kbDocToStorage(d *kb.Doc) *Doc {
 	return &Doc{
-		ID: d.ID, Type: d.Type, Boot: d.Boot, Lifecycle: d.Lifecycle, Scope: d.Scope,
-		Tags: d.Tags, Created: d.Created, CreatedBy: d.CreatedBy,
-		Updated: d.Updated, UpdatedBy: d.UpdatedBy, Content: d.Content,
+		ID:              d.ID,
+		Type:            d.Type,
+		Boot:            d.Boot,
+		Lifecycle:       d.Lifecycle,
+		Scope:           d.Scope,
+		Tags:            d.Tags,
+		Created:         d.Created,
+		CreatedBy:       d.CreatedBy,
+		Updated:         d.Updated,
+		UpdatedBy:       d.UpdatedBy,
+		SessionID:       d.SessionID,
+		Confidence:      d.Confidence,
+		PromotionState:  d.PromotionState,
+		Classification:  d.Classification,
+		Compartments:    d.Compartments,
+		Provenance:      d.Provenance,
+		Landmark:        d.Landmark,
+		CentralityScore: d.CentralityScore,
+		Content:         d.Content,
 	}
 }
 
 func storageDocToKB(d *Doc) *kb.Doc {
 	return &kb.Doc{
-		ID: d.ID, Type: d.Type, Boot: d.Boot, Lifecycle: d.Lifecycle, Scope: d.Scope,
-		Tags: d.Tags, Created: d.Created, CreatedBy: d.CreatedBy,
-		Updated: d.Updated, UpdatedBy: d.UpdatedBy, Content: d.Content,
+		ID:              d.ID,
+		Type:            d.Type,
+		Boot:            d.Boot,
+		Lifecycle:       d.Lifecycle,
+		Scope:           d.Scope,
+		Tags:            d.Tags,
+		Created:         d.Created,
+		CreatedBy:       d.CreatedBy,
+		Updated:         d.Updated,
+		UpdatedBy:       d.UpdatedBy,
+		SessionID:       d.SessionID,
+		Confidence:      d.Confidence,
+		PromotionState:  d.PromotionState,
+		Classification:  d.Classification,
+		Compartments:    d.Compartments,
+		Provenance:      d.Provenance,
+		Landmark:        d.Landmark,
+		CentralityScore: d.CentralityScore,
+		Content:         d.Content,
 	}
 }
