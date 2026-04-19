@@ -23,12 +23,6 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if !rc.Enabled {
 		t.Error("expected claude runtime to be enabled")
 	}
-	if rc.Tiers["orchestration"] != "opus" {
-		t.Errorf("expected orchestration tier %q, got %q", "opus", rc.Tiers["orchestration"])
-	}
-	if rc.Tiers["execution"] != "sonnet" {
-		t.Errorf("expected execution tier %q, got %q", "sonnet", rc.Tiers["execution"])
-	}
 	if cfg.Communication.Mode != "concise" {
 		t.Errorf("expected communication.mode %q, got %q", "concise", cfg.Communication.Mode)
 	}
@@ -41,10 +35,7 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 
 	original := Default()
-	original.Runtimes["codex"] = RuntimeConfig{
-		Enabled: true,
-		Tiers:   map[string]string{"orchestration": "o3", "execution": "gpt-4.1", "review": "gpt-4.1-mini"},
-	}
+	original.Runtimes["codex"] = RuntimeConfig{Enabled: true}
 	original.User.Language = "pt-BR"
 
 	if err := Save(dir, &original); err != nil {
@@ -130,12 +121,6 @@ specialists:
 	if !rc.Enabled {
 		t.Error("expected claude to be enabled after migration")
 	}
-	if rc.Tiers["orchestration"] != "opus" {
-		t.Errorf("expected orchestration=opus, got %q", rc.Tiers["orchestration"])
-	}
-	if rc.Tiers["execution"] != "sonnet" {
-		t.Errorf("expected execution=sonnet, got %q", rc.Tiers["execution"])
-	}
 	if cfg.CoreSource != "/tmp/leo-core" {
 		t.Errorf("expected core_source preserved, got %q", cfg.CoreSource)
 	}
@@ -178,9 +163,6 @@ kb:
 	if cfg.User.Language != "en" {
 		t.Errorf("expected language=en, got %q", cfg.User.Language)
 	}
-	if cfg.User.Autonomy != "balanced" {
-		t.Errorf("expected autonomy=balanced, got %q", cfg.User.Autonomy)
-	}
 }
 
 // TestLegacyConfigCavemanModePreserved verifies caveman mode is preserved through migration.
@@ -210,15 +192,20 @@ kb:
 	}
 }
 
-func TestConfigNilTiers(t *testing.T) {
+// TestConfigLegacyFieldsDropped verifies that configs with legacy tiers/autonomy
+// fields in YAML are loaded without error and the fields are silently dropped.
+func TestConfigLegacyFieldsDropped(t *testing.T) {
 	dir := t.TempDir()
+	// This YAML still has the retired fields — they must be silently ignored.
 	cfgYaml := `version: "1"
 runtimes:
   cline:
     enabled: true
+    tiers:
+      orchestration: opus
+      execution: sonnet
 user:
   language: en
-  mode: concise
   autonomy: balanced
 kb:
   auto_propagate: true
@@ -232,12 +219,17 @@ kb:
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	rc, ok := cfg.Runtimes["cline"]
+	_, ok := cfg.Runtimes["cline"]
 	if !ok {
 		t.Fatal("expected cline runtime")
 	}
-	if rc.Tiers != nil {
-		t.Errorf("expected nil tiers for cline, got %v", rc.Tiers)
+	// Verify the config loaded correctly — the struct no longer has Tiers/Autonomy
+	// fields so go-yaml silently drops them. Verify other fields are intact.
+	if cfg.User.Language != "en" {
+		t.Errorf("expected language=en, got %q", cfg.User.Language)
+	}
+	if cfg.KB.AutoPropagate != true {
+		t.Error("expected auto_propagate=true")
 	}
 }
 
@@ -312,11 +304,11 @@ func TestConfigMultiRuntime(t *testing.T) {
 	cfg := Config{
 		Version: "1",
 		Runtimes: map[string]RuntimeConfig{
-			"claude": {Enabled: true, Tiers: map[string]string{"orchestration": "opus", "execution": "sonnet", "review": "sonnet"}},
-			"codex":  {Enabled: true, Tiers: map[string]string{"orchestration": "o3", "execution": "gpt-4.1", "review": "gpt-4.1-mini"}},
+			"claude": {Enabled: true},
+			"codex":  {Enabled: true},
 			"cline":  {Enabled: true},
 		},
-		User:          UserConfig{Language: "en", Autonomy: "balanced"},
+		User:          UserConfig{Language: "en"},
 		Communication: CommunicationConfig{Mode: "concise"},
 		KB:            KBConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
 	}
@@ -332,8 +324,5 @@ func TestConfigMultiRuntime(t *testing.T) {
 
 	if len(loaded.Runtimes) != 3 {
 		t.Errorf("expected 3 runtimes, got %d", len(loaded.Runtimes))
-	}
-	if loaded.Runtimes["codex"].Tiers["orchestration"] != "o3" {
-		t.Error("codex orchestration tier not preserved")
 	}
 }

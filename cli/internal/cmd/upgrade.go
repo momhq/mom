@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 var upgradeCmd = &cobra.Command{
@@ -84,6 +85,24 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			return
 		}
 		addAction("✔", "config.yaml migrated to latest format")
+
+		// Scrub retired fields from config.yaml on disk. Even after config.Save
+		// (which omits Tiers and Autonomy from the struct), YAML round-trips may
+		// leave residual keys if the file was hand-edited. Read raw bytes, remove
+		// the keys, and write back only when a change is needed.
+		if scrubbed, changed, err := scrubDeadConfigFields(leoDir); err != nil {
+			phase1Err = fmt.Errorf("scrubbing dead config fields: %w", err)
+			return
+		} else if changed {
+			if !dryRun {
+				configPath := filepath.Join(leoDir, "config.yaml")
+				if err := os.WriteFile(configPath, scrubbed, 0644); err != nil {
+					phase1Err = fmt.Errorf("writing scrubbed config: %w", err)
+					return
+				}
+			}
+			addAction("✔", "removed retired fields (tiers, autonomy) from config.yaml")
+		}
 
 		// Create missing directories. All canonical v0.8 dirs must exist before
 		// Phase 2 writes core constraints/skills and the layout migration.
@@ -479,4 +498,102 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 	}
 
 	return nil
+}
+
+// scrubDeadConfigFields reads config.yaml from leoDir, removes the retired
+// "tiers" key from every runtime block and the "autonomy" key from the user
+// block, and returns the cleaned bytes plus a changed flag. It does nothing
+// when the keys are already absent.
+//
+// The scrub operates on the raw YAML node tree so that comments and
+// formatting are preserved as much as possible.
+func scrubDeadConfigFields(leoDir string) (scrubbed []byte, changed bool, err error) {
+	configPath := filepath.Join(leoDir, "config.yaml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, false, fmt.Errorf("reading config: %w", err)
+	}
+
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return nil, false, fmt.Errorf("parsing config: %w", err)
+	}
+	if root.Kind == 0 || len(root.Content) == 0 {
+		return data, false, nil
+	}
+
+	doc := root.Content[0] // document node wraps a mapping node
+	if doc.Kind != yaml.MappingNode {
+		return data, false, nil
+	}
+
+	changed = removeKeyFromMapping(doc, "runtimes", func(runtimesNode *yaml.Node) {
+		if runtimesNode.Kind != yaml.MappingNode {
+			return
+		}
+		// Iterate over each runtime value node and strip "tiers".
+		for i := 1; i < len(runtimesNode.Content); i += 2 {
+			rtVal := runtimesNode.Content[i]
+			if rtVal.Kind == yaml.MappingNode {
+				if removeYAMLKey(rtVal, "tiers") {
+					changed = true
+				}
+			}
+		}
+	}) || changed
+
+	if removeYAMLKey(findMappingValue(doc, "user"), "autonomy") {
+		changed = true
+	}
+
+	if !changed {
+		return data, false, nil
+	}
+
+	out, err := yaml.Marshal(&root)
+	if err != nil {
+		return nil, false, fmt.Errorf("marshaling scrubbed config: %w", err)
+	}
+	return out, true, nil
+}
+
+// removeKeyFromMapping visits the value node for key in a YAML mapping node,
+// calling fn with the value node. Returns true if the key was found (fn may
+// set the outer changed flag).
+func removeKeyFromMapping(mapping *yaml.Node, key string, fn func(*yaml.Node)) bool {
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			fn(mapping.Content[i+1])
+			return true
+		}
+	}
+	return false
+}
+
+// findMappingValue returns the value node for key in a YAML mapping node, or nil.
+func findMappingValue(mapping *yaml.Node, key string) *yaml.Node {
+	if mapping == nil {
+		return nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i+1]
+		}
+	}
+	return nil
+}
+
+// removeYAMLKey removes the key+value pair for key from a YAML mapping node.
+// Returns true if the key was present and removed.
+func removeYAMLKey(mapping *yaml.Node, key string) bool {
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		return false
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content = append(mapping.Content[:i], mapping.Content[i+2:]...)
+			return true
+		}
+	}
+	return false
 }

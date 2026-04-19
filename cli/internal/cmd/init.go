@@ -83,7 +83,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 		Runtimes:   runtimes,
 		Language:   defaults.User.Language,
 		Mode:       defaults.Communication.Mode,
-		Autonomy:   defaults.User.Autonomy,
 		InstallDir: cwd,
 		ScopeLabel: "repo",
 	})
@@ -143,14 +142,11 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		// Build runtime config from selected runtimes.
 		runtimesCfg := make(map[string]config.RuntimeConfig)
 		for _, rt := range result.Runtimes {
-			adapter, ok := registry.Get(rt)
+			_, ok := registry.Get(rt)
 			if !ok {
 				continue
 			}
-			runtimesCfg[rt] = config.RuntimeConfig{
-				Enabled: true,
-				Tiers:   adapter.DefaultTierMapping(),
-			}
+			runtimesCfg[rt] = config.RuntimeConfig{Enabled: true}
 		}
 
 		// Infer communication.mode from the onboarding mode selection.
@@ -173,7 +169,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			Runtimes:   runtimesCfg,
 			User: config.UserConfig{
 				Language: result.Language,
-				Autonomy: result.Autonomy,
 			},
 			Communication: config.CommunicationConfig{
 				Mode: commMode,
@@ -376,6 +371,9 @@ func isTerminalWriter(w io.Writer) bool {
 }
 
 // buildRuntimeConfig converts a config.Config to a runtime.Config.
+// Autonomy was retired from the persisted config in v0.9.0 (#74);
+// the generated context files still include the autonomy section using
+// the "balanced" default so the runtime retains the behavioral directive.
 func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 	commMode := cfg.Communication.Mode
 	if commMode == "" {
@@ -385,7 +383,7 @@ func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 		Version: cfg.Version,
 		User: runtime.UserConfig{
 			Language:          cfg.User.Language,
-			Autonomy:          cfg.User.Autonomy,
+			Autonomy:          "balanced",
 			CommunicationMode: commMode,
 		},
 	}
