@@ -58,6 +58,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if err := runInitWithConfig(cmd, installDir, force, result); err != nil {
 			return err
 		}
+
+		// Propagate: when scope is user/org, initialize child scopes automatically.
+		if result.ScopeLabel == "user" || result.ScopeLabel == "org" {
+			propagateInit(cmd, installDir, result)
+		}
+
 		// Run bootstrap inline if the user opted in (non-interactive -y always skips).
 		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
 			scanDir := installDir
@@ -345,6 +351,62 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	cmd.Println()
 	cmd.Println("L.E.O. is ready. Run 'leo status' to check health.")
 	return nil
+}
+
+// propagateInit initializes .leo/ in child directories when the parent scope
+// is user or org. Org folders (dirs containing repos) get scope "org", and
+// repos (dirs with .git/) get scope "repo". Already-initialized dirs are skipped.
+func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingResult) {
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		return
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		childPath := filepath.Join(rootDir, e.Name())
+		childLeo := filepath.Join(childPath, ".leo")
+
+		// Skip if already initialized.
+		if _, statErr := os.Stat(childLeo); statErr == nil {
+			continue
+		}
+
+		childHasGit := false
+		if info, statErr := os.Stat(filepath.Join(childPath, ".git")); statErr == nil && info.IsDir() {
+			childHasGit = true
+		}
+		childHasRepos := containsGitRepos(childPath)
+
+		if childHasRepos {
+			// Org folder: init with scope "org" and recurse into repos.
+			childResult := parentResult
+			childResult.InstallDir = childPath
+			childResult.ScopeLabel = "org"
+			childResult.BootstrapChoice = "" // bootstrap handled separately
+			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
+				cmd.Printf("  ⚠ failed to init %s: %v\n", childPath, err)
+				continue
+			}
+			cmd.Printf("  ✔ initialized %s (scope: org)\n", e.Name())
+
+			// Recurse: init repos inside this org folder.
+			propagateInit(cmd, childPath, parentResult)
+		} else if childHasGit {
+			// Repo: init with scope "repo".
+			childResult := parentResult
+			childResult.InstallDir = childPath
+			childResult.ScopeLabel = "repo"
+			childResult.BootstrapChoice = "" // bootstrap handled separately
+			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
+				cmd.Printf("  ⚠ failed to init %s: %v\n", childPath, err)
+				continue
+			}
+			cmd.Printf("  ✔ initialized %s (scope: repo)\n", e.Name())
+		}
+	}
 }
 
 // printExperimentalWarnings prints a warning for each adapter that carries

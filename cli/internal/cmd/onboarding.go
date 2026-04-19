@@ -215,18 +215,6 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		return OnboardingResult{}, fmt.Errorf("onboarding aborted by user")
 	}
 
-	// If scope is user or org, print a notice about uninitialized child repos.
-	if scopeLabel == "user" || scopeLabel == "org" {
-		uninit := discoverUninitializedChildRepos(installDir)
-		if len(uninit) > 0 {
-			_, _ = fmt.Fprintf(w, "\n  Note: the following repos under %s do not have .leo/ yet:\n", installDir)
-			for _, p := range uninit {
-				_, _ = fmt.Fprintf(w, "    · %s\n", p)
-			}
-			_, _ = fmt.Fprintf(w, "  Run 'leo init' in each to initialize them individually.\n")
-		}
-	}
-
 	return OnboardingResult{
 		Runtimes:        selectedRuntimes,
 		Language:        lang,
