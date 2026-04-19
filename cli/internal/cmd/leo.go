@@ -42,4 +42,3 @@ func newStorageAdapter() (*storage.JSONAdapter, error) {
 	}
 	return storage.NewJSONAdapter(leoDir), nil
 }
-

@@ -5,21 +5,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"strings"
 	"time"
 
 	huhspinner "charm.land/huh/v2/spinner"
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/profiles"
 )
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Upgrade .leo/ to the latest version (preserves your KB docs)",
-	Long: `Upgrades core infrastructure (schema, constraints, skills, profiles, runtime files)
-to match the installed leo binary. Your documents in .leo/kb/docs/ are never touched.`,
+	Long: `Upgrades core infrastructure (schema, constraints, skills, runtime files)
+to match the installed leo binary. Your documents in .leo/memory/ are never touched.`,
 	RunE: runUpgrade,
 }
 
@@ -49,7 +48,22 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		actions = append(actions, upgradeAction{symbol, desc})
 	}
 
-	// ── Phase 1: Load and migrate config ────────────────────────────────────
+	// ── Phase 0: Migrate legacy kb/ layout to flat layout ───────────────────
+	if !dryRun {
+		layoutActions, err := migrateKBLayout(leoDir)
+		if err != nil {
+			return fmt.Errorf("migrating layout: %w", err)
+		}
+		for _, a := range layoutActions {
+			addAction(a.symbol, a.desc)
+		}
+	} else {
+		if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
+			addAction("⚠", "legacy .leo/kb/ detected — would flatten to new layout (run without --dry-run)")
+		}
+	}
+
+	// ── Phase 1: Load, migrate, and persist config ───────────────────────────
 	cfg, err := config.Load(leoDir)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -57,16 +71,28 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	var phase1Err error
 	doPhase1 := func() {
-		// Persist migrated config (Load auto-migrates v0.6.0 format).
+		// Back-fill communication.mode if absent (pre-v0.8 installs).
+		if cfg.Communication.Mode == "" {
+			cfg.Communication.Mode = "concise"
+			addAction("✔", "communication.mode set to concise (default)")
+		}
+
+		// Persist migrated config (Load auto-migrates v0.6.0/v0.7.0 formats,
+		// dropping default_profile and back-filling communication.mode).
 		if err := config.Save(leoDir, cfg); err != nil {
 			phase1Err = fmt.Errorf("saving config: %w", err)
 			return
 		}
 		addAction("✔", "config.yaml migrated to latest format")
 
-		// Create missing directories.
+		// Create missing directories. All canonical v0.8 dirs must exist before
+		// Phase 2 writes core constraints/skills and the layout migration.
 		newDirs := []string{
-			filepath.Join(leoDir, "kb", "logs"),
+			filepath.Join(leoDir, "memory"),
+			filepath.Join(leoDir, "constraints"),
+			filepath.Join(leoDir, "skills"),
+			filepath.Join(leoDir, "logs"),
+			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
 		}
 		for _, d := range newDirs {
@@ -79,6 +105,57 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 				}
 				rel, _ := filepath.Rel(projectRoot, d)
 				addAction("+", fmt.Sprintf("created directory %s", rel))
+			}
+		}
+
+		// Remove retired .leo/profiles/ directory (v0.8.0 migration).
+		profilesDir := filepath.Join(leoDir, "profiles")
+		if _, statErr := os.Stat(profilesDir); statErr == nil {
+			if !dryRun {
+				if err := os.RemoveAll(profilesDir); err != nil {
+					phase1Err = fmt.Errorf("removing profiles/: %w", err)
+					return
+				}
+			}
+			addAction("✔", "profiles/ directory removed (retired in v0.8.0)")
+		}
+
+		// Remove retired constraint JSON files (idempotent).
+		retiredConstraints := []string{
+			"delegation-mandatory",
+			"think-before-execute",
+			"know-what-you-dont-know",
+			"peer-review-automatic",
+			"token-economy-caveman",
+			"token-economy-model-selection",
+		}
+		constraintsDir := filepath.Join(leoDir, "constraints")
+		for _, name := range retiredConstraints {
+			path := filepath.Join(constraintsDir, name+".json")
+			if _, statErr := os.Stat(path); statErr == nil {
+				if !dryRun {
+					if err := os.Remove(path); err != nil {
+						phase1Err = fmt.Errorf("removing retired constraint %s: %w", name, err)
+						return
+					}
+				}
+				addAction("✔", fmt.Sprintf("retired constraint %s removed", name))
+			}
+		}
+
+		// Remove retired skill JSON files (idempotent).
+		retiredSkills := []string{"task-intake"}
+		skillsDir := filepath.Join(leoDir, "skills")
+		for _, name := range retiredSkills {
+			path := filepath.Join(skillsDir, name+".json")
+			if _, statErr := os.Stat(path); statErr == nil {
+				if !dryRun {
+					if err := os.Remove(path); err != nil {
+						phase1Err = fmt.Errorf("removing retired skill %s: %w", name, err)
+						return
+					}
+				}
+				addAction("✔", fmt.Sprintf("retired skill %s removed", name))
 			}
 		}
 
@@ -105,7 +182,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			phase2Err = fmt.Errorf("reading embedded schema: %w", err)
 			return
 		}
-		schemaPath := filepath.Join(leoDir, "kb", "schema.json")
+		schemaPath := filepath.Join(leoDir, "schema.json")
 		if changed := fileChanged(schemaPath, schemaData); changed {
 			if !dryRun {
 				if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
@@ -130,7 +207,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 
 		// Update core constraints.
-		constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+		constraintsDir := filepath.Join(leoDir, "constraints")
 		for name, content := range coreConstraints() {
 			path := filepath.Join(constraintsDir, name+".json")
 			if changed := fileChanged(path, []byte(content)); changed {
@@ -145,7 +222,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 
 		// Update core skills.
-		skillsDir := filepath.Join(leoDir, "kb", "skills")
+		skillsDir := filepath.Join(leoDir, "skills")
 		for name, content := range coreSkills() {
 			path := filepath.Join(skillsDir, name+".json")
 			if changed := fileChanged(path, []byte(content)); changed {
@@ -159,23 +236,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Add new profiles (don't overwrite existing customizations).
-		profilesDir := filepath.Join(leoDir, "profiles")
-		for name, p := range profiles.DefaultProfiles() {
-			path := filepath.Join(profilesDir, name+".yaml")
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				if !dryRun {
-					if err := profiles.Save(profilesDir, name, p); err != nil {
-						phase2Err = fmt.Errorf("writing profile %s: %w", name, err)
-						return
-					}
-				}
-				addAction("+", fmt.Sprintf("profile %s added", name))
-			}
-		}
-
 		// Migrate metric → session-log docs.
-		docsDir := filepath.Join(leoDir, "kb", "docs")
+		docsDir := filepath.Join(leoDir, "memory")
 		migrated := migrateMetricDocs(docsDir, dryRun)
 		for _, docID := range migrated {
 			addAction("✔", fmt.Sprintf("doc %s migrated metric → session-log", docID))
@@ -199,7 +261,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	var phase3Err error
 	doPhase3 := func() {
 		// Rebuild index.
-		indexPath := filepath.Join(leoDir, "kb", "index.json")
+		indexPath := filepath.Join(leoDir, "index.json")
 		if !dryRun {
 			indexData, err := buildCoreIndex()
 			if err != nil {
@@ -268,6 +330,90 @@ func fileChanged(path string, data []byte) bool {
 	return string(existing) != string(data)
 }
 
+// migrateKBLayout detects a legacy .leo/kb/ layout and promotes each subdirectory
+// one level up to the new flat layout. It is idempotent: if the destination already
+// exists it skips that step and reports a conflict rather than overwriting.
+func migrateKBLayout(leoDir string) ([]upgradeAction, error) {
+	kbDir := filepath.Join(leoDir, "kb")
+	if _, err := os.Stat(kbDir); os.IsNotExist(err) {
+		// Already on new layout — nothing to do.
+		return nil, nil
+	}
+
+	var actions []upgradeAction
+
+	type migration struct {
+		src  string
+		dst  string
+		desc string
+	}
+
+	moves := []migration{
+		{filepath.Join(kbDir, "docs"), filepath.Join(leoDir, "memory"), "kb/docs/ → memory/"},
+		{filepath.Join(kbDir, "constraints"), filepath.Join(leoDir, "constraints"), "kb/constraints/ → constraints/"},
+		{filepath.Join(kbDir, "skills"), filepath.Join(leoDir, "skills"), "kb/skills/ → skills/"},
+		{filepath.Join(kbDir, "logs"), filepath.Join(leoDir, "logs"), "kb/logs/ → logs/"},
+	}
+
+	for _, m := range moves {
+		if _, err := os.Stat(m.src); os.IsNotExist(err) {
+			// Source doesn't exist — skip silently.
+			continue
+		}
+		if _, err := os.Stat(m.dst); err == nil {
+			// Destination already exists — partial migration; skip to avoid data loss.
+			actions = append(actions, upgradeAction{"⚠", fmt.Sprintf("skipped %s — destination already exists", m.desc)})
+			continue
+		}
+		if err := os.Rename(m.src, m.dst); err != nil {
+			return nil, fmt.Errorf("moving %s: %w", m.desc, err)
+		}
+		actions = append(actions, upgradeAction{"✔", fmt.Sprintf("migrated %s", m.desc)})
+	}
+
+	// Move flat files.
+	fileMovs := []migration{
+		{filepath.Join(kbDir, "index.json"), filepath.Join(leoDir, "index.json"), "kb/index.json → index.json"},
+		{filepath.Join(kbDir, "schema.json"), filepath.Join(leoDir, "schema.json"), "kb/schema.json → schema.json"},
+	}
+	for _, m := range fileMovs {
+		if _, err := os.Stat(m.src); os.IsNotExist(err) {
+			continue
+		}
+		if _, err := os.Stat(m.dst); err == nil {
+			actions = append(actions, upgradeAction{"⚠", fmt.Sprintf("skipped %s — destination already exists", m.desc)})
+			continue
+		}
+		if err := os.Rename(m.src, m.dst); err != nil {
+			return nil, fmt.Errorf("moving %s: %w", m.desc, err)
+		}
+		actions = append(actions, upgradeAction{"✔", fmt.Sprintf("migrated %s", m.desc)})
+	}
+
+	// Remove kb/ if it is now empty (ignoring hidden files like .gitkeep).
+	remaining, _ := os.ReadDir(kbDir)
+	hasVisible := false
+	for _, e := range remaining {
+		if !strings.HasPrefix(e.Name(), ".") {
+			hasVisible = true
+			break
+		}
+	}
+	if !hasVisible {
+		if err := os.RemoveAll(kbDir); err != nil {
+			actions = append(actions, upgradeAction{"⚠", fmt.Sprintf("could not remove empty kb/: %v", err)})
+		} else {
+			actions = append(actions, upgradeAction{"✔", "removed empty kb/ directory"})
+		}
+	}
+
+	if len(actions) > 0 {
+		actions = append([]upgradeAction{{"✔", "filesystem layout migrated to v0.8 (kb/ flattened)"}}, actions...)
+	}
+
+	return actions, nil
+}
+
 // migrateMetricDocs finds docs with type "metric" and migrates them to "session-log".
 func migrateMetricDocs(docsDir string, dryRun bool) []string {
 	var migrated []string
@@ -317,77 +463,20 @@ func migrateMetricDocs(docsDir string, dryRun bool) []string {
 func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) error {
 	registry := runtime.NewRegistry(projectRoot)
 
-	runtimeCfg := runtime.Config{
-		Version: cfg.Version,
-		User: runtime.UserConfig{
-			Language:       cfg.User.Language,
-			Mode:           cfg.User.Mode,
-			Autonomy:       cfg.User.Autonomy,
-			DefaultProfile: cfg.User.DefaultProfile,
-		},
-	}
-
-	defaultProfile := profiles.DefaultProfiles()[cfg.User.DefaultProfile]
-	runtimeProfile := runtime.Profile{
-		Name:             defaultProfile.Name,
-		Description:      defaultProfile.Description,
-		Focus:            defaultProfile.Focus,
-		Tone:             defaultProfile.Tone,
-		ContextInjection: defaultProfile.ContextInjection,
-	}
-
-	var runtimeConstraints []runtime.Constraint
-	for id := range coreConstraints() {
-		var doc struct {
-			Summary string `json:"summary"`
-		}
-		json.Unmarshal([]byte(coreConstraints()[id]), &doc) //nolint:errcheck
-		runtimeConstraints = append(runtimeConstraints, runtime.Constraint{
-			ID:      id,
-			Summary: doc.Summary,
-		})
-	}
-	sort.Slice(runtimeConstraints, func(i, j int) bool {
-		return runtimeConstraints[i].ID < runtimeConstraints[j].ID
-	})
-
-	var runtimeSkills []runtime.Skill
-	for id := range coreSkills() {
-		var doc struct {
-			Summary string `json:"summary"`
-		}
-		json.Unmarshal([]byte(coreSkills()[id]), &doc) //nolint:errcheck
-		runtimeSkills = append(runtimeSkills, runtime.Skill{
-			ID:      id,
-			Summary: doc.Summary,
-		})
-	}
-	sort.Slice(runtimeSkills, func(i, j int) bool {
-		return runtimeSkills[i].ID < runtimeSkills[j].ID
-	})
-
-	var identityData struct {
-		What        string   `json:"what"`
-		Philosophy  string   `json:"philosophy"`
-		Constraints []string `json:"constraints"`
-	}
-	json.Unmarshal([]byte(defaultIdentity()), &identityData) //nolint:errcheck
-	runtimeIdentity := &runtime.Identity{
-		What:        identityData.What,
-		Philosophy:  identityData.Philosophy,
-		Constraints: identityData.Constraints,
-	}
+	runtimeCfg := buildRuntimeConfig(cfg)
+	runtimeConstraints := buildRuntimeConstraints()
+	runtimeSkills := buildRuntimeSkills()
+	runtimeIdentity := buildRuntimeIdentity()
 
 	for _, rt := range cfg.EnabledRuntimes() {
 		adapter, ok := registry.Get(rt)
 		if !ok {
 			continue
 		}
-		if err := adapter.GenerateContextFile(runtimeCfg, runtimeProfile, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
+		if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
 	}
 
 	return nil
 }
-

@@ -1,0 +1,8 @@
+adapter: codex
+version: "0.1"
+supports:
+  - session.start
+  - session.end
+experimental:
+  - compact.triggered
+  - clear.triggered

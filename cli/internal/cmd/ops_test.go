@@ -220,10 +220,18 @@ func TestDoctorCmd_ShowsCheckSymbols(t *testing.T) {
 	rootCmd.Execute()
 
 	out := buf.String()
-	// Each line should have a check or cross symbol.
+	// Most lines should have a check/cross/warning symbol.
+	// Exceptions: blank lines, section headers (e.g. "Active scopes…:"),
+	// and indented scope entries.
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	for _, line := range lines {
 		if line == "" {
+			continue
+		}
+		// Section headers and indented detail lines are allowed without a symbol.
+		if strings.HasPrefix(line, "Active scopes") ||
+			strings.HasPrefix(line, "Adapter capabilities") ||
+			strings.HasPrefix(line, "  ") {
 			continue
 		}
 		hasSymbol := strings.Contains(line, "✔") ||
@@ -235,13 +243,40 @@ func TestDoctorCmd_ShowsCheckSymbols(t *testing.T) {
 	}
 }
 
+func TestDoctorCmd_ShowsScopesSection(t *testing.T) {
+	dir := setupTestKBWithConfig(t, "claude")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	// Set HOME to dir so scope.Walk finds the .leo/ there.
+	t.Setenv("HOME", dir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"doctor"})
+
+	rootCmd.Execute()
+
+	out := buf.String()
+	if !strings.Contains(out, "Active scopes") {
+		t.Errorf("expected 'Active scopes' section in doctor output, got:\n%s", out)
+	}
+	// The nearest scope should appear (repo label since no scope: in config from setupTestKBWithConfig).
+	if !strings.Contains(out, "repo") {
+		t.Errorf("expected 'repo' scope label in doctor output, got:\n%s", out)
+	}
+}
+
 func TestDoctorCmd_InvalidDocFails(t *testing.T) {
 	dir := setupTestKBWithConfig(t, "claude")
 	leoDir := filepath.Join(dir, ".leo")
 
 	// Write a corrupt JSON doc directly (bypassing adapter validation).
 	corruptDoc := []byte(`{"id": "corrupt", "type": ""}`)
-	os.WriteFile(filepath.Join(leoDir, "kb", "docs", "corrupt.json"), corruptDoc, 0644)
+	os.WriteFile(filepath.Join(leoDir, "memory", "corrupt.json"), corruptDoc, 0644)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
@@ -295,7 +330,7 @@ func TestDoctorCmd_OrphanIndexEntry(t *testing.T) {
 
 	// Write a doc, then remove it from disk (leaving index orphan).
 	writeTestDoc(t, dir, sampleDoc("orphan-doc"))
-	os.Remove(filepath.Join(leoDir, "kb", "docs", "orphan-doc.json"))
+	os.Remove(filepath.Join(leoDir, "memory", "orphan-doc.json"))
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
@@ -313,6 +348,59 @@ func TestDoctorCmd_OrphanIndexEntry(t *testing.T) {
 	hasIssue := strings.Contains(out, "✗") || strings.Contains(out, "⚠")
 	if !hasIssue {
 		t.Errorf("expected warning or failure for orphan index entry, got:\n%s", out)
+	}
+}
+
+// TestDoctorCmd_ShowsAdapterCapabilities verifies that `leo doctor` prints the
+// MRP v0 capability section for each enabled adapter.
+func TestDoctorCmd_ShowsAdapterCapabilities(t *testing.T) {
+	dir := setupTestKBWithConfig(t, "claude")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"doctor"})
+
+	rootCmd.Execute()
+
+	out := buf.String()
+	if !strings.Contains(out, "Adapter capabilities") {
+		t.Errorf("expected 'Adapter capabilities' section in doctor output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "claude-code") {
+		t.Errorf("expected adapter name 'claude-code' in doctor output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "session.start") {
+		t.Errorf("expected 'session.start' in doctor output, got:\n%s", out)
+	}
+}
+
+// TestDoctorCmd_ShowsExperimentalAdapterCapabilities verifies that adapters
+// with experimental events are reported separately in `leo doctor`.
+func TestDoctorCmd_ShowsExperimentalAdapterCapabilities(t *testing.T) {
+	dir := setupTestKBWithConfig(t, "codex")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"doctor"})
+
+	rootCmd.Execute()
+
+	out := buf.String()
+	if !strings.Contains(out, "Experimental") {
+		t.Errorf("expected 'Experimental' in doctor output for codex, got:\n%s", out)
+	}
+	if !strings.Contains(out, "compact.triggered") {
+		t.Errorf("expected 'compact.triggered' in doctor experimental output, got:\n%s", out)
 	}
 }
 

@@ -90,123 +90,11 @@ func coreConstraints() map[string]string {
     ]
   }
 }`,
-		"think-before-execute": `{
-  "id": "think-before-execute",
-  "type": "constraint",
-  "boot": true,
-  "summary": "Before executing, decide: Direct mode (clear, bounded) or Alignment mode (ambiguous, architectural — present approach and wait).",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": ["execution", "alignment", "decision-making", "autonomy"],
-  "created": "2026-04-08T00:00:00Z",
-  "created_by": "system",
-  "updated": "2026-04-15T00:00:00Z",
-  "updated_by": "system",
-  "content": {
-    "constraint": "Before executing, decide: Direct mode (clear, bounded — execute) or Alignment mode (ambiguous, architectural — present approach and wait for approval).",
-    "why": "Claude tends toward direct mode by default. It works for 70% of tasks but fails on the 30% that need alignment — the model decides alone on points where the user should decide.",
-    "how_to_apply": [
-      "Direct mode: clear bounded instruction, obvious bug fix, point adjustment, diff describable in one sentence",
-      "Alignment mode: architectural decision, multiple reasonable approaches with trade-offs, affects multiple files, vague task"
-    ],
-    "responsibility": "All agents, self-enforced.",
-    "anti_patterns": [
-      "Asking permission for everything — becomes friction",
-      "Executing an architectural decision without aligning — generates rework"
-    ]
-  }
-}`,
-		"know-what-you-dont-know": `{
-  "id": "know-what-you-dont-know",
-  "type": "constraint",
-  "boot": true,
-  "summary": "Before executing, every agent evaluates whether it has the expertise to deliver with quality. If not, escalate — don't attempt and fail.",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": ["expertise", "trust", "self-awareness", "meta-reasoning"],
-  "created": "2026-04-08T00:00:00Z",
-  "created_by": "system",
-  "updated": "2026-04-15T00:00:00Z",
-  "updated_by": "system",
-  "content": {
-    "constraint": "Before writing any code, design, or copy, the executing agent evaluates whether it has the expertise to deliver with quality. If confidence is low, escalate to the user or request a domain-specific specialist — don't attempt and fail.",
-    "why": "LLMs know almost everything superficially. A specialist told to implement APNs will try — because it has superficial knowledge from training. That's exactly the failure mode. Forcing materialized meta-reasoning before execution prevents confident-sounding failures.",
-    "how_to_apply": [
-      "Preventive: before every task, assess domain expertise and confidence level. If confidence is low, flag it explicitly",
-      "Structural: some categories always require domain-specific expertise (crypto/auth/security, native platform APIs, infra/deploy/CI)",
-      "Reactive: when peer review detects failure due to lack of expertise, add domain to the always-escalate list for the project"
-    ],
-    "responsibility": "Every executing agent — specialists and Leo alike.",
-    "anti_patterns": [
-      "Claiming high confidence without a citable source",
-      "Attempting a task in a low-trust category without escalating",
-      "Saying 'I can handle this' based on superficial training knowledge"
-    ]
-  }
-}`,
-		"peer-review-automatic": `{
-  "id": "peer-review-automatic",
-  "type": "constraint",
-  "boot": true,
-  "summary": "No work reaches the user without peer review. Review is done by a separate instance with isolated context and adversarial posture.",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": ["review", "quality", "adversarial", "isolation"],
-  "created": "2026-04-08T00:00:00Z",
-  "created_by": "system",
-  "updated": "2026-04-15T00:00:00Z",
-  "updated_by": "system",
-  "content": {
-    "constraint": "No work reaches the user without going through peer review. Review is done by a separate Specialist instance in review mode, with isolated context and adversarial posture.",
-    "why": "Self-QA and peer review catch different things. Peer review catches confirmation bias, shortcuts, dead code, regressions. In AI, the cost is seconds and tokens.",
-    "how_to_apply": [
-      "Standard flow: Specialist executes → self-QA → reports to Leo → Leo reviews → approves or rejects",
-      "Context isolation is mandatory: reviewer cannot see the original session's reasoning",
-      "If reviewer rejects: back to executing agent → fix → re-submit. If loop exceeds 3 iterations, report to user",
-      "No exceptions. A 10-second task also gets reviewed"
-    ],
-    "responsibility": "All executing agents.",
-    "anti_patterns": [
-      "Skipping review because the task is simple",
-      "Giving the reviewer access to the execution reasoning",
-      "Praising in the review — if it's ok, say 'approved' and stop"
-    ]
-  }
-}`,
-		"delegation-mandatory": `{
-  "id": "delegation-mandatory",
-  "type": "constraint",
-  "boot": true,
-  "summary": "Leo orchestrates, never executes. All execution is delegated to Specialists. No exceptions, even for small tasks.",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": ["delegation", "orchestration", "enforcement"],
-  "created": "2026-04-15T00:00:00Z",
-  "created_by": "system",
-  "updated": "2026-04-15T00:00:00Z",
-  "updated_by": "system",
-  "content": {
-    "constraint": "Leo is the orchestrator — routes, judges, and synthesizes. Leo does NOT execute. All execution is delegated to Specialists via the task pipeline. No exceptions.",
-    "why": "When Leo executes directly, the entire quality system is bypassed: no peer review, no metrics, no delegation tracking. Leo uses Opus (expensive) for work that Sonnet handles. The overhead of delegation is minimal and predictable; the cost of bypassing the system is invisible and compounds.",
-    "how_to_apply": [
-      "Every task, regardless of size, goes through the task pipeline",
-      "Pipeline 'small' is one specialist — minimal overhead",
-      "Leo's only direct work: routing, propagation, memory management, synthesis for the user",
-      "Resolve specialist profiles from .leo/profiles/ based on project context"
-    ],
-    "responsibility": "Leo, enforced by the system.",
-    "anti_patterns": [
-      "Leo editing files directly instead of delegating",
-      "Skipping delegation for 'trivial' tasks",
-      "Leo providing solutions instead of delegating to the appropriate specialist"
-    ]
-  }
-}`,
 		"metrics-collection": `{
   "id": "metrics-collection",
   "type": "constraint",
   "boot": true,
-  "summary": "Every session leaves one session-log doc in .leo/kb/logs/. Collection is enforced by the session-wrap-up skill.",
+  "summary": "Every session leaves one session-log doc in .leo/logs/. Collection is enforced by the session-wrap-up skill.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["metrics", "quality", "refinement", "measurement"],
@@ -215,12 +103,12 @@ func coreConstraints() map[string]string {
   "updated": "2026-04-17T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "constraint": "Every session leaves one session-log doc in .leo/kb/logs/. L.E.O. produces logs at wrap-up, never consumes them — monitoring is external.",
+    "constraint": "Every session leaves one session-log doc in .leo/logs/. L.E.O. produces logs at wrap-up, never consumes them — monitoring is external.",
     "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
     "how_to_apply": [
       "Collection happens at session wrap-up via the session-wrap-up skill step 'Write session log'",
       "Session-logs include: tasks performed, pipeline tiers used, profile, wrap-up revision count",
-      "Session-log docs are stored in .leo/kb/logs/, never indexed, never loaded at boot",
+      "Session-log docs are stored in .leo/logs/, never indexed, never loaded at boot",
       "External T1 scripts read session-log files from disk for metrics dashboards"
     ],
     "responsibility": "Enforced by the session-wrap-up skill. L.E.O. provides the data, external scripts consume it.",
@@ -304,7 +192,7 @@ func coreSkills() map[string]string {
   "tags": ["wrap-up", "propagation", "persistence", "session"],
   "created": "2026-04-08T00:00:00Z",
   "created_by": "system",
-  "updated": "2026-04-17T00:00:00Z",
+  "updated": "2026-04-18T00:00:00Z",
   "updated_by": "system",
   "content": {
     "description": "Orchestrates end-of-session knowledge propagation and session logging.",
@@ -315,7 +203,7 @@ func coreSkills() map[string]string {
       {"name": "Classify", "instruction": "For each item: determine type, lifecycle, tags, id. Check index for existing docs to update.", "wait_for_approval": false},
       {"name": "Present plan", "instruction": "Show the user: new docs, updates, skipped items, commit strategy. Wait for approval.", "wait_for_approval": true},
       {"name": "Execute", "instruction": "Write JSON docs to KB following schema. Stage exact files. Commit with clear message.", "wait_for_approval": false},
-      {"name": "Write session log", "instruction": "Write a session-log doc to .leo/kb/logs/ using this template: {id: 'session-YYYY-MM-DD-profile-XXXX', type: 'session-log', lifecycle: 'state', scope: 'project', tags: ['session-log'], content: {session_id: (same as id), timestamp: (now), repo: (repo name), profile: (active profile), wrap_up_revisions: (count of rejected plans), tasks: [{task_id, timestamp, summary, tags, pipeline_tier, profile}]}}. Create .leo/kb/logs/ directory if it doesn't exist. Session-logs are NOT indexed and NOT loaded at boot.", "wait_for_approval": false},
+      {"name": "Write session log", "instruction": "Write a session-log doc to .leo/logs/ using this template: {id: 'session-YYYY-MM-DD-XXXX', type: 'session-log', lifecycle: 'state', scope: 'project', tags: ['session-log'], content: {session_id: (same as id), timestamp: (now), repo: (repo name), communication_mode: (active mode from config), wrap_up_revisions: (count of rejected plans), tasks: [{task_id, timestamp, summary, tags}]}}. Create .leo/logs/ directory if it doesn't exist. Session-logs are NOT indexed and NOT loaded at boot.", "wait_for_approval": false},
       {"name": "Report", "instruction": "Brief report: commit SHA, files changed, session log written, deferred items.", "wait_for_approval": false}
     ],
     "do_not": [
@@ -328,36 +216,6 @@ func coreSkills() map[string]string {
     "output_format": "## Wrap-up complete\n\n**Committed:** [SHA]\n**Session log:** [written/skipped]\n**Deferred:** [list or nothing]"
   }
 }`,
-		"task-intake": `{
-  "id": "task-intake",
-  "type": "skill",
-  "boot": true,
-  "summary": "Receive task, assess complexity, select pipeline tier, check expertise, resolve profiles, delegate to specialists.",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": ["delegation", "pipeline", "orchestration", "task-sizing"],
-  "created": "2026-04-15T00:00:00Z",
-  "created_by": "system",
-  "updated": "2026-04-15T00:00:00Z",
-  "updated_by": "system",
-  "content": {
-    "description": "Sizes incoming tasks and selects the appropriate execution pipeline. Resolves abstract pipeline functions to concrete specialist profiles.",
-    "triggers": ["any task from user"],
-    "invoked_by": "leo",
-    "steps": [
-      {"name": "Assess", "instruction": "Evaluate: Direct mode (clear, bounded) or Alignment mode (ambiguous, architectural). If alignment needed, present approach and wait.", "wait_for_approval": false},
-      {"name": "Size", "instruction": "Determine pipeline tier: Small (1 file, bug fix) → execute only. Medium (multi-file, feature slice) → execute + review. Large (new feature, architecture) → analyze + execute + test + review. Security-sensitive → add security review to any tier.", "wait_for_approval": false},
-      {"name": "Pre-execution check", "instruction": "Evaluate expertise: domain, specialist availability, confidence level. If low confidence, escalate before proceeding.", "wait_for_approval": false},
-      {"name": "Resolve profiles", "instruction": "Map abstract pipeline functions (execute, review-code, analyze-architecture) to concrete profiles from .leo/profiles/ based on project context.", "wait_for_approval": false},
-      {"name": "Delegate", "instruction": "Fire specialists in sequence per the pipeline. Each specialist uses the model defined in config (default: sonnet).", "wait_for_approval": false}
-    ],
-    "do_not": [
-      "Execute the task directly — always delegate",
-      "Use Opus for specialist execution — specialists use Sonnet",
-      "Skip the pre-execution check for 'simple' tasks"
-    ]
-  }
-}`,
 	}
 }
 
@@ -365,12 +223,11 @@ func coreSkills() map[string]string {
 func defaultIdentity() string {
 	return `{
   "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together.",
-  "philosophy": "Copilot-style, not Paperclip-style. User decides the what and why, Leo orchestrates (routing and delegation), Specialists execute. Token Economy: Opus thinks (Leo orchestration), Sonnet executes (Specialists), scripts handle deterministic work at zero cost.",
+  "philosophy": "LEO is the memory and knowledge layer above any AI runtime. The runtime handles task execution; LEO handles persistence, governance, and organizational knowledge. What the runtime forgets, LEO remembers.",
   "constraints": [
-    "All KB content is JSON — runtime files (CLAUDE.md, .cursorrules) are generated artifacts",
+    "All KB content is JSON — runtime files (CLAUDE.md, AGENTS.md, .clinerules) are generated artifacts",
     "Core artifacts are English only — interaction language is personal choice",
     "No rule change without explicit approval from the user",
-    "Leo orchestrates with Opus, Specialists are ephemeral sub-agents running Sonnet",
     "Scripts must never require AI tokens — if it's deterministic, it's a script"
   ]
 }`

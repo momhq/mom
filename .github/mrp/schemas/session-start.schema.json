@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/session-start",
+  "title": "MRP v0 — session.start event",
+  "type": "object",
+  "required": ["mrp_version", "event", "session_id", "runtime", "timestamp", "started_at"],
+  "additionalProperties": false,
+  "properties": {
+    "mrp_version": {
+      "type": "string",
+      "const": "v0",
+      "description": "MRP protocol version"
+    },
+    "event": {
+      "type": "string",
+      "const": "session.start",
+      "description": "Event type discriminator"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique session identifier (UUID recommended)"
+    },
+    "runtime": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name (e.g. claude-code, codex, cline)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event was emitted (RFC3339)"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the session began (RFC3339)"
+    },
+    "project_root": {
+      "type": "string",
+      "description": "Absolute path to the project root (optional)"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Optional user identifier"
+    }
+  }
+}

@@ -5,24 +5,30 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
-	"github.com/vmarinogg/leo-core/cli/internal/profiles"
 )
 
 // OnboardingResult holds the choices the user made during the interactive
 // onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
-	Runtimes       []string // ["claude", "codex", "cline"]
-	Language       string   // "en", "pt", "es"
-	Mode           string   // "verbose", "concise", "caveman"
-	DefaultProfile string   // "general-manager", "ceo", "cto", etc.
-	Autonomy       string   // "autonomous", "balanced", "supervised"
-	CoreSource     string   // path to leo-core clone, or "" if skipped
+	Runtimes   []string // ["claude", "codex", "cline"]
+	Language   string   // "en", "pt", "es"
+	Mode       string   // "verbose", "concise", "normal", "caveman"
+	Autonomy   string   // "autonomous", "balanced", "supervised"
+	CoreSource string   // path to leo-core clone, or "" if skipped
+	// InstallDir is the directory where .leo/ should be created.
+	// Defaults to cwd (current project). Set to a parent for multi-repo installs.
+	InstallDir string
+	// ScopeLabel is the value written to config.yaml scope: field.
+	// Defaults to "repo".
+	ScopeLabel string
+	// BootstrapChoice is the user's answer to the bootstrap question.
+	// Values: "full" | "repo" | "skip". Empty means skip (non-interactive path).
+	BootstrapChoice string
 }
 
 // runOnboarding executes the interactive wizard and returns the chosen config.
@@ -54,30 +60,23 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		runtimeOptions = append(runtimeOptions, opt)
 	}
 
-	// ── Prepare profile options ─────────────────────────────────────────────
-	allProfiles := profiles.DefaultProfiles()
-	profileNames := make([]string, 0)
-	for name, p := range allProfiles {
-		if p.Scope == "user" {
-			profileNames = append(profileNames, name)
-		}
-	}
-	sort.Strings(profileNames)
-
-	var profileOptions []huh.Option[string]
-	for _, name := range profileNames {
-		p := allProfiles[name]
-		label := fmt.Sprintf("%s — %s", p.Name, p.Description)
-		profileOptions = append(profileOptions, huh.NewOption(label, name))
-	}
-
 	// ── Bind variables ──────────────────────────────────────────────────────
 	var selectedRuntimes []string
 	lang := "en"
 	mode := "concise"
-	profile := "general-manager"
 	autonomy := "balanced"
 	coreSource := ""
+	bootstrapChoice := "skip" // default: skip
+
+	// Scope installation choice: "cwd" (repo), a detected parent dir, or "custom".
+	// scopeChoice maps to an install directory; scopeLabel tracks the config value.
+	scopeChoice := "cwd" // default: current directory
+	customScopePath := ""
+
+	// Detect common parent dirs to offer as suggestions.
+	home, _ := os.UserHomeDir()
+	parentSuggestions := detectParentDirs(cwd, home)
+	scopeOptions := buildScopeOptions(cwd, parentSuggestions)
 
 	// ── Build the form ──────────────────────────────────────────────────────
 	form := huh.NewForm(
@@ -87,8 +86,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Title("Welcome to L.E.O.").
 				Description(
 					"Living Ecosystem Orchestrator\n\n"+
-						"L.E.O. gives your AI coding assistant persistent memory,\n"+
-						"specialist profiles, and structured knowledge management.\n\n"+
+						"L.E.O. gives your AI coding assistant persistent memory\n"+
+						"and structured knowledge management.\n\n"+
 						"Let's set up your project. This takes about 30 seconds.",
 				),
 		),
@@ -108,7 +107,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				}),
 		),
 
-		// Group 3: Language + Mode
+		// Group 3: Language + Communication mode
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("What output language should L.E.O. use?").
@@ -120,22 +119,18 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&lang),
 
 			huh.NewSelect[string]().
-				Title("How should L.E.O. communicate?").
+				Title("Communication mode").
 				Options(
-					huh.NewOption("Verbose — detailed explanations and reasoning", "verbose"),
 					huh.NewOption("Concise — short and direct (recommended)", "concise"),
+					huh.NewOption("Normal — standard prose", "normal"),
+					huh.NewOption("Verbose — detailed explanations", "verbose"),
 					huh.NewOption("Caveman — minimal tokens, maximum signal", "caveman"),
 				).
 				Value(&mode),
 		),
 
-		// Group 4: Profile + Autonomy
+		// Group 4: Autonomy
 		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Choose your default profile").
-				Options(profileOptions...).
-				Value(&profile),
-
 			huh.NewSelect[string]().
 				Title("How much autonomy should L.E.O. have?").
 				Options(
@@ -146,12 +141,36 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&autonomy),
 		),
 
-		// Group 5: Core Source
+		// Group 5: Scope / install location
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Where should L.E.O. be installed?").
+				Description("Installing in a parent folder lets L.E.O. span all repos beneath it.").
+				Options(scopeOptions...).
+				Value(&scopeChoice),
+		),
+
+		// Group 6: Core Source
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Path to your leo-core clone (for updates)").
 				Description("Leave blank to skip — configure later in .leo/config.yaml").
 				Value(&coreSource),
+		),
+
+		// Group 7: Bootstrap
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Scan existing content to seed your memory?").
+				Description(
+					"Reads code, markdown, and commit messages to create initial memories.\n"+
+						"You can skip and let memory build from sessions only.",
+				).
+				Options(
+					huh.NewOption("Yes — scan this repo", "repo"),
+					huh.NewOption("No — start empty", "skip"),
+				).
+				Value(&bootstrapChoice),
 		),
 	).WithAccessible(accessible).
 		WithInput(r).
@@ -162,24 +181,36 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		return OnboardingResult{}, fmt.Errorf("onboarding aborted: %w", err)
 	}
 
-	// Validate and expand core source path.
+	// Resolve scope choice into an install directory and scope label.
+	installDir, scopeLabel := resolveScopeChoice(scopeChoice, customScopePath, cwd, parentSuggestions)
+
+	// Validate and expand core source path — accept both new (memory) and legacy (kb/docs) layouts.
 	if coreSource != "" {
 		expanded := expandTilde(coreSource)
-		kbDocsDir := filepath.Join(expanded, ".leo", "kb", "docs")
-		if _, err := os.Stat(kbDocsDir); err != nil {
-			return OnboardingResult{}, fmt.Errorf("not a valid leo-core: %s not found", kbDocsDir)
+		memoryDir := filepath.Join(expanded, ".leo", "memory")
+		if _, err := os.Stat(memoryDir); err != nil {
+			// Fall back to legacy layout.
+			legacyDir := filepath.Join(expanded, ".leo", "kb", "docs")
+			if _, err := os.Stat(legacyDir); err != nil {
+				return OnboardingResult{}, fmt.Errorf("not a valid leo-core: %s not found", memoryDir)
+			}
 		}
 		coreSource = expanded
 	}
 
 	// ── Summary + Confirm ───────────────────────────────────────────────────
+	scopeDisplay := installDir
+	if scopeDisplay == cwd {
+		scopeDisplay = "current directory (repo)"
+	}
 	summaryText := fmt.Sprintf(
-		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Profile:   %s\n  Autonomy:  %s",
+		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Autonomy:  %s\n  Scope:     %s (%s)",
 		runtimesLabel(selectedRuntimes),
 		languageLabel(lang),
 		modeLabel(mode),
-		profileLabel(profile),
 		autonomyLabel(autonomy),
+		scopeLabel,
+		scopeDisplay,
 	)
 
 	confirmed := true
@@ -208,13 +239,98 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}
 
 	return OnboardingResult{
-		Runtimes:       selectedRuntimes,
-		Language:       lang,
-		Mode:           mode,
-		DefaultProfile: profile,
-		Autonomy:       autonomy,
-		CoreSource:     coreSource,
+		Runtimes:        selectedRuntimes,
+		Language:        lang,
+		Mode:            mode,
+		Autonomy:        autonomy,
+		CoreSource:      coreSource,
+		InstallDir:      installDir,
+		ScopeLabel:      scopeLabel,
+		BootstrapChoice: bootstrapChoice,
 	}, nil
+}
+
+// detectParentDirs returns up to 2 parent directories above cwd that are
+// likely "repository roots" (e.g. ~/Github, ~/projects). It stops at home.
+func detectParentDirs(cwd, home string) []string {
+	var parents []string
+	dir := filepath.Dir(cwd)
+	for dir != cwd && dir != filepath.Dir(home) {
+		if dir == home {
+			break
+		}
+		parents = append(parents, dir)
+		if len(parents) >= 2 {
+			break
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+	return parents
+}
+
+// buildScopeOptions builds the huh Select options for the scope question.
+// Options: detected parents (up to 2), current dir, custom.
+func buildScopeOptions(cwd string, parents []string) []huh.Option[string] {
+	home, _ := os.UserHomeDir()
+	var opts []huh.Option[string]
+
+	for i, p := range parents {
+		display := p
+		if strings.HasPrefix(p, home) {
+			display = "~" + p[len(home):]
+		}
+		label := fmt.Sprintf("%s  (spans all repos here)", display)
+		if i == 0 {
+			label += " — recommended"
+		}
+		opts = append(opts, huh.NewOption(label, "parent:"+p))
+	}
+
+	cwdDisplay := cwd
+	if strings.HasPrefix(cwd, home) {
+		cwdDisplay = "~" + cwd[len(home):]
+	}
+	opts = append(opts, huh.NewOption(fmt.Sprintf("%s  (this project only)", cwdDisplay), "cwd"))
+	opts = append(opts, huh.NewOption("Custom path…", "custom"))
+	return opts
+}
+
+// resolveScopeChoice converts the user's scopeChoice into an install directory
+// and a scope label for config.yaml.
+func resolveScopeChoice(choice, customPath, cwd string, parents []string) (installDir, scopeLabel string) {
+	switch {
+	case choice == "cwd":
+		return cwd, "repo"
+	case choice == "custom":
+		expanded := expandTilde(customPath)
+		if expanded == "" {
+			return cwd, "repo"
+		}
+		return expanded, "custom"
+	case strings.HasPrefix(choice, "parent:"):
+		dir := strings.TrimPrefix(choice, "parent:")
+		// Assign scope label based on position in the parent list.
+		// First parent → "user", second → "org", any deeper → "workspace".
+		for i, p := range parents {
+			if p == dir {
+				switch i {
+				case 0:
+					return dir, "user"
+				case 1:
+					return dir, "org"
+				default:
+					return dir, "workspace"
+				}
+			}
+		}
+		return dir, "user"
+	default:
+		return cwd, "repo"
+	}
 }
 
 // isTerminalReader returns true if r is connected to a terminal.
@@ -274,20 +390,14 @@ func languageLabel(lang string) string {
 	}
 }
 
-func profileLabel(profile string) string {
-	allProfiles := profiles.DefaultProfiles()
-	if p, ok := allProfiles[profile]; ok {
-		return p.Name
-	}
-	return profile
-}
-
 func modeLabel(mode string) string {
 	switch mode {
 	case "verbose":
 		return "Verbose"
 	case "caveman":
 		return "Caveman"
+	case "normal":
+		return "Normal"
 	default:
 		return "Concise"
 	}

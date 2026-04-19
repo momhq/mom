@@ -1,10 +1,16 @@
 package runtime
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
+
+//go:embed capabilities/cline.yaml
+var clineCapabilitiesYAML []byte
 
 // ClineAdapter implements the Adapter interface for Cline.
 // It reads from .leo/ and generates .clinerules/leo-context.md.
@@ -21,13 +27,13 @@ func (a *ClineAdapter) Name() string {
 	return "cline"
 }
 
-func (a *ClineAdapter) GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error {
+func (a *ClineAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	rulesDir := filepath.Join(a.projectRoot, ".clinerules")
 	if err := os.MkdirAll(rulesDir, 0755); err != nil {
 		return fmt.Errorf("creating .clinerules dir: %w", err)
 	}
 
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, profile, constraints, skills, identity)
+	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
 
 	contextFile := filepath.Join(rulesDir, "leo-context.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {
@@ -68,4 +74,12 @@ func (a *ClineAdapter) Watermark() string {
 // Model selection happens in Cline's UI, not in generated instructions.
 func (a *ClineAdapter) DefaultTierMapping() map[string]string {
 	return nil
+}
+
+func (a *ClineAdapter) Capabilities() AdapterCapability {
+	var cap AdapterCapability
+	if err := yaml.Unmarshal(clineCapabilitiesYAML, &cap); err != nil {
+		return AdapterCapability{Name: "cline", Version: "0.1"}
+	}
+	return cap
 }

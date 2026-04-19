@@ -19,16 +19,23 @@ All artifacts you produce — KB documents, GitHub issues, pull requests, commit
 	}
 }
 
-// ModeInstructions returns behavioral instructions for the given communication mode.
-// Supported values: "verbose", "concise", "caveman". Defaults to "concise".
-func ModeInstructions(mode string) string {
+// CommunicationModeInstructions returns a ## Communication mode directive section
+// for the given mode. Supported values: "concise", "normal", "verbose", "caveman".
+// Defaults to "concise".
+func CommunicationModeInstructions(mode string) string {
 	switch mode {
+	case "normal":
+		return `## Communication mode: Normal
+
+Standard prose. Explain your reasoning when it adds value, omit it when it doesn't.
+Sentences are complete; paragraphs are focused. Not terse, not exhaustive.
+Ask one clarifying question when genuinely ambiguous — don't ask just to ask.`
 	case "verbose":
 		return `## Communication mode: Verbose
 
-Explain your reasoning step by step. Provide context for decisions.
-Include examples when they help understanding. Good for onboarding,
-complex debugging, and architectural discussions.
+Detailed explanations, full reasoning chains, and proactive context. Useful for onboarding,
+debugging, or situations where understanding the why matters as much as the what.
+Show your work. Surface trade-offs. Prefer over-explanation to ambiguity.
 
 - Walk through your thought process
 - Provide context for why, not just what
@@ -37,19 +44,18 @@ complex debugging, and architectural discussions.
 	case "caveman":
 		return `## Communication mode: Caveman
 
-Maximum token efficiency. Fragments ok. Abbreviations ok.
-Technical substance exact — only fluff dies.
+Extreme token reduction. Telegraphic prose only.
+No filler. No preamble. No pleasantries. Fragments OK.
+Lead with answer. Drop articles when clear. One line per idea.
+Example: 'Build failed. Missing dep: gopkg.in/yaml.v3. Run: go get gopkg.in/yaml.v3'
 
 Rules:
 - No articles (a, an, the) unless ambiguous
 - No filler (just, really, basically, actually)
-- No preamble, no pleasantries, no hedging
 - Fragment sentences: [thing] [action] [reason]
 - Abbreviations: fn, var, arg, cfg, impl, repo, dir, deps, env
-- Code untouched — full accuracy always
-- When asked to explain: bullets > paragraphs
-- Commit messages: conventional, under 50 chars`
-	default:
+- Code untouched — full accuracy always`
+	default: // concise
 		return `## Communication mode: Concise
 
 Direct and efficient. No filler, no preamble, no pleasantries.

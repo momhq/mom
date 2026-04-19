@@ -13,7 +13,7 @@ import (
 )
 
 // JSONAdapter implements the Adapter interface using flat JSON files
-// in .leo/kb/docs/ with an index at .leo/kb/index.json.
+// in .leo/memory/ with an index at .leo/index.json.
 type JSONAdapter struct {
 	docsDir   string
 	indexPath string
@@ -22,8 +22,8 @@ type JSONAdapter struct {
 // NewJSONAdapter creates a JSONAdapter for the given .leo/ directory.
 func NewJSONAdapter(leoDir string) *JSONAdapter {
 	return &JSONAdapter{
-		docsDir:   filepath.Join(leoDir, "kb", "docs"),
-		indexPath: filepath.Join(leoDir, "kb", "index.json"),
+		docsDir:   filepath.Join(leoDir, "memory"),
+		indexPath: filepath.Join(leoDir, "index.json"),
 	}
 }
 
@@ -208,7 +208,7 @@ func (a *JSONAdapter) rebuildIndex() error {
 
 	idx := map[string]any{
 		"version":      "1",
-		"last_rebuilt":  time.Now().UTC().Format(time.RFC3339),
+		"last_rebuilt": time.Now().UTC().Format(time.RFC3339),
 		"stats": map[string]any{
 			"total_docs":         total,
 			"total_tags":         totalTags,
@@ -330,16 +330,48 @@ func intersect(a, b []string) []string {
 // Conversion helpers between storage.Doc and kb.Doc.
 func kbDocToStorage(d *kb.Doc) *Doc {
 	return &Doc{
-		ID: d.ID, Type: d.Type, Boot: d.Boot, Lifecycle: d.Lifecycle, Scope: d.Scope,
-		Tags: d.Tags, Created: d.Created, CreatedBy: d.CreatedBy,
-		Updated: d.Updated, UpdatedBy: d.UpdatedBy, Content: d.Content,
+		ID:              d.ID,
+		Type:            d.Type,
+		Boot:            d.Boot,
+		Lifecycle:       d.Lifecycle,
+		Scope:           d.Scope,
+		Tags:            d.Tags,
+		Created:         d.Created,
+		CreatedBy:       d.CreatedBy,
+		Updated:         d.Updated,
+		UpdatedBy:       d.UpdatedBy,
+		SessionID:       d.SessionID,
+		Confidence:      d.Confidence,
+		PromotionState:  d.PromotionState,
+		Classification:  d.Classification,
+		Compartments:    d.Compartments,
+		Provenance:      d.Provenance,
+		Landmark:        d.Landmark,
+		CentralityScore: d.CentralityScore,
+		Content:         d.Content,
 	}
 }
 
 func storageDocToKB(d *Doc) *kb.Doc {
 	return &kb.Doc{
-		ID: d.ID, Type: d.Type, Boot: d.Boot, Lifecycle: d.Lifecycle, Scope: d.Scope,
-		Tags: d.Tags, Created: d.Created, CreatedBy: d.CreatedBy,
-		Updated: d.Updated, UpdatedBy: d.UpdatedBy, Content: d.Content,
+		ID:              d.ID,
+		Type:            d.Type,
+		Boot:            d.Boot,
+		Lifecycle:       d.Lifecycle,
+		Scope:           d.Scope,
+		Tags:            d.Tags,
+		Created:         d.Created,
+		CreatedBy:       d.CreatedBy,
+		Updated:         d.Updated,
+		UpdatedBy:       d.UpdatedBy,
+		SessionID:       d.SessionID,
+		Confidence:      d.Confidence,
+		PromotionState:  d.PromotionState,
+		Classification:  d.Classification,
+		Compartments:    d.Compartments,
+		Provenance:      d.Provenance,
+		Landmark:        d.Landmark,
+		CentralityScore: d.CentralityScore,
+		Content:         d.Content,
 	}
 }

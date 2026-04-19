@@ -18,9 +18,21 @@ CLAUDE.md
 # Leo cache (ephemeral)
 .leo/cache/
 
+# Leo runtime directories (gitignored, generated at runtime)
+.leo/logs/
+.leo/telemetry/
+
+# Architecture drafts (internal, do not publish)
+.leo/architecture/
+.leo/kb/
+
 # Leo export output
 leo-export/
 
 # CLI build artifacts
 cli/bin/
 .aider*
+
+# Runtime-generated adapter files (like CLAUDE.md)
+AGENTS.md
+.clinerules/

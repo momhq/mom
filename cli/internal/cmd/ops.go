@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
 	"github.com/vmarinogg/leo-core/cli/internal/kb"
-	"gopkg.in/yaml.v3"
+	"github.com/vmarinogg/leo-core/cli/internal/scope"
 )
 
 var statusCmd = &cobra.Command{
@@ -84,98 +85,49 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// runDoctor implements `leo doctor`.
-func runDoctor(cmd *cobra.Command, args []string) error {
-	leoDir, err := findLeoDir()
-	if err != nil {
-		cmd.Printf("✗ .leo/ directory: not found — run 'leo init' first\n")
-		return err
+// printAdapterCapabilities prints the MRP v0 capability summary for each enabled adapter.
+func printAdapterCapabilities(cmd *cobra.Command, projectRoot string, cfg *config.Config) {
+	enabled := cfg.EnabledRuntimes()
+	if len(enabled) == 0 {
+		return
 	}
-
-	failed := false
-
-	// Check 1: .leo/ exists and is writable.
-	if err := checkDirWritable(leoDir); err != nil {
-		cmd.Printf("✗ .leo/ directory: %v\n", err)
-		failed = true
-	} else {
-		cmd.Printf("✔ .leo/ directory: exists and writable\n")
+	registry := runtime.NewRegistry(projectRoot)
+	cmd.Printf("\nAdapter capabilities (MRP v0):\n")
+	for _, name := range enabled {
+		adapter, ok := registry.Get(name)
+		if !ok {
+			continue
+		}
+		cap := adapter.Capabilities()
+		adapterName := cap.Name
+		if adapterName == "" {
+			adapterName = name
+		}
+		version := cap.Version
+		if version == "" {
+			version = "unknown"
+		}
+		cmd.Printf("  Adapter: %s (v%s)\n", adapterName, version)
+		if len(cap.Supports) > 0 {
+			cmd.Printf("    Supported:    %s\n", strings.Join(cap.Supports, ", "))
+		}
+		if len(cap.Experimental) > 0 {
+			cmd.Printf("    Experimental: %s\n", strings.Join(cap.Experimental, ", "))
+		}
 	}
+}
 
-	// Check 2: config.yaml is valid.
-	cfg, cfgErr := config.Load(leoDir)
-	if cfgErr != nil {
-		cmd.Printf("✗ config.yaml: %v\n", cfgErr)
-		failed = true
-	} else {
-		cmd.Printf("✔ config.yaml: valid (runtimes: %s)\n", strings.Join(cfg.EnabledRuntimes(), ", "))
+// printScopesSection prints the active scopes discovered by walk-up from cwd.
+func printScopesSection(cmd *cobra.Command, cwd string) {
+	scopes := scope.Walk(cwd)
+	if len(scopes) == 0 {
+		return
 	}
-
-	// Check 3: KB dirs exist.
-	docsDir := filepath.Join(leoDir, "kb", "docs")
-	if _, statErr := os.Stat(docsDir); statErr != nil {
-		cmd.Printf("✗ kb/docs/: %v\n", statErr)
-		failed = true
-	} else {
-		cmd.Printf("✔ kb/docs/: exists\n")
+	cmd.Printf("\nActive scopes (nearest first):\n")
+	for _, s := range scopes {
+		cmd.Printf("  %-12s %s  (%d memories)\n",
+			s.Label, shortenPath(s.Path), s.MemoryCount())
 	}
-
-	constraintsDir := filepath.Join(leoDir, "kb", "constraints")
-	if _, statErr := os.Stat(constraintsDir); statErr != nil {
-		cmd.Printf("⚠ kb/constraints/: not found\n")
-	} else {
-		cmd.Printf("✔ kb/constraints/: exists\n")
-	}
-
-	skillsDir := filepath.Join(leoDir, "kb", "skills")
-	if _, statErr := os.Stat(skillsDir); statErr != nil {
-		cmd.Printf("⚠ kb/skills/: not found\n")
-	} else {
-		cmd.Printf("✔ kb/skills/: exists\n")
-	}
-
-	// Check 4: All docs pass schema validation (docs + constraints + skills).
-	diskDocIDs := make(map[string]bool)
-	totalErrors := 0
-
-	docErrors, docIDs := validateAllDocs(cmd, docsDir, "doc")
-	totalErrors += docErrors
-	for id := range docIDs {
-		diskDocIDs[id] = true
-	}
-
-	constraintErrors, constraintIDs := validateAllDocs(cmd, constraintsDir, "constraint")
-	totalErrors += constraintErrors
-	for id := range constraintIDs {
-		diskDocIDs[id] = true
-	}
-
-	skillErrors, skillIDs := validateAllDocs(cmd, skillsDir, "skill")
-	totalErrors += skillErrors
-	for id := range skillIDs {
-		diskDocIDs[id] = true
-	}
-
-	if totalErrors > 0 {
-		failed = true
-	}
-
-	// Check 5: Index consistency — no orphan files, no orphan entries.
-	if orphanFail := checkIndexConsistency(cmd, leoDir, diskDocIDs); orphanFail {
-		failed = true
-	}
-
-	// Check 6: All profiles are valid YAML.
-	profilesDir := filepath.Join(leoDir, "profiles")
-	if profileFail := checkProfiles(cmd, profilesDir); profileFail {
-		failed = true
-	}
-
-	if failed {
-		return fmt.Errorf("one or more doctor checks failed")
-	}
-
-	return nil
 }
 
 // validateAllDocs reads and validates every .json file in dir.
@@ -267,42 +219,6 @@ func checkIndexConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[str
 	return false
 }
 
-// checkProfiles validates all YAML files in profilesDir.
-// Returns true if any profile fails validation.
-func checkProfiles(cmd *cobra.Command, profilesDir string) bool {
-	entries, err := os.ReadDir(profilesDir)
-	if err != nil {
-		cmd.Printf("⚠ profiles/: directory not found\n")
-		return false
-	}
-
-	failed := false
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
-			continue
-		}
-
-		path := filepath.Join(profilesDir, e.Name())
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			cmd.Printf("✗ profile %s: %v\n", e.Name(), readErr)
-			failed = true
-			continue
-		}
-
-		var v map[string]any
-		if unmarshalErr := yaml.Unmarshal(data, &v); unmarshalErr != nil {
-			cmd.Printf("✗ profile %s: invalid YAML — %v\n", e.Name(), unmarshalErr)
-			failed = true
-			continue
-		}
-
-		cmd.Printf("✔ profile %s: valid\n", e.Name())
-	}
-
-	return failed
-}
-
 // checkDirWritable verifies a directory exists and is writable.
 func checkDirWritable(dir string) error {
 	info, err := os.Stat(dir)
@@ -324,7 +240,7 @@ func checkDirWritable(dir string) error {
 
 // readRawIndexInt reads a nested integer from the raw index JSON.
 func readRawIndexInt(leoDir string, keys ...string) int {
-	indexPath := filepath.Join(leoDir, "kb", "index.json")
+	indexPath := filepath.Join(leoDir, "index.json")
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
 		return 0

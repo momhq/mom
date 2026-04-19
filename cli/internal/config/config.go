@@ -11,11 +11,50 @@ import (
 
 // Config represents the .leo/config.yaml file.
 type Config struct {
-	Version    string                    `yaml:"version"`
-	CoreSource string                    `yaml:"core_source,omitempty"`
-	Runtimes   map[string]RuntimeConfig  `yaml:"runtimes"`
-	User       UserConfig                `yaml:"user"`
-	KB         KBConfig                  `yaml:"kb"`
+	Version    string `yaml:"version"`
+	CoreSource string `yaml:"core_source,omitempty"`
+	// Scope declares this install's position in the hierarchy.
+	// Valid values: user | org | repo | workspace | custom.
+	// Absent or empty is treated as "repo" for backward compatibility.
+	Scope         string                   `yaml:"scope,omitempty"`
+	Runtimes      map[string]RuntimeConfig `yaml:"runtimes"`
+	User          UserConfig               `yaml:"user"`
+	Communication CommunicationConfig      `yaml:"communication"`
+	KB            KBConfig                 `yaml:"kb"`
+	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
+	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
+}
+
+// BootstrapConfig holds settings for the cartographer bootstrap pass.
+type BootstrapConfig struct {
+	// Enabled controls whether bootstrap is offered during init. Default: true.
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// CommitDepth is how many recent commits to scan. Default: 200.
+	CommitDepth int `yaml:"commit_depth,omitempty"`
+	// Extensions is the list of text file extensions to scan for markdown extraction.
+	Extensions []string `yaml:"extensions,omitempty"`
+	// SkipPatterns is a list of glob patterns to exclude from scanning.
+	SkipPatterns []string `yaml:"skip_patterns,omitempty"`
+	// MaxFileSizeMB skips files larger than this value. Default: 2.
+	MaxFileSizeMB int64 `yaml:"max_file_size_mb,omitempty"`
+}
+
+// BootstrapEnabled returns true unless Bootstrap.Enabled is explicitly set to false.
+func (bc BootstrapConfig) BootstrapEnabled() bool {
+	return bc.Enabled == nil || *bc.Enabled
+}
+
+// TelemetryConfig holds telemetry settings.
+type TelemetryConfig struct {
+	// Enabled controls whether events are written to disk. Default: true (nil == enabled).
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// Path overrides the default telemetry directory (<leoDir>/telemetry/).
+	Path string `yaml:"path,omitempty"`
+}
+
+// TelemetryEnabled returns true unless Enabled is explicitly set to false.
+func (tc TelemetryConfig) TelemetryEnabled() bool {
+	return tc.Enabled == nil || *tc.Enabled
 }
 
 // RuntimeConfig holds per-runtime settings.
@@ -26,10 +65,14 @@ type RuntimeConfig struct {
 
 // UserConfig holds user preferences.
 type UserConfig struct {
-	Language       string `yaml:"language"`
-	Mode           string `yaml:"mode"`
-	Autonomy       string `yaml:"autonomy"`
-	DefaultProfile string `yaml:"default_profile"`
+	Language string `yaml:"language"`
+	Autonomy string `yaml:"autonomy"`
+}
+
+// CommunicationConfig holds communication style settings.
+type CommunicationConfig struct {
+	// Mode controls verbosity: concise | normal | verbose | caveman. Default: concise.
+	Mode string `yaml:"mode"`
 }
 
 // KBConfig holds KB settings.
@@ -54,10 +97,11 @@ func Default() Config {
 			},
 		},
 		User: UserConfig{
-			Language:       "en",
-			Mode:           "concise",
-			Autonomy:       "balanced",
-			DefaultProfile: "general-manager",
+			Language: "en",
+			Autonomy: "balanced",
+		},
+		Communication: CommunicationConfig{
+			Mode: "concise",
 		},
 		KB: KBConfig{
 			AutoPropagate:  true,
@@ -89,12 +133,21 @@ func (c *Config) PrimaryRuntime() string {
 	return "claude"
 }
 
+// legacyUserConfig includes fields present in v0.6.0/v0.7.0 user blocks.
+type legacyUserConfig struct {
+	Language       string `yaml:"language"`
+	Mode           string `yaml:"mode"`
+	Autonomy       string `yaml:"autonomy"`
+	DefaultProfile string `yaml:"default_profile"` // retired in v0.8.0
+}
+
 // legacyConfig represents the v0.6.0 config format for migration.
 type legacyConfig struct {
 	Version     string            `yaml:"version"`
 	Runtime     string            `yaml:"runtime"`
 	CoreSource  string            `yaml:"core_source"`
-	User        UserConfig        `yaml:"user"`
+	Owner       legacyUserConfig  `yaml:"owner"`
+	User        legacyUserConfig  `yaml:"user"`
 	KB          KBConfig          `yaml:"kb"`
 	Specialists legacySpecialists `yaml:"specialists"`
 }
@@ -123,6 +176,11 @@ func Load(leoDir string) (*Config, error) {
 
 	// If Runtimes is populated, it's the new format.
 	if len(cfg.Runtimes) > 0 {
+		// Back-fill communication.mode if absent (pre-v0.8 configs that had
+		// user.mode but no communication block are handled via legacyConfig).
+		if cfg.Communication.Mode == "" {
+			cfg.Communication.Mode = "concise"
+		}
 		return &cfg, nil
 	}
 
@@ -166,6 +224,24 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 		rt = "claude"
 	}
 
+	// v0.6.0 used "owner:" key, v0.6.x transitional used "user:".
+	legacyUser := legacy.User
+	if legacyUser.Language == "" && legacyUser.Mode == "" && legacy.Owner.Language != "" {
+		legacyUser = legacy.Owner
+	}
+
+	// Infer communication.mode from legacy user.mode.
+	// Preserve "caveman" if set; default everything else to "concise".
+	commMode := "concise"
+	if legacyUser.Mode == "caveman" {
+		commMode = "caveman"
+	}
+
+	user := UserConfig{
+		Language: legacyUser.Language,
+		Autonomy: legacyUser.Autonomy,
+	}
+
 	return &Config{
 		Version:    legacy.Version,
 		CoreSource: legacy.CoreSource,
@@ -175,8 +251,9 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 				Tiers:   tiers,
 			},
 		},
-		User: legacy.User,
-		KB:   legacy.KB,
+		User:          user,
+		Communication: CommunicationConfig{Mode: commMode},
+		KB:            legacy.KB,
 	}
 }
 

@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/session-end",
+  "title": "MRP v0 — session.end event",
+  "type": "object",
+  "required": ["mrp_version", "event", "session_id", "runtime", "timestamp", "started_at", "ended_at"],
+  "additionalProperties": false,
+  "properties": {
+    "mrp_version": {
+      "type": "string",
+      "const": "v0",
+      "description": "MRP protocol version"
+    },
+    "event": {
+      "type": "string",
+      "const": "session.end",
+      "description": "Event type discriminator"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique session identifier"
+    },
+    "runtime": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event was emitted (RFC3339)"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the session began (RFC3339)"
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the session ended (RFC3339)"
+    },
+    "turn_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of turns in the session"
+    },
+    "exit_reason": {
+      "type": "string",
+      "enum": ["user_ended", "runtime_ended", "timeout", "error"],
+      "description": "Why the session ended"
+    }
+  }
+}

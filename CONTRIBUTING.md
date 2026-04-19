@@ -20,24 +20,43 @@ make test
 cli/
 ├── cmd/leo/main.go              # entrypoint
 ├── internal/
-│   ├── cmd/                     # cobra commands (init, update, CRUD, ops, export)
-│   ├── adapters/runtime/        # RuntimeAdapter interface + impls (claude, cursor, …)
+│   ├── cmd/                     # cobra commands (init, upgrade, CRUD, ops, export)
+│   ├── adapters/runtime/        # RuntimeAdapter interface + impls (claude, codex, cline, …)
 │   ├── adapters/storage/        # StorageAdapter interface + impls (JSON)
 │   ├── config/                  # .leo/config.yaml handling
-│   ├── kb/                      # KB document types and validation
-│   └── profiles/                # specialist profile management
+│   └── kb/                      # KB document types and validation
 ├── Makefile
 ├── go.mod
 └── go.sum
 
 .leo/                            # Leo's own config + KB (dogfooding)
-├── config.yaml                  # owner preferences
-├── profiles/                    # specialist profiles
+├── config.yaml                  # user preferences
+├── identity.json                # project identity
 ├── kb/docs/                     # knowledge documents (JSON)
+├── kb/constraints/              # always-active guardrails
+├── kb/skills/                   # composable procedures
 ├── kb/schema.json               # document schema
-├── kb/index.json                # tag-based index
-└── kb/scripts/                  # build-index, validate, check-stale
+└── kb/index.json                # tag-based index
 ```
+
+See [.github/repo-surface.md](.github/repo-surface.md) for the full one-line
+justification of every tracked top-level item and the rules for adding new ones.
+
+### Future package naming (v0.9+)
+
+When new internal components land (Watchman, Drafter, Gardener, etc.), they are
+created directly with canonical names — no post-hoc rename. The locked mapping:
+
+| Concept | Go package path |
+|---|---|
+| Capture trigger layer | `cli/internal/watchman/` |
+| Memory draft normalizer | `cli/internal/drafter/` |
+| Memory schema validator | `cli/internal/validator/` |
+| Memory indexer / search | `cli/internal/librarian/` |
+| Tag graph | `cli/internal/tagger/` |
+| Lifecycle + dedup + stale + conflict (merged) | `cli/internal/gardener/` |
+| RBAC + ABAC | `cli/internal/clearance/` |
+| Local telemetry emitter | `cli/internal/transponder/` |
 
 ## Adding a runtime adapter
 
@@ -47,21 +66,6 @@ cli/
 4. Register the adapter in the `init` command
 
 Use the `ClaudeAdapter` as reference.
-
-## Adding a profile
-
-Create a YAML file in `.leo/profiles/` following this schema:
-
-```yaml
-name: Profile Name
-description: What this profile does
-focus:
-  - area of expertise
-tone: communication style
-default_model: sonnet
-context_injection: |
-  Instructions injected into the AI context.
-```
 
 ## Commit conventions
 

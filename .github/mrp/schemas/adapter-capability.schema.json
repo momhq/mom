@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/adapter-capability",
+  "title": "MRP v0 — Adapter capability declaration",
+  "description": "YAML/JSON file embedded in each adapter binary declaring which MRP events it natively supports.",
+  "type": "object",
+  "required": ["adapter", "version", "supports", "experimental"],
+  "additionalProperties": false,
+  "properties": {
+    "adapter": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter identifier — must match the Name() return value of the Go adapter"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter version (semver string)"
+    },
+    "supports": {
+      "type": "array",
+      "description": "MRP events natively supported by this adapter",
+      "items": {
+        "type": "string",
+        "enum": [
+          "session.start",
+          "session.end",
+          "turn.complete",
+          "compact.triggered",
+          "clear.triggered"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "experimental": {
+      "type": "array",
+      "description": "MRP events emitted best-effort — may fire unreliably. L.E.O. will not crash if they are missing.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "session.start",
+          "session.end",
+          "turn.complete",
+          "compact.triggered",
+          "clear.triggered"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}

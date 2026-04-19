@@ -1,0 +1,23 @@
+{
+  "id": "feedback-kb-not-rules",
+  "type": "feedback",
+  "boot": true,
+  "lifecycle": "permanent",
+  "scope": "core",
+  "tags": [
+    "kb",
+    "json-first",
+    "migration",
+    "rules"
+  ],
+  "created": "2026-04-14T00:00:00Z",
+  "created_by": "user",
+  "updated": "2026-04-14T00:00:00Z",
+  "updated_by": "leo",
+  "content": {
+    "correction": "New content was being created as markdown in rules/ instead of JSON in the KB.",
+    "how_to_apply": "When creating any new knowledge artifact — write it as a JSON doc in .leo/memory/, not as a markdown file in rules/. Only touch rules/*.md if explicitly asked to update legacy content during migration.",
+    "rule": "All new rules, patterns, decisions, feedback go to .leo/memory/ as JSON documents following the schema. The rules/*.md directory is legacy.",
+    "why": "The project architecture is JSON-first. KB docs have schema validation, tags for neural connections, lifecycle management, and are machine-readable. Markdown rules are flat files with no structure or connections."
+  }
+}

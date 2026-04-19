@@ -9,20 +9,9 @@ type Config struct {
 
 // UserConfig holds user preferences.
 type UserConfig struct {
-	Language       string
-	Mode           string
-	Autonomy       string
-	DefaultProfile string
-}
-
-// Profile represents a specialist profile from .leo/profiles/.
-type Profile struct {
-	Name             string
-	Description      string
-	Focus            []string
-	Tone             string
-	DefaultModel     string
-	ContextInjection string
+	Language          string
+	Autonomy          string
+	CommunicationMode string
 }
 
 // Constraint represents a KB constraint document.
@@ -46,6 +35,19 @@ type Identity struct {
 	Constraints []string
 }
 
+// AdapterCapability describes which MRP v0 events an adapter natively supports.
+// Loaded from the adapter's embedded YAML capability file.
+type AdapterCapability struct {
+	// Name is the adapter identifier (matches Name()).
+	Name string `yaml:"adapter"`
+	// Version is the adapter version string.
+	Version string `yaml:"version"`
+	// Supports lists MRP events natively supported by this adapter.
+	Supports []string `yaml:"supports"`
+	// Experimental lists MRP events emitted best-effort — may fire unreliably.
+	Experimental []string `yaml:"experimental"`
+}
+
 // HookDef defines a hook to register with the runtime.
 type HookDef struct {
 	Event   string // e.g. "PostToolUse"
@@ -62,8 +64,8 @@ type Adapter interface {
 
 	// GenerateContextFile generates the runtime's boot file
 	// (e.g. CLAUDE.md, AGENTS.md, .clinerules/leo-context.md) from Leo's config,
-	// active profile, constraints, skills, and identity.
-	GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error
+	// constraints, skills, and identity.
+	GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
 
 	// SupportsHooks returns whether this runtime supports hooks.
 	SupportsHooks() bool
@@ -89,4 +91,8 @@ type Adapter interface {
 	// DefaultTierMapping returns the default capability tier → model mapping
 	// for this runtime. Returns nil if the runtime manages its own model selection.
 	DefaultTierMapping() map[string]string
+
+	// Capabilities returns the MRP v0 capability declaration for this adapter.
+	// Loaded from the embedded YAML file in capabilities/.
+	Capabilities() AdapterCapability
 }

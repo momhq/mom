@@ -1,21 +1,33 @@
 // Package storage defines the StorageAdapter interface for KB persistence.
 package storage
 
-import "time"
+import (
+	"time"
+
+	"github.com/vmarinogg/leo-core/cli/internal/kb"
+)
 
 // Doc represents a KB document in the storage layer.
 type Doc struct {
-	ID        string         `json:"id"`
-	Type      string         `json:"type"`
-	Boot      bool           `json:"boot,omitempty"`
-	Lifecycle string         `json:"lifecycle"`
-	Scope     string         `json:"scope"`
-	Tags      []string       `json:"tags"`
-	Created   time.Time      `json:"created"`
-	CreatedBy string         `json:"created_by"`
-	Updated   time.Time      `json:"updated"`
-	UpdatedBy string         `json:"updated_by"`
-	Content   map[string]any `json:"content"`
+	ID              string              `json:"id"`
+	Type            string              `json:"type"`
+	Boot            bool                `json:"boot,omitempty"`
+	Lifecycle       string              `json:"lifecycle"`
+	Scope           string              `json:"scope"`
+	Tags            []string            `json:"tags"`
+	Created         time.Time           `json:"created"`
+	CreatedBy       string              `json:"created_by"`
+	Updated         time.Time           `json:"updated"`
+	UpdatedBy       string              `json:"updated_by"`
+	SessionID       string              `json:"session_id,omitempty"`
+	Confidence      string              `json:"confidence,omitempty"`
+	PromotionState  string              `json:"promotion_state,omitempty"`
+	Classification  string              `json:"classification,omitempty"`
+	Compartments    map[string][]string `json:"compartments,omitempty"`
+	Provenance      *kb.Provenance      `json:"provenance,omitempty"`
+	Landmark        bool                `json:"landmark,omitempty"`
+	CentralityScore *float64            `json:"centrality_score,omitempty"`
+	Content         map[string]any      `json:"content"`
 }
 
 // Index represents the KB index.
@@ -43,7 +55,7 @@ type HealthStatus struct {
 }
 
 // Adapter is the interface that storage backends must implement.
-// The JSON adapter (free tier) reads/writes flat JSON files in .leo/kb/docs/.
+// The JSON adapter (free tier) reads/writes flat JSON files in .leo/memory/.
 // Future adapters (MongoDB, etc.) implement the same interface.
 type Adapter interface {
 	Read(id string) (*Doc, error)

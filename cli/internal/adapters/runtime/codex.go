@@ -1,10 +1,16 @@
 package runtime
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
+
+//go:embed capabilities/codex.yaml
+var codexCapabilitiesYAML []byte
 
 // CodexAdapter implements the Adapter interface for OpenAI Codex.
 // It reads from .leo/ and generates AGENTS.md at the project root.
@@ -21,8 +27,8 @@ func (a *CodexAdapter) Name() string {
 	return "codex"
 }
 
-func (a *CodexAdapter) GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error {
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, profile, constraints, skills, identity)
+func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
+	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
 
 	agentsFile := filepath.Join(a.projectRoot, "AGENTS.md")
 	if err := os.WriteFile(agentsFile, []byte(content), 0644); err != nil {
@@ -63,4 +69,12 @@ func (a *CodexAdapter) DefaultTierMapping() map[string]string {
 		"execution":     "gpt-4.1",
 		"review":        "gpt-4.1-mini",
 	}
+}
+
+func (a *CodexAdapter) Capabilities() AdapterCapability {
+	var cap AdapterCapability
+	if err := yaml.Unmarshal(codexCapabilitiesYAML, &cap); err != nil {
+		return AdapterCapability{Name: "codex", Version: "0.1"}
+	}
+	return cap
 }

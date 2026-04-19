@@ -1,12 +1,18 @@
 package runtime
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
+
+//go:embed capabilities/claude.yaml
+var claudeCapabilitiesYAML []byte
 
 // ClaudeAdapter implements the Adapter interface for Claude Code.
 // It reads from .leo/ and generates .claude/CLAUDE.md + settings.json.
@@ -23,13 +29,13 @@ func (a *ClaudeAdapter) Name() string {
 	return "claude"
 }
 
-func (a *ClaudeAdapter) GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error {
+func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	claudeDir := filepath.Join(a.projectRoot, ".claude")
 	if err := os.MkdirAll(claudeDir, 0755); err != nil {
 		return fmt.Errorf("creating .claude dir: %w", err)
 	}
 
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, profile, constraints, skills, identity)
+	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
 
 	contextFile := filepath.Join(claudeDir, "CLAUDE.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {
@@ -109,6 +115,15 @@ func (a *ClaudeAdapter) DefaultTierMapping() map[string]string {
 		"execution":     "sonnet",
 		"review":        "sonnet",
 	}
+}
+
+func (a *ClaudeAdapter) Capabilities() AdapterCapability {
+	var cap AdapterCapability
+	if err := yaml.Unmarshal(claudeCapabilitiesYAML, &cap); err != nil {
+		// Fallback: return minimal capability if YAML is malformed.
+		return AdapterCapability{Name: "claude-code", Version: "1.0"}
+	}
+	return cap
 }
 
 // HasWatermark checks if a file contains the L.E.O. watermark.

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	huhspinner "charm.land/huh/v2/spinner"
@@ -15,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/profiles"
+	"github.com/vmarinogg/leo-core/cli/internal/transponder"
 )
 
 //go:embed schema.json
@@ -50,26 +51,48 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		return runInitWithConfig(cmd, cwd, force, result)
+		installDir := result.InstallDir
+		if installDir == "" {
+			installDir = cwd
+		}
+		if err := runInitWithConfig(cmd, installDir, force, result); err != nil {
+			return err
+		}
+		// Run bootstrap inline if the user opted in (non-interactive -y always skips).
+		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
+			scanDir := installDir
+			if result.BootstrapChoice == "repo" {
+				scanDir = cwd
+			}
+			cmd.Println()
+			if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".leo")); err != nil {
+				cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
+			}
+		}
+		return nil
 	}
 
-	// Non-interactive path: use flags/defaults.
+	// Non-interactive path: use flags/defaults. Always installs at cwd with repo scope.
 	runtimes, _ := cmd.Flags().GetStringSlice("runtimes")
 	if len(runtimes) == 0 {
 		runtimes = []string{"claude"}
 	}
 
+	defaults := config.Default()
 	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
-		Runtimes:       runtimes,
-		Language:       config.Default().User.Language,
-		Mode:           config.Default().User.Mode,
-		DefaultProfile: config.Default().User.DefaultProfile,
-		Autonomy:       config.Default().User.Autonomy,
+		Runtimes:   runtimes,
+		Language:   defaults.User.Language,
+		Mode:       defaults.Communication.Mode,
+		Autonomy:   defaults.User.Autonomy,
+		InstallDir: cwd,
+		ScopeLabel: "repo",
 	})
 }
 
 // runInitWithConfig performs the actual directory and file creation using the
 // resolved configuration from either the wizard or flag defaults.
+// cwd is the directory where .leo/ will be created (may differ from os.Getwd()
+// when the user chose a parent install location during onboarding).
 func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result OnboardingResult) error {
 	leoDir := filepath.Join(cwd, ".leo")
 
@@ -85,11 +108,11 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	doScaffold := func() {
 		dirs := []string{
 			leoDir,
-			filepath.Join(leoDir, "profiles"),
-			filepath.Join(leoDir, "kb", "docs"),
-			filepath.Join(leoDir, "kb", "skills"),
-			filepath.Join(leoDir, "kb", "constraints"),
-			filepath.Join(leoDir, "kb", "logs"),
+			filepath.Join(leoDir, "memory"),
+			filepath.Join(leoDir, "skills"),
+			filepath.Join(leoDir, "constraints"),
+			filepath.Join(leoDir, "logs"),
+			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
 		}
 		for _, d := range dirs {
@@ -130,16 +153,30 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			}
 		}
 
+		// Infer communication.mode from the onboarding mode selection.
+		commMode := result.Mode
+		if commMode == "" {
+			commMode = "concise"
+		}
+
+		// Determine scope label — default to "repo" for backward compat.
+		scopeLabel := result.ScopeLabel
+		if scopeLabel == "" {
+			scopeLabel = "repo"
+		}
+
 		// Write config.yaml.
 		cfg := config.Config{
 			Version:    "1",
 			CoreSource: result.CoreSource,
+			Scope:      scopeLabel,
 			Runtimes:   runtimesCfg,
 			User: config.UserConfig{
-				Language:       result.Language,
-				Mode:           result.Mode,
-				DefaultProfile: result.DefaultProfile,
-				Autonomy:       result.Autonomy,
+				Language: result.Language,
+				Autonomy: result.Autonomy,
+			},
+			Communication: config.CommunicationConfig{
+				Mode: commMode,
 			},
 			KB: config.Default().KB,
 		}
@@ -149,22 +186,13 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			return
 		}
 
-		// Write default profiles.
-		profilesDir := filepath.Join(leoDir, "profiles")
-		for name, p := range profiles.DefaultProfiles() {
-			if err := profiles.Save(profilesDir, name, p); err != nil {
-				kbErr = err
-				return
-			}
-		}
-
 		// Write schema.json.
 		schemaData, err := embeddedSchema.ReadFile("schema.json")
 		if err != nil {
 			kbErr = fmt.Errorf("reading embedded schema: %w", err)
 			return
 		}
-		schemaPath := filepath.Join(leoDir, "kb", "schema.json")
+		schemaPath := filepath.Join(leoDir, "schema.json")
 		if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
 			kbErr = fmt.Errorf("writing schema: %w", err)
 			return
@@ -178,7 +206,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		}
 
 		// Write core constraints.
-		constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+		constraintsDir := filepath.Join(leoDir, "constraints")
 		for name, content := range coreConstraints() {
 			path := filepath.Join(constraintsDir, name+".json")
 			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -188,7 +216,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		}
 
 		// Write core skills.
-		skillsDir := filepath.Join(leoDir, "kb", "skills")
+		skillsDir := filepath.Join(leoDir, "skills")
 		for name, content := range coreSkills() {
 			path := filepath.Join(skillsDir, name+".json")
 			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -198,7 +226,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		}
 
 		// Write index.json with entries for all core docs.
-		indexPath := filepath.Join(leoDir, "kb", "index.json")
+		indexPath := filepath.Join(leoDir, "index.json")
 		indexData, err := buildCoreIndex()
 		if err != nil {
 			kbErr = fmt.Errorf("building index: %w", err)
@@ -223,7 +251,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return kbErr
 	}
 
-	// Re-load config for runtime generation (needed for the cfg variable).
+	// Re-load config for runtime generation.
 	cfg, err := config.Load(leoDir)
 	if err != nil {
 		return fmt.Errorf("loading config after write: %w", err)
@@ -232,69 +260,12 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	// ── Phase 3: Generate runtime context files ────────────────────────────
 	var genErr error
 	doGenerate := func() {
-		runtimeCfg := runtime.Config{
-			Version: cfg.Version,
-			User: runtime.UserConfig{
-				Language:       cfg.User.Language,
-				Mode:           cfg.User.Mode,
-				Autonomy:       cfg.User.Autonomy,
-				DefaultProfile: cfg.User.DefaultProfile,
-			},
-		}
-
-		defaultProfile := profiles.DefaultProfiles()[cfg.User.DefaultProfile]
-		runtimeProfile := runtime.Profile{
-			Name:             defaultProfile.Name,
-			Description:      defaultProfile.Description,
-			Focus:            defaultProfile.Focus,
-			Tone:             defaultProfile.Tone,
-			ContextInjection: defaultProfile.ContextInjection,
-		}
+		runtimeCfg := buildRuntimeConfig(cfg)
 
 		// Build constraints list from core constraints.
-		var runtimeConstraints []runtime.Constraint
-		for id := range coreConstraints() {
-			var doc struct {
-				Summary string `json:"summary"`
-			}
-			json.Unmarshal([]byte(coreConstraints()[id]), &doc) //nolint:errcheck
-			runtimeConstraints = append(runtimeConstraints, runtime.Constraint{
-				ID:      id,
-				Summary: doc.Summary,
-			})
-		}
-		sort.Slice(runtimeConstraints, func(i, j int) bool {
-			return runtimeConstraints[i].ID < runtimeConstraints[j].ID
-		})
-
-		// Build skills list from core skills.
-		var runtimeSkills []runtime.Skill
-		for id := range coreSkills() {
-			var doc struct {
-				Summary string `json:"summary"`
-			}
-			json.Unmarshal([]byte(coreSkills()[id]), &doc) //nolint:errcheck
-			runtimeSkills = append(runtimeSkills, runtime.Skill{
-				ID:      id,
-				Summary: doc.Summary,
-			})
-		}
-		sort.Slice(runtimeSkills, func(i, j int) bool {
-			return runtimeSkills[i].ID < runtimeSkills[j].ID
-		})
-
-		// Parse identity.
-		var identityData struct {
-			What        string   `json:"what"`
-			Philosophy  string   `json:"philosophy"`
-			Constraints []string `json:"constraints"`
-		}
-		json.Unmarshal([]byte(defaultIdentity()), &identityData) //nolint:errcheck
-		runtimeIdentity := &runtime.Identity{
-			What:        identityData.What,
-			Philosophy:  identityData.Philosophy,
-			Constraints: identityData.Constraints,
-		}
+		runtimeConstraints := buildRuntimeConstraints()
+		runtimeSkills := buildRuntimeSkills()
+		runtimeIdentity := buildRuntimeIdentity()
 
 		// Generate context files for all selected runtimes.
 		for _, rt := range result.Runtimes {
@@ -309,7 +280,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				runtime.BackupIfNeeded(absPath) //nolint:errcheck
 			}
 
-			if err := adapter.GenerateContextFile(runtimeCfg, runtimeProfile, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
+			if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
 				genErr = err
 				return
 			}
@@ -329,6 +300,24 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return genErr
 	}
 
+	// ── Telemetry: emit smoke events ────────────────────────────────────────
+	startedAt := time.Now().UTC().Format(time.RFC3339)
+	emitter := transponder.New(leoDir, cfg.Telemetry.TelemetryEnabled())
+	emitter.EmitSessionEvent(transponder.SessionEvent{
+		SessionID: "s-init",
+		RepoID:    filepath.Base(cwd),
+		Runtime:   cfg.PrimaryRuntime(),
+		Tier:      "execution",
+		StartedAt: startedAt,
+		Trigger:   "normal",
+	})
+	emitter.EmitRuntimeHealth(transponder.RuntimeHealth{
+		Runtime:       cfg.PrimaryRuntime(),
+		TS:            time.Now().UTC().Format(time.RFC3339),
+		WrapUpSuccess: true,
+		LatencyMS:     0,
+	})
+
 	// ── Done ────────────────────────────────────────────────────────────────
 	cmd.Println()
 	cmd.Println("  ✔ .leo/ structure created")
@@ -344,9 +333,38 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			}
 		}
 	}
+	// Warn about adapters with experimental MRP features.
+	printExperimentalWarnings(cmd, registry, result.Runtimes)
+
 	cmd.Println()
 	cmd.Println("L.E.O. is ready. Run 'leo status' to check health.")
 	return nil
+}
+
+// printExperimentalWarnings prints a warning for each adapter that carries
+// experimental MRP v0 events — informing the user that capture may be less reliable.
+func printExperimentalWarnings(cmd *cobra.Command, reg *runtime.Registry, runtimes []string) {
+	for _, name := range runtimes {
+		adapter, ok := reg.Get(name)
+		if !ok {
+			continue
+		}
+		cap := adapter.Capabilities()
+		if len(cap.Experimental) == 0 {
+			continue
+		}
+		adapterLabel := cap.Name
+		if adapterLabel == "" {
+			adapterLabel = name
+		}
+		version := cap.Version
+		if version == "" {
+			version = "unknown"
+		}
+		cmd.Printf("  ⚠ %s adapter installed (v%s)\n", adapterLabel, version)
+		cmd.Printf("    Experimental: %s\n", strings.Join(cap.Experimental, ", "))
+		cmd.Printf("    These events are emitted best-effort; capture may fire less reliably.\n")
+	}
 }
 
 // isTerminalWriter returns true if w is connected to a terminal.
@@ -355,6 +373,75 @@ func isTerminalWriter(w io.Writer) bool {
 		return term.IsTerminal(f.Fd())
 	}
 	return false
+}
+
+// buildRuntimeConfig converts a config.Config to a runtime.Config.
+func buildRuntimeConfig(cfg *config.Config) runtime.Config {
+	commMode := cfg.Communication.Mode
+	if commMode == "" {
+		commMode = "concise"
+	}
+	return runtime.Config{
+		Version: cfg.Version,
+		User: runtime.UserConfig{
+			Language:          cfg.User.Language,
+			Autonomy:          cfg.User.Autonomy,
+			CommunicationMode: commMode,
+		},
+	}
+}
+
+// buildRuntimeConstraints extracts constraint summaries from coreConstraints().
+func buildRuntimeConstraints() []runtime.Constraint {
+	var runtimeConstraints []runtime.Constraint
+	for id := range coreConstraints() {
+		var doc struct {
+			Summary string `json:"summary"`
+		}
+		json.Unmarshal([]byte(coreConstraints()[id]), &doc) //nolint:errcheck
+		runtimeConstraints = append(runtimeConstraints, runtime.Constraint{
+			ID:      id,
+			Summary: doc.Summary,
+		})
+	}
+	sort.Slice(runtimeConstraints, func(i, j int) bool {
+		return runtimeConstraints[i].ID < runtimeConstraints[j].ID
+	})
+	return runtimeConstraints
+}
+
+// buildRuntimeSkills extracts skill summaries from coreSkills().
+func buildRuntimeSkills() []runtime.Skill {
+	var runtimeSkills []runtime.Skill
+	for id := range coreSkills() {
+		var doc struct {
+			Summary string `json:"summary"`
+		}
+		json.Unmarshal([]byte(coreSkills()[id]), &doc) //nolint:errcheck
+		runtimeSkills = append(runtimeSkills, runtime.Skill{
+			ID:      id,
+			Summary: doc.Summary,
+		})
+	}
+	sort.Slice(runtimeSkills, func(i, j int) bool {
+		return runtimeSkills[i].ID < runtimeSkills[j].ID
+	})
+	return runtimeSkills
+}
+
+// buildRuntimeIdentity parses the identity JSON into a runtime.Identity.
+func buildRuntimeIdentity() *runtime.Identity {
+	var identityData struct {
+		What        string   `json:"what"`
+		Philosophy  string   `json:"philosophy"`
+		Constraints []string `json:"constraints"`
+	}
+	json.Unmarshal([]byte(defaultIdentity()), &identityData) //nolint:errcheck
+	return &runtime.Identity{
+		What:        identityData.What,
+		Philosophy:  identityData.Philosophy,
+		Constraints: identityData.Constraints,
+	}
 }
 
 // buildCoreIndex builds an index.json that includes all core constraint and skill docs.
@@ -445,13 +532,13 @@ func buildCoreIndex() ([]byte, error) {
 	}
 
 	for _, content := range coreConstraints() {
-		if err := addDoc(content, "kb/constraints/"); err != nil {
+		if err := addDoc(content, "constraints/"); err != nil {
 			return nil, fmt.Errorf("indexing constraint: %w", err)
 		}
 	}
 
 	for _, content := range coreSkills() {
-		if err := addDoc(content, "kb/skills/"); err != nil {
+		if err := addDoc(content, "skills/"); err != nil {
 			return nil, fmt.Errorf("indexing skill: %w", err)
 		}
 	}

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/clear-triggered",
+  "title": "MRP v0 — clear.triggered event",
+  "description": "Emitted when the user or runtime triggers /clear. Fires capture in auto bypass mode (no interactive wrap-up).",
+  "type": "object",
+  "required": ["mrp_version", "event", "session_id", "runtime", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "mrp_version": {
+      "type": "string",
+      "const": "v0",
+      "description": "MRP protocol version"
+    },
+    "event": {
+      "type": "string",
+      "const": "clear.triggered",
+      "description": "Event type discriminator"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique session identifier"
+    },
+    "runtime": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Adapter name"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event was emitted (RFC3339)"
+    },
+    "trigger_source": {
+      "type": "string",
+      "enum": ["user", "runtime"],
+      "description": "Whether the user or the runtime initiated clear"
+    }
+  }
+}

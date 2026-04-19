@@ -1,0 +1,228 @@
+{
+  "version": "1",
+  "last_rebuilt": "",
+  "stats": {
+    "total_docs": 7,
+    "total_tags": 21,
+    "docs_by_type": {
+      "constraint": 6,
+      "skill": 1
+    },
+    "stale_count": 0,
+    "most_connected_tag": "propagation"
+  },
+  "by_tag": {
+    "approval": [
+      "escalation-triggers"
+    ],
+    "core-project": [
+      "inheritance"
+    ],
+    "delivery": [
+      "evidence-over-claim"
+    ],
+    "escalation": [
+      "escalation-triggers"
+    ],
+    "evidence": [
+      "anti-hallucination",
+      "evidence-over-claim"
+    ],
+    "extension": [
+      "inheritance"
+    ],
+    "honesty": [
+      "anti-hallucination"
+    ],
+    "inheritance": [
+      "inheritance"
+    ],
+    "knowledge-management": [
+      "propagation"
+    ],
+    "measurement": [
+      "metrics-collection"
+    ],
+    "metrics": [
+      "metrics-collection"
+    ],
+    "owner-decision": [
+      "escalation-triggers"
+    ],
+    "persistence": [
+      "propagation",
+      "session-wrap-up"
+    ],
+    "propagation": [
+      "propagation",
+      "inheritance",
+      "session-wrap-up"
+    ],
+    "quality": [
+      "evidence-over-claim",
+      "metrics-collection"
+    ],
+    "refinement": [
+      "metrics-collection"
+    ],
+    "safety": [
+      "escalation-triggers"
+    ],
+    "session": [
+      "session-wrap-up"
+    ],
+    "trust": [
+      "anti-hallucination"
+    ],
+    "verification": [
+      "anti-hallucination",
+      "evidence-over-claim"
+    ],
+    "wrap-up": [
+      "propagation",
+      "session-wrap-up"
+    ]
+  },
+  "by_type": {
+    "constraint": [
+      "anti-hallucination",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "metrics-collection",
+      "propagation",
+      "inheritance"
+    ],
+    "skill": [
+      "session-wrap-up"
+    ]
+  },
+  "by_scope": {
+    "core": [
+      "anti-hallucination",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "metrics-collection",
+      "propagation",
+      "inheritance",
+      "session-wrap-up"
+    ]
+  },
+  "by_lifecycle": {
+    "permanent": [
+      "anti-hallucination",
+      "escalation-triggers",
+      "evidence-over-claim",
+      "metrics-collection",
+      "propagation",
+      "inheritance",
+      "session-wrap-up"
+    ]
+  },
+  "docs": {
+    "anti-hallucination": {
+      "id": "anti-hallucination",
+      "type": "constraint",
+      "boot": true,
+      "summary": "When unsure, say you don't know. Mark assertions with [INFERRED]/[RECALL]/[GUESS]. Never fill gaps with confident-sounding assumptions.",
+      "lifecycle": "permanent",
+      "scope": "core",
+      "tags": [
+        "honesty",
+        "verification",
+        "trust",
+        "evidence"
+      ],
+      "path": "constraints/anti-hallucination.json"
+    },
+    "escalation-triggers": {
+      "id": "escalation-triggers",
+      "type": "constraint",
+      "boot": true,
+      "summary": "Stop and ask the user before: spending money, external publication, destructive actions, structural changes, or unresolvable ambiguity.",
+      "lifecycle": "permanent",
+      "scope": "core",
+      "tags": [
+        "escalation",
+        "approval",
+        "safety",
+        "owner-decision"
+      ],
+      "path": "constraints/escalation-triggers.json"
+    },
+    "evidence-over-claim": {
+      "id": "evidence-over-claim",
+      "type": "constraint",
+      "boot": true,
+      "summary": "Every delivery must come with verifiable evidence. If you don't have evidence, the work is not done.",
+      "lifecycle": "permanent",
+      "scope": "core",
+      "tags": [
+        "evidence",
+        "verification",
+        "delivery",
+        "quality"
+      ],
+      "path": "constraints/evidence-over-claim.json"
+    },
+    "inheritance": {
+      "id": "inheritance",
+      "type": "constraint",
+      "boot": true,
+      "summary": "Project KB docs extend core KB docs — they specialize, never override. Core provides the foundation, project adds specifics.",
+      "lifecycle": "permanent",
+      "scope": "core",
+      "tags": [
+        "inheritance",
+        "extension",
+        "core-project",
+        "propagation"
+      ],
+      "path": "constraints/inheritance.json"
+    },
+    "metrics-collection": {
+      "id": "metrics-collection",
+      "type": "constraint",
+      "boot": true,
+      "summary": "Every session leaves one session-log doc in .leo/logs/. Collection is enforced by the session-wrap-up skill.",
+      "lifecycle": "permanent",
+      "scope": "core",
+      "tags": [
+        "metrics",
+        "quality",
+        "refinement",
+        "measurement"
+      ],
+      "path": "constraints/metrics-collection.json"
+    },
+    "propagation": {
+      "id": "propagation",
+      "type": "constraint",
+      "boot": true,
+      "summary": "No task is complete until the KB reflects what changed. Decisions, patterns, facts, and learnings must be materialized before reporting done.",
+      "lifecycle": "permanent",
+      "scope": "core",
+      "tags": [
+        "propagation",
+        "wrap-up",
+        "persistence",
+        "knowledge-management"
+      ],
+      "path": "constraints/propagation.json"
+    },
+    "session-wrap-up": {
+      "id": "session-wrap-up",
+      "type": "skill",
+      "boot": true,
+      "summary": "End-of-session knowledge propagation: inventory changes, classify, present plan, write KB docs, write session log, report.",
+      "lifecycle": "permanent",
+      "scope": "core",
+      "tags": [
+        "wrap-up",
+        "propagation",
+        "persistence",
+        "session"
+      ],
+      "path": "skills/session-wrap-up.json"
+    }
+  }
+}

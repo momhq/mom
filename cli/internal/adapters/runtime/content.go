@@ -7,7 +7,7 @@ import (
 
 // BuildContextContent generates the shared Markdown content used by all adapters.
 // Each adapter calls this and writes the result to its specific output file.
-func BuildContextContent(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) string {
+func BuildContextContent(config Config, constraints []Constraint, skills []Skill, identity *Identity) string {
 	var b strings.Builder
 
 	// Header
@@ -16,20 +16,12 @@ func BuildContextContent(config Config, profile Profile, constraints []Constrain
 		b.WriteString(identity.What)
 		b.WriteString("\n\n")
 	} else {
-		b.WriteString("You are LEO. Your knowledge base lives in `.leo/kb/`.\n\n")
-	}
-
-	// Active profile
-	fmt.Fprintf(&b, "## Active Profile: %s\n\n", profile.Name)
-	fmt.Fprintf(&b, "%s\n\n", profile.Description)
-	if profile.ContextInjection != "" {
-		b.WriteString(profile.ContextInjection)
-		b.WriteString("\n\n")
+		b.WriteString("You are LEO. Your memory lives in `.leo/memory/`.\n\n")
 	}
 
 	// Boot sequence
 	b.WriteString("## Boot sequence\n\n")
-	b.WriteString("1. Read `.leo/kb/index.json` — this is your neural map\n")
+	b.WriteString("1. Read `.leo/index.json` — this is your neural map\n")
 	b.WriteString("2. From the index, load all docs where `boot: true` — these govern your behavior\n")
 	b.WriteString("3. You are now loaded. Greet the user and proceed.\n\n")
 
@@ -37,8 +29,8 @@ func BuildContextContent(config Config, profile Profile, constraints []Constrain
 	b.WriteString("## During work\n\n")
 	b.WriteString("- When you need context on a topic, check the index for relevant tags\n")
 	b.WriteString("- Read only the docs you need — never load the entire KB\n")
-	b.WriteString("- When you create or update knowledge, write JSON docs to `.leo/kb/docs/`\n")
-	b.WriteString("- Follow the schema at `.leo/kb/schema.json`\n")
+	b.WriteString("- When you create or update knowledge, write JSON docs to `.leo/memory/`\n")
+	b.WriteString("- Follow the schema at `.leo/schema.json`\n")
 	b.WriteString("- Every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
 
 	// Constraints
@@ -46,7 +38,7 @@ func BuildContextContent(config Config, profile Profile, constraints []Constrain
 		b.WriteString("## Constraints\n\n")
 		b.WriteString("Always-active guardrails loaded from the KB. Read the full doc when you need detailed guidance.\n\n")
 		for _, c := range constraints {
-			fmt.Fprintf(&b, "- **%s**: %s → `.leo/kb/constraints/%s.json`\n", c.ID, c.Summary, c.ID)
+			fmt.Fprintf(&b, "- **%s**: %s → `.leo/constraints/%s.json`\n", c.ID, c.Summary, c.ID)
 		}
 		b.WriteString("\n")
 	}
@@ -56,15 +48,15 @@ func BuildContextContent(config Config, profile Profile, constraints []Constrain
 		b.WriteString("## Skills\n\n")
 		b.WriteString("Composable procedures invoked by trigger or by Leo. Read the full doc for steps and output format.\n\n")
 		for _, s := range skills {
-			fmt.Fprintf(&b, "- **%s**: %s → `.leo/kb/skills/%s.json`\n", s.ID, s.Summary, s.ID)
+			fmt.Fprintf(&b, "- **%s**: %s → `.leo/skills/%s.json`\n", s.ID, s.Summary, s.ID)
 		}
 		b.WriteString("\n")
 	}
 
-	// User preferences
+	// Language, autonomy, communication-mode directives
 	b.WriteString(LanguageInstructions(config.User.Language))
 	b.WriteString("\n\n")
-	b.WriteString(ModeInstructions(config.User.Mode))
+	b.WriteString(CommunicationModeInstructions(config.User.CommunicationMode))
 	b.WriteString("\n\n")
 	b.WriteString(AutonomyInstructions(config.User.Autonomy))
 	b.WriteString("\n")
