@@ -13,6 +13,10 @@ import (
 type Config struct {
 	Version       string                   `yaml:"version"`
 	CoreSource    string                   `yaml:"core_source,omitempty"`
+	// Scope declares this install's position in the hierarchy.
+	// Valid values: user | org | repo | workspace | custom.
+	// Absent or empty is treated as "repo" for backward compatibility.
+	Scope         string                   `yaml:"scope,omitempty"`
 	Runtimes      map[string]RuntimeConfig `yaml:"runtimes"`
 	User          UserConfig               `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
