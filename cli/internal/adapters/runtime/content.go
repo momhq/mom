@@ -7,7 +7,7 @@ import (
 
 // BuildContextContent generates the shared Markdown content used by all adapters.
 // Each adapter calls this and writes the result to its specific output file.
-func BuildContextContent(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) string {
+func BuildContextContent(config Config, constraints []Constraint, skills []Skill, identity *Identity) string {
 	var b strings.Builder
 
 	// Header
@@ -17,14 +17,6 @@ func BuildContextContent(config Config, profile Profile, constraints []Constrain
 		b.WriteString("\n\n")
 	} else {
 		b.WriteString("You are LEO. Your knowledge base lives in `.leo/kb/`.\n\n")
-	}
-
-	// Active profile
-	fmt.Fprintf(&b, "## Active Profile: %s\n\n", profile.Name)
-	fmt.Fprintf(&b, "%s\n\n", profile.Description)
-	if profile.ContextInjection != "" {
-		b.WriteString(profile.ContextInjection)
-		b.WriteString("\n\n")
 	}
 
 	// Boot sequence
@@ -61,10 +53,10 @@ func BuildContextContent(config Config, profile Profile, constraints []Constrain
 		b.WriteString("\n")
 	}
 
-	// User preferences
+	// Language, autonomy, communication-mode directives
 	b.WriteString(LanguageInstructions(config.User.Language))
 	b.WriteString("\n\n")
-	b.WriteString(ModeInstructions(config.User.Mode))
+	b.WriteString(CommunicationModeInstructions(config.User.CommunicationMode))
 	b.WriteString("\n\n")
 	b.WriteString(AutonomyInstructions(config.User.Autonomy))
 	b.WriteString("\n")

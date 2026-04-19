@@ -35,20 +35,30 @@ func TestLanguageInstructions_UnknownFallsBackToEnglish(t *testing.T) {
 	}
 }
 
-// ModeInstructions tests
+// CommunicationModeInstructions tests
 
-func TestModeInstructions_Verbose(t *testing.T) {
-	result := ModeInstructions("verbose")
-	if !strings.Contains(result, "Verbose") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "Verbose", result)
+func TestCommunicationModeInstructions_Normal(t *testing.T) {
+	result := CommunicationModeInstructions("normal")
+	if !strings.Contains(result, "Normal") {
+		t.Errorf("expected instructions to contain %q, got:\n%s", "Normal", result)
 	}
-	if !strings.Contains(result, "step by step") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "step by step", result)
+	if !strings.Contains(result, "Standard prose") {
+		t.Errorf("expected instructions to contain %q, got:\n%s", "Standard prose", result)
 	}
 }
 
-func TestModeInstructions_Concise(t *testing.T) {
-	result := ModeInstructions("concise")
+func TestCommunicationModeInstructions_Verbose(t *testing.T) {
+	result := CommunicationModeInstructions("verbose")
+	if !strings.Contains(result, "Verbose") {
+		t.Errorf("expected instructions to contain %q, got:\n%s", "Verbose", result)
+	}
+	if !strings.Contains(result, "Detailed explanations") {
+		t.Errorf("expected instructions to contain %q, got:\n%s", "Detailed explanations", result)
+	}
+}
+
+func TestCommunicationModeInstructions_Concise(t *testing.T) {
+	result := CommunicationModeInstructions("concise")
 	if !strings.Contains(result, "Concise") {
 		t.Errorf("expected instructions to contain %q, got:\n%s", "Concise", result)
 	}
@@ -57,8 +67,8 @@ func TestModeInstructions_Concise(t *testing.T) {
 	}
 }
 
-func TestModeInstructions_Caveman(t *testing.T) {
-	result := ModeInstructions("caveman")
+func TestCommunicationModeInstructions_Caveman(t *testing.T) {
+	result := CommunicationModeInstructions("caveman")
 	if !strings.Contains(result, "Caveman") {
 		t.Errorf("expected instructions to contain %q, got:\n%s", "Caveman", result)
 	}
@@ -67,8 +77,8 @@ func TestModeInstructions_Caveman(t *testing.T) {
 	}
 }
 
-func TestModeInstructions_UnknownFallsBackToConcise(t *testing.T) {
-	result := ModeInstructions("unknown")
+func TestCommunicationModeInstructions_UnknownFallsBackToConcise(t *testing.T) {
+	result := CommunicationModeInstructions("unknown")
 	if !strings.Contains(result, "Concise") {
 		t.Errorf("expected unknown mode to fall back to Concise, got:\n%s", result)
 	}

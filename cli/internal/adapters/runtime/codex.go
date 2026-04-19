@@ -21,8 +21,8 @@ func (a *CodexAdapter) Name() string {
 	return "codex"
 }
 
-func (a *CodexAdapter) GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error {
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, profile, constraints, skills, identity)
+func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
+	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
 
 	agentsFile := filepath.Join(a.projectRoot, "AGENTS.md")
 	if err := os.WriteFile(agentsFile, []byte(content), 0644); err != nil {

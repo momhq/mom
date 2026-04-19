@@ -21,13 +21,13 @@ func (a *ClineAdapter) Name() string {
 	return "cline"
 }
 
-func (a *ClineAdapter) GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error {
+func (a *ClineAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	rulesDir := filepath.Join(a.projectRoot, ".clinerules")
 	if err := os.MkdirAll(rulesDir, 0755); err != nil {
 		return fmt.Errorf("creating .clinerules dir: %w", err)
 	}
 
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, profile, constraints, skills, identity)
+	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
 
 	contextFile := filepath.Join(rulesDir, "leo-context.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {

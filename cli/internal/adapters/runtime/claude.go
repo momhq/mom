@@ -23,13 +23,13 @@ func (a *ClaudeAdapter) Name() string {
 	return "claude"
 }
 
-func (a *ClaudeAdapter) GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error {
+func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	claudeDir := filepath.Join(a.projectRoot, ".claude")
 	if err := os.MkdirAll(claudeDir, 0755); err != nil {
 		return fmt.Errorf("creating .claude dir: %w", err)
 	}
 
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, profile, constraints, skills, identity)
+	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
 
 	contextFile := filepath.Join(claudeDir, "CLAUDE.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {

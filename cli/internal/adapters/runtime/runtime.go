@@ -9,20 +9,10 @@ type Config struct {
 
 // UserConfig holds user preferences.
 type UserConfig struct {
-	Language       string
-	Mode           string
-	Autonomy       string
-	DefaultProfile string
-}
-
-// Profile represents a specialist profile from .leo/profiles/.
-type Profile struct {
-	Name             string
-	Description      string
-	Focus            []string
-	Tone             string
-	DefaultModel     string
-	ContextInjection string
+	Language          string
+	Mode              string
+	Autonomy          string
+	CommunicationMode string
 }
 
 // Constraint represents a KB constraint document.
@@ -62,8 +52,8 @@ type Adapter interface {
 
 	// GenerateContextFile generates the runtime's boot file
 	// (e.g. CLAUDE.md, AGENTS.md, .clinerules/leo-context.md) from Leo's config,
-	// active profile, constraints, skills, and identity.
-	GenerateContextFile(config Config, profile Profile, constraints []Constraint, skills []Skill, identity *Identity) error
+	// constraints, skills, and identity.
+	GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
 
 	// SupportsHooks returns whether this runtime supports hooks.
 	SupportsHooks() bool
