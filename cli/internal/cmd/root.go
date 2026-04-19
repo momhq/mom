@@ -31,4 +31,5 @@ func init() {
 	rootCmd.AddCommand(bootstrapCmd)
 	rootCmd.AddCommand(recallCmd)
 	rootCmd.AddCommand(tourCmd)
+	rootCmd.AddCommand(serveCmd)
 }
