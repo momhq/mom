@@ -360,8 +360,33 @@ func discoverUninitializedChildRepos(dir string) []string {
 	return result
 }
 
+// cwdScopeRole returns the semantic scope label for cwd by inspecting its
+// children. If cwd contains git repos (directly or via org sub-folders), it
+// gets "user" or "org"; otherwise "repo".
+func cwdScopeRole(cwd string) string {
+	// Direct children with .git/ → cwd is at least an org folder.
+	if containsGitRepos(cwd) {
+		return "user"
+	}
+	// Grandchildren: check if any immediate child dir contains git repos
+	// (i.e. cwd is a root above org folders).
+	entries, err := os.ReadDir(cwd)
+	if err != nil {
+		return "repo"
+	}
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if containsGitRepos(filepath.Join(cwd, e.Name())) {
+			return "user"
+		}
+	}
+	return "repo"
+}
+
 // buildScopeOptions builds the huh Select options for the scope question.
-// Options: detected parents (up to 2), current dir, custom.
+// It considers both parent directories (above cwd) and the role of cwd itself.
 func buildScopeOptions(cwd string, parents []ParentScope) []huh.Option[string] {
 	home, _ := os.UserHomeDir()
 	var opts []huh.Option[string]
@@ -382,7 +407,19 @@ func buildScopeOptions(cwd string, parents []ParentScope) []huh.Option[string] {
 	if strings.HasPrefix(cwd, home) {
 		cwdDisplay = "~" + cwd[len(home):]
 	}
-	opts = append(opts, huh.NewOption(fmt.Sprintf("%s  (this project only)", cwdDisplay), "cwd"))
+
+	// Evaluate cwd's own role: if it contains repos, show it as user/org scope.
+	cwdRole := cwdScopeRole(cwd)
+	if cwdRole == "user" || cwdRole == "org" {
+		cwdLabel := fmt.Sprintf("%s  (%s — spans all repos here)", cwdDisplay, cwdRole)
+		if len(parents) == 0 {
+			cwdLabel += " — recommended"
+		}
+		opts = append(opts, huh.NewOption(cwdLabel, "cwd"))
+	} else {
+		opts = append(opts, huh.NewOption(fmt.Sprintf("%s  (this project only)", cwdDisplay), "cwd"))
+	}
+
 	opts = append(opts, huh.NewOption("Custom path…", "custom"))
 	return opts
 }
@@ -393,7 +430,8 @@ func buildScopeOptions(cwd string, parents []ParentScope) []huh.Option[string] {
 func resolveScopeChoice(choice, customPath, cwd string, parents []ParentScope) (installDir, scopeLabel string) {
 	switch {
 	case choice == "cwd":
-		return cwd, "repo"
+		role := cwdScopeRole(cwd)
+		return cwd, role
 	case choice == "custom":
 		expanded := expandTilde(customPath)
 		if expanded == "" {
