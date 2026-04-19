@@ -73,7 +73,7 @@ func writeKBTestDoc(t *testing.T, leoDir, id string) {
 	}
 }
 
-func runWithCwd(t *testing.T, cwd string, c *cobra.Command, args []string) (string, error) {
+func runWithCwd(t *testing.T, cwd string, c *cobra.Command, args []string) (string, error) { //nolint:unused // kept for future promote tests
 	t.Helper()
 	// Change to cwd for the duration of the test.
 	orig, _ := os.Getwd()
