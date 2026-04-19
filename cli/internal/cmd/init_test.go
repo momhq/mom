@@ -73,7 +73,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	}
 }
 
-func TestInitCmd_FailsIfAlreadyExists(t *testing.T) {
+func TestInitCmd_SkipsScaffoldIfAlreadyExists(t *testing.T) {
 	dir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
@@ -86,8 +86,11 @@ func TestInitCmd_FailsIfAlreadyExists(t *testing.T) {
 	rootCmd.SetErr(buf)
 	rootCmd.SetArgs([]string{"init", "--runtimes", "claude"})
 
-	if err := rootCmd.Execute(); err == nil {
-		t.Fatal("expected error when .leo/ already exists")
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("expected graceful skip when .leo/ already exists, got error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "already exists") {
+		t.Errorf("expected skip message in output, got: %s", buf.String())
 	}
 }
 

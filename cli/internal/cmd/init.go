@@ -96,8 +96,19 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	leoDir := filepath.Join(cwd, ".leo")
 
 	// Check if already initialized.
-	if _, err := os.Stat(leoDir); err == nil && !force {
-		return fmt.Errorf(".leo/ already exists — use --force to overwrite")
+	alreadyExists := false
+	if _, err := os.Stat(leoDir); err == nil {
+		if !force {
+			// .leo/ exists — skip scaffold+config but still honour bootstrap choice.
+			alreadyExists = true
+		}
+	}
+
+	// When .leo/ already exists and --force was not given, skip scaffold+config
+	// but still return nil so the caller can run bootstrap if requested.
+	if alreadyExists {
+		cmd.Println("  .leo/ already exists — skipping scaffold, using existing config.")
+		return nil
 	}
 
 	showSpinner := isTerminalWriter(cmd.OutOrStdout())
