@@ -32,8 +32,8 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if cfg.User.Mode != "concise" {
 		t.Errorf("expected mode %q, got %q", "concise", cfg.User.Mode)
 	}
-	if cfg.User.DefaultProfile != "general-manager" {
-		t.Errorf("expected default profile %q, got %q", "general-manager", cfg.User.DefaultProfile)
+	if cfg.Communication.Mode != "concise" {
+		t.Errorf("expected communication.mode %q, got %q", "concise", cfg.Communication.Mode)
 	}
 	if !cfg.KB.AutoPropagate {
 		t.Error("expected auto_propagate to be true")
@@ -142,6 +142,86 @@ specialists:
 	if cfg.CoreSource != "/tmp/leo-core" {
 		t.Errorf("expected core_source preserved, got %q", cfg.CoreSource)
 	}
+	// default_profile must be dropped.
+	if cfg.User.DefaultProfile != "" {
+		t.Errorf("expected default_profile to be dropped, got %q", cfg.User.DefaultProfile)
+	}
+	// communication.mode must be inferred.
+	if cfg.Communication.Mode == "" {
+		t.Error("expected communication.mode to be inferred from legacy config")
+	}
+}
+
+// TestLegacyConfigWithDefaultProfile verifies that a v0.7 config carrying
+// user.default_profile loads without error and drops the profile field.
+func TestLegacyConfigWithDefaultProfile(t *testing.T) {
+	dir := t.TempDir()
+	legacyCfg := `version: "1"
+runtimes:
+  claude:
+    enabled: true
+user:
+  language: en
+  mode: concise
+  autonomy: balanced
+  default_profile: cto
+kb:
+  auto_propagate: true
+  wrap_up: prompt
+  stale_threshold: 30d
+`
+	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(legacyCfg), 0644)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed on legacy config with default_profile: %v", err)
+	}
+
+	// Profile field must be dropped.
+	if cfg.User.DefaultProfile != "" {
+		t.Errorf("expected DefaultProfile to be dropped, got %q", cfg.User.DefaultProfile)
+	}
+	// communication.mode must be back-filled.
+	if cfg.Communication.Mode == "" {
+		t.Error("expected communication.mode to be back-filled")
+	}
+	// Other user settings must be preserved.
+	if cfg.User.Language != "en" {
+		t.Errorf("expected language=en, got %q", cfg.User.Language)
+	}
+	if cfg.User.Autonomy != "balanced" {
+		t.Errorf("expected autonomy=balanced, got %q", cfg.User.Autonomy)
+	}
+}
+
+// TestLegacyConfigCavemanModePreserved verifies caveman mode is preserved through migration.
+func TestLegacyConfigCavemanModePreserved(t *testing.T) {
+	dir := t.TempDir()
+	legacyCfg := `version: "1"
+runtime: claude
+owner:
+  language: pt
+  mode: caveman
+  default_profile: cto
+  autonomy: autonomous
+kb:
+  auto_propagate: true
+  wrap_up: prompt
+  stale_threshold: 30d
+`
+	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(legacyCfg), 0644)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if cfg.Communication.Mode != "caveman" {
+		t.Errorf("expected caveman mode to be preserved, got %q", cfg.Communication.Mode)
+	}
+	if cfg.User.DefaultProfile != "" {
+		t.Errorf("expected DefaultProfile dropped, got %q", cfg.User.DefaultProfile)
+	}
 }
 
 func TestConfigNilTiers(t *testing.T) {
@@ -154,7 +234,6 @@ user:
   language: en
   mode: concise
   autonomy: balanced
-  default_profile: general-manager
 kb:
   auto_propagate: true
   wrap_up: prompt
@@ -206,8 +285,9 @@ func TestConfigMultiRuntime(t *testing.T) {
 			"codex":  {Enabled: true, Tiers: map[string]string{"orchestration": "o3", "execution": "gpt-4.1", "review": "gpt-4.1-mini"}},
 			"cline":  {Enabled: true},
 		},
-		User: UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced", DefaultProfile: "general-manager"},
-		KB:   KBConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
+		User:          UserConfig{Language: "en", Mode: "concise", Autonomy: "balanced"},
+		Communication: CommunicationConfig{Mode: "concise"},
+		KB:            KBConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
 	}
 
 	if err := Save(dir, &cfg); err != nil {

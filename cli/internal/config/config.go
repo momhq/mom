@@ -11,11 +11,12 @@ import (
 
 // Config represents the .leo/config.yaml file.
 type Config struct {
-	Version    string                    `yaml:"version"`
-	CoreSource string                    `yaml:"core_source,omitempty"`
-	Runtimes   map[string]RuntimeConfig  `yaml:"runtimes"`
-	User       UserConfig                `yaml:"user"`
-	KB         KBConfig                  `yaml:"kb"`
+	Version       string                   `yaml:"version"`
+	CoreSource    string                   `yaml:"core_source,omitempty"`
+	Runtimes      map[string]RuntimeConfig `yaml:"runtimes"`
+	User          UserConfig               `yaml:"user"`
+	Communication CommunicationConfig      `yaml:"communication"`
+	KB            KBConfig                 `yaml:"kb"`
 }
 
 // RuntimeConfig holds per-runtime settings.
@@ -26,10 +27,19 @@ type RuntimeConfig struct {
 
 // UserConfig holds user preferences.
 type UserConfig struct {
-	Language       string `yaml:"language"`
-	Mode           string `yaml:"mode"`
-	Autonomy       string `yaml:"autonomy"`
-	DefaultProfile string `yaml:"default_profile"`
+	Language string `yaml:"language"`
+	Mode     string `yaml:"mode"`
+	Autonomy string `yaml:"autonomy"`
+	// DefaultProfile was removed in v0.8.0. The field is kept here only for
+	// reading old config files so migrateFromLegacy can drop it gracefully.
+	// Do not add logic that relies on this value.
+	DefaultProfile string `yaml:"default_profile,omitempty"`
+}
+
+// CommunicationConfig holds communication style settings.
+type CommunicationConfig struct {
+	// Mode controls verbosity: concise | normal | verbose | caveman. Default: concise.
+	Mode string `yaml:"mode"`
 }
 
 // KBConfig holds KB settings.
@@ -54,10 +64,12 @@ func Default() Config {
 			},
 		},
 		User: UserConfig{
-			Language:       "en",
-			Mode:           "concise",
-			Autonomy:       "balanced",
-			DefaultProfile: "general-manager",
+			Language: "en",
+			Mode:     "concise",
+			Autonomy: "balanced",
+		},
+		Communication: CommunicationConfig{
+			Mode: "concise",
 		},
 		KB: KBConfig{
 			AutoPropagate:  true,
@@ -89,13 +101,21 @@ func (c *Config) PrimaryRuntime() string {
 	return "claude"
 }
 
+// legacyUserConfig includes fields present in v0.6.0/v0.7.0 user blocks.
+type legacyUserConfig struct {
+	Language       string `yaml:"language"`
+	Mode           string `yaml:"mode"`
+	Autonomy       string `yaml:"autonomy"`
+	DefaultProfile string `yaml:"default_profile"` // retired in v0.8.0
+}
+
 // legacyConfig represents the v0.6.0 config format for migration.
 type legacyConfig struct {
 	Version     string            `yaml:"version"`
 	Runtime     string            `yaml:"runtime"`
 	CoreSource  string            `yaml:"core_source"`
-	Owner       UserConfig        `yaml:"owner"`
-	User        UserConfig        `yaml:"user"`
+	Owner       legacyUserConfig  `yaml:"owner"`
+	User        legacyUserConfig  `yaml:"user"`
 	KB          KBConfig          `yaml:"kb"`
 	Specialists legacySpecialists `yaml:"specialists"`
 }
@@ -124,6 +144,12 @@ func Load(leoDir string) (*Config, error) {
 
 	// If Runtimes is populated, it's the new format.
 	if len(cfg.Runtimes) > 0 {
+		// Scrub legacy field that may still appear in v0.7 configs.
+		cfg.User.DefaultProfile = ""
+		// Back-fill communication.mode if absent.
+		if cfg.Communication.Mode == "" {
+			cfg.Communication.Mode = "concise"
+		}
 		return &cfg, nil
 	}
 
@@ -168,14 +194,23 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 	}
 
 	// v0.6.0 used "owner:" key, v0.6.x transitional used "user:".
-	user := legacy.User
-	if user.Language == "" && user.Mode == "" && legacy.Owner.Language != "" {
-		user = legacy.Owner
+	legacyUser := legacy.User
+	if legacyUser.Language == "" && legacyUser.Mode == "" && legacy.Owner.Language != "" {
+		legacyUser = legacy.Owner
 	}
 
-	// Map old profile name "generalist" → "general-manager".
-	if user.DefaultProfile == "generalist" {
-		user.DefaultProfile = "general-manager"
+	// Infer communication.mode from legacy user.mode.
+	// Preserve "caveman" if set; default everything else to "concise".
+	commMode := "concise"
+	if legacyUser.Mode == "caveman" {
+		commMode = "caveman"
+	}
+
+	user := UserConfig{
+		Language: legacyUser.Language,
+		Mode:     legacyUser.Mode,
+		Autonomy: legacyUser.Autonomy,
+		// DefaultProfile intentionally omitted — retired in v0.8.0.
 	}
 
 	return &Config{
@@ -187,8 +222,9 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 				Tiers:   tiers,
 			},
 		},
-		User: user,
-		KB:   legacy.KB,
+		User:          user,
+		Communication: CommunicationConfig{Mode: commMode},
+		KB:            legacy.KB,
 	}
 }
 
