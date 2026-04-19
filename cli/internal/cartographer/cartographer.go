@@ -248,6 +248,8 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 }
 
 // collectFiles walks rootDir and returns all files that pass size and pattern filters.
+// It stops descending into subdirectories that contain their own .leo/ directory,
+// since those represent separate scopes.
 func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 	maxBytes := c.cfg.MaxFileSizeMB * 1024 * 1024
 	if maxBytes == 0 {
@@ -268,6 +270,14 @@ func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 		if d.IsDir() {
 			if matchesAnyPattern(rel, c.cfg.SkipPatterns) {
 				return filepath.SkipDir
+			}
+			// Stop descending into subdirs with their own .leo/ (separate scope).
+			// Allow the rootDir itself even if it has .leo/.
+			if path != rootDir {
+				leoPath := filepath.Join(path, ".leo")
+				if info, err := os.Stat(leoPath); err == nil && info.IsDir() {
+					return filepath.SkipDir
+				}
 			}
 			return nil
 		}
@@ -300,6 +310,31 @@ func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 
 	sort.Strings(paths)
 	return paths, nil
+}
+
+// ScanTarget pairs a repository root with the .leo/ directory to write into.
+type ScanTarget struct {
+	RootDir string // directory to scan
+	LeoDir  string // .leo/ to use for cache and output
+}
+
+// MultiScan runs Scan for each target independently, using each target's own
+// .leo/ directory for cache and memory output.
+// baseConfig is used as a template; ScopeDir is overridden per target.
+func MultiScan(ctx context.Context, targets []ScanTarget, baseConfig Config) ([]*Result, error) {
+	results := make([]*Result, 0, len(targets))
+	for _, target := range targets {
+		cfg := baseConfig
+		cfg.ScopeDir = target.LeoDir
+
+		cart := New(cfg)
+		result, err := cart.Scan(ctx, target.RootDir)
+		if err != nil {
+			return results, fmt.Errorf("scan %s: %w", target.RootDir, err)
+		}
+		results = append(results, result)
+	}
+	return results, nil
 }
 
 // readFile reads a file and returns its contents.

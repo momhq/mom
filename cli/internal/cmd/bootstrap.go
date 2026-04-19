@@ -75,6 +75,12 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	cfg.MaxFileSizeMB = maxFileSizeMB
 	cfg.Refresh = refresh
 	cfg.DryRun = dryRun
+
+	// For user/org scopes, discover child repos and scan each into its own .leo/.
+	if targetScope.Label == "user" || targetScope.Label == "org" {
+		return runMultiRepoBootstrap(cmd, scanPath, targetScope, cfg, dryRun)
+	}
+
 	cfg.ScopeDir = targetScope.Path
 
 	cart := cartographer.New(cfg)
@@ -129,6 +135,98 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 		Tags:             []string{"bootstrap"},
 		Summary:          fmt.Sprintf("bootstrap scan of %s", filepath.Base(scanPath)),
 	})
+
+	return nil
+}
+
+// runMultiRepoBootstrap handles bootstrap for user/org scopes by scanning
+// each child repo that has its own .leo/ independently, outputting per-repo
+// progress grouped by repo name.
+func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scope.Scope, cfg cartographer.Config, dryRun bool) error {
+	// Discover the parent dir: it's the directory containing the .leo/ (go one level up from .leo/).
+	parentDir := filepath.Dir(targetScope.Path)
+
+	// Find child repos: immediate children with .git/ (may or may not have .leo/).
+	entries, err := os.ReadDir(parentDir)
+	if err != nil {
+		return fmt.Errorf("reading parent dir: %w", err)
+	}
+
+	type repoEntry struct {
+		root   string
+		leoDir string
+	}
+	var repos []repoEntry
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		child := filepath.Join(parentDir, e.Name())
+		gitPath := filepath.Join(child, ".git")
+		leoPath := filepath.Join(child, ".leo")
+
+		gitInfo, gitErr := os.Stat(gitPath)
+		if gitErr != nil || !gitInfo.IsDir() {
+			continue // not a git repo
+		}
+
+		leoInfo, leoErr := os.Stat(leoPath)
+		if leoErr != nil || !leoInfo.IsDir() {
+			cmd.Printf("  ⚠ %s — no .leo/ found, skipping (run 'leo init' in this repo first)\n", child)
+			continue
+		}
+
+		repos = append(repos, repoEntry{root: child, leoDir: leoPath})
+	}
+
+	if len(repos) == 0 {
+		cmd.Println("No initialized child repos found. Run 'leo init' in each repo first.")
+		return nil
+	}
+
+	cmd.Printf("Multi-repo bootstrap: %d repos under %s\n", len(repos), parentDir)
+	if dryRun {
+		cmd.Println("  (dry-run: no memories will be written)")
+	}
+
+	totalProposed := 0
+	totalWritten := 0
+
+	for _, repo := range repos {
+		cmd.Printf("\n  [%s]\n", filepath.Base(repo.root))
+
+		repoCfg := cfg
+		repoCfg.ScopeDir = repo.leoDir
+		cart := cartographer.New(repoCfg)
+
+		result, err := cart.Scan(cmd.Context(), repo.root)
+		if err != nil {
+			cmd.Printf("    ⚠ scan error: %v\n", err)
+			continue
+		}
+
+		printBootstrapProgress(cmd, result)
+		totalProposed += len(result.Drafts)
+
+		if !dryRun && len(result.Drafts) > 0 {
+			w, writeErr := writeDrafts(result.Drafts, repo.leoDir)
+			if writeErr != nil {
+				cmd.Printf("    ⚠ write error: %v\n", writeErr)
+			}
+			totalWritten += w
+			cmd.Printf("    %d memories seeded in %.1fs.\n", w, result.Duration().Seconds())
+		} else if dryRun {
+			cmd.Printf("    %d memories would be seeded.\n", len(result.Drafts))
+		}
+	}
+
+	cmd.Println()
+	if dryRun {
+		cmd.Printf("Total: %d memories would be seeded across %d repos.\n", totalProposed, len(repos))
+	} else {
+		cmd.Printf("Total: %d memories seeded across %d repos.\n", totalWritten, len(repos))
+	}
 
 	return nil
 }
