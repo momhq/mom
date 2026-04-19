@@ -26,6 +26,9 @@ type OnboardingResult struct {
 	// ScopeLabel is the value written to config.yaml scope: field.
 	// Defaults to "repo".
 	ScopeLabel string
+	// BootstrapChoice is the user's answer to the bootstrap question.
+	// Values: "full" | "repo" | "skip". Empty means skip (non-interactive path).
+	BootstrapChoice string
 }
 
 // runOnboarding executes the interactive wizard and returns the chosen config.
@@ -63,6 +66,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	mode := "concise"
 	autonomy := "balanced"
 	coreSource := ""
+	bootstrapChoice := "skip" // default: skip
 
 	// Scope installation choice: "cwd" (repo), a detected parent dir, or "custom".
 	// scopeChoice maps to an install directory; scopeLabel tracks the config value.
@@ -153,6 +157,21 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Description("Leave blank to skip — configure later in .leo/config.yaml").
 				Value(&coreSource),
 		),
+
+		// Group 7: Bootstrap
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Scan existing content to seed your memory?").
+				Description(
+					"Reads code, markdown, and commit messages to create initial memories.\n"+
+						"You can skip and let memory build from sessions only.",
+				).
+				Options(
+					huh.NewOption("Yes — scan this repo", "repo"),
+					huh.NewOption("No — start empty", "skip"),
+				).
+				Value(&bootstrapChoice),
+		),
 	).WithAccessible(accessible).
 		WithInput(r).
 		WithOutput(w).
@@ -220,13 +239,14 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}
 
 	return OnboardingResult{
-		Runtimes:   selectedRuntimes,
-		Language:   lang,
-		Mode:       mode,
-		Autonomy:   autonomy,
-		CoreSource: coreSource,
-		InstallDir: installDir,
-		ScopeLabel: scopeLabel,
+		Runtimes:        selectedRuntimes,
+		Language:        lang,
+		Mode:            mode,
+		Autonomy:        autonomy,
+		CoreSource:      coreSource,
+		InstallDir:      installDir,
+		ScopeLabel:      scopeLabel,
+		BootstrapChoice: bootstrapChoice,
 	}, nil
 }
 

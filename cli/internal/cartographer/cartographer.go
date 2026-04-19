@@ -50,10 +50,10 @@ type Source struct {
 
 // Draft is a proposed memory before it gets schema-validated and written.
 type Draft struct {
-	Type       string         // decision | fact | pattern | learning
+	Type       string // decision | fact | pattern | learning
 	Summary    string
 	Tags       []string
-	Confidence string         // EXTRACTED | INFERRED | AMBIGUOUS
+	Confidence string // EXTRACTED | INFERRED | AMBIGUOUS
 	Content    map[string]any
 	Provenance ProvenanceMeta
 }
@@ -432,6 +432,13 @@ func segMatch(pattern, segment string) bool {
 // hashBytes returns the SHA256 hex digest of the given bytes.
 func hashBytes(b []byte) string {
 	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+
+// DraftHash returns the SHA256 hex digest of the given string.
+// Exported for use by CLI command layer when generating draft IDs.
+func DraftHash(s string) string {
+	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])
 }
 

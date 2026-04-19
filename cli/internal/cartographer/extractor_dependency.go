@@ -14,10 +14,10 @@ import (
 // dependencyManifestNames is the set of file basenames handled by DependencyManifestExtractor.
 var dependencyManifestNames = map[string]string{
 	"package.json":     "javascript",
-	"go.mod":          "go",
+	"go.mod":           "go",
 	"requirements.txt": "python",
-	"Cargo.toml":      "rust",
-	"pyproject.toml":  "python",
+	"Cargo.toml":       "rust",
+	"pyproject.toml":   "python",
 }
 
 // DependencyManifestExtractor extracts one fact per direct dependency.

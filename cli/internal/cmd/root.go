@@ -28,4 +28,5 @@ func init() {
 	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(promoteCmd)
 	rootCmd.AddCommand(demoteCmd)
+	rootCmd.AddCommand(bootstrapCmd)
 }

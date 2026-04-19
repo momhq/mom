@@ -55,7 +55,21 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if installDir == "" {
 			installDir = cwd
 		}
-		return runInitWithConfig(cmd, installDir, force, result)
+		if err := runInitWithConfig(cmd, installDir, force, result); err != nil {
+			return err
+		}
+		// Run bootstrap inline if the user opted in (non-interactive -y always skips).
+		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
+			scanDir := installDir
+			if result.BootstrapChoice == "repo" {
+				scanDir = cwd
+			}
+			cmd.Println()
+			if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".leo")); err != nil {
+				cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
+			}
+		}
+		return nil
 	}
 
 	// Non-interactive path: use flags/defaults. Always installs at cwd with repo scope.

@@ -17,8 +17,8 @@ func TestTodoExtractor_Matches(t *testing.T) {
 		{"main.go", true},
 		{"app.py", true},
 		{"server.js", true},
-		{"README.md", false},  // handled by markdown
-		{"notes.txt", false},  // handled by markdown
+		{"README.md", false}, // handled by markdown
+		{"notes.txt", false}, // handled by markdown
 		{"logo.png", false},
 		{"data.bin", false},
 	}
