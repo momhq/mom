@@ -64,6 +64,12 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		return err
 	}
 
+	// Detect legacy layout (.leo/kb/ present = pre-v0.8.0 install).
+	if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
+		cmd.Printf("⚠ Legacy layout detected (.leo/kb/ present)\n  Run 'leo upgrade' to migrate to the v0.8.0 flat layout.\n")
+		return nil
+	}
+
 	failed := false
 
 	// Check 1: .leo/ exists and is writable.
