@@ -11,7 +11,6 @@ import (
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
 	"github.com/vmarinogg/leo-core/cli/internal/kb"
-	"gopkg.in/yaml.v3"
 )
 
 var statusCmd = &cobra.Command{
@@ -165,10 +164,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		failed = true
 	}
 
-	// Check 6: All profiles are valid YAML.
-	profilesDir := filepath.Join(leoDir, "profiles")
-	if profileFail := checkProfiles(cmd, profilesDir); profileFail {
-		failed = true
+	// Check 6: Communication mode.
+	if cfg != nil {
+		commMode := cfg.Communication.Mode
+		if commMode == "" {
+			commMode = "concise"
+		}
+		cmd.Printf("✔ communication mode: %s\n", commMode)
 	}
 
 	if failed {
@@ -265,42 +267,6 @@ func checkIndexConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[str
 
 	cmd.Printf("✔ index consistency: ok\n")
 	return false
-}
-
-// checkProfiles validates all YAML files in profilesDir.
-// Returns true if any profile fails validation.
-func checkProfiles(cmd *cobra.Command, profilesDir string) bool {
-	entries, err := os.ReadDir(profilesDir)
-	if err != nil {
-		cmd.Printf("⚠ profiles/: directory not found\n")
-		return false
-	}
-
-	failed := false
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
-			continue
-		}
-
-		path := filepath.Join(profilesDir, e.Name())
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			cmd.Printf("✗ profile %s: %v\n", e.Name(), readErr)
-			failed = true
-			continue
-		}
-
-		var v map[string]any
-		if unmarshalErr := yaml.Unmarshal(data, &v); unmarshalErr != nil {
-			cmd.Printf("✗ profile %s: invalid YAML — %v\n", e.Name(), unmarshalErr)
-			failed = true
-			continue
-		}
-
-		cmd.Printf("✔ profile %s: valid\n", e.Name())
-	}
-
-	return failed
 }
 
 // checkDirWritable verifies a directory exists and is writable.
