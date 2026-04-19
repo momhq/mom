@@ -25,7 +25,7 @@ func setupV060Project(t *testing.T) string {
 	dir := t.TempDir()
 	leoDir := filepath.Join(dir, ".leo")
 
-	// Create directories.
+	// Create directories (including profiles/ to simulate a legacy install).
 	for _, d := range []string{
 		leoDir,
 		filepath.Join(leoDir, "profiles"),
@@ -66,7 +66,19 @@ kb:
 		0644,
 	)
 
-	// Write a profile.
+	// Write retired constraint and skill files (simulating a pre-v0.8 install).
+	os.WriteFile(
+		filepath.Join(leoDir, "kb", "constraints", "delegation-mandatory.json"),
+		[]byte(`{"id":"delegation-mandatory","type":"constraint"}`),
+		0644,
+	)
+	os.WriteFile(
+		filepath.Join(leoDir, "kb", "skills", "task-intake.json"),
+		[]byte(`{"id":"task-intake","type":"skill"}`),
+		0644,
+	)
+
+	// Write a profile file (will be removed by upgrade).
 	os.WriteFile(
 		filepath.Join(leoDir, "profiles", "general-manager.yaml"),
 		[]byte("name: General Manager\ndescription: custom\n"),
@@ -134,6 +146,112 @@ func TestUpgradeCmd_MigratesConfig(t *testing.T) {
 	}
 	if cfg.User.Autonomy != "autonomous" {
 		t.Errorf("expected autonomy=autonomous preserved, got %q", cfg.User.Autonomy)
+	}
+
+	// DefaultProfile must be dropped.
+	if cfg.User.DefaultProfile != "" {
+		t.Errorf("expected DefaultProfile dropped, got %q", cfg.User.DefaultProfile)
+	}
+
+	// communication.mode must be inferred (caveman → caveman).
+	if cfg.Communication.Mode != "caveman" {
+		t.Errorf("expected communication.mode=caveman, got %q", cfg.Communication.Mode)
+	}
+}
+
+func TestUpgradeCmd_RemovesProfilesDir(t *testing.T) {
+	resetUpgradeFlags(t)
+	dir := setupV060Project(t)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"upgrade"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("upgrade failed: %v\noutput:\n%s", err, buf.String())
+	}
+
+	// profiles/ directory must be gone after upgrade.
+	profilesDir := filepath.Join(dir, ".leo", "profiles")
+	if _, err := os.Stat(profilesDir); err == nil {
+		t.Error("profiles/ directory should have been removed by upgrade")
+	}
+}
+
+func TestUpgradeCmd_RemovesRetiredConstraints(t *testing.T) {
+	resetUpgradeFlags(t)
+	dir := setupV060Project(t)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"upgrade"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("upgrade failed: %v\noutput:\n%s", err, buf.String())
+	}
+
+	leoDir := filepath.Join(dir, ".leo")
+
+	// Retired constraints must be removed.
+	for _, name := range []string{"delegation-mandatory", "think-before-execute", "know-what-you-dont-know", "peer-review-automatic"} {
+		path := filepath.Join(leoDir, "kb", "constraints", name+".json")
+		if _, err := os.Stat(path); err == nil {
+			t.Errorf("retired constraint %s should have been removed", name)
+		}
+	}
+
+	// Retired skill must be removed.
+	taskIntakePath := filepath.Join(leoDir, "kb", "skills", "task-intake.json")
+	if _, err := os.Stat(taskIntakePath); err == nil {
+		t.Error("retired skill task-intake.json should have been removed")
+	}
+
+	// Active constraint must still exist.
+	antiHalPath := filepath.Join(leoDir, "kb", "constraints", "anti-hallucination.json")
+	if _, err := os.Stat(antiHalPath); err != nil {
+		t.Error("active constraint anti-hallucination.json must survive upgrade")
+	}
+}
+
+// TestUpgradeCmd_Idempotent verifies running upgrade twice is a no-op on the second run.
+func TestUpgradeCmd_Idempotent(t *testing.T) {
+	resetUpgradeFlags(t)
+	dir := setupV060Project(t)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	// First upgrade.
+	rootCmd.SetArgs([]string{"upgrade"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("first upgrade failed: %v\noutput:\n%s", err, buf.String())
+	}
+
+	// Second upgrade — should succeed without error.
+	buf.Reset()
+	rootCmd.SetArgs([]string{"upgrade"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("second upgrade (idempotent) failed: %v\noutput:\n%s", err, buf.String())
+	}
+
+	// profiles/ still gone.
+	if _, err := os.Stat(filepath.Join(dir, ".leo", "profiles")); err == nil {
+		t.Error("profiles/ should not reappear on second upgrade")
 	}
 }
 
@@ -223,30 +341,6 @@ func TestUpgradeCmd_CreatesLogsDir(t *testing.T) {
 	}
 }
 
-func TestUpgradeCmd_PreservesCustomProfile(t *testing.T) {
-	resetUpgradeFlags(t)
-	dir := setupV060Project(t)
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
-
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"upgrade"})
-
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("upgrade failed: %v", err)
-	}
-
-	// Custom general-manager profile should NOT be overwritten.
-	data, _ := os.ReadFile(filepath.Join(dir, ".leo", "profiles", "general-manager.yaml"))
-	if !strings.Contains(string(data), "custom") {
-		t.Error("custom profile was overwritten during upgrade")
-	}
-}
-
 func TestUpgradeCmd_DryRun(t *testing.T) {
 	resetUpgradeFlags(t)
 	dir := setupV060Project(t)
@@ -276,6 +370,11 @@ func TestUpgradeCmd_DryRun(t *testing.T) {
 	// Output should mention dry run.
 	if !strings.Contains(buf.String(), "Dry run") {
 		t.Error("expected 'Dry run' in output")
+	}
+
+	// profiles/ should still exist (dry-run doesn't remove it).
+	if _, err := os.Stat(filepath.Join(dir, ".leo", "profiles")); err != nil {
+		t.Error("dry-run should not have removed profiles/")
 	}
 }
 
@@ -344,25 +443,11 @@ func TestUpgradeCmd_GeneratesRuntimeFiles(t *testing.T) {
 	}
 }
 
-func TestUpgradeCmd_MigratesGeneralistProfile(t *testing.T) {
+// TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent verifies the generated
+// CLAUDE.md does not contain any orchestration/profile references.
+func TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent(t *testing.T) {
 	resetUpgradeFlags(t)
 	dir := setupV060Project(t)
-	leoDir := filepath.Join(dir, ".leo")
-
-	// Override config with old "generalist" profile name.
-	legacyConfig := `version: "1"
-runtime: claude
-owner:
-  language: pt
-  mode: concise
-  default_profile: generalist
-  autonomy: balanced
-kb:
-  auto_propagate: true
-  wrap_up: prompt
-  stale_threshold: 30d
-`
-	os.WriteFile(filepath.Join(leoDir, "config.yaml"), []byte(legacyConfig), 0644)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
@@ -377,15 +462,25 @@ kb:
 		t.Fatalf("upgrade failed: %v\noutput:\n%s", err, buf.String())
 	}
 
-	cfg, err := config.Load(leoDir)
+	claudeMD := filepath.Join(dir, ".claude", "CLAUDE.md")
+	data, err := os.ReadFile(claudeMD)
 	if err != nil {
-		t.Fatalf("loading config after upgrade: %v", err)
+		t.Fatal("CLAUDE.md not found")
 	}
-	if cfg.User.DefaultProfile != "general-manager" {
-		t.Errorf("expected generalist→general-manager migration, got %q", cfg.User.DefaultProfile)
+
+	s := strings.ToLower(string(data))
+	// These phrases indicate the retired orchestration model.
+	forbidden := []string{"specialist", "delegation", "task-intake", "active profile",
+		"orchestrates, never executes", "leo orchestrates", "task pipeline"}
+	for _, bad := range forbidden {
+		if strings.Contains(s, bad) {
+			t.Errorf("CLAUDE.md must not contain %q after upgrade", bad)
+		}
 	}
-	if cfg.User.Language != "pt" {
-		t.Errorf("expected language=pt preserved from owner field, got %q", cfg.User.Language)
+
+	// Must contain communication mode directive.
+	if !strings.Contains(string(data), "## Communication mode:") {
+		t.Error("CLAUDE.md must contain communication mode section")
 	}
 }
 

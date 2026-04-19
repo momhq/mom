@@ -31,13 +31,22 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 		".leo/kb/schema.json",
 		".leo/kb/index.json",
 		".leo/kb/logs",
-		".leo/profiles/general-manager.yaml",
-		".leo/profiles/backend-engineer.yaml",
 		".claude/CLAUDE.md",
 		".leo/kb/constraints/anti-hallucination.json",
-		".leo/kb/constraints/delegation-mandatory.json",
 		".leo/kb/skills/session-wrap-up.json",
+	}
+	// Retired files must NOT exist.
+	retired := []string{
+		".leo/profiles/general-manager.yaml",
+		".leo/profiles/backend-engineer.yaml",
+		".leo/kb/constraints/delegation-mandatory.json",
 		".leo/kb/skills/task-intake.json",
+	}
+	for _, path := range retired {
+		full := filepath.Join(dir, path)
+		if _, err := os.Stat(full); err == nil {
+			t.Errorf("retired file should not exist: %s", path)
+		}
 	}
 
 	for _, path := range expected {
@@ -118,9 +127,9 @@ func TestInitCmd_MultiRuntime(t *testing.T) {
 
 	// All three runtime outputs should exist.
 	files := map[string]string{
-		".claude/CLAUDE.md":             "Claude",
-		"AGENTS.md":                     "Codex",
-		".clinerules/leo-context.md":    "Cline",
+		".claude/CLAUDE.md":          "Claude",
+		"AGENTS.md":                  "Codex",
+		".clinerules/leo-context.md": "Cline",
 	}
 
 	for path, name := range files {
