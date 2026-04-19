@@ -262,6 +262,12 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			addAction("✔", fmt.Sprintf("doc %s migrated metric → session-log", docID))
 		}
 
+		// Migrate fact+ast/bootstrap → pattern docs.
+		migratedPatterns := migrateFactASTDocs(docsDir, dryRun)
+		for _, docID := range migratedPatterns {
+			addAction("✔", fmt.Sprintf("doc %s migrated fact → pattern", docID))
+		}
+
 		if showSpinner {
 			time.Sleep(700 * time.Millisecond)
 		}
@@ -466,6 +472,66 @@ func migrateMetricDocs(docsDir string, dryRun bool) []string {
 		docID, _ := doc["id"].(string)
 		if !dryRun {
 			doc["type"] = "session-log"
+			updated, err := json.MarshalIndent(doc, "", "  ")
+			if err != nil {
+				continue
+			}
+			os.WriteFile(path, append(updated, '\n'), 0644) //nolint:errcheck
+		}
+		migrated = append(migrated, docID)
+	}
+
+	return migrated
+}
+
+// migrateFactASTDocs finds docs with type "fact" that carry an "ast" or "bootstrap"
+// tag (written by the cartographer before pattern was a first-class type) and
+// converts them to type "pattern". Plain fact docs without those tags are untouched.
+func migrateFactASTDocs(docsDir string, dryRun bool) []string {
+	var migrated []string
+
+	entries, err := os.ReadDir(docsDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+
+		path := filepath.Join(docsDir, entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+
+		var doc map[string]interface{}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			continue
+		}
+
+		docType, ok := doc["type"].(string)
+		if !ok || docType != "fact" {
+			continue
+		}
+
+		// Only convert if the doc carries an "ast" or "bootstrap" tag.
+		tags, _ := doc["tags"].([]interface{})
+		hasASTTag := false
+		for _, tag := range tags {
+			if s, ok := tag.(string); ok && (s == "ast" || s == "bootstrap") {
+				hasASTTag = true
+				break
+			}
+		}
+		if !hasASTTag {
+			continue
+		}
+
+		docID, _ := doc["id"].(string)
+		if !dryRun {
+			doc["type"] = "pattern"
 			updated, err := json.MarshalIndent(doc, "", "  ")
 			if err != nil {
 				continue

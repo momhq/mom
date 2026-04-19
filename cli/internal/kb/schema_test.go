@@ -76,7 +76,7 @@ func TestValidate_InvalidType(t *testing.T) {
 }
 
 func TestValidate_AllValidTypes(t *testing.T) {
-	types := []string{"constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "metric"}
+	types := []string{"constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "session-log", "pattern", "learning"}
 	for _, tp := range types {
 		t.Run(tp, func(t *testing.T) {
 			doc := validDoc()
@@ -107,11 +107,11 @@ func TestValidate_RuleTypeRejected(t *testing.T) {
 	}
 }
 
-func TestValidate_PatternTypeRejected(t *testing.T) {
+func TestValidate_MetricTypeRejected(t *testing.T) {
 	doc := validDoc()
-	doc.Type = "pattern"
+	doc.Type = "metric"
 	if err := doc.Validate(); err == nil {
-		t.Fatal("expected error for deprecated type 'pattern'")
+		t.Fatal("expected error for retired type 'metric'")
 	}
 }
 

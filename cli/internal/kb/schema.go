@@ -13,7 +13,8 @@ var validID = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 var validTypes = map[string]bool{
 	"constraint": true, "skill": true, "identity": true, "decision": true,
-	"fact": true, "feedback": true, "reference": true, "metric": true,
+	"fact": true, "feedback": true, "reference": true, "session-log": true,
+	"pattern": true, "learning": true,
 }
 
 var validLifecycles = map[string]bool{

@@ -94,7 +94,7 @@ func extractViaQuery(h *languageHandler, root *sitter.Node, src Source, srcHash 
 			kind := symbolKind(h.name, node)
 
 			drafts = append(drafts, Draft{
-				Type:       "fact",
+				Type:       "pattern",
 				Summary:    fmt.Sprintf("%s %s: %s", h.name, kind, name),
 				Tags:       []string{h.name, kind, "ast", "bootstrap"},
 				Confidence: ConfidenceExtracted,
@@ -232,7 +232,7 @@ func goTypeDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	}
 
 	return []Draft{{
-		Type:       "fact",
+		Type:       "pattern",
 		Summary:    summary,
 		Tags:       []string{"type", "go", "ast", "bootstrap"},
 		Confidence: ConfidenceExtracted,
@@ -284,7 +284,7 @@ func goFuncDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	}
 
 	return &Draft{
-		Type:       "fact",
+		Type:       "pattern",
 		Summary:    summary,
 		Tags:       []string{"function", "go", "ast", "bootstrap"},
 		Confidence: ConfidenceExtracted,
@@ -346,7 +346,7 @@ func goMethodDraft(node *sitter.Node, src Source, srcHash string, lines []string
 	}
 
 	return &Draft{
-		Type:       "fact",
+		Type:       "pattern",
 		Summary:    summary,
 		Tags:       []string{"method", "go", "ast", "bootstrap"},
 		Confidence: ConfidenceExtracted,

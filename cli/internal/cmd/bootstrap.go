@@ -242,10 +242,12 @@ func mapDraftType(t string) string {
 	switch t {
 	case "decision":
 		return "decision"
-	case "fact", "pattern":
+	case "fact":
 		return "fact"
+	case "pattern":
+		return "pattern"
 	case "learning":
-		return "feedback"
+		return "learning"
 	default:
 		return "fact"
 	}
@@ -263,10 +265,12 @@ func draftTypePrefix(t string) string {
 	switch t {
 	case "decision":
 		return "dec-"
-	case "fact", "pattern":
+	case "fact":
 		return "fact-"
+	case "pattern":
+		return "pat-"
 	case "learning":
-		return "lrn-"
+		return "learn-"
 	default:
 		return "mem-"
 	}
