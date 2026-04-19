@@ -67,6 +67,66 @@
       "type": "string",
       "description": "Links this document to the session that produced it"
     },
+    "confidence": {
+      "type": "string",
+      "enum": ["EXTRACTED", "INFERRED", "AMBIGUOUS"],
+      "description": "Epistemic confidence: EXTRACTED = explicit assertion, INFERRED = deduction, AMBIGUOUS = uncertain. Default: INFERRED."
+    },
+    "promotion_state": {
+      "type": "string",
+      "enum": ["draft", "curated", "validated", "deprecated"],
+      "description": "Lifecycle / process state. Default: draft."
+    },
+    "classification": {
+      "type": "string",
+      "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL"],
+      "description": "Access classification for ABAC. Default: INTERNAL."
+    },
+    "compartments": {
+      "type": "object",
+      "description": "Customer-defined need-to-know dimensions. Default: {} (no restrictions).",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Capture provenance — runtime, session, trigger, and raw exhaust reference.",
+      "additionalProperties": false,
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "description": "Runtime that captured this memory (e.g., claude-code, cursor, cline, codex)"
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Session identifier linking to SessionEvent telemetry"
+        },
+        "trigger_event": {
+          "type": "string",
+          "description": "Event that triggered capture (e.g., session.end, compact.triggered, clear.triggered)"
+        },
+        "commit_sha": {
+          "type": "string",
+          "description": "Git commit SHA at time of capture (set by git integration, not the runtime)"
+        },
+        "raw_exhaust_ref": {
+          "type": "string",
+          "description": "Pointer to the raw pre-processed capture payload (file path or blob hash)"
+        }
+      }
+    },
+    "landmark": {
+      "type": "boolean",
+      "description": "True if this memory is a navigation landmark. Default: false. Populated by the landmarks computation job (#65)."
+    },
+    "centrality_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Graph centrality score 0.0–1.0. Default: null. Populated by the landmarks computation job (#65)."
+    },
     "content": {
       "type": "object",
       "description": "Shape depends on type — see oneOf"
