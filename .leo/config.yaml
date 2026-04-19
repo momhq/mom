@@ -1,16 +1,18 @@
 version: "1"
-runtime: claude
-core_source: "~/Github/leo-core"
+core_source: ~/Github/leo-core
+runtimes:
+    claude:
+        enabled: true
+        tiers:
+            execution: sonnet
+            orchestration: opus
+            review: sonnet
 user:
-  language: en
-  mode: concise
-  autonomy: balanced
-  default_profile: cto
+    language: en
+    autonomy: balanced
+communication:
+    mode: concise
 kb:
-  auto_propagate: true
-  wrap_up: prompt
-  stale_threshold: 30d
-specialists:
-  default_model: sonnet
-  simple_task_model: haiku
-  validation: always
+    auto_propagate: true
+    wrap_up: prompt
+    stale_threshold: 30d
