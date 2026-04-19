@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "runDoctor now prints an MRP v0 capability summary for each enabled\nadapter — supported events and experimental events shown separately.\nTests cover both full-support (claude) and experimental (codex) cases.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "57edb10191b23869c29259d295c9bc3174702222",
+    "prefix": "feat",
+    "scope": "mrp",
+    "subject": "feat(mrp): extend leo doctor with adapter capability section",
+    "summary": "extend leo doctor with adapter capability section. runDoctor now prints an MRP v0 capability summary for each enabled\nadapter — supported events and experimental events shown separately.\nTests cove..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-d5e733c139de",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "57edb10191b23869c29259d295c9bc3174702222",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "mrp"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

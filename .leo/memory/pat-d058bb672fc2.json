@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "kind": "method",
+    "language": "go",
+    "name": "SupportsHooks",
+    "receiver": "(a *CodexAdapter)",
+    "summary": "Method: (a *CodexAdapter)SupportsHooks"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-d058bb672fc2",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-runtime",
+    "receiver-codexadapter"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

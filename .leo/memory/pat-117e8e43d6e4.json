@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "Identity represents the .leo/identity.json file.",
+    "kind": "type",
+    "language": "go",
+    "name": "Identity",
+    "summary": "Type: Identity — Identity represents the .leo/identity.json file."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-117e8e43d6e4",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-runtime"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

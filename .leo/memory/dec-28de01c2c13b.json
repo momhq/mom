@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Handles package.json, go.mod (direct deps only), requirements.txt,\nCargo.toml, and pyproject.toml. Each direct dependency produces an\nEXTRACTED fact draft tagged [dependency, \u003clanguage\u003e, bootstrap].\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "c79516ae265c0c4ead4a797d6d3bc421cbd568f0",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add DependencyManifestExtractor with tests",
+    "summary": "add DependencyManifestExtractor with tests. Handles package.json, go.mod (direct deps only), requirements.txt,\nCargo.toml, and pyproject.toml. Each direct dependency produces an\nEXTRACTED fact draf..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-28de01c2c13b",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "c79516ae265c0c4ead4a797d6d3bc421cbd568f0",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

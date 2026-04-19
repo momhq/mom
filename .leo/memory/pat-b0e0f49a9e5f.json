@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "oneByteReader wraps a reader to return one byte at a time, preventing bufio.Scanner from buffering ahead and consuming input meant for later fields. This is needed because huh's accessible mode creates a new bufio.Scanner per field, and each scanner would otherwise read the full input.",
+    "kind": "type",
+    "language": "go",
+    "name": "oneByteReader",
+    "summary": "Type: oneByteReader — oneByteReader wraps a reader to return one byte at a time, preventing bufio.Scanner from bufferin..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-b0e0f49a9e5f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-cmd"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

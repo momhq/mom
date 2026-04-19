@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestNewShapeDoc_RoundTrip verifies that a fully-populated new-shape doc survives save → load → save without field mutation.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestNewShapeDoc_RoundTrip",
+    "summary": "Function: TestNewShapeDoc_RoundTrip — TestNewShapeDoc_RoundTrip verifies that a fully-populated new-shape doc survives save → load → sa..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-c845842f501a",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-kb",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

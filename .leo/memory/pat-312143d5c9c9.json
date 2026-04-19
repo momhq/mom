@@ -1,0 +1,31 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "kind": "variable-declarator",
+    "language": "javascript",
+    "summary": "javascript variable-declarator: helper",
+    "symbol": "helper"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-312143d5c9c9",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "javascript",
+    "variable-declarator",
+    "ast",
+    "bootstrap",
+    "pkg-testdata"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

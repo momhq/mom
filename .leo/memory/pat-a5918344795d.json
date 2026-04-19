@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "CacheEntry records the last-seen state of a file.",
+    "kind": "type",
+    "language": "go",
+    "name": "CacheEntry",
+    "summary": "Type: CacheEntry — CacheEntry records the last-seen state of a file."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-a5918344795d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-cartographer"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

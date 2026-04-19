@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Covers Get/Set, Save/Load persistence, Reset, and the no-op case when\nleoDir is empty. Verifies that a second scan with unchanged files\nproduces no new dependency drafts and that --refresh re-processes all.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "b0151382263cc4af046ba1e057fe1b8048374a00",
+    "prefix": "test",
+    "scope": "cartographer",
+    "subject": "test(cartographer): add SHA256 cache tests",
+    "summary": "add SHA256 cache tests. Covers Get/Set, Save/Load persistence, Reset, and the no-op case when\nleoDir is empty. Verifies that a second scan with unchanged files\nproduces no new dependency drafts and..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-45e48c42ce9f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "b0151382263cc4af046ba1e057fe1b8048374a00",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "test",
+    "cartographer"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

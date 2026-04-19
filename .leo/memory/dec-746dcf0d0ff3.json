@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Replaces the old Node.js CLI with a Go scaffold using Cobra.\nDefines RuntimeAdapter and StorageAdapter interfaces, registers all\nMVP command stubs, and adds CI workflow with build + test + lint.\n\n- Binary: `leo` (~3.6MB, cross-compiled for darwin/linux × amd64/arm64)\n- Commands: init, read, write, query, delete, reindex, validate,\n  status, doctor, export, import, profile (list/show/use/create), version\n- Interfaces: RuntimeAdapter (for Claude/Cursor/Windsurf adapters),\n  StorageAdapter (for JSON/MongoDB backends)\n- CI: GitHub Actions with Go 1.26, golangci-lint\n- Makefile: build, test, lint, build-all, install, clean\n\nCloses #15\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "a0f8c8099a2684f08402441ddb43d4c264007d52",
+    "prefix": "feat",
+    "scope": "cli",
+    "subject": "feat(cli): rewrite CLI scaffold in Go, replacing Node.js/TypeScript",
+    "summary": "rewrite CLI scaffold in Go, replacing Node.js/TypeScript. Replaces the old Node.js CLI with a Go scaffold using Cobra.\nDefines RuntimeAdapter and StorageAdapter interfaces, registers all\nMVP comman..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-746dcf0d0ff3",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "a0f8c8099a2684f08402441ddb43d4c264007d52",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cli"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

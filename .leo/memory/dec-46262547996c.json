@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Ships Go AST support via github.com/smacker/go-tree-sitter. Extracts\nexported type declarations, exported functions, and exported methods.\nEach produces an EXTRACTED fact draft with doc-comment and source line\nprovenance. Python/TS/Rust/Java/C/C++/C#/Ruby/Java deferred to follow-up\nissues due to CGo grammar bundling complexity.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "4e48175982ab361f7435c2ef98733461d0e95678",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add TreeSitterASTExtractor for Go with tests",
+    "summary": "add TreeSitterASTExtractor for Go with tests. Ships Go AST support via github.com/smacker/go-tree-sitter. Extracts\nexported type declarations, exported functions, and exported methods.\nEach produce..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-46262547996c",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "4e48175982ab361f7435c2ef98733461d0e95678",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- Python: detect class methods vs top-level functions by checking\n  grandparent node (block → class_definition); class methods now emit\n  kind \"method\" instead of \"function\"\n- Python: extract inline docstrings from function_definition and\n  class_definition bodies; stored as \"doc\" in draft content\n- TypeScript: add interface_declaration to query so interfaces are\n  extracted with kind \"interface\" (both exported and bare forms)\n- JavaScript/TypeScript: extract leading // comment blocks above\n  declarations for all query-based languages via extractLeadingComment\n- Updated sample.py, sample.ts, sample.js fixtures; added three new\n  focused tests (Python class method kind, Python docstring, TS interface)\n\nCo-Authored-By: Claude Sonnet 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "413c2832331a4c16bdc0091c0a006a86067f84b2",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): improve per-language AST extraction (#79)",
+    "summary": "improve per-language AST extraction (#79). - Python: detect class methods vs top-level functions by checking\n  grandparent node (block → class_definition); class methods now emit\n  kind \"method\" in..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-f5d1fcb20ac8",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "413c2832331a4c16bdc0091c0a006a86067f84b2",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

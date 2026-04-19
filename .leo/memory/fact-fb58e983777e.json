@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- LICENSE: MIT (Vitor Marino, 2026)\n- README.md: rewritten for external audience (install, quickstart, architecture, commands)\n- CONTRIBUTING.md: setup, project structure, TDD process, commit conventions, PR flow\n- CODE_OF_CONDUCT.md: Contributor Covenant v2.1\n- SECURITY.md: vulnerability reporting via GitHub Security Advisories\n- Issue templates: bug report, feature request, adapter proposal, config\n- PR template: change type, checklist, issue link\n\nCloses #23, closes #24\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "86e027e1f877c9c732942136c297676e3fbc62c6",
+    "prefix": "docs",
+    "scope": "",
+    "subject": "docs: add MIT license, templates, and open-source governance docs",
+    "summary": "add MIT license, templates, and open-source governance docs. - LICENSE: MIT (Vitor Marino, 2026)\n- README.md: rewritten for external audience (install, quickstart, architecture, commands)\n- CONTRIB..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-fb58e983777e",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "86e027e1f877c9c732942136c297676e3fbc62c6",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "docs"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "When .leo/ exists and --force is not given, init now skips scaffold\nand config writing but returns nil so the caller can still run\nbootstrap if the user opted in during the wizard.\n\nPreviously this was a hard error, which blocked re-running init just\nto trigger bootstrap on an existing install.",
+    "commit_sha": "3e7bdefb7fa85cee001883e04a7bef53c25b076e",
+    "prefix": "fix",
+    "scope": "init",
+    "subject": "fix(init): skip scaffold gracefully when .leo/ already exists",
+    "summary": "skip scaffold gracefully when .leo/ already exists. When .leo/ exists and --force is not given, init now skips scaffold\nand config writing but returns nil so the caller can still run\nbootstrap if t..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-328e7918dfce",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "3e7bdefb7fa85cee001883e04a7bef53c25b076e",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix",
+    "init"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "MRPCapturePayload is the dual-output payload returned after a capture fires.",
+    "kind": "type",
+    "language": "go",
+    "name": "MRPCapturePayload",
+    "summary": "Type: MRPCapturePayload — MRPCapturePayload is the dual-output payload returned after a capture fires."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-498f87d130fb",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-transponder"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

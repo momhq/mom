@@ -1,0 +1,34 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "ApplyDefaults fills in safe defaults for any optional fields that are absent. This enables legacy memory files (without the new fields) to load cleanly.",
+    "kind": "method",
+    "language": "go",
+    "name": "ApplyDefaults",
+    "receiver": "(d *Doc)",
+    "summary": "Method: (d *Doc)ApplyDefaults — ApplyDefaults fills in safe defaults for any optional fields that are absent. This enables legacy..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-0f0f40ba4721",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-kb",
+    "receiver-doc"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

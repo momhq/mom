@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestComputeLandmarks_RareTagHigherWeight verifies that rare shared tags produce higher per-edge weights, such that a doc with a single rare-tag connection outscores a doc with only common-tag connections when the rare-tag edge weight exceeds the total contribution of common-tag edges.  We construct a scenario where:   - doc-A and doc-B share \"ultra-rare\" (only 2 docs, weight = 0.5 per edge)   - doc-C and doc-D share only \"very-common\" with each other (2 docs, weight = 0.5)  Both have exactly one shared-tag edge — but the uncommon case shows that the weight formula 1/count rewards rarity: when a tag is shared by 2 docs, each gets weight 0.5. When shared by 100 docs, each gets weight 0.01. doc-B (exclusive to the rare pair) should score equal to doc-D (exclusive to the common pair) because they each have the same edge count and the same weight when both tags are shared by exactly 2 docs.  The real test: a doc connected only via a rare shared tag should score strictly higher than a doc connected only via a common (many-docs) tag.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestComputeLandmarks_RareTagHigherWeight",
+    "summary": "Function: TestComputeLandmarks_RareTagHigherWeight — TestComputeLandmarks_RareTagHigherWeight verifies that rare shared tags produce higher per-edge w..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-7b2e16f8183d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-gardener",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

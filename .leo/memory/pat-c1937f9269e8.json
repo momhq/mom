@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestLegacyConfigWithDefaultProfile verifies that a v0.7 config carrying user.default_profile loads without error and drops the profile field.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestLegacyConfigWithDefaultProfile",
+    "summary": "Function: TestLegacyConfigWithDefaultProfile — TestLegacyConfigWithDefaultProfile verifies that a v0.7 config carrying user.default_profile load..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-c1937f9269e8",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-config",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

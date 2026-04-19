@@ -1,18 +1,7 @@
 {
-  "id": "lifecycle-replaces-state-vs-learning",
-  "type": "decision",
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "lifecycle",
-    "architecture",
-    "knowledge-management",
-    "migration"
-  ],
-  "created": "2026-04-10T00:00:00Z",
-  "created_by": "leo",
-  "updated": "2026-04-10T00:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.012269938650306749,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "alternatives_considered": [
       "Keep the rule as-is alongside the lifecycle field — redundant, the schema already enforces it",
@@ -27,5 +16,22 @@
     ],
     "reversible": true,
     "why": "The old rule required agents to mentally classify memories as 'state' (ages fast) or 'learning' (ages slowly). With the KB schema, every doc has a lifecycle field that encodes this classification. Scripts (check-stale.sh) can enforce staleness thresholds automatically: state \u003e 30 days = stale, learning \u003e 90 days = stale, permanent = never stale."
-  }
+  },
+  "created": "2026-04-10T00:00:00Z",
+  "created_by": "leo",
+  "id": "lifecycle-replaces-state-vs-learning",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "lifecycle",
+    "architecture",
+    "knowledge-management",
+    "migration"
+  ],
+  "type": "decision",
+  "updated": "2026-04-10T00:00:00Z",
+  "updated_by": "leo"
 }

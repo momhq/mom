@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- Add Node.js CLI with 4 commands: setup, init, update, status\n  - setup: replaces sync.sh with better UX (symlinks agents/rules/skills)\n  - init: interactive project onboarding (stack scan, manager selection,\n    specialist scaffolding, CLAUDE.md generation, .gitignore setup)\n  - update: fetch/pull core + re-sync + auto-migrate projects\n  - status: show core and project state\n- Stack scanner detects 20+ technologies and suggests specialists\n- Specialist scaffolds use lazy hiring loop (playbook filled on first use)\n- update command includes migration system for breaking changes\n- init adds .claude/ to project .gitignore by default\n\n- Rename Dev Manager → Engineer Manager across entire codebase (16 files)\n  - agents/managers/dev.md → agents/managers/engineer.md\n  - All references updated in rules, docs, RDDs, migration map, README\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "366e3f3eba3d28a6cd3a30363544b08de44f6c40",
+    "prefix": "feat",
+    "scope": "",
+    "subject": "feat: add CLI (v0.1.0) and rename Dev Manager → Engineer Manager",
+    "summary": "add CLI (v0.1.0) and rename Dev Manager → Engineer Manager. - Add Node.js CLI with 4 commands: setup, init, update, status\n  - setup: replaces sync.sh with better UX (symlinks agents/rules/skills)\n..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-9d0c468e5a17",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "366e3f3eba3d28a6cd3a30363544b08de44f6c40",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

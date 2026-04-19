@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "NewCache creates a Cache for the given leoDir. If leoDir is empty or the manifest does not exist, an empty in-memory cache is returned.",
+    "kind": "function",
+    "language": "go",
+    "name": "NewCache",
+    "summary": "Function: NewCache — NewCache creates a Cache for the given leoDir. If leoDir is empty or the manifest does not exist,..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-b328bc0b31c6",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cartographer"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

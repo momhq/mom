@@ -1,20 +1,8 @@
 {
-  "id": "token-economy-model-selection",
-  "type": "constraint",
   "boot": true,
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "token-economy",
-    "model-selection",
-    "cost",
-    "efficiency",
-    "delegation"
-  ],
-  "created": "2026-04-10T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-13T20:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.0049079754601227,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "anti_patterns": [
       "Using Opus for a specialist that follows a checklist",
@@ -30,5 +18,23 @@
     ],
     "responsibility": "Leo enforces model selection when delegating to specialists. Owner sets the orchestration model. Scripts are the responsibility of the core maintainer.",
     "why": "AI should spend tokens on thinking and judgment, not on execution. Specialists execute — they follow playbooks, they don't make strategic decisions. Leo reasons about what to do, who to delegate to, what the trade-offs are. The cost of using Opus for a specialist that follows a checklist is waste. The cost of using Sonnet for Leo when he needs to reason about cross-domain trade-offs is a false economy."
-  }
+  },
+  "created": "2026-04-10T00:00:00Z",
+  "created_by": "user",
+  "id": "token-economy-model-selection",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "token-economy",
+    "model-selection",
+    "cost",
+    "efficiency",
+    "delegation"
+  ],
+  "type": "constraint",
+  "updated": "2026-04-13T20:00:00Z",
+  "updated_by": "leo"
 }

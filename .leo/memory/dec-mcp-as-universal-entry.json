@@ -1,0 +1,41 @@
+{
+  "centrality_score": 0.014723926380368098,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "alternatives_considered": [
+      "Keep adapter-per-runtime as only integration path — rejected: doesn't scale beyond 4-5 runtimes",
+      "MCP replaces everything including auto-capture — rejected: MCP has no lifecycle events, can't trigger on /clear or session.end",
+      "Wait for MRP adoption — rejected: high friction for runtime maintainers, MCP is already adopted"
+    ],
+    "context": "Discussion about why MOM wasn't already exposing memory via MCP. Realized: adapter-per-runtime was the first approach (inertia), MCP matured recently, and we underestimated what MCP covers. MCP handles recall + manual write (request-response). MRP still needed for push-based lifecycle hooks (session.end, /clear, /compact).",
+    "decision": "MCP server is the universal entry point for MOM recall. Any MCP-aware runtime connects via config, zero adapter code. Adapters shrink to boot-file generation + MRP hook wiring only.",
+    "impact": [
+      "Adapter surface shrinks ~60%: only boot-file + hooks remain",
+      "v0.9 reshuffled: MCP server as primary deliverable instead of dual-output capture",
+      "Outreach strategy becomes viable: PRs to external runtimes add MCP config entry, not code",
+      "Four integration tiers defined: Tier 0 (bootstrap), Tier 1 (MCP recall), Tier 2 (MCP read+write), Tier 3 (full auto-capture via adapter+MRP)",
+      "New architecture doc: 15-mcp-server.md with full spec"
+    ],
+    "reversible": true,
+    "why": "Changes the game from 'runtimes must implement MRP to integrate' to 'runtimes already speak MCP, just plug MOM'. Friction drops from days-of-code to minutes-of-config. Unlocks Claude Code, Cursor, Cline, Codex, Continue, Zed, openclaude, etc. simultaneously."
+  },
+  "created": "2026-04-19T09:00:00Z",
+  "created_by": "user",
+  "id": "dec-mcp-as-universal-entry",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "mcp",
+    "architecture",
+    "integration-tiers",
+    "strategy",
+    "recall"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T09:00:00Z",
+  "updated_by": "leo"
+}

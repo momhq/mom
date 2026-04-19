@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestUpgradeCmd_Idempotent verifies running upgrade twice is a no-op on the second run.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestUpgradeCmd_Idempotent",
+    "summary": "Function: TestUpgradeCmd_Idempotent — TestUpgradeCmd_Idempotent verifies running upgrade twice is a no-op on the second run."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-9854d97ef040",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

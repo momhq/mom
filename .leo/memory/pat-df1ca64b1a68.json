@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "Cache is a file-level SHA256 cache stored at \u003cleoDir\u003e/cache/bootstrap/manifest.json.",
+    "kind": "type",
+    "language": "go",
+    "name": "Cache",
+    "summary": "Type: Cache — Cache is a file-level SHA256 cache stored at \u003cleoDir\u003e/cache/bootstrap/manifest.json."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-df1ca64b1a68",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-cartographer"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

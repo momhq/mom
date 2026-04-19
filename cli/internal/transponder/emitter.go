@@ -2,7 +2,6 @@ package transponder
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -108,10 +107,4 @@ func (e *Emitter) EmitRuntimeHealth(ev RuntimeHealth) {
 	if err := e.Emit(ev); err != nil {
 		log.Printf("[transponder] warn: EmitRuntimeHealth: %v", err)
 	}
-}
-
-// filePath returns the absolute path to the JSONL file for the given UTC date.
-// Exported for testing only.
-func (e *Emitter) filePath(date time.Time) string {
-	return filepath.Join(e.dir, fmt.Sprintf("%s.jsonl", date.UTC().Format("2006-01-02")))
 }

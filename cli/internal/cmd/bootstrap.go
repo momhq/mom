@@ -3,12 +3,16 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/cartographer"
+	"github.com/vmarinogg/leo-core/cli/internal/gardener"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 	"github.com/vmarinogg/leo-core/cli/internal/transponder"
 )
@@ -75,16 +79,47 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	cfg.MaxFileSizeMB = maxFileSizeMB
 	cfg.Refresh = refresh
 	cfg.DryRun = dryRun
+
+	// For user/org scopes, discover child repos and scan each into its own .leo/.
+	if targetScope.Label == "user" || targetScope.Label == "org" {
+		return runMultiRepoBootstrap(cmd, scanPath, targetScope, cfg, dryRun)
+	}
+
 	cfg.ScopeDir = targetScope.Path
+
+	isTTY := isTerminalWriter(cmd.OutOrStdout())
+
+	// Wire up spinner and progress callback when running interactively.
+	var spinner *bootstrapSpinner
+	if isTTY {
+		spinner = newBootstrapSpinner(os.Stderr)
+		spinner.start("Scanning...")
+		cfg.OnProgress = func(processed, total int) {
+			spinner.update(fmt.Sprintf("Scanning... (%d / %d files)", processed, total))
+		}
+	}
 
 	cart := cartographer.New(cfg)
 
-	cmd.Printf("Scanning %s\n", scanPath)
+	if !isTTY {
+		cmd.Printf("Scanning %s\n", scanPath)
+	}
 	if dryRun {
 		cmd.Println("  (dry-run: no memories will be written)")
 	}
 
 	result, err := cart.Scan(cmd.Context(), scanPath)
+
+	if spinner != nil {
+		spinner.stop()
+	}
+
+	if !isTTY {
+		// Already printed above; nothing extra needed.
+	} else {
+		cmd.Printf("Scanning %s\n", scanPath)
+	}
+
 	if err != nil {
 		return fmt.Errorf("scan failed: %w", err)
 	}
@@ -111,6 +146,25 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 			written, result.Duration().Seconds())
 	}
 
+	// After a real write, attempt landmark computation when corpus is large enough.
+	if !dryRun {
+		memDir := filepath.Join(targetScope.Path, "memory")
+		cacheDir := filepath.Join(targetScope.Path, "cache")
+		totalDocs := countMemoryDocs(memDir)
+
+		// Always write tag graph for incremental future updates.
+		_ = gardener.WriteTagGraph(memDir, cacheDir)
+
+		if totalDocs >= gardener.MinDocsForLandmarks {
+			n, err := gardener.ComputeLandmarks(memDir, 2.0)
+			if err == nil {
+				_ = n
+				landmarkCount := countLandmarks(memDir)
+				cmd.Printf("✓ %d landmarks identified\n", landmarkCount)
+			}
+		}
+	}
+
 	cmd.Println()
 	cmd.Println("Suggested first questions:")
 	cmd.Println("  · \"What does this project do?\"")
@@ -133,7 +187,117 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// printBootstrapProgress prints the per-extractor breakdown.
+// runMultiRepoBootstrap handles bootstrap for user/org scopes by scanning
+// each child repo that has its own .leo/ independently, outputting per-repo
+// progress grouped by repo name.
+func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scope.Scope, cfg cartographer.Config, dryRun bool) error {
+	// Discover the parent dir: it's the directory containing the .leo/ (go one level up from .leo/).
+	parentDir := filepath.Dir(targetScope.Path)
+
+	// Find child repos: immediate children with .git/ (may or may not have .leo/).
+	entries, err := os.ReadDir(parentDir)
+	if err != nil {
+		return fmt.Errorf("reading parent dir: %w", err)
+	}
+
+	type repoEntry struct {
+		root   string
+		leoDir string
+	}
+	var repos []repoEntry
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		child := filepath.Join(parentDir, e.Name())
+		gitPath := filepath.Join(child, ".git")
+		leoPath := filepath.Join(child, ".leo")
+
+		gitInfo, gitErr := os.Stat(gitPath)
+		if gitErr != nil || !gitInfo.IsDir() {
+			continue // not a git repo
+		}
+
+		leoInfo, leoErr := os.Stat(leoPath)
+		if leoErr != nil || !leoInfo.IsDir() {
+			cmd.Printf("  ⚠ %s — no .leo/ found, skipping (run 'leo init' in this repo first)\n", child)
+			continue
+		}
+
+		repos = append(repos, repoEntry{root: child, leoDir: leoPath})
+	}
+
+	if len(repos) == 0 {
+		cmd.Println("No initialized child repos found. Run 'leo init' in each repo first.")
+		return nil
+	}
+
+	cmd.Printf("Multi-repo bootstrap: %d repos under %s\n", len(repos), parentDir)
+	if dryRun {
+		cmd.Println("  (dry-run: no memories will be written)")
+	}
+
+	totalProposed := 0
+	totalWritten := 0
+
+	isTTY := isTerminalWriter(cmd.OutOrStdout())
+
+	for _, repo := range repos {
+		repoName := filepath.Base(repo.root)
+		cmd.Printf("\n  [%s]\n", repoName)
+
+		repoCfg := cfg
+		repoCfg.ScopeDir = repo.leoDir
+
+		var repoSpinner *bootstrapSpinner
+		if isTTY {
+			repoSpinner = newBootstrapSpinner(os.Stderr)
+			repoSpinner.start(fmt.Sprintf("Scanning %s...", repoName))
+			repoCfg.OnProgress = func(processed, total int) {
+				repoSpinner.update(fmt.Sprintf("Scanning %s... (%d / %d files)", repoName, processed, total))
+			}
+		}
+
+		cart := cartographer.New(repoCfg)
+
+		result, err := cart.Scan(cmd.Context(), repo.root)
+
+		if repoSpinner != nil {
+			repoSpinner.stop()
+		}
+
+		if err != nil {
+			cmd.Printf("    ⚠ scan error: %v\n", err)
+			continue
+		}
+
+		printBootstrapProgress(cmd, result)
+		totalProposed += len(result.Drafts)
+
+		if !dryRun && len(result.Drafts) > 0 {
+			w, writeErr := writeDrafts(result.Drafts, repo.leoDir)
+			if writeErr != nil {
+				cmd.Printf("    ⚠ write error: %v\n", writeErr)
+			}
+			totalWritten += w
+			cmd.Printf("    %d memories seeded in %.1fs.\n", w, result.Duration().Seconds())
+		} else if dryRun {
+			cmd.Printf("    %d memories would be seeded.\n", len(result.Drafts))
+		}
+	}
+
+	cmd.Println()
+	if dryRun {
+		cmd.Printf("Total: %d memories would be seeded across %d repos.\n", totalProposed, len(repos))
+	} else {
+		cmd.Printf("Total: %d memories seeded across %d repos.\n", totalWritten, len(repos))
+	}
+
+	return nil
+}
+
+// printBootstrapProgress prints the per-extractor breakdown and cache summary.
 func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 	order := []struct {
 		key   string
@@ -143,7 +307,7 @@ func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 		{"dependencies", "Dependencies"},
 		{"commits", "Commits"},
 		{"todo-fixme", "TODO/FIXME"},
-		{"ast", "AST (Go)"},
+		{"ast", "AST"},
 	}
 
 	for _, item := range order {
@@ -165,6 +329,57 @@ func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 			er.Inferred,
 			er.Ambiguous,
 		)
+
+		// For AST, print per-language breakdown if we have data.
+		if item.key == "ast" && len(result.ByLanguage) > 0 {
+			// Sort language names for deterministic output.
+			langs := make([]string, 0, len(result.ByLanguage))
+			for lang := range result.ByLanguage {
+				langs = append(langs, lang)
+			}
+			sort.Strings(langs)
+			for _, lang := range langs {
+				count := result.ByLanguage[lang]
+				displayLang := canonicalLanguageLabel(lang)
+				cmd.Printf("    %-14s %d memories\n", displayLang, count)
+			}
+		}
+	}
+
+	// Cache summary line.
+	total := result.CacheHits + result.CacheMisses
+	if total > 0 {
+		cmd.Printf("  ✓ %d cached · processing %d new\n", result.CacheHits, result.CacheMisses)
+	}
+}
+
+// canonicalLanguageLabel returns a display-friendly label for an AST language tag.
+func canonicalLanguageLabel(lang string) string {
+	switch lang {
+	case "go":
+		return "Go"
+	case "python":
+		return "Python"
+	case "javascript":
+		return "JavaScript"
+	case "typescript":
+		return "TypeScript"
+	case "tsx":
+		return "TSX"
+	case "rust":
+		return "Rust"
+	case "java":
+		return "Java"
+	case "ruby":
+		return "Ruby"
+	case "c":
+		return "C"
+	case "cpp":
+		return "C++"
+	case "csharp":
+		return "C#"
+	default:
+		return lang
 	}
 }
 
@@ -242,10 +457,12 @@ func mapDraftType(t string) string {
 	switch t {
 	case "decision":
 		return "decision"
-	case "fact", "pattern":
+	case "fact":
 		return "fact"
+	case "pattern":
+		return "pattern"
 	case "learning":
-		return "feedback"
+		return "learning"
 	default:
 		return "fact"
 	}
@@ -263,13 +480,30 @@ func draftTypePrefix(t string) string {
 	switch t {
 	case "decision":
 		return "dec-"
-	case "fact", "pattern":
+	case "fact":
 		return "fact-"
+	case "pattern":
+		return "pat-"
 	case "learning":
-		return "lrn-"
+		return "learn-"
 	default:
 		return "mem-"
 	}
+}
+
+// countMemoryDocs returns the total number of .json files in memDir.
+func countMemoryDocs(memDir string) int {
+	entries, err := os.ReadDir(memDir)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() && filepath.Ext(e.Name()) == ".json" {
+			n++
+		}
+	}
+	return n
 }
 
 // runBootstrapInline runs a bootstrap scan from within the init flow.
@@ -278,11 +512,33 @@ func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
 	cfg := cartographer.DefaultConfig()
 	cfg.ScopeDir = leoDir
 
+	isTTY := isTerminalWriter(cmd.OutOrStdout())
+
+	var spinner *bootstrapSpinner
+	if isTTY {
+		spinner = newBootstrapSpinner(os.Stderr)
+		spinner.start("Scanning...")
+		cfg.OnProgress = func(processed, total int) {
+			spinner.update(fmt.Sprintf("Scanning... (%d / %d files)", processed, total))
+		}
+	}
+
 	cart := cartographer.New(cfg)
 
-	cmd.Printf("Scanning %s for initial memories...\n", scanDir)
+	if !isTTY {
+		cmd.Printf("Scanning %s for initial memories...\n", scanDir)
+	}
 
 	result, err := cart.Scan(cmd.Context(), scanDir)
+
+	if spinner != nil {
+		spinner.stop()
+	}
+
+	if isTTY {
+		cmd.Printf("Scanning %s for initial memories...\n", scanDir)
+	}
+
 	if err != nil {
 		return fmt.Errorf("scan failed: %w", err)
 	}
@@ -300,4 +556,58 @@ func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
 
 	cmd.Printf("  %d memories seeded in %.1fs.\n", written, result.Duration().Seconds())
 	return nil
+}
+
+// bootstrapSpinner is a simple TTY spinner that writes to an io.Writer (stderr).
+// It uses a goroutine + ticker to update the spinner frame periodically.
+type bootstrapSpinner struct {
+	w       io.Writer
+	frames  []string
+	current atomic.Int32 // current frame index
+	text    atomic.Value // current label string
+	done    chan struct{}
+}
+
+// newBootstrapSpinner creates a spinner that writes to w.
+func newBootstrapSpinner(w io.Writer) *bootstrapSpinner {
+	s := &bootstrapSpinner{
+		w:      w,
+		frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		done:   make(chan struct{}),
+	}
+	s.text.Store("")
+	return s
+}
+
+// start begins displaying the spinner with an initial label.
+func (s *bootstrapSpinner) start(label string) {
+	s.text.Store(label)
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.done:
+				return
+			case <-ticker.C:
+				idx := int(s.current.Add(1)) % len(s.frames)
+				frame := s.frames[idx]
+				txt := s.text.Load().(string)
+				// \r returns to column 0; clear to end of line with spaces then re-print.
+				fmt.Fprintf(s.w, "\r%s %s        \r%s %s", frame, txt, frame, txt)
+			}
+		}
+	}()
+}
+
+// update sets a new spinner label; safe to call from any goroutine.
+func (s *bootstrapSpinner) update(label string) {
+	s.text.Store(label)
+}
+
+// stop halts the spinner and erases the spinner line.
+func (s *bootstrapSpinner) stop() {
+	close(s.done)
+	// Erase the spinner line.
+	fmt.Fprintf(s.w, "\r\033[K")
 }

@@ -417,6 +417,52 @@ func TestNewDoc_WriteEmitsNewFields(t *testing.T) {
 	}
 }
 
+// TestValidate_PatternType accepts "pattern" as a valid type.
+func TestValidate_PatternType(t *testing.T) {
+	doc := docWithDefaults()
+	doc.Type = "pattern"
+	doc.Content = map[string]any{"pattern": "structural pattern observed"}
+	if err := doc.Validate(); err != nil {
+		t.Errorf("expected valid for type pattern, got: %v", err)
+	}
+}
+
+// TestValidate_LearningType accepts "learning" as a valid type.
+func TestValidate_LearningType(t *testing.T) {
+	doc := docWithDefaults()
+	doc.Type = "learning"
+	doc.Content = map[string]any{"learning": "something learned"}
+	if err := doc.Validate(); err != nil {
+		t.Errorf("expected valid for type learning, got: %v", err)
+	}
+}
+
+// TestValidate_AllKnownTypes ensures all documented types pass validation.
+func TestValidate_AllKnownTypes(t *testing.T) {
+	validTypeContents := map[string]map[string]any{
+		"constraint":  {"constraint": "a constraint"},
+		"skill":       {"description": "a skill"},
+		"identity":    {"what": "identity"},
+		"decision":    {"decision": "a decision"},
+		"fact":        {"fact": "a fact"},
+		"feedback":    {"feedback": "feedback text"},
+		"reference":   {"description": "a reference"},
+		"session-log": {"session_id": "sess-1"},
+		"pattern":     {"pattern": "a pattern"},
+		"learning":    {"learning": "a learning"},
+	}
+	for typ, content := range validTypeContents {
+		t.Run(typ, func(t *testing.T) {
+			doc := docWithDefaults()
+			doc.Type = typ
+			doc.Content = content
+			if err := doc.Validate(); err != nil {
+				t.Errorf("expected valid for type %q, got: %v", typ, err)
+			}
+		})
+	}
+}
+
 // docWithDefaults returns a minimal valid Doc with defaults pre-applied.
 func docWithDefaults() *Doc {
 	doc := &Doc{

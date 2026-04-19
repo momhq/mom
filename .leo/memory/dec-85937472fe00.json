@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "When scope is user or org, leo init now automatically initializes\n.leo/ in child directories:\n- Org folders (containing repos) get scope: org\n- Repos (.git/ present) get scope: repo\n- Already-initialized dirs are skipped\n- Recurses: user → org folders → repos\n\nReplaces the passive \"Note: these repos don't have .leo/\" message\nwith actual propagation.",
+    "commit_sha": "1de3706b1d55d51b42016d61eef27e45c75e84ce",
+    "prefix": "feat",
+    "scope": "init",
+    "subject": "feat(init): propagate init to child org folders and repos",
+    "summary": "propagate init to child org folders and repos. When scope is user or org, leo init now automatically initializes\n.leo/ in child directories:\n- Org folders (containing repos) get scope: org\n- Repos ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-85937472fe00",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "1de3706b1d55d51b42016d61eef27e45c75e84ce",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "init"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

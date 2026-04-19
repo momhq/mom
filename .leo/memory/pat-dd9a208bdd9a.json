@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "BuildGraphData reads memory docs and constructs the visualization graph. It includes all docs as nodes and edges for shared tags (limited to tags shared by \u003c= maxTagSize docs to avoid overwhelming the graph).",
+    "kind": "function",
+    "language": "go",
+    "name": "BuildGraphData",
+    "summary": "Function: BuildGraphData — BuildGraphData reads memory docs and constructs the visualization graph. It includes all docs as ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-dd9a208bdd9a",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-gardener"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

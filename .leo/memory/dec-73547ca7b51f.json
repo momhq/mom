@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Introduces ast_languages.go with a languageHandler registry covering all\n10 languages (Go, Python, JS, TS, TSX, Rust, Java, Ruby, C, C++, C#).\nEach entry bundles the grammar, Scheme-style capture query, and file\nextensions. A fast O(1) extension index is built at init time.\n\nRewrites extractor_ast.go to dispatch via the registry: Go retains its\nhand-written walker (preserves doc-comment extraction); all other languages\nuse the generic extractViaQuery path (NewQuery → QueryCursor → NextMatch).\nsymbolKind() maps parent node types to canonical kind labels.\n\nC query patched to unwrap pointer_declarator for pointer-return functions.\n\nTests: per-language assertions (15 tests total) + multi-language integration\ntest scanning the full testdata directory.\n\nBinary: 9.5 MB → 26.6 MB (10 additional CGo grammar blobs).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "58d8b4ad6a7d11ba2eb368f06c187d108f6493ca",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): multi-language AST registry + generic query runner",
+    "summary": "multi-language AST registry + generic query runner. Introduces ast_languages.go with a languageHandler registry covering all\n10 languages (Go, Python, JS, TS, TSX, Rust, Java, Ruby, C, C++, C#).\nEa..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-73547ca7b51f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "58d8b4ad6a7d11ba2eb368f06c187d108f6493ca",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Adds TelemetryConfig struct (Enabled *bool, Path string) to Config,\nplus TelemetryEnabled() helper that returns true when Enabled is nil\n(absence == enabled). Includes round-trip and default tests.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "2c0266bb22bdd4a248c004232836577b151e9776",
+    "prefix": "feat",
+    "scope": "config",
+    "subject": "feat(config): add TelemetryConfig with default-on Enabled bool pointer",
+    "summary": "add TelemetryConfig with default-on Enabled bool pointer. Adds TelemetryConfig struct (Enabled *bool, Path string) to Config,\nplus TelemetryEnabled() helper that returns true when Enabled is nil\n(a..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-3b6775d7ea06",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "2c0266bb22bdd4a248c004232836577b151e9776",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "config"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "If you're tempted to write a memory that says \"current project status: X, Y, Z, pending A, B\", stop. That will be garbage in 1 week. Think about whether there's a genuine **lesson** in what you want to save. If there isn't, it probably shouldn't be a memory — it should be a one-shot report that lives in `outputs/` for that session.",
+    "heading": "Anti-pattern: memory as \"last snapshot\"",
+    "summary": "If you're tempted to write a memory that says \"current project status: X, Y, Z, pending A, B\", stop. That will be gar..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-8ba952cf6318",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "pattern",
+    "bootstrap"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

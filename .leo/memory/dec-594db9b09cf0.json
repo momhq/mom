@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "```\n\n**First comment:** \"I built L.E.O. on this exact philosophy — the human decides, the AI remembers and executes. The persistent knowledge base ensures context compounds instead of resetting. Open source: https://github.com/vmarinogg/leo-core\"\n\n---",
+    "heading": "AIStrategy #SoftwareArchitecture #OpenSource",
+    "summary": "```\n\n**First comment:** \"I built L.E.O. on this exact philosophy — the human decides, the AI remembers and executes. ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-594db9b09cf0",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "decision",
+    "bootstrap"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

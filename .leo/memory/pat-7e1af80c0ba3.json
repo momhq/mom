@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "WriteGraphHTML generates a self-contained HTML file with an interactive D3.js force-directed graph visualization of the memory graph.",
+    "kind": "function",
+    "language": "go",
+    "name": "WriteGraphHTML",
+    "summary": "Function: WriteGraphHTML — WriteGraphHTML generates a self-contained HTML file with an interactive D3.js force-directed grap..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-7e1af80c0ba3",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-gardener"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "detectParentDirs only walked up — when cwd was at the top of the\nhierarchy (e.g. ~/Github with org folders below), no parents were\nfound and the wizard showed only \"this project only\".\n\nAdd cwdScopeRole() which scans children and grandchildren for .git/\nto determine if cwd is a user/org scope. buildScopeOptions and\nresolveScopeChoice now use this to show the correct label.\n\nFixes the wizard showing only 2 options when run from ~/Github.",
+    "commit_sha": "083ca73aa7195f63bc795d21e0a79b087b42530b",
+    "prefix": "fix",
+    "scope": "scope",
+    "subject": "fix(scope): detect cwd role when it contains repos below",
+    "summary": "detect cwd role when it contains repos below. detectParentDirs only walked up — when cwd was at the top of the\nhierarchy (e.g. ~/Github with org folders below), no parents were\nfound and the wizard..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-00d0af0bdee5",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "083ca73aa7195f63bc795d21e0a79b087b42530b",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix",
+    "scope"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

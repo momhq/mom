@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Adds cli/internal/cmd/bootstrap.go with the full leo bootstrap command:\n--path, --refresh, --dry-run, --commit-depth, --max-file-size, --scope\nflags. Writes drafts to .leo/memory/ as JSON files with provenance,\nconfidence, and promotion_state. Emits a CaptureEvent via transponder.\n\nIntegrates into leo init onboarding (Group 7 bootstrap question). Non-\ninteractive -y always skips bootstrap. Exports DraftHash from cartographer\nfor ID generation. Updates onboarding tests for the new form group.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "668ca992699b76a44a1784cbec5ebb7378b763e8",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add leo bootstrap command and leo init integration",
+    "summary": "add leo bootstrap command and leo init integration. Adds cli/internal/cmd/bootstrap.go with the full leo bootstrap command:\n--path, --refresh, --dry-run, --commit-depth, --max-file-size, --scope\nfl..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-8efe26901a36",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "668ca992699b76a44a1784cbec5ebb7378b763e8",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

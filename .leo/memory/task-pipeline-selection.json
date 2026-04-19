@@ -1,23 +1,8 @@
 {
-  "id": "task-pipeline-selection",
-  "type": "constraint",
   "boot": true,
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "delegation",
-    "pipeline",
-    "token-economy",
-    "specialists",
-    "orchestration",
-    "profiles",
-    "functions",
-    "project-agnostic"
-  ],
-  "created": "2026-04-14T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-14T00:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.006134969325153374,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "anti_patterns": [
       "Calling analyze-architecture (Opus) for a one-line fix — Token Economy violation",
@@ -129,5 +114,26 @@
       ]
     },
     "why": "Using the full pipeline (analyze-architecture → execute → write-tests → review-code → review-security) for every task wastes tokens and adds latency. Using only one function for complex tasks risks quality. Leo needs a sizing heuristic."
-  }
+  },
+  "created": "2026-04-14T00:00:00Z",
+  "created_by": "user",
+  "id": "task-pipeline-selection",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "delegation",
+    "pipeline",
+    "token-economy",
+    "specialists",
+    "orchestration",
+    "profiles",
+    "functions",
+    "project-agnostic"
+  ],
+  "type": "constraint",
+  "updated": "2026-04-14T00:00:00Z",
+  "updated_by": "leo"
 }

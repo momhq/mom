@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestConfigLegacyFieldsDropped verifies that configs with legacy tiers/autonomy fields in YAML are loaded without error and the fields are silently dropped.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestConfigLegacyFieldsDropped",
+    "summary": "Function: TestConfigLegacyFieldsDropped — TestConfigLegacyFieldsDropped verifies that configs with legacy tiers/autonomy fields in YAML are..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-1bb4447a7fb9",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-config",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

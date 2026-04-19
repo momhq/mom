@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Creates the minimum project context needed to open Claude Code directly\nin copilot-core and work on the system itself rather than as a\nside-effect of downstream project sessions.\n\nFiles:\n- .claude/project-config.yml — name, stack, locales, self_hosting: true\n- .claude/context/project.md — what copilot-core is, how it evolves\n- .claude/context/self-hosting-notes.md — propagation-is-instant warnings,\n  Leo-editing-Leo lag, cross-project Manager inheritance, language\n  inconsistency flag, known loose ends\n\nThe scaffold is intentionally minimal — no project-specific Managers,\nno rule overrides, no specialists. Core Managers and rules already\napply via the global sync.sh symlinks.\n\nMotivation: today's Logbook session produced a core commit (d8bdb6e,\nconventions doc) as a side-effect. Founder flagged context-switching\ncost and asked to separate core evolution from project work. Opening\nLeo directly in the core unlocks that separation.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "4de69287bdf006117cf1a06ed8081c700663762a",
+    "prefix": "chore",
+    "scope": "",
+    "subject": "chore: scaffold .claude/ for self-hosting sessions",
+    "summary": "scaffold .claude/ for self-hosting sessions. Creates the minimum project context needed to open Claude Code directly\nin copilot-core and work on the system itself rather than as a\nside-effect of do..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-47f1ac8328f9",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "4de69287bdf006117cf1a06ed8081c700663762a",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "chore"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

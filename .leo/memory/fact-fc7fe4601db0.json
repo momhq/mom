@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "summary": "URL reference: https://support.claude.com/en/articles/13947068",
+    "url": "https://support.claude.com/en/articles/13947068"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-fc7fe4601db0",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "fact",
+    "url",
+    "bootstrap"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

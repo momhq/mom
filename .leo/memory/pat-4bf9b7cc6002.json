@@ -1,0 +1,34 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "Validate checks the document against the KB schema rules.",
+    "kind": "method",
+    "language": "go",
+    "name": "Validate",
+    "receiver": "(d *Doc)",
+    "summary": "Method: (d *Doc)Validate — Validate checks the document against the KB schema rules."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-4bf9b7cc6002",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-kb",
+    "receiver-doc"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

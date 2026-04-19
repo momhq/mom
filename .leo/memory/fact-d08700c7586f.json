@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- README now describes copilot-core as a usable product: what it is,\n  how to install, CLI commands, project structure, key concepts\n- project.md updated to reflect CLI v0.1.0 and current stack\n\nSession wrap-up: created 4 GitHub issues for future work\n(#1 test-first-from-PRD, #2 progress tracking, #3 verification agent,\n#4 load testing)\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "fbc063bc1fd27e2072b0e7621fc5e1615ba76703",
+    "prefix": "docs",
+    "scope": "",
+    "subject": "docs: rewrite README for external users + update project context",
+    "summary": "rewrite README for external users + update project context. - README now describes copilot-core as a usable product: what it is,\n  how to install, CLI commands, project structure, key concepts\n- pr..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-d08700c7586f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "fbc063bc1fd27e2072b0e7621fc5e1615ba76703",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "docs"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

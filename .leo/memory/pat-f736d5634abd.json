@@ -1,0 +1,34 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "BootstrapEnabled returns true unless Bootstrap.Enabled is explicitly set to false.",
+    "kind": "method",
+    "language": "go",
+    "name": "BootstrapEnabled",
+    "receiver": "(bc BootstrapConfig)",
+    "summary": "Method: (bc BootstrapConfig)BootstrapEnabled — BootstrapEnabled returns true unless Bootstrap.Enabled is explicitly set to false."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-f736d5634abd",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-config",
+    "receiver-bootstrapconfig"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -64,6 +64,12 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		return err
 	}
 
+	// Detect legacy layout (.leo/kb/ present = pre-v0.8.0 install).
+	if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
+		cmd.Printf("⚠ Legacy layout detected (.leo/kb/ present)\n  Run 'leo upgrade' to migrate to the v0.8.0 flat layout.\n")
+		return nil
+	}
+
 	failed := false
 
 	// Check 1: .leo/ exists and is writable.
@@ -442,7 +448,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(jsonFiles) < landmarkComputationThreshold {
-		cmd.Printf("No landmarks computed yet. Landmarks computation lands in a future release (#65).\n")
+		cmd.Printf("No landmarks computed yet. Run 'leo reindex --landmarks' to compute.\n")
 		cmd.Printf("(Graph below computation threshold: %d/%d memories)\n", len(jsonFiles), landmarkComputationThreshold)
 		return nil
 	}
@@ -464,7 +470,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks computed yet. Landmarks computation lands in a future release (#65).\n")
+		cmd.Printf("No landmarks found. Run 'leo reindex --landmarks' to compute.\n")
 		return nil
 	}
 

@@ -20,4 +20,9 @@ const helper = function namedHelper(x) {
   return x;
 };
 
+// Default export function.
+export default function handleRequest(req) {
+  return req;
+}
+
 let counter = 0;

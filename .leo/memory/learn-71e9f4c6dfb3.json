@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "AMBIGUOUS",
+  "content": {
+    "marker": "TODO",
+    "summary": "TODO: This is a structured todo that needs attention in the future soon.",
+    "text": "This is a structured todo that needs attention in the future soon."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-71e9f4c6dfb3",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "todo",
+    "bootstrap"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

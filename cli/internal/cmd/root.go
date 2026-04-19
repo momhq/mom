@@ -29,4 +29,7 @@ func init() {
 	rootCmd.AddCommand(promoteCmd)
 	rootCmd.AddCommand(demoteCmd)
 	rootCmd.AddCommand(bootstrapCmd)
+	rootCmd.AddCommand(recallCmd)
+	rootCmd.AddCommand(tourCmd)
+	rootCmd.AddCommand(serveCmd)
 }

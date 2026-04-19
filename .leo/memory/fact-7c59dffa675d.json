@@ -1,0 +1,30 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "language": "python",
+    "manifest": "requirements.txt",
+    "package": "pytest",
+    "summary": "Depends on pytest ==7.4.0",
+    "version": "==7.4.0"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-7c59dffa675d",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "dependency",
+    "python",
+    "bootstrap"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

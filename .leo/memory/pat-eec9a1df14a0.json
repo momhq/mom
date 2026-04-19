@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent verifies the generated CLAUDE.md does not contain any orchestration/profile references.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent",
+    "summary": "Function: TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent — TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent verifies the generated CLAUDE.md does not conta..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-eec9a1df14a0",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

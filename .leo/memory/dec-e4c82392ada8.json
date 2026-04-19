@@ -1,0 +1,33 @@
+{
+  "centrality_score": 1,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Implements a JSON-RPC 2.0 stdio MCP server so any MCP-aware runtime\n(Claude Code, Cursor, Cline, …) can read/write MOM memories without\nadapter code.\n\n- cli/internal/mcp/server.go  — Server struct, Serve loop, JSON-RPC dispatch\n- cli/internal/mcp/tools.go   — 5 tools: search_memories, get_memory, list_scopes, create_memory_draft, list_landmarks\n- cli/internal/mcp/resources.go — 3 resources: mom://identity, mom://constraints, mom://scopes\n- cli/internal/mcp/abac.go    — Authorizer interface + LocalAuthorizer stub for future ABAC\n- cli/internal/mcp/server_test.go — 13 TDD tests covering all handlers\n- cli/internal/cmd/serve.go   — `leo serve mcp` command + `leo serve status` subcommand\n- cli/internal/cmd/root.go    — register serveCmd\n\nEach tool call emits a ConsumptionEvent via transponder.\nstdout reserved for JSON-RPC; all human-readable output to stderr.\nFile log written to .leo/logs/mcp-server.log in append mode.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "1524aa7c684238c103a048f0e9d6d1304731e8d7",
+    "prefix": "feat",
+    "scope": "mcp",
+    "subject": "feat(mcp): add MCP stdio server (#81)",
+    "summary": "add MCP stdio server (#81). Implements a JSON-RPC 2.0 stdio MCP server so any MCP-aware runtime\n(Claude Code, Cursor, Cline, …) can read/write MOM memories without\nadapter code.\n\n- cli/internal/mcp..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-e4c82392ada8",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "1524aa7c684238c103a048f0e9d6d1304731e8d7",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "mcp"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

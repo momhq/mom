@@ -1,0 +1,34 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "Set records a CacheEntry for the given file path.",
+    "kind": "method",
+    "language": "go",
+    "name": "Set",
+    "receiver": "(c *Cache)",
+    "summary": "Method: (c *Cache)Set — Set records a CacheEntry for the given file path."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-66d75b5f90c1",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "method",
+    "ast",
+    "bootstrap",
+    "pkg-cartographer",
+    "receiver-cache"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

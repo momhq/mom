@@ -1,0 +1,30 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "language": "go",
+    "manifest": "go.mod",
+    "package": "github.com/charmbracelet/x/term",
+    "summary": "Depends on github.com/charmbracelet/x/term v0.2.2",
+    "version": "v0.2.2"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-96f5284745b4",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "dependency",
+    "go",
+    "bootstrap"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,7 +1,19 @@
 {
+  "centrality_score": 0.0049079754601227,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "The user.mode config field implements three communication levels inspired by the caveman project (github.com/JuliusBrussee/caveman): verbose (traditional, explanatory), concise (no filler, grammar intact, ~40-50% token savings), and caveman (fragments, abbreviations, ~65% savings). The mode affects Leo and all specialists via the generated CLAUDE.md context. Default is concise. This directly supports the token economy goal — fewer tokens per interaction means more context window and lower API cost. The caveman project's research showed that constraining models to brief responses improved accuracy by 26 percentage points on certain benchmarks.",
+    "summary": "Communication mode uses caveman-inspired token economy with 3 levels",
+    "why": "See context field for rationale."
+  },
+  "created": "2026-04-14T20:00:00Z",
+  "created_by": "leo",
   "id": "token-economy-caveman",
-  "type": "decision",
+  "landmark": false,
   "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
   "scope": "core",
   "tags": [
     "token-economy",
@@ -10,13 +22,7 @@
     "model-selection",
     "delegation"
   ],
-  "created": "2026-04-14T20:00:00Z",
-  "created_by": "leo",
+  "type": "decision",
   "updated": "2026-04-14T20:00:00Z",
-  "updated_by": "leo",
-  "content": {
-    "body": "The user.mode config field implements three communication levels inspired by the caveman project (github.com/JuliusBrussee/caveman): verbose (traditional, explanatory), concise (no filler, grammar intact, ~40-50% token savings), and caveman (fragments, abbreviations, ~65% savings). The mode affects Leo and all specialists via the generated CLAUDE.md context. Default is concise. This directly supports the token economy goal — fewer tokens per interaction means more context window and lower API cost. The caveman project's research showed that constraining models to brief responses improved accuracy by 26 percentage points on certain benchmarks.",
-    "summary": "Communication mode uses caveman-inspired token economy with 3 levels",
-    "why": "See context field for rationale."
-  }
+  "updated_by": "leo"
 }

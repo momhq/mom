@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Removes DefaultProfile from UserConfig (kept as omitempty for legacy read).\nLoad() now scrubs default_profile and back-fills communication.mode=concise\nfor pre-v0.8 configs. migrateFromLegacy infers caveman mode from legacy\nuser.mode=caveman. Tests updated: removed DefaultProfile assertions, added\nTestLegacyConfigWithDefaultProfile and TestLegacyConfigCavemanModePreserved.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "43c824d80525153ea51af35554d3dc8e80aaf260",
+    "prefix": "feat",
+    "scope": "config",
+    "subject": "feat(config): drop DefaultProfile, add communication.mode back-fill on load",
+    "summary": "drop DefaultProfile, add communication.mode back-fill on load. Removes DefaultProfile from UserConfig (kept as omitempty for legacy read).\nLoad() now scrubs default_profile and back-fills communica..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-e129714a4f25",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "43c824d80525153ea51af35554d3dc8e80aaf260",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "config"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,33 @@
+{
+  "centrality_score": 1,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Tests cover: legacy memory loads with safe defaults, new-shape full\nround-trip, invalid enum rejection (confidence, classification, promotion_state,\ncentrality_score out of range), custom compartment dimensions, ApplyDefaults\nidempotency, provenance.raw_exhaust_ref placement, new-capture write emission,\nand all 24 live .leo/memory/ files in the repository.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "6c58b60af0fd31b67c8526f2d6f4e7a30de049fa",
+    "prefix": "test",
+    "scope": "kb",
+    "subject": "test(kb): add memory schema evolution tests covering legacy compat and new fields",
+    "summary": "add memory schema evolution tests covering legacy compat and new fields. Tests cover: legacy memory loads with safe defaults, new-shape full\nround-trip, invalid enum rejection (confidence, classifi..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-4d5e58389898",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "6c58b60af0fd31b67c8526f2d6f4e7a30de049fa",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "test",
+    "kb"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

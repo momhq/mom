@@ -58,15 +58,28 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if err := runInitWithConfig(cmd, installDir, force, result); err != nil {
 			return err
 		}
+
+		// Propagate: when scope is user/org, initialize child scopes automatically.
+		if result.ScopeLabel == "user" || result.ScopeLabel == "org" {
+			propagateInit(cmd, installDir, result)
+		}
+
 		// Run bootstrap inline if the user opted in (non-interactive -y always skips).
 		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
-			scanDir := installDir
-			if result.BootstrapChoice == "repo" {
-				scanDir = cwd
-			}
 			cmd.Println()
-			if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".leo")); err != nil {
-				cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
+			if result.ScopeLabel == "user" || result.ScopeLabel == "org" {
+				// Multi-repo: bootstrap each child repo that has .leo/.
+				if err := bootstrapAllChildRepos(cmd, installDir); err != nil {
+					cmd.Printf("  ⚠ multi-repo bootstrap error: %v\n", err)
+				}
+			} else {
+				scanDir := installDir
+				if result.BootstrapChoice == "repo" {
+					scanDir = cwd
+				}
+				if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".leo")); err != nil {
+					cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
+				}
 			}
 		}
 		return nil
@@ -83,7 +96,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 		Runtimes:   runtimes,
 		Language:   defaults.User.Language,
 		Mode:       defaults.Communication.Mode,
-		Autonomy:   defaults.User.Autonomy,
 		InstallDir: cwd,
 		ScopeLabel: "repo",
 	})
@@ -97,8 +109,19 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	leoDir := filepath.Join(cwd, ".leo")
 
 	// Check if already initialized.
-	if _, err := os.Stat(leoDir); err == nil && !force {
-		return fmt.Errorf(".leo/ already exists — use --force to overwrite")
+	alreadyExists := false
+	if _, err := os.Stat(leoDir); err == nil {
+		if !force {
+			// .leo/ exists — skip scaffold+config but still honour bootstrap choice.
+			alreadyExists = true
+		}
+	}
+
+	// When .leo/ already exists and --force was not given, skip scaffold+config
+	// but still return nil so the caller can run bootstrap if requested.
+	if alreadyExists {
+		cmd.Println("  .leo/ already exists — skipping scaffold, using existing config.")
+		return nil
 	}
 
 	showSpinner := isTerminalWriter(cmd.OutOrStdout())
@@ -135,7 +158,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return scaffoldErr
 	}
 
-	// ── Phase 2: Write knowledge base ───────────────────────────────────────
+	// ── Phase 2: Write memory structure ──────────────────────────────────────
 	registry := runtime.NewRegistry(cwd)
 
 	var kbErr error
@@ -143,14 +166,11 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		// Build runtime config from selected runtimes.
 		runtimesCfg := make(map[string]config.RuntimeConfig)
 		for _, rt := range result.Runtimes {
-			adapter, ok := registry.Get(rt)
+			_, ok := registry.Get(rt)
 			if !ok {
 				continue
 			}
-			runtimesCfg[rt] = config.RuntimeConfig{
-				Enabled: true,
-				Tiers:   adapter.DefaultTierMapping(),
-			}
+			runtimesCfg[rt] = config.RuntimeConfig{Enabled: true}
 		}
 
 		// Infer communication.mode from the onboarding mode selection.
@@ -173,7 +193,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			Runtimes:   runtimesCfg,
 			User: config.UserConfig{
 				Language: result.Language,
-				Autonomy: result.Autonomy,
 			},
 			Communication: config.CommunicationConfig{
 				Mode: commMode,
@@ -243,7 +262,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Writing knowledge base...").Action(doWriteKB).Run()
+		_ = huhspinner.New().Title("Writing memory structure...").Action(doWriteKB).Run()
 	} else {
 		doWriteKB()
 	}
@@ -341,6 +360,96 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	return nil
 }
 
+// bootstrapAllChildRepos walks rootDir recursively, finds every directory that
+// has .leo/, and runs bootstrapInline for each one. Org folders (scope: org)
+// are skipped because they don't contain source code directly.
+func bootstrapAllChildRepos(cmd *cobra.Command, rootDir string) error {
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		childPath := filepath.Join(rootDir, e.Name())
+		childLeo := filepath.Join(childPath, ".leo")
+
+		// If this child has .leo/ and .git/, it's a repo — bootstrap it.
+		gitPath := filepath.Join(childPath, ".git")
+		if _, err := os.Stat(childLeo); err == nil {
+			if _, err := os.Stat(gitPath); err == nil {
+				cmd.Printf("\n  Bootstrapping %s...\n", e.Name())
+				if err := runBootstrapInline(cmd, childPath, childLeo); err != nil {
+					cmd.Printf("  ⚠ %s: %v\n", e.Name(), err)
+				}
+			} else {
+				// Org folder — recurse into its children.
+				if err := bootstrapAllChildRepos(cmd, childPath); err != nil {
+					cmd.Printf("  ⚠ %s: %v\n", e.Name(), err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// propagateInit initializes .leo/ in child directories when the parent scope
+// is user or org. Org folders (dirs containing repos) get scope "org", and
+// repos (dirs with .git/) get scope "repo". Already-initialized dirs are skipped.
+func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingResult) {
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		return
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		childPath := filepath.Join(rootDir, e.Name())
+		childLeo := filepath.Join(childPath, ".leo")
+
+		// Skip if already initialized.
+		if _, statErr := os.Stat(childLeo); statErr == nil {
+			continue
+		}
+
+		childHasGit := false
+		if info, statErr := os.Stat(filepath.Join(childPath, ".git")); statErr == nil && info.IsDir() {
+			childHasGit = true
+		}
+		childHasRepos := containsGitRepos(childPath)
+
+		if childHasRepos {
+			// Org folder: init with scope "org" and recurse into repos.
+			childResult := parentResult
+			childResult.InstallDir = childPath
+			childResult.ScopeLabel = "org"
+			childResult.BootstrapChoice = "" // bootstrap handled separately
+			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
+				cmd.Printf("  ⚠ failed to init %s: %v\n", childPath, err)
+				continue
+			}
+			cmd.Printf("  ✔ initialized %s (scope: org)\n", e.Name())
+
+			// Recurse: init repos inside this org folder.
+			propagateInit(cmd, childPath, parentResult)
+		} else if childHasGit {
+			// Repo: init with scope "repo".
+			childResult := parentResult
+			childResult.InstallDir = childPath
+			childResult.ScopeLabel = "repo"
+			childResult.BootstrapChoice = "" // bootstrap handled separately
+			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
+				cmd.Printf("  ⚠ failed to init %s: %v\n", childPath, err)
+				continue
+			}
+			cmd.Printf("  ✔ initialized %s (scope: repo)\n", e.Name())
+		}
+	}
+}
+
 // printExperimentalWarnings prints a warning for each adapter that carries
 // experimental MRP v0 events — informing the user that capture may be less reliable.
 func printExperimentalWarnings(cmd *cobra.Command, reg *runtime.Registry, runtimes []string) {
@@ -376,6 +485,9 @@ func isTerminalWriter(w io.Writer) bool {
 }
 
 // buildRuntimeConfig converts a config.Config to a runtime.Config.
+// Autonomy was retired from the persisted config in v0.9.0 (#74);
+// the generated context files still include the autonomy section using
+// the "balanced" default so the runtime retains the behavioral directive.
 func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 	commMode := cfg.Communication.Mode
 	if commMode == "" {
@@ -385,7 +497,7 @@ func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 		Version: cfg.Version,
 		User: runtime.UserConfig{
 			Language:          cfg.User.Language,
-			Autonomy:          cfg.User.Autonomy,
+			Autonomy:          "balanced",
 			CommunicationMode: commMode,
 		},
 	}

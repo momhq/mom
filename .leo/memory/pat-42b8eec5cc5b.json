@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "findCutoffScore returns the minimum score that qualifies a doc as a landmark given the top cutoffCount docs. If cutoffCount \u003c= 0 it returns +Inf (nothing qualifies). TagGraph represents tag co-occurrence data for incremental updates.",
+    "kind": "type",
+    "language": "go",
+    "name": "TagGraph",
+    "summary": "Type: TagGraph — findCutoffScore returns the minimum score that qualifies a doc as a landmark given the top cutoff..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-42b8eec5cc5b",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-gardener"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

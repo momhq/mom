@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Justifies every tracked top-level item and documents gitignore rules so\nfuture contributors (and future refactors) have an explicit contract\nabout what belongs in the public repo.\n\nFlags stale KB docs tied to retired orchestration/profile concepts for\nowner review — does not delete (owner-scoped content).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "8bee2ee45f8fe897876f1fc96b112ad5b4fcc46f",
+    "prefix": "docs",
+    "scope": "",
+    "subject": "docs: add repo surface manifest (issue #67)",
+    "summary": "add repo surface manifest (issue #67). Justifies every tracked top-level item and documents gitignore rules so\nfuture contributors (and future refactors) have an explicit contract\nabout what belong..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-70a89ac1ac3f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "8bee2ee45f8fe897876f1fc96b112ad5b4fcc46f",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "docs"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -3,13 +3,8 @@ core_source: ~/Github/leo-core
 runtimes:
     claude:
         enabled: true
-        tiers:
-            execution: sonnet
-            orchestration: opus
-            review: sonnet
 user:
     language: en
-    autonomy: balanced
 communication:
     mode: concise
 kb:

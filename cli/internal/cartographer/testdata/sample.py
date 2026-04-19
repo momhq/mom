@@ -5,7 +5,12 @@ class DataProcessor:
     """Processes incoming data records."""
 
     def process(self, record):
+        """Process a single record and return it."""
         return record
+
+    def validate(self, record):
+        """Validate a record before processing."""
+        return bool(record)
 
 
 class Config:

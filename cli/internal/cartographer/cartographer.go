@@ -83,6 +83,9 @@ type Config struct {
 	DryRun bool
 	// ScopeDir is the .leo/ directory to write memories into.
 	ScopeDir string
+	// OnProgress is called after each file is processed, with the count of
+	// files processed so far and the total file count. May be nil.
+	OnProgress func(processed, total int)
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -113,6 +116,14 @@ type Result struct {
 
 	// Breakdown by extractor name.
 	ByExtractor map[string]ExtractorResult
+
+	// ByLanguage holds AST draft counts per language (e.g. "go": 89, "python": 14).
+	ByLanguage map[string]int
+
+	// CacheHits is the number of files skipped because their SHA256 matched the cache.
+	CacheHits int
+	// CacheMisses is the number of files that were processed (not in cache or changed).
+	CacheMisses int
 }
 
 // ExtractorResult holds per-extractor counts.
@@ -165,6 +176,7 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 		RootDir:     rootDir,
 		StartedAt:   time.Now(),
 		ByExtractor: make(map[string]ExtractorResult),
+		ByLanguage:  make(map[string]int),
 	}
 
 	// Collect file paths.
@@ -173,15 +185,21 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 		return nil, fmt.Errorf("collecting files: %w", err)
 	}
 
+	total := len(paths)
+
 	// Run file-based extractors.
 	var mu sync.Mutex
-	for _, path := range paths {
+	for i, path := range paths {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 
 		content, err := c.readFile(path)
 		if err != nil {
+			// Still report progress for unreadable files.
+			if c.cfg.OnProgress != nil {
+				c.cfg.OnProgress(i+1, total)
+			}
 			continue // skip unreadable files
 		}
 
@@ -195,9 +213,19 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 		// Check cache.
 		if !c.cfg.Refresh && c.cache != nil {
 			if entry, ok := c.cache.Get(path); ok && entry.SHA256 == srcHash {
+				mu.Lock()
+				result.CacheHits++
+				mu.Unlock()
+				if c.cfg.OnProgress != nil {
+					c.cfg.OnProgress(i+1, total)
+				}
 				continue // not changed
 			}
 		}
+
+		mu.Lock()
+		result.CacheMisses++
+		mu.Unlock()
 
 		for _, ext := range c.extractors {
 			if ext.Name() == "commits" || !ext.Matches(path) {
@@ -211,6 +239,14 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 			mu.Lock()
 			result.Drafts = append(result.Drafts, drafts...)
 			addToResult(result, ext.Name(), drafts)
+			// Accumulate per-language counts for AST drafts.
+			if ext.Name() == "ast" {
+				for _, d := range drafts {
+					if lang, ok := d.Content["language"].(string); ok && lang != "" {
+						result.ByLanguage[lang]++
+					}
+				}
+			}
 			mu.Unlock()
 		}
 
@@ -221,6 +257,10 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 				LastScannedAt: time.Now().UTC().Format(time.RFC3339),
 				DraftCount:    0, // updated below
 			})
+		}
+
+		if c.cfg.OnProgress != nil {
+			c.cfg.OnProgress(i+1, total)
 		}
 	}
 
@@ -248,6 +288,8 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 }
 
 // collectFiles walks rootDir and returns all files that pass size and pattern filters.
+// It stops descending into subdirectories that contain their own .leo/ directory,
+// since those represent separate scopes.
 func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 	maxBytes := c.cfg.MaxFileSizeMB * 1024 * 1024
 	if maxBytes == 0 {
@@ -268,6 +310,14 @@ func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 		if d.IsDir() {
 			if matchesAnyPattern(rel, c.cfg.SkipPatterns) {
 				return filepath.SkipDir
+			}
+			// Stop descending into subdirs with their own .leo/ (separate scope).
+			// Allow the rootDir itself even if it has .leo/.
+			if path != rootDir {
+				leoPath := filepath.Join(path, ".leo")
+				if info, err := os.Stat(leoPath); err == nil && info.IsDir() {
+					return filepath.SkipDir
+				}
 			}
 			return nil
 		}
@@ -300,6 +350,31 @@ func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 
 	sort.Strings(paths)
 	return paths, nil
+}
+
+// ScanTarget pairs a repository root with the .leo/ directory to write into.
+type ScanTarget struct {
+	RootDir string // directory to scan
+	LeoDir  string // .leo/ to use for cache and output
+}
+
+// MultiScan runs Scan for each target independently, using each target's own
+// .leo/ directory for cache and memory output.
+// baseConfig is used as a template; ScopeDir is overridden per target.
+func MultiScan(ctx context.Context, targets []ScanTarget, baseConfig Config) ([]*Result, error) {
+	results := make([]*Result, 0, len(targets))
+	for _, target := range targets {
+		cfg := baseConfig
+		cfg.ScopeDir = target.LeoDir
+
+		cart := New(cfg)
+		result, err := cart.Scan(ctx, target.RootDir)
+		if err != nil {
+			return results, fmt.Errorf("scan %s: %w", target.RootDir, err)
+		}
+		results = append(results, result)
+	}
+	return results, nil
 }
 
 // readFile reads a file and returns its contents.

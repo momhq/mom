@@ -28,8 +28,7 @@ func (e *MarkdownExtractor) Matches(path string) bool {
 var (
 	reDecisionInline = regexp.MustCompile(`(?i)^Decision:\s*(.+)`)
 	rePatternInline  = regexp.MustCompile(`(?i)^Pattern:\s*(.+)`)
-	reURL            = regexp.MustCompile(`https?://[^\s)\]"']+`)
-	reVersion        = regexp.MustCompile(`\bv?\d+\.\d+(\.\d+)?(-[a-zA-Z0-9.]+)?\b`)
+	reURL = regexp.MustCompile(`https?://[^\s)\]"']+`)
 )
 
 func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, error) {

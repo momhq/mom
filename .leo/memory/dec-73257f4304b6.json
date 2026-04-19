@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Removes checkProfiles() and its call site from runDoctor. Adds a\n'communication mode: \u003cmode\u003e' line to the health output (Check 6).\nRemoves unused yaml import.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "37a1ea61facb80d966492f69aa0f2f42d38a7aec",
+    "prefix": "feat",
+    "scope": "doctor",
+    "subject": "feat(doctor): remove profile check, add communication mode to output",
+    "summary": "remove profile check, add communication mode to output. Removes checkProfiles() and its call site from runDoctor. Adds a\n'communication mode: \u003cmode\u003e' line to the health output (Check 6).\nRemoves un..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-73257f4304b6",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "37a1ea61facb80d966492f69aa0f2f42d38a7aec",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "doctor"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

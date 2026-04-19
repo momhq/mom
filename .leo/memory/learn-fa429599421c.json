@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "RDDs, KB proposals, migration maps, and convention templates are\nlegacy design documents. Their decisions are captured in KB docs.\nKept locally for the owner to review at their convenience.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "edde0c7d512b5b4f6da1ff7bdb07e352c52c71ae",
+    "prefix": "chore",
+    "scope": "",
+    "subject": "chore: untrack docs/ — historical reference kept local only",
+    "summary": "untrack docs/ — historical reference kept local only. RDDs, KB proposals, migration maps, and convention templates are\nlegacy design documents. Their decisions are captured in KB docs.\nKept locally..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-fa429599421c",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "edde0c7d512b5b4f6da1ff7bdb07e352c52c71ae",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "chore"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

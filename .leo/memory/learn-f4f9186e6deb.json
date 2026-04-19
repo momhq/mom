@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Fixes two bugs found during v0.7.0 multi-repo rollout:\n\n1. Nil pointer dereference when default_profile doesn't exist in\n   DefaultProfiles() — adds fallback to \"general-manager\" in both\n   init.go and upgrade.go (#57)\n\n2. v0.6.0 configs using \"owner:\" YAML key lose user settings during\n   migration — adds Owner field to legacyConfig and copies to User\n   when User fields are empty. Also maps old \"generalist\" profile\n   name to \"general-manager\" (#58)\n\nCloses #57\nCloses #58\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "574f5ea134d01509d383aef0e3c69a9edb1bd8da",
+    "prefix": "fix",
+    "scope": "",
+    "subject": "fix: resolve upgrade migration bugs — nil profile panic + owner→user settings loss",
+    "summary": "resolve upgrade migration bugs — nil profile panic + owner→user settings loss. Fixes two bugs found during v0.7.0 multi-repo rollout:\n\n1. Nil pointer dereference when default_profile doesn't exist ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-f4f9186e6deb",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "574f5ea134d01509d383aef0e3c69a9edb1bd8da",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

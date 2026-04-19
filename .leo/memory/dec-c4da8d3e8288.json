@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- JSONAdapter: full CRUD with schema validation and automatic index rebuild\n- ClaudeAdapter: generates CLAUDE.md from .leo/ config + profile + KB rules,\n  registers hooks in settings.json, detects runtime\n- Config: .leo/config.yaml loading/saving with sane defaults\n- Profiles: YAML-based specialist profiles with 2 built-in (generalist, backend-engineer)\n- KB schema: Go-native validation matching the JSON schema rules\n- Tests: JSONAdapter (write, read, delete, query, bulk, health, index rebuild),\n  ClaudeAdapter (context file generation, hooks, detection)\n\nCloses #16, closes #17, closes #18\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "a187fee2bdd89ca0537bc6b4a8a113096a9866e4",
+    "prefix": "feat",
+    "scope": "cli",
+    "subject": "feat(cli): implement StorageAdapter, RuntimeAdapter, config, profiles, and KB validation",
+    "summary": "implement StorageAdapter, RuntimeAdapter, config, profiles, and KB validation. - JSONAdapter: full CRUD with schema validation and automatic index rebuild\n- ClaudeAdapter: generates CLAUDE.md from ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-c4da8d3e8288",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "a187fee2bdd89ca0537bc6b4a8a113096a9866e4",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cli"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

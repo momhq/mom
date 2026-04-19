@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestMultiScan_ScansTwoRepos verifies that MultiScan scans two repos independently and writes memories to each repo's own .leo/.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestMultiScan_ScansTwoRepos",
+    "summary": "Function: TestMultiScan_ScansTwoRepos — TestMultiScan_ScansTwoRepos verifies that MultiScan scans two repos independently and writes memo..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-b8fa71f26bb0",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cartographer",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

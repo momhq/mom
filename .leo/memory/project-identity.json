@@ -1,20 +1,8 @@
 {
-  "id": "project-identity",
-  "type": "identity",
   "boot": true,
-  "lifecycle": "permanent",
-  "scope": "core",
-  "tags": [
-    "identity",
-    "leo",
-    "architecture",
-    "meta",
-    "golang"
-  ],
-  "created": "2026-04-08T00:00:00Z",
-  "created_by": "user",
-  "updated": "2026-04-16T00:00:00Z",
-  "updated_by": "leo",
+  "centrality_score": 0.012269938650306749,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
   "content": {
     "constraints": [
       "All KB content is JSON — MD only exists as platform constraints (CLAUDE.md bootloader)",
@@ -33,5 +21,23 @@
       "Claude Code hooks for automated KB maintenance"
     ],
     "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together. This repo is the core — a Go CLI tool that bootstraps, manages, and propagates an AI-native knowledge base across all the user's projects. The KB is a neural network of JSON docs connected by tags, consumed by agents, maintained by scripts."
-  }
+  },
+  "created": "2026-04-08T00:00:00Z",
+  "created_by": "user",
+  "id": "project-identity",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {},
+  "scope": "core",
+  "tags": [
+    "identity",
+    "leo",
+    "architecture",
+    "meta",
+    "golang"
+  ],
+  "type": "identity",
+  "updated": "2026-04-16T00:00:00Z",
+  "updated_by": "leo"
 }

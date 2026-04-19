@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "ClaudeAdapter implements the Adapter interface for Claude Code. It reads from .leo/ and generates .claude/CLAUDE.md + settings.json.",
+    "kind": "type",
+    "language": "go",
+    "name": "ClaudeAdapter",
+    "summary": "Type: ClaudeAdapter — ClaudeAdapter implements the Adapter interface for Claude Code. It reads from .leo/ and generates..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-5066bd34bd9f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "type",
+    "ast",
+    "bootstrap",
+    "pkg-runtime"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "New returns an Emitter that writes to \u003cleoDir\u003e/telemetry/. If enabled is false a no-op emitter is returned. If the telemetry directory does not exist it is created with mode 0755.",
+    "kind": "function",
+    "language": "go",
+    "name": "New",
+    "summary": "Function: New — New returns an Emitter that writes to \u003cleoDir\u003e/telemetry/. If enabled is false a no-op emitter is..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-f8057c549dff",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-transponder"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

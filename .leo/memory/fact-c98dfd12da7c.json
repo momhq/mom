@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "README rewritten with owner's voice — principles-first, cleaner structure.\nproject-identity.json updated to reflect current vision.\nrepo-rename-to-leo-core.json sanitized (removed competitor refs and strategic language).\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "a11bedccb07dacdf650ece171e65da1facc39516",
+    "prefix": "docs",
+    "scope": "",
+    "subject": "docs: rewrite README + sanitize KB docs for public readiness",
+    "summary": "rewrite README + sanitize KB docs for public readiness. README rewritten with owner's voice — principles-first, cleaner structure.\nproject-identity.json updated to reflect current vision.\nrepo-rena..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-c98dfd12da7c",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "a11bedccb07dacdf650ece171e65da1facc39516",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "docs"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

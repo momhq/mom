@@ -14,7 +14,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "session-log"],
+      "enum": ["constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "session-log", "pattern", "learning"],
       "description": "Document type — determines which content sub-schema applies"
     },
     "lifecycle": {
@@ -421,6 +421,86 @@
                     "profile": { "type": "string" }
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "pattern" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["pattern"],
+            "additionalProperties": true,
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "The structural or behavioral pattern observed"
+              },
+              "why": {
+                "type": "string",
+                "description": "Why this pattern matters"
+              },
+              "source": {
+                "type": "string",
+                "description": "Where this pattern was extracted from"
+              },
+              "name": {
+                "type": "string",
+                "description": "Symbol or construct name (set by AST extractor)"
+              },
+              "language": {
+                "type": "string",
+                "description": "Programming language (set by AST extractor)"
+              },
+              "kind": {
+                "type": "string",
+                "description": "Symbol kind: function, type, method, class, etc."
+              },
+              "doc": {
+                "type": "string",
+                "description": "Doc comment extracted from source"
+              },
+              "symbol": {
+                "type": "string",
+                "description": "Symbol name (set by non-Go AST extractor)"
+              },
+              "summary": {
+                "type": "string",
+                "description": "Human-readable summary"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "learning" } } },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "object",
+            "required": ["learning"],
+            "additionalProperties": true,
+            "properties": {
+              "learning": {
+                "type": "string",
+                "description": "What was learned or observed"
+              },
+              "why": {
+                "type": "string",
+                "description": "Why this learning matters"
+              },
+              "how_to_apply": {
+                "type": "string",
+                "description": "When and where to apply this learning"
+              },
+              "source": {
+                "type": "string",
+                "description": "Where this learning came from"
               }
             }
           }

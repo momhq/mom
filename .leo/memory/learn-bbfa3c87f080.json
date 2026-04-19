@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Panic when tree-sitter reports a node at row N but the source lines\nslice is empty or shorter than N. Add bounds check before indexing.",
+    "commit_sha": "2e0449b5d119233087282b4fb6864622c7a3d77d",
+    "prefix": "fix",
+    "scope": "cartographer",
+    "subject": "fix(cartographer): guard extractLeadingComment against empty lines slice",
+    "summary": "guard extractLeadingComment against empty lines slice. Panic when tree-sitter reports a node at row N but the source lines\nslice is empty or shorter than N. Add bounds check before indexing."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-bbfa3c87f080",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "2e0449b5d119233087282b4fb6864622c7a3d77d",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix",
+    "cartographer"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

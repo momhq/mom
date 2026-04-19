@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Append-only entry documenting two related refinements that shipped\ntogether in the same session:\n\nA. Shared GitHub project management conventions\n   (commit d8bdb6e) — labels, milestones, issue/PR naming, Project v2\n   fields, templates. Applied to Logbook immediately.\n\nB. Core self-hosting scaffold\n   (commit 4de6928) — .claude/ inside copilot-core so Leo can evolve\n   the core in dedicated sessions instead of as a side-effect of\n   project work.\n\nRoot cause is the same for both: core refinements kept landing as\nside-effects of project sessions. The conventions needed a canonical\nhome; the scaffold makes the core a place Leo can actually work on.\n\nAlso captures: first field test of the session-wrap-up skill\n(ebf685b), first full cycle of escalation-triggers (public repo push),\nand a memory-level lesson about asserting tool behavior without\nverification (logbook feedback memory, not a rule refinement).\n\nCo-Authored-By: Claude Opus 4.6 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "65734a0d5b7fd717b7d84eb29f45754a64a9e353",
+    "prefix": "docs",
+    "scope": "refinements",
+    "subject": "docs(refinements): capture conventions + self-hosting from 2026-04-09 session",
+    "summary": "capture conventions + self-hosting from 2026-04-09 session. Append-only entry documenting two related refinements that shipped\ntogether in the same session:\n\nA. Shared GitHub project management con..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-04210fdf9569",
+  "landmark": true,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "65734a0d5b7fd717b7d84eb29f45754a64a9e353",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "docs",
+    "refinements"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

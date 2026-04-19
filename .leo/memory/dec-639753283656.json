@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "printExperimentalWarnings() runs after runtime context files are\ngenerated and prints a ⚠ notice for each adapter carrying experimental\nevents, telling the user capture may be less reliable. Tests verify the\nwarning fires for codex/cline and is absent for claude-only installs.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "23d9decc3a46fb6de356f270b1dac6f098ead046",
+    "prefix": "feat",
+    "scope": "mrp",
+    "subject": "feat(mrp): warn at init time when adapter has experimental MRP events",
+    "summary": "warn at init time when adapter has experimental MRP events. printExperimentalWarnings() runs after runtime context files are\ngenerated and prints a ⚠ notice for each adapter carrying experimental\ne..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-639753283656",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "23d9decc3a46fb6de356f270b1dac6f098ead046",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "mrp"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

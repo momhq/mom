@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "CommunicationModeInstructions returns a ## Communication mode directive section for the given mode. Supported values: \"concise\", \"normal\", \"verbose\", \"caveman\". Defaults to \"concise\".",
+    "kind": "function",
+    "language": "go",
+    "name": "CommunicationModeInstructions",
+    "summary": "Function: CommunicationModeInstructions — CommunicationModeInstructions returns a ## Communication mode directive section for the given mod..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-21690190576f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-runtime"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

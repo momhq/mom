@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "When reviewing a specialist's work (whether Leo or a review sub-agent), **reject** immediately if you see:\n\n- \"Build passed\" without the output\n- \"Tested and it works\" without a description of what was tested\n- \"Adjusted the spacing\" without a before/after screenshot\n- \"Researched the market\" without a list of sources\n- \"Fixed the bug\" without explaining the root cause\n- \"Optimized performance\" without a before/after number\n- \"Ready for production\" without a pre-deploy checklist\n\nSending it back to the specialist with a request for evidence **isn't being annoying**. It's the work contract.",
+    "heading": "Anti-patterns to reject",
+    "summary": "When reviewing a specialist's work (whether Leo or a review sub-agent), **reject** immediately if you see:\n\n- \"Build ..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-a06984a3a7bb",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "pattern",
+    "bootstrap"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

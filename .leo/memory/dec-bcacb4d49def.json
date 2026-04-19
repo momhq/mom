@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Replaces array-position scope labeling with role-aware detection:\n- ParentScope struct carries Path, Label, HasGit, ChildRepos\n- containsGitRepos helper checks immediate children for .git/\n- detectParentDirs assigns \"org\" when children have .git/, \"repo\"\n  when the dir itself has .git/, else \"workspace\"\n- resolveScopeChoice derives label from ParentScope.Label, not index\n- discoverUninitializedChildRepos prints child repos lacking .leo/\n  when scope is org/user (informational, no auto-init)\n- Adds tests for all new helpers in scope_detect_test.go\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "fd53c52175a75bada33f574ee0f79882d97d4df6",
+    "prefix": "feat",
+    "scope": "scope",
+    "subject": "feat(scope): add semantic scope detection with git-repo role assignment",
+    "summary": "add semantic scope detection with git-repo role assignment. Replaces array-position scope labeling with role-aware detection:\n- ParentScope struct carries Path, Label, HasGit, ChildRepos\n- contains..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-bcacb4d49def",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "fd53c52175a75bada33f574ee0f79882d97d4df6",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "scope"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

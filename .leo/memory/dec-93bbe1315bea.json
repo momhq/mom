@@ -1,0 +1,33 @@
+{
+  "centrality_score": 1,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Removes cli/internal/profiles/ entirely — profiles.go and profiles_test.go.\nPackage had no remaining importers after profile loading was removed from\ninit, upgrade, and onboarding. Profile system retired per issue #66.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "9d0a2870439c333bb853fbe87d6217031a22b321",
+    "prefix": "feat",
+    "scope": "profiles",
+    "subject": "feat(profiles): delete profiles package (retired in v0.8.0)",
+    "summary": "delete profiles package (retired in v0.8.0). Removes cli/internal/profiles/ entirely — profiles.go and profiles_test.go.\nPackage had no remaining importers after profile loading was removed from\nin..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-93bbe1315bea",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "9d0a2870439c333bb853fbe87d6217031a22b321",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "profiles"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

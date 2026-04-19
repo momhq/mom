@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "EXTRACTED",
+  "content": {
+    "doc": "TestOnboarding_DefaultScopeIsRepo verifies that choosing the default scope option (current dir) sets ScopeLabel to \"repo\" and InstallDir to cwd.",
+    "kind": "function",
+    "language": "go",
+    "name": "TestOnboarding_DefaultScopeIsRepo",
+    "summary": "Function: TestOnboarding_DefaultScopeIsRepo — TestOnboarding_DefaultScopeIsRepo verifies that choosing the default scope option (current dir) s..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-64438f7f4291",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "go",
+    "function",
+    "ast",
+    "bootstrap",
+    "pkg-cmd",
+    "test"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

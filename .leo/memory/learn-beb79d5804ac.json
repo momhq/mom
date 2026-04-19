@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Users got no output after make install, and the binary wasn't found\nbecause GOPATH/bin wasn't in PATH. Now prints install location and\nwarns with instructions when PATH is missing.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "d0ba429efaebab0dc6366b6a1c7ab92016d2aea4",
+    "prefix": "fix",
+    "scope": "cli",
+    "subject": "fix(cli): add install feedback and PATH warning to make install",
+    "summary": "add install feedback and PATH warning to make install. Users got no output after make install, and the binary wasn't found\nbecause GOPATH/bin wasn't in PATH. Now prints install location and\nwarns w..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-beb79d5804ac",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "d0ba429efaebab0dc6366b6a1c7ab92016d2aea4",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix",
+    "cli"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

@@ -3,6 +3,7 @@ package cartographer
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	sitter "github.com/smacker/go-tree-sitter"
@@ -55,6 +56,55 @@ func (e *TreeSitterASTExtractor) Extract(ctx context.Context, src Source) ([]Dra
 	return extractViaQuery(handler, root, src, srcHash)
 }
 
+// packageTag returns a "pkg-<dir>" tag derived from the source file's parent directory.
+// For example, "cli/internal/cmd/bootstrap.go" → "pkg-cmd".
+func packageTag(srcPath string) string {
+	dir := filepath.Dir(srcPath)
+	base := filepath.Base(dir)
+	if base == "." || base == "/" {
+		return ""
+	}
+	return "pkg-" + strings.ToLower(base)
+}
+
+// buildTags constructs the tag list for an AST draft, adding semantic tags
+// beyond the base [language, kind, "ast", "bootstrap"] set.
+func buildTags(lang, kind, srcPath, symbolName string, extras ...string) []string {
+	tags := []string{lang, kind, "ast", "bootstrap"}
+
+	// Package tag from source path.
+	if pkg := packageTag(srcPath); pkg != "" {
+		tags = append(tags, pkg)
+	}
+
+	// Test tag for Go/Python test functions.
+	if strings.HasPrefix(symbolName, "Test") || strings.HasPrefix(symbolName, "test_") {
+		tags = append(tags, "test")
+	}
+
+	// Append any extras (e.g., receiver tag for methods).
+	tags = append(tags, extras...)
+
+	return tags
+}
+
+// extractReceiverType extracts the type name from a Go receiver string like "(s *Server)" → "server".
+func extractReceiverType(recv string) string {
+	// Strip parentheses.
+	recv = strings.TrimSpace(recv)
+	recv = strings.TrimPrefix(recv, "(")
+	recv = strings.TrimSuffix(recv, ")")
+	// Split on space to get the type part.
+	parts := strings.Fields(recv)
+	if len(parts) == 0 {
+		return ""
+	}
+	// Take the last part (the type), strip pointer.
+	typeName := parts[len(parts)-1]
+	typeName = strings.TrimPrefix(typeName, "*")
+	return strings.ToLower(typeName)
+}
+
 // extractViaQuery uses a tree-sitter Scheme query to extract named symbols.
 func extractViaQuery(h *languageHandler, root *sitter.Node, src Source, srcHash string) ([]Draft, error) {
 	q, err := sitter.NewQuery([]byte(h.query), h.language)
@@ -66,6 +116,8 @@ func extractViaQuery(h *languageHandler, root *sitter.Node, src Source, srcHash 
 	qc := sitter.NewQueryCursor()
 	defer qc.Close()
 	qc.Exec(q, root)
+
+	lines := linesOf(src.Content)
 
 	var drafts []Draft
 	seen := make(map[string]bool) // deduplicate (same name, same line)
@@ -93,16 +145,37 @@ func extractViaQuery(h *languageHandler, root *sitter.Node, src Source, srcHash 
 
 			kind := symbolKind(h.name, node)
 
+			// Resolve the definition node (parent of the name node) for doc extraction.
+			defNode := node.Parent()
+
+			// For export_statement wrapping (e.g. TypeScript/JavaScript), step up one more level
+			// so that leading-comment extraction looks above the export keyword.
+			if defNode != nil && defNode.Parent() != nil && defNode.Parent().Type() == "export_statement" {
+				defNode = defNode.Parent()
+			}
+
+			doc := extractDoc(h.name, defNode, src.Content, lines)
+
+			content := map[string]any{
+				"symbol":   name,
+				"kind":     kind,
+				"language": h.name,
+			}
+			if doc != "" {
+				content["doc"] = doc
+			}
+
+			summary := fmt.Sprintf("%s %s: %s", h.name, kind, name)
+			if doc != "" {
+				summary = fmt.Sprintf("%s %s: %s — %s", h.name, kind, name, truncate(doc, 100))
+			}
+
 			drafts = append(drafts, Draft{
-				Type:       "fact",
-				Summary:    fmt.Sprintf("%s %s: %s", h.name, kind, name),
-				Tags:       []string{h.name, kind, "ast", "bootstrap"},
+				Type:       "pattern",
+				Summary:    summary,
+				Tags:       buildTags(h.name, kind, src.Path, name),
 				Confidence: ConfidenceExtracted,
-				Content: map[string]any{
-					"symbol":   name,
-					"kind":     kind,
-					"language": h.name,
-				},
+				Content:    content,
 				Provenance: ProvenanceMeta{
 					SourceFile:   src.Path,
 					SourceLines:  lineRange(line, endLine),
@@ -116,13 +189,92 @@ func extractViaQuery(h *languageHandler, root *sitter.Node, src Source, srcHash 
 	return drafts, nil
 }
 
+// extractDoc returns documentation for a definition node.
+// For Python function_definition and class_definition it reads the inline docstring.
+// For all other languages it reads the leading // or /* comment block above the node.
+func extractDoc(lang string, defNode *sitter.Node, src []byte, lines []string) string {
+	if defNode == nil {
+		return ""
+	}
+	if lang == "python" {
+		nodeType := defNode.Type()
+		if nodeType == "function_definition" || nodeType == "class_definition" {
+			return extractPythonDocstring(defNode, src)
+		}
+		return ""
+	}
+	// Generic: extract leading comment lines above the definition node.
+	return extractLeadingComment(defNode, lines)
+}
+
+// extractPythonDocstring extracts the first string literal from the body of a
+// Python function_definition or class_definition node.
+func extractPythonDocstring(defNode *sitter.Node, src []byte) string {
+	for i := 0; i < int(defNode.ChildCount()); i++ {
+		child := defNode.Child(i)
+		if child == nil || child.Type() != "block" {
+			continue
+		}
+		if child.ChildCount() == 0 {
+			return ""
+		}
+		first := child.Child(0)
+		if first == nil || first.Type() != "expression_statement" {
+			return ""
+		}
+		if first.ChildCount() == 0 {
+			return ""
+		}
+		strNode := first.Child(0)
+		if strNode == nil || strNode.Type() != "string" {
+			return ""
+		}
+		// Prefer the string_content child (avoids including quote characters).
+		for j := 0; j < int(strNode.ChildCount()); j++ {
+			sc := strNode.Child(j)
+			if sc != nil && sc.Type() == "string_content" {
+				return strings.TrimSpace(sc.Content(src))
+			}
+		}
+		// Fallback: strip surrounding quote characters manually.
+		raw := strings.TrimSpace(strNode.Content(src))
+		for _, q := range []string{`"""`, `'''`, `"`, `'`} {
+			if strings.HasPrefix(raw, q) && strings.HasSuffix(raw, q) && len(raw) >= 2*len(q) {
+				return strings.TrimSpace(raw[len(q) : len(raw)-len(q)])
+			}
+		}
+		return raw
+	}
+	return ""
+}
+
 // symbolKind maps a captured node's parent node type to a human-readable kind string.
 func symbolKind(lang string, node *sitter.Node) string {
 	parent := node.Parent()
 	if parent == nil {
 		return "symbol"
 	}
+
+	// Python: function_definition inside a class body → method.
+	if lang == "python" && parent.Type() == "function_definition" {
+		if isInsidePythonClass(parent) {
+			return "method"
+		}
+		return "function"
+	}
+
 	return nodeTypeToKind(lang, parent.Type())
+}
+
+// isInsidePythonClass reports whether a Python function_definition node is
+// directly contained in a class body (block whose parent is class_definition).
+func isInsidePythonClass(funcNode *sitter.Node) bool {
+	block := funcNode.Parent()
+	if block == nil {
+		return false
+	}
+	classNode := block.Parent()
+	return classNode != nil && classNode.Type() == "class_definition"
 }
 
 // nodeTypeToKind converts a tree-sitter node type string to a canonical kind label.
@@ -154,7 +306,9 @@ func nodeTypeToKind(lang, nodeType string) string {
 	case "lexical_declaration", "variable_declaration":
 		return "const"
 	default:
-		return nodeType
+		// Sanitise tree-sitter node types (e.g. "variable_declarator") to
+		// kebab-case so they are valid KB tags.
+		return strings.ReplaceAll(nodeType, "_", "-")
 	}
 }
 
@@ -232,9 +386,9 @@ func goTypeDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	}
 
 	return []Draft{{
-		Type:       "fact",
+		Type:       "pattern",
 		Summary:    summary,
-		Tags:       []string{"type", "go", "ast", "bootstrap"},
+		Tags:       buildTags("go", "type", src.Path, name),
 		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
@@ -284,9 +438,9 @@ func goFuncDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	}
 
 	return &Draft{
-		Type:       "fact",
+		Type:       "pattern",
 		Summary:    summary,
-		Tags:       []string{"function", "go", "ast", "bootstrap"},
+		Tags:       buildTags("go", "function", src.Path, name),
 		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
@@ -345,10 +499,19 @@ func goMethodDraft(node *sitter.Node, src Source, srcHash string, lines []string
 		content["doc"] = docComment
 	}
 
+	// Extract receiver type name for tagging.
+	var extras []string
+	if receiver != "" {
+		recType := extractReceiverType(receiver)
+		if recType != "" {
+			extras = append(extras, "receiver-"+recType)
+		}
+	}
+
 	return &Draft{
-		Type:       "fact",
+		Type:       "pattern",
 		Summary:    summary,
-		Tags:       []string{"method", "go", "ast", "bootstrap"},
+		Tags:       buildTags("go", "method", src.Path, name, extras...),
 		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
@@ -364,7 +527,7 @@ func goMethodDraft(node *sitter.Node, src Source, srcHash string, lines []string
 // preceding node, if any. It looks at the lines immediately above node's start.
 func extractLeadingComment(node *sitter.Node, lines []string) string {
 	startLine := int(node.StartPoint().Row)
-	if startLine == 0 {
+	if startLine == 0 || len(lines) == 0 || startLine > len(lines) {
 		return ""
 	}
 

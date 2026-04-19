@@ -64,8 +64,8 @@ func TestASTExtractor_GoFile(t *testing.T) {
 		if d.Confidence != ConfidenceExtracted {
 			t.Errorf("AST draft %q has confidence %q, want EXTRACTED", d.Summary, d.Confidence)
 		}
-		if d.Type != "fact" {
-			t.Errorf("AST draft %q has type %q, want fact", d.Summary, d.Type)
+		if d.Type != "pattern" {
+			t.Errorf("AST draft %q has type %q, want pattern", d.Summary, d.Type)
 		}
 	}
 
@@ -188,10 +188,10 @@ func assertLanguageFixture(t *testing.T, fixture, ext, lang, wantSymbol string) 
 		t.Fatalf("Extract(%s): expected ≥1 draft, got 0", fixture)
 	}
 
-	// All drafts must be fact/EXTRACTED and carry the language tag.
+	// All drafts must be pattern/EXTRACTED and carry the language tag.
 	for _, d := range drafts {
-		if d.Type != "fact" {
-			t.Errorf("%s: draft %q type = %q, want fact", fixture, d.Summary, d.Type)
+		if d.Type != "pattern" {
+			t.Errorf("%s: draft %q type = %q, want pattern", fixture, d.Summary, d.Type)
 		}
 		if d.Confidence != ConfidenceExtracted {
 			t.Errorf("%s: draft %q confidence = %q, want EXTRACTED", fixture, d.Summary, d.Confidence)
@@ -237,6 +237,77 @@ func TestASTExtractor_Python(t *testing.T) {
 	assertLanguageFixture(t, "sample.py", ".py", "python", "DataProcessor")
 }
 
+// TestASTExtractor_Python_ClassMethodVsFunction asserts that top-level functions
+// get kind "function" and class methods get kind "method".
+func TestASTExtractor_Python_ClassMethodVsFunction(t *testing.T) {
+	src := Source{
+		Path: "testdata/sample.py",
+		Content: []byte(`
+class MyClass:
+    def class_method(self):
+        pass
+
+def top_level_func():
+    pass
+`),
+		Extension: ".py",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	kinds := make(map[string]string) // symbol → kind
+	for _, d := range drafts {
+		if sym, ok := d.Content["symbol"].(string); ok {
+			if kind, ok := d.Content["kind"].(string); ok {
+				kinds[sym] = kind
+			}
+		}
+	}
+
+	if kinds["top_level_func"] != "function" {
+		t.Errorf("top_level_func: got kind %q, want function", kinds["top_level_func"])
+	}
+	if kinds["class_method"] != "method" {
+		t.Errorf("class_method: got kind %q, want method", kinds["class_method"])
+	}
+}
+
+// TestASTExtractor_Python_Docstring asserts that Python function docstrings are extracted.
+func TestASTExtractor_Python_Docstring(t *testing.T) {
+	src := Source{
+		Path: "api.py",
+		Content: []byte(`
+def process(record):
+    """Process a single record and return the result."""
+    return record
+`),
+		Extension: ".py",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	found := false
+	for _, d := range drafts {
+		if sym, ok := d.Content["symbol"].(string); ok && sym == "process" {
+			if doc, ok := d.Content["doc"].(string); ok && doc != "" {
+				found = true
+				_ = doc
+			}
+		}
+	}
+	if !found {
+		t.Error("expected docstring to be captured for Python function 'process'")
+	}
+}
+
 func TestASTExtractor_Ruby(t *testing.T) {
 	assertLanguageFixture(t, "sample.rb", ".rb", "ruby", "DataProcessor")
 }
@@ -245,8 +316,64 @@ func TestASTExtractor_JavaScript(t *testing.T) {
 	assertLanguageFixture(t, "sample.js", ".js", "javascript", "DataProcessor")
 }
 
+// TestASTExtractor_JavaScript_ExportDefaultFunction asserts that
+// "export default function" declarations are extracted.
+func TestASTExtractor_JavaScript_ExportDefaultFunction(t *testing.T) {
+	src := Source{
+		Path:      "handler.js",
+		Content:   []byte("export default function handleRequest(req) {\n  return req;\n}\n"),
+		Extension: ".js",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	found := false
+	for _, d := range drafts {
+		if sym, ok := d.Content["symbol"].(string); ok && sym == "handleRequest" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected draft with symbol=handleRequest; got %v", draftSymbols(drafts))
+	}
+}
+
 func TestASTExtractor_TypeScript(t *testing.T) {
 	assertLanguageFixture(t, "sample.ts", ".ts", "typescript", "DataProcessor")
+}
+
+// TestASTExtractor_TypeScript_Interface asserts that TypeScript interface declarations
+// are extracted with kind "interface".
+func TestASTExtractor_TypeScript_Interface(t *testing.T) {
+	src := Source{
+		Path:      "api.ts",
+		Content:   []byte("export interface UserService {\n  getUser(id: string): User;\n}\n"),
+		Extension: ".ts",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	found := false
+	for _, d := range drafts {
+		if sym, ok := d.Content["symbol"].(string); ok && sym == "UserService" {
+			if kind, ok := d.Content["kind"].(string); ok && kind == "interface" {
+				found = true
+			} else {
+				t.Errorf("UserService: got kind %q, want interface", d.Content["kind"])
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected draft with symbol=UserService; got %v", draftSymbols(drafts))
+	}
 }
 
 func TestASTExtractor_TSX(t *testing.T) {
@@ -271,6 +398,76 @@ func TestASTExtractor_CPP(t *testing.T) {
 
 func TestASTExtractor_CSharp(t *testing.T) {
 	assertLanguageFixture(t, "sample.cs", ".cs", "csharp", "DataProcessor")
+}
+
+func TestASTExtractor_EnrichedTags(t *testing.T) {
+	src := Source{
+		Path:      "cli/internal/cmd/bootstrap.go",
+		Content:   []byte("package cmd\n\n// TestBootstrapRun tests bootstrap.\nfunc TestBootstrapRun() {}\n\nfunc ProcessData() {}\n"),
+		Extension: ".go",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	for _, d := range drafts {
+		name, _ := d.Content["name"].(string)
+		hasTag := func(tag string) bool {
+			for _, tg := range d.Tags {
+				if tg == tag {
+					return true
+				}
+			}
+			return false
+		}
+
+		// All drafts should have pkg-cmd tag.
+		if !hasTag("pkg-cmd") {
+			t.Errorf("draft %q missing pkg-cmd tag, got %v", name, d.Tags)
+		}
+
+		// TestBootstrapRun should have "test" tag.
+		if name == "TestBootstrapRun" && !hasTag("test") {
+			t.Errorf("TestBootstrapRun missing 'test' tag, got %v", d.Tags)
+		}
+
+		// ProcessData should NOT have "test" tag.
+		if name == "ProcessData" && hasTag("test") {
+			t.Errorf("ProcessData should not have 'test' tag, got %v", d.Tags)
+		}
+	}
+}
+
+func TestASTExtractor_MethodReceiverTag(t *testing.T) {
+	src := Source{
+		Path:      "internal/server/handler.go",
+		Content:   []byte("package server\n\ntype Handler struct{}\n\n// Process handles a request.\nfunc (h *Handler) Process() {}\n"),
+		Extension: ".go",
+	}
+
+	e := NewTreeSitterASTExtractor()
+	drafts, err := e.Extract(context.Background(), src)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+
+	for _, d := range drafts {
+		name, _ := d.Content["name"].(string)
+		if name == "Process" {
+			hasReceiverTag := false
+			for _, tag := range d.Tags {
+				if tag == "receiver-handler" {
+					hasReceiverTag = true
+				}
+			}
+			if !hasReceiverTag {
+				t.Errorf("method Process missing receiver-handler tag, got %v", d.Tags)
+			}
+		}
+	}
 }
 
 func TestASTExtractor_MultiLanguageIntegration(t *testing.T) {

@@ -12,6 +12,12 @@ export interface Config {
   path: string;
 }
 
+// Bare (non-exported) interface.
+interface RawRecord {
+  id: number;
+  data: unknown;
+}
+
 export function loadConfig(path: string): Config {
   return { path };
 }

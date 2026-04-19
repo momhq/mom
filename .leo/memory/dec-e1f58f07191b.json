@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "leo recall \u003cquery\u003e: searches memories by tag/content substring with\nlandmark boost (+0.3). Supports --tags, --scope, --limit flags.\n\nleo tour: displays top N landmark memories at current scope, formatted\nas a numbered orientation list with centrality score, type, and tags.\n\nCo-Authored-By: Claude Sonnet 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "ccf2a0971ecde22933a71a3fa52f1a882b1003a5",
+    "prefix": "feat",
+    "scope": "cmd",
+    "subject": "feat(cmd): add leo recall and leo tour commands",
+    "summary": "add leo recall and leo tour commands. leo recall \u003cquery\u003e: searches memories by tag/content substring with\nlandmark boost (+0.3). Supports --tags, --scope, --limit flags.\n\nleo tour: displays top N l..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-e1f58f07191b",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "ccf2a0971ecde22933a71a3fa52f1a882b1003a5",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cmd"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

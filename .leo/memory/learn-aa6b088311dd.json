@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Co-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "490796beba1fef4c4cec248311926727a8e06650",
+    "prefix": "chore",
+    "scope": "",
+    "subject": "chore: remove legacy skills/ — session-wrap-up lives in KB as JSON doc",
+    "summary": "remove legacy skills/ — session-wrap-up lives in KB as JSON doc. Co-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e"
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-aa6b088311dd",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "490796beba1fef4c4cec248311926727a8e06650",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "chore"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

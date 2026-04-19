@@ -59,14 +59,18 @@ func (tc TelemetryConfig) TelemetryEnabled() bool {
 
 // RuntimeConfig holds per-runtime settings.
 type RuntimeConfig struct {
-	Enabled bool              `yaml:"enabled"`
-	Tiers   map[string]string `yaml:"tiers,omitempty"`
+	Enabled bool `yaml:"enabled"`
+	// Tiers was retired in v0.9.0 (#74). The field is intentionally absent from
+	// this struct so that go-yaml silently drops it on load. The upgrade command
+	// strips any residual tiers: keys from config files on disk.
 }
 
 // UserConfig holds user preferences.
 type UserConfig struct {
 	Language string `yaml:"language"`
-	Autonomy string `yaml:"autonomy"`
+	// Autonomy was retired in v0.9.0 (#74). The field is intentionally absent
+	// so that go-yaml silently drops it on load. The upgrade command strips any
+	// residual autonomy: keys from config files on disk.
 }
 
 // CommunicationConfig holds communication style settings.
@@ -87,18 +91,10 @@ func Default() Config {
 	return Config{
 		Version: "1",
 		Runtimes: map[string]RuntimeConfig{
-			"claude": {
-				Enabled: true,
-				Tiers: map[string]string{
-					"orchestration": "opus",
-					"execution":     "sonnet",
-					"review":        "sonnet",
-				},
-			},
+			"claude": {Enabled: true},
 		},
 		User: UserConfig{
 			Language: "en",
-			Autonomy: "balanced",
 		},
 		Communication: CommunicationConfig{
 			Mode: "concise",
@@ -204,21 +200,6 @@ func Load(leoDir string) (*Config, error) {
 
 // migrateFromLegacy converts a v0.6.0 config to the new format.
 func migrateFromLegacy(legacy *legacyConfig) *Config {
-	tiers := map[string]string{
-		"orchestration": "opus",
-		"execution":     "sonnet",
-		"review":        "sonnet",
-	}
-
-	// Map old specialist fields to tiers if they exist.
-	if legacy.Specialists.OrchestratorModel != "" {
-		tiers["orchestration"] = legacy.Specialists.OrchestratorModel
-	}
-	if legacy.Specialists.DefaultModel != "" {
-		tiers["execution"] = legacy.Specialists.DefaultModel
-		tiers["review"] = legacy.Specialists.DefaultModel
-	}
-
 	rt := legacy.Runtime
 	if rt == "" {
 		rt = "claude"
@@ -237,19 +218,16 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 		commMode = "caveman"
 	}
 
+	// Autonomy and tiers were retired in v0.9.0 (#74) — not propagated.
 	user := UserConfig{
 		Language: legacyUser.Language,
-		Autonomy: legacyUser.Autonomy,
 	}
 
 	return &Config{
 		Version:    legacy.Version,
 		CoreSource: legacy.CoreSource,
 		Runtimes: map[string]RuntimeConfig{
-			rt: {
-				Enabled: true,
-				Tiers:   tiers,
-			},
+			rt: {Enabled: true},
 		},
 		User:          user,
 		Communication: CommunicationConfig{Mode: commMode},

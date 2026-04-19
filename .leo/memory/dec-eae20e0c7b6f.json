@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Extends TreeSitterASTExtractor with JS/TS/TSX grammar support. Extracts\nclass declarations, function declarations, and const/let arrow functions\nat module level. TSX additionally captures JSX-assigned arrow functions.\n\nFixtures: sample.js, sample.ts, sample.tsx.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "27503667bbd98a24d0c15b58eae739e6d26fb746",
+    "prefix": "feat",
+    "scope": "cartographer",
+    "subject": "feat(cartographer): add JavaScript, TypeScript, and TSX AST extraction",
+    "summary": "add JavaScript, TypeScript, and TSX AST extraction. Extends TreeSitterASTExtractor with JS/TS/TSX grammar support. Extracts\nclass declarations, function declarations, and const/let arrow functions\n..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-eae20e0c7b6f",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "27503667bbd98a24d0c15b58eae739e6d26fb746",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "feat",
+    "cartographer"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

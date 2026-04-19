@@ -1,0 +1,27 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "❌ **Asking permission for everything.**\nEscalation is for triggers on this list, not for every trivial decision. Asking permission for every micro-step becomes friction. If it's not on this list and the `think-before-execute` rule puts you in direct mode, execute.\n\n❌ **Skipping a trigger \"because the owner already approved something similar before\".**\nEach instance is new. The owner approving a push to `main` yesterday does **not** grant you permission to push today without asking.\n\n❌ **Escalating without options.**\n\"I don't know what to do\" is frustrating. Present at least 2 options, even if one is \"do nothing\". The agent's job is to **reduce** the owner's cognitive load, not transfer it.\n\n❌ **\"While you think, I'll get started.\"**\nNo. If you stopped because of a trigger, you stopped for real. Work in parallel after a structural decision almost always becomes rework.",
+    "heading": "Anti-patterns",
+    "summary": "❌ **Asking permission for everything.**\nEscalation is for triggers on this list, not for every trivial decision. Aski..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "pat-e508c7a4da89",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "pattern",
+    "bootstrap"
+  ],
+  "type": "pattern",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

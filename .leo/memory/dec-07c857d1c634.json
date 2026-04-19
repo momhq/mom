@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9987730061349693,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Replaces all occurrences of \"founder\" with \"owner\" in 25 markdown\nfiles — agents, rules, skills, docs, and context. The term \"owner\"\nis more neutral and appropriate for the role of the person who\nholds decision authority.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "594c3ab04a552f9dfae86faf0450afb68eb1803d",
+    "prefix": "refactor",
+    "scope": "core",
+    "subject": "refactor(core): rename \"founder\" to \"owner\" across all docs",
+    "summary": "rename \"founder\" to \"owner\" across all docs. Replaces all occurrences of \"founder\" with \"owner\" in 25 markdown\nfiles — agents, rules, skills, docs, and context. The term \"owner\"\nis more neutral and..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "dec-07c857d1c634",
+  "landmark": true,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "594c3ab04a552f9dfae86faf0450afb68eb1803d",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "refactor",
+    "core"
+  ],
+  "type": "decision",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

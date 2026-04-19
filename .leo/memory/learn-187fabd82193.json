@@ -1,0 +1,28 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "AMBIGUOUS",
+  "content": {
+    "marker": "FIXME",
+    "summary": "FIXME: There is a known issue with the connection pool under high load scenarios.",
+    "text": "There is a known issue with the connection pool under high load scenarios."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-187fabd82193",
+  "landmark": true,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "fixme",
+    "bootstrap",
+    "tech-debt"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

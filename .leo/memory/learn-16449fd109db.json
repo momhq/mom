@@ -1,0 +1,33 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "Fix unchecked errors in production code (json.Unmarshal, defer Close,\nfmt.Fscan) and exclude errcheck from test files in .golangci.yml.\n\nCo-Authored-By: Claude Opus 4.6 \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "37b4c7b4d5f19c63bea1b62c07533b5474b3cf06",
+    "prefix": "fix",
+    "scope": "ci",
+    "subject": "fix(ci): resolve errcheck lint errors for green CI",
+    "summary": "resolve errcheck lint errors for green CI. Fix unchecked errors in production code (json.Unmarshal, defer Close,\nfmt.Fscan) and exclude errcheck from test files in .golangci.yml.\n\nCo-Authored-By: C..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-16449fd109db",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "37b4c7b4d5f19c63bea1b62c07533b5474b3cf06",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "fix",
+    "ci"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

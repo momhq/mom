@@ -1,0 +1,28 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "AMBIGUOUS",
+  "content": {
+    "marker": "HACK",
+    "summary": "HACK: Using a mutex here because the channel approach had race conditions.",
+    "text": "Using a mutex here because the channel approach had race conditions."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "learn-5760b30eab18",
+  "landmark": false,
+  "lifecycle": "learning",
+  "promotion_state": "draft",
+  "provenance": {
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "hack",
+    "bootstrap",
+    "tech-debt"
+  ],
+  "type": "learning",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}

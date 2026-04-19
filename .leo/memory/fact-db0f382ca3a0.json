@@ -1,0 +1,32 @@
+{
+  "centrality_score": 0.9975460122699387,
+  "classification": "INTERNAL",
+  "confidence": "INFERRED",
+  "content": {
+    "body": "- adapter tests: remove Profile usage, update GenerateContextFile calls\n- claude_test: add NoProfile (forbidden phrases), CommunicationModes tests\n- init_test: remove retired file expectations, add retired-must-not-exist check\n- onboarding_test: remove DefaultProfile assertions, remove profiles import,\n  fix form input sequences for one-fewer-group wizard\n- upgrade_test: replace PreservesCustomProfile+MigratesGeneralistProfile with\n  RemovesProfilesDir, RemovesRetiredConstraints, Idempotent, NoRetiredContent\n\nCo-Authored-By: Claude Opus 4.7 (1M context) \u003cnoreply@anthropic.com\u003e",
+    "commit_sha": "9627195bbbade5a792c3f3374dfa2c371cd69c72",
+    "prefix": "test",
+    "scope": "",
+    "subject": "test: update all tests for v0.8.0 profile/orchestration retirement",
+    "summary": "update all tests for v0.8.0 profile/orchestration retirement. - adapter tests: remove Profile usage, update GenerateContextFile calls\n- claude_test: add NoProfile (forbidden phrases), Communication..."
+  },
+  "created": "2026-04-19T17:26:31Z",
+  "created_by": "cartographer",
+  "id": "fact-db0f382ca3a0",
+  "landmark": false,
+  "lifecycle": "permanent",
+  "promotion_state": "draft",
+  "provenance": {
+    "commit_sha": "9627195bbbade5a792c3f3374dfa2c371cd69c72",
+    "trigger_event": "bootstrap.scan"
+  },
+  "scope": "project",
+  "tags": [
+    "commit",
+    "bootstrap",
+    "test"
+  ],
+  "type": "fact",
+  "updated": "2026-04-19T17:26:31Z",
+  "updated_by": "cartographer"
+}
