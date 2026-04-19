@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	huhspinner "charm.land/huh/v2/spinner"
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/profiles"
 )
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Upgrade .leo/ to the latest version (preserves your KB docs)",
-	Long: `Upgrades core infrastructure (schema, constraints, skills, profiles, runtime files)
+	Long: `Upgrades core infrastructure (schema, constraints, skills, runtime files)
 to match the installed leo binary. Your documents in .leo/kb/docs/ are never touched.`,
 	RunE: runUpgrade,
 }
@@ -49,7 +47,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		actions = append(actions, upgradeAction{symbol, desc})
 	}
 
-	// ── Phase 1: Load and migrate config ────────────────────────────────────
+	// ── Phase 1: Load, migrate, and persist config ───────────────────────────
 	cfg, err := config.Load(leoDir)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -57,7 +55,14 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	var phase1Err error
 	doPhase1 := func() {
-		// Persist migrated config (Load auto-migrates v0.6.0 format).
+		// Back-fill communication.mode if absent (pre-v0.8 installs).
+		if cfg.Communication.Mode == "" {
+			cfg.Communication.Mode = "concise"
+			addAction("✔", "communication.mode set to concise (default)")
+		}
+
+		// Persist migrated config (Load auto-migrates v0.6.0/v0.7.0 formats,
+		// dropping default_profile and back-filling communication.mode).
 		if err := config.Save(leoDir, cfg); err != nil {
 			phase1Err = fmt.Errorf("saving config: %w", err)
 			return
@@ -79,6 +84,57 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 				}
 				rel, _ := filepath.Rel(projectRoot, d)
 				addAction("+", fmt.Sprintf("created directory %s", rel))
+			}
+		}
+
+		// Remove retired .leo/profiles/ directory (v0.8.0 migration).
+		profilesDir := filepath.Join(leoDir, "profiles")
+		if _, statErr := os.Stat(profilesDir); statErr == nil {
+			if !dryRun {
+				if err := os.RemoveAll(profilesDir); err != nil {
+					phase1Err = fmt.Errorf("removing profiles/: %w", err)
+					return
+				}
+			}
+			addAction("✔", "profiles/ directory removed (retired in v0.8.0)")
+		}
+
+		// Remove retired constraint JSON files (idempotent).
+		retiredConstraints := []string{
+			"delegation-mandatory",
+			"think-before-execute",
+			"know-what-you-dont-know",
+			"peer-review-automatic",
+			"token-economy-caveman",
+			"token-economy-model-selection",
+		}
+		constraintsDir := filepath.Join(leoDir, "kb", "constraints")
+		for _, name := range retiredConstraints {
+			path := filepath.Join(constraintsDir, name+".json")
+			if _, statErr := os.Stat(path); statErr == nil {
+				if !dryRun {
+					if err := os.Remove(path); err != nil {
+						phase1Err = fmt.Errorf("removing retired constraint %s: %w", name, err)
+						return
+					}
+				}
+				addAction("✔", fmt.Sprintf("retired constraint %s removed", name))
+			}
+		}
+
+		// Remove retired skill JSON files (idempotent).
+		retiredSkills := []string{"task-intake"}
+		skillsDir := filepath.Join(leoDir, "kb", "skills")
+		for _, name := range retiredSkills {
+			path := filepath.Join(skillsDir, name+".json")
+			if _, statErr := os.Stat(path); statErr == nil {
+				if !dryRun {
+					if err := os.Remove(path); err != nil {
+						phase1Err = fmt.Errorf("removing retired skill %s: %w", name, err)
+						return
+					}
+				}
+				addAction("✔", fmt.Sprintf("retired skill %s removed", name))
 			}
 		}
 
@@ -156,21 +212,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 					}
 				}
 				addAction("✔", fmt.Sprintf("skill %s updated", name))
-			}
-		}
-
-		// Add new profiles (don't overwrite existing customizations).
-		profilesDir := filepath.Join(leoDir, "profiles")
-		for name, p := range profiles.DefaultProfiles() {
-			path := filepath.Join(profilesDir, name+".yaml")
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				if !dryRun {
-					if err := profiles.Save(profilesDir, name, p); err != nil {
-						phase2Err = fmt.Errorf("writing profile %s: %w", name, err)
-						return
-					}
-				}
-				addAction("+", fmt.Sprintf("profile %s added", name))
 			}
 		}
 
@@ -317,80 +358,20 @@ func migrateMetricDocs(docsDir string, dryRun bool) []string {
 func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) error {
 	registry := runtime.NewRegistry(projectRoot)
 
-	runtimeCfg := runtime.Config{
-		Version: cfg.Version,
-		User: runtime.UserConfig{
-			Language:       cfg.User.Language,
-			Mode:           cfg.User.Mode,
-			Autonomy:       cfg.User.Autonomy,
-			DefaultProfile: cfg.User.DefaultProfile,
-		},
-	}
-
-	defaultProfile := profiles.DefaultProfiles()[cfg.User.DefaultProfile]
-	if defaultProfile == nil {
-		defaultProfile = profiles.DefaultProfiles()["general-manager"]
-	}
-	runtimeProfile := runtime.Profile{
-		Name:             defaultProfile.Name,
-		Description:      defaultProfile.Description,
-		Focus:            defaultProfile.Focus,
-		Tone:             defaultProfile.Tone,
-		ContextInjection: defaultProfile.ContextInjection,
-	}
-
-	var runtimeConstraints []runtime.Constraint
-	for id := range coreConstraints() {
-		var doc struct {
-			Summary string `json:"summary"`
-		}
-		json.Unmarshal([]byte(coreConstraints()[id]), &doc) //nolint:errcheck
-		runtimeConstraints = append(runtimeConstraints, runtime.Constraint{
-			ID:      id,
-			Summary: doc.Summary,
-		})
-	}
-	sort.Slice(runtimeConstraints, func(i, j int) bool {
-		return runtimeConstraints[i].ID < runtimeConstraints[j].ID
-	})
-
-	var runtimeSkills []runtime.Skill
-	for id := range coreSkills() {
-		var doc struct {
-			Summary string `json:"summary"`
-		}
-		json.Unmarshal([]byte(coreSkills()[id]), &doc) //nolint:errcheck
-		runtimeSkills = append(runtimeSkills, runtime.Skill{
-			ID:      id,
-			Summary: doc.Summary,
-		})
-	}
-	sort.Slice(runtimeSkills, func(i, j int) bool {
-		return runtimeSkills[i].ID < runtimeSkills[j].ID
-	})
-
-	var identityData struct {
-		What        string   `json:"what"`
-		Philosophy  string   `json:"philosophy"`
-		Constraints []string `json:"constraints"`
-	}
-	json.Unmarshal([]byte(defaultIdentity()), &identityData) //nolint:errcheck
-	runtimeIdentity := &runtime.Identity{
-		What:        identityData.What,
-		Philosophy:  identityData.Philosophy,
-		Constraints: identityData.Constraints,
-	}
+	runtimeCfg := buildRuntimeConfig(cfg)
+	runtimeConstraints := buildRuntimeConstraints()
+	runtimeSkills := buildRuntimeSkills()
+	runtimeIdentity := buildRuntimeIdentity()
 
 	for _, rt := range cfg.EnabledRuntimes() {
 		adapter, ok := registry.Get(rt)
 		if !ok {
 			continue
 		}
-		if err := adapter.GenerateContextFile(runtimeCfg, runtimeProfile, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
+		if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
 	}
 
 	return nil
 }
-
