@@ -12,7 +12,7 @@
   ],
   "created": "2026-04-16T00:00:00Z",
   "created_by": "user",
-  "updated": "2026-04-16T00:00:00Z",
+  "updated": "2026-04-19T00:00:00Z",
   "updated_by": "leo",
   "content": {
     "cut": [
@@ -36,7 +36,7 @@
       "v0.6.0 config migration path: Load() handles old format transparently.",
       "v0.7.0 is NOT the last release before v1.0. Roadmap has room for more releases."
     ],
-    "status": "planned",
+    "status": "shipped",
     "tracking": "GitHub milestone 'v0.7.0 — Multi-runtime support' with issues #47, #48, #46, #52",
     "what": "v0.7.0 — Multi-runtime support: one KB, many runtimes",
     "why": "v0.6.0 built enforcement and the adapter interface. v0.7.0 proves the architecture works for multiple runtimes — the core value proposition of 'one KB, many outputs'. Codex and Cline validate the pattern with two very different runtime ecosystems. This is the foundation for all future adapters (Cursor, Windsurf, Aider in parking lot)."
