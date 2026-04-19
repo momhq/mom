@@ -22,6 +22,26 @@ type Config struct {
 	Communication CommunicationConfig      `yaml:"communication"`
 	KB            KBConfig                 `yaml:"kb"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
+	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
+}
+
+// BootstrapConfig holds settings for the cartographer bootstrap pass.
+type BootstrapConfig struct {
+	// Enabled controls whether bootstrap is offered during init. Default: true.
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// CommitDepth is how many recent commits to scan. Default: 200.
+	CommitDepth int `yaml:"commit_depth,omitempty"`
+	// Extensions is the list of text file extensions to scan for markdown extraction.
+	Extensions []string `yaml:"extensions,omitempty"`
+	// SkipPatterns is a list of glob patterns to exclude from scanning.
+	SkipPatterns []string `yaml:"skip_patterns,omitempty"`
+	// MaxFileSizeMB skips files larger than this value. Default: 2.
+	MaxFileSizeMB int64 `yaml:"max_file_size_mb,omitempty"`
+}
+
+// BootstrapEnabled returns true unless Bootstrap.Enabled is explicitly set to false.
+func (bc BootstrapConfig) BootstrapEnabled() bool {
+	return bc.Enabled == nil || *bc.Enabled
 }
 
 // TelemetryConfig holds telemetry settings.
