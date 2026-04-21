@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 	"github.com/vmarinogg/leo-core/cli/internal/cartographer"
 	"github.com/vmarinogg/leo-core/cli/internal/gardener"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
@@ -35,6 +36,7 @@ func init() {
 	bootstrapCmd.Flags().Int("commit-depth", 200, "Number of recent commits to scan")
 	bootstrapCmd.Flags().Int64("max-file-size", 2, "Skip files larger than this many MB")
 	bootstrapCmd.Flags().String("scope", "", "Target scope label (user/org/repo/workspace/custom)")
+	bootstrapCmd.Flags().Bool("no-graph", false, "Skip opening the memory graph in the browser after bootstrap")
 }
 
 func runBootstrap(cmd *cobra.Command, _ []string) error {
@@ -44,6 +46,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	commitDepth, _ := cmd.Flags().GetInt("commit-depth")
 	maxFileSizeMB, _ := cmd.Flags().GetInt64("max-file-size")
 	scopeLabel, _ := cmd.Flags().GetString("scope")
+	noGraph, _ := cmd.Flags().GetBool("no-graph")
 
 	if scanPath == "" {
 		cwd, err := os.Getwd()
@@ -135,6 +138,12 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 			cmd.Printf("  ⚠ write error: %v\n", writeErr)
 		}
 		written = w
+
+		// Regenerate index.json so memories are immediately visible to recall.
+		adapter := storage.NewJSONAdapter(targetScope.Path)
+		if err := adapter.Reindex(); err != nil {
+			cmd.Printf("  ⚠ index rebuild error: %v\n", err)
+		}
 	}
 
 	cmd.Println()
@@ -161,6 +170,20 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 				_ = n
 				landmarkCount := countLandmarks(memDir)
 				cmd.Printf("✓ %d landmarks identified\n", landmarkCount)
+			}
+		}
+
+		// Build and open the memory graph unless suppressed.
+		if !noGraph {
+			data, graphErr := gardener.BuildGraphData(memDir, 50)
+			if graphErr == nil && data.Stats.TotalDocs > 0 {
+				outPath := filepath.Join(os.TempDir(), "leo-memory-graph.html")
+				if writeErr := gardener.WriteGraphHTML(data, outPath); writeErr == nil {
+					cmd.Printf("Graph written to %s\n", outPath)
+					if openErr := openBrowser(outPath); openErr != nil {
+						cmd.Printf("  Open the file in your browser to view the graph.\n")
+					}
+				}
 			}
 		}
 	}
