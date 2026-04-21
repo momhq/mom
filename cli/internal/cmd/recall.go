@@ -63,7 +63,7 @@ func runRecall(cmd *cobra.Command, args []string) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .leo/ directory found. Run 'mom init' first.\n")
+		cmd.Printf("No .mom/ directory found. Run 'mom init' first.\n")
 		return nil
 	}
 

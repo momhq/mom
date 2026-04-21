@@ -1,7 +1,7 @@
 // Package runtime defines the RuntimeAdapter interface for AI runtime integrations.
 package runtime
 
-// Config represents the user's .leo/config.yaml configuration.
+// Config represents the user's .mom/config.yaml configuration.
 type Config struct {
 	Version string
 	User    UserConfig
@@ -28,7 +28,7 @@ type Skill struct {
 	Tags    []string
 }
 
-// Identity represents the .leo/identity.json file.
+// Identity represents the .mom/identity.json file.
 type Identity struct {
 	What        string
 	Philosophy  string
@@ -57,7 +57,7 @@ type HookDef struct {
 
 // Adapter is the interface that runtime integrations must implement.
 // Each runtime (Claude, Codex, Cline, etc.) provides an adapter
-// that reads from .leo/ and generates runtime-specific files.
+// that reads from .mom/ and generates runtime-specific files.
 type Adapter interface {
 	// Name returns the runtime identifier (e.g. "claude", "codex", "cline").
 	Name() string

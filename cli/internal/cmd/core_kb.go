@@ -94,7 +94,7 @@ func coreConstraints() map[string]string {
   "id": "metrics-collection",
   "type": "constraint",
   "boot": true,
-  "summary": "Every session leaves one session-log doc in .leo/logs/. Collection is enforced by the session-wrap-up skill.",
+  "summary": "Every session leaves one session-log doc in .mom/logs/. Collection is enforced by the session-wrap-up skill.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["metrics", "quality", "refinement", "measurement"],
@@ -103,12 +103,12 @@ func coreConstraints() map[string]string {
   "updated": "2026-04-17T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "constraint": "Every session leaves one session-log doc in .leo/logs/. L.E.O. produces logs at wrap-up, never consumes them — monitoring is external.",
+    "constraint": "Every session leaves one session-log doc in .mom/logs/. L.E.O. produces logs at wrap-up, never consumes them — monitoring is external.",
     "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
     "how_to_apply": [
       "Collection happens at session wrap-up via the session-wrap-up skill step 'Write session log'",
       "Session-logs include: tasks performed, wrap-up revision count",
-      "Session-log docs are stored in .leo/logs/, never indexed, never loaded at boot",
+      "Session-log docs are stored in .mom/logs/, never indexed, never loaded at boot",
       "External T1 scripts read session-log files from disk for metrics dashboards"
     ],
     "responsibility": "Enforced by the session-wrap-up skill. L.E.O. provides the data, external scripts consume it.",
@@ -203,7 +203,7 @@ func coreSkills() map[string]string {
       {"name": "Classify", "instruction": "For each item: determine type, lifecycle, tags, id. Check index for existing docs to update.", "wait_for_approval": false},
       {"name": "Present plan", "instruction": "Show the user: new docs, updates, skipped items, commit strategy. Wait for approval.", "wait_for_approval": true},
       {"name": "Execute", "instruction": "Write JSON docs to KB following schema. Stage exact files. Commit with clear message.", "wait_for_approval": false},
-      {"name": "Write session log", "instruction": "Write a session-log doc to .leo/logs/ using this template: {id: 'session-YYYY-MM-DD-XXXX', type: 'session-log', lifecycle: 'state', scope: 'project', tags: ['session-log'], content: {session_id: (same as id), timestamp: (now), repo: (repo name), communication_mode: (active mode from config), wrap_up_revisions: (count of rejected plans), tasks: [{task_id, timestamp, summary, tags}]}}. Create .leo/logs/ directory if it doesn't exist. Session-logs are NOT indexed and NOT loaded at boot.", "wait_for_approval": false},
+      {"name": "Write session log", "instruction": "Write a session-log doc to .mom/logs/ using this template: {id: 'session-YYYY-MM-DD-XXXX', type: 'session-log', lifecycle: 'state', scope: 'project', tags: ['session-log'], content: {session_id: (same as id), timestamp: (now), repo: (repo name), communication_mode: (active mode from config), wrap_up_revisions: (count of rejected plans), tasks: [{task_id, timestamp, summary, tags}]}}. Create .mom/logs/ directory if it doesn't exist. Session-logs are NOT indexed and NOT loaded at boot.", "wait_for_approval": false},
       {"name": "Report", "instruction": "Brief report: commit SHA, files changed, session log written, deferred items.", "wait_for_approval": false}
     ],
     "do_not": [

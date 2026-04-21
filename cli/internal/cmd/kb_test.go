@@ -12,11 +12,11 @@ import (
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 )
 
-// setupTestKB creates a .leo/ with a JSONAdapter and returns the temp dir.
+// setupTestKB creates a .mom/ with a JSONAdapter and returns the temp dir.
 func setupTestKB(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 	os.MkdirAll(filepath.Join(leoDir, "memory"), 0755)
 
 	// Write empty index.
@@ -33,7 +33,7 @@ func setupTestKB(t *testing.T) string {
 
 func writeTestDoc(t *testing.T, dir string, doc *storage.Doc) {
 	t.Helper()
-	adapter := storage.NewJSONAdapter(filepath.Join(dir, ".leo"))
+	adapter := storage.NewJSONAdapter(filepath.Join(dir, ".mom"))
 	if err := adapter.Write(doc); err != nil {
 		t.Fatalf("writing test doc: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestReindexCmd_RebuildsIndex(t *testing.T) {
 	writeTestDoc(t, dir, sampleDoc("reindex-doc"))
 
 	// Corrupt the index.
-	indexPath := filepath.Join(dir, ".leo", "kb", "index.json")
+	indexPath := filepath.Join(dir, ".mom", "kb", "index.json")
 	os.WriteFile(indexPath, []byte(`{}`), 0644)
 
 	origDir, _ := os.Getwd()

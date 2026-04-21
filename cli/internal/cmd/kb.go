@@ -18,7 +18,7 @@ var reindexCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		landmarksFlag, _ := cmd.Flags().GetBool("landmarks")
 
-		leoDir, err := findLeoDir()
+		leoDir, err := findMomDir()
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func countLandmarks(memDir string) int {
 }
 
 func validateAll(cmd *cobra.Command) error {
-	leoDir, err := findLeoDir()
+	leoDir, err := findMomDir()
 	if err != nil {
 		return err
 	}

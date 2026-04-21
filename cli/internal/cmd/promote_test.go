@@ -12,7 +12,7 @@ import (
 	"github.com/vmarinogg/leo-core/cli/internal/kb"
 )
 
-// makeLeoPair creates two nested .leo/ installs under a tmpdir:
+// makeLeoPair creates two nested .mom/ installs under a tmpdir:
 //   - root/.leo  (scope: user)
 //   - root/sub/.leo  (scope: repo)
 //
@@ -22,8 +22,8 @@ func makeLeoPair(t *testing.T) (string, string, string, string) {
 	root := t.TempDir()
 	sub := filepath.Join(root, "sub")
 
-	leoUser := filepath.Join(root, ".leo")
-	leoRepo := filepath.Join(sub, ".leo")
+	leoUser := filepath.Join(root, ".mom")
+	leoRepo := filepath.Join(sub, ".mom")
 
 	for _, d := range []string{
 		filepath.Join(leoUser, "memory"),
@@ -146,7 +146,7 @@ func TestPromote_NoAncestorWithScope(t *testing.T) {
 	root, sub, _, _ := makeLeoPair(t)
 	t.Setenv("HOME", root)
 
-	_, leoRepo := filepath.Join(root, ".leo"), filepath.Join(sub, ".leo")
+	_, leoRepo := filepath.Join(root, ".mom"), filepath.Join(sub, ".mom")
 	writeKBTestDoc(t, leoRepo, "my-fact")
 
 	cmd := &cobra.Command{}

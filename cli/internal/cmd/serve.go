@@ -62,7 +62,7 @@ func runServeMCP(_ *cobra.Command, _ []string) error {
 
 	sc, ok := scope.NearestWritable(cwd)
 	if !ok {
-		return fmt.Errorf("no .leo/ directory found. Run 'leo init' first")
+		return fmt.Errorf("no .mom/ directory found. Run 'mom init' first")
 	}
 
 	srv := mcp.New(sc.Path)
@@ -81,7 +81,7 @@ func runServerStatus(cmd *cobra.Command, _ []string) error {
 
 	sc, ok := scope.NearestWritable(cwd)
 	if !ok {
-		return fmt.Errorf("no .leo/ directory found. Run 'leo init' first")
+		return fmt.Errorf("no .mom/ directory found. Run 'mom init' first")
 	}
 
 	logPath := filepath.Join(sc.Path, "logs", "mcp-server.log")

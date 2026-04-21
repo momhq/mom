@@ -1,0 +1,24 @@
+{
+  "id": "dec-herald-unified-event-bus",
+  "type": "decision",
+  "lifecycle": "learning",
+  "scope": "project",
+  "tags": ["herald", "transponder", "watchman", "event-bus", "architecture", "v011"],
+  "created": "2026-04-21T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-21T00:00:00Z",
+  "updated_by": "leo",
+  "summary": "Herald replaces Watchman (never coded) + Transponder (exists) as unified event bus for Core.",
+  "content": {
+    "decision": "Create Herald as unified event bus absorbing Watchman (event observation) and Transponder (telemetry emission) into a single Core component.",
+    "context": "Watchman was conceptual — never implemented in code. Transponder exists as cli/internal/transponder/ (~200 lines). With v0.11 continuous capture via hooks, Watchman's 'decide when to capture' role dissolves into hook registration (adapter) + event emission (Transponder). Merging avoids creating a component that immediately has no unique job.",
+    "naming": "Herald chosen following the household-role naming pattern from brand guidelines. A herald observes court events, announces them, and records them — maps to observe + emit + record. Replaces Transponder (a device name that broke the role pattern).",
+    "impact": [
+      "cli/internal/transponder/ renamed to cli/internal/herald/",
+      "All Transponder call sites updated",
+      "Glossary, brand source-of-truth, and 9 architecture docs updated",
+      "Watchman removed from glossary entirely (never coded)",
+      "Capture Engine redefined: Herald + Drafter + Wrap-up"
+    ]
+  }
+}

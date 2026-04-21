@@ -81,7 +81,7 @@ type Config struct {
 	Refresh bool
 	// DryRun shows what would be written without persisting.
 	DryRun bool
-	// ScopeDir is the .leo/ directory to write memories into.
+	// ScopeDir is the .mom/ directory to write memories into.
 	ScopeDir string
 	// OnProgress is called after each file is processed, with the count of
 	// files processed so far and the total file count. May be nil.
@@ -99,7 +99,7 @@ func DefaultConfig() Config {
 			"**/.git/**",
 			"dist/**",
 			"build/**",
-			".leo/**",
+			".mom/**",
 		},
 		Extensions: []string{
 			".md", ".mdx", ".txt", ".rst",
@@ -288,7 +288,7 @@ func (c *Cartographer) Scan(ctx context.Context, rootDir string) (*Result, error
 }
 
 // collectFiles walks rootDir and returns all files that pass size and pattern filters.
-// It stops descending into subdirectories that contain their own .leo/ directory,
+// It stops descending into subdirectories that contain their own .mom/ directory,
 // since those represent separate scopes.
 func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 	maxBytes := c.cfg.MaxFileSizeMB * 1024 * 1024
@@ -311,11 +311,11 @@ func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 			if matchesAnyPattern(rel, c.cfg.SkipPatterns) {
 				return filepath.SkipDir
 			}
-			// Stop descending into subdirs with their own .leo/ (separate scope).
-			// Allow the rootDir itself even if it has .leo/.
+			// Stop descending into subdirs with their own .mom/ (separate scope).
+			// Allow the rootDir itself even if it has .mom/.
 			if path != rootDir {
-				leoPath := filepath.Join(path, ".leo")
-				if info, err := os.Stat(leoPath); err == nil && info.IsDir() {
+				momPath := filepath.Join(path, ".mom")
+				if info, err := os.Stat(momPath); err == nil && info.IsDir() {
 					return filepath.SkipDir
 				}
 			}
@@ -352,20 +352,20 @@ func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 	return paths, nil
 }
 
-// ScanTarget pairs a repository root with the .leo/ directory to write into.
+// ScanTarget pairs a repository root with the .mom/ directory to write into.
 type ScanTarget struct {
 	RootDir string // directory to scan
-	LeoDir  string // .leo/ to use for cache and output
+	MomDir  string // .mom/ to use for cache and output
 }
 
 // MultiScan runs Scan for each target independently, using each target's own
-// .leo/ directory for cache and memory output.
+// .mom/ directory for cache and memory output.
 // baseConfig is used as a template; ScopeDir is overridden per target.
 func MultiScan(ctx context.Context, targets []ScanTarget, baseConfig Config) ([]*Result, error) {
 	results := make([]*Result, 0, len(targets))
 	for _, target := range targets {
 		cfg := baseConfig
-		cfg.ScopeDir = target.LeoDir
+		cfg.ScopeDir = target.MomDir
 
 		cart := New(cfg)
 		result, err := cart.Scan(ctx, target.RootDir)

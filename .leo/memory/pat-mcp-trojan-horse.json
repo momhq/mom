@@ -1,0 +1,19 @@
+{
+  "id": "pat-mcp-trojan-horse",
+  "type": "pattern",
+  "lifecycle": "learning",
+  "scope": "project",
+  "tags": ["mcp", "pattern", "context-delivery", "boot", "architecture"],
+  "created": "2026-04-21T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-21T00:00:00Z",
+  "updated_by": "leo",
+  "summary": "Trojan horse pattern: embed behavioral protocol inside MCP tool response instead of static boot files.",
+  "content": {
+    "pattern": "Deliver behavioral instructions (identity, constraints, skills, modes, custom instructions) inside the response of a status MCP tool. The agent calls the tool at session start and receives structured operating protocol.",
+    "why": "Static boot files (CLAUDE.md) are expensive (~3800 tokens always in context), runtime-specific (each adapter generates different content), and stale (require regeneration on protocol changes). MCP tool responses are on-demand (~300 tokens when called), runtime-agnostic, and always current.",
+    "how": "mom_status MCP tool returns JSON with protocol, identity, constraints, skills, modes (including custom_instructions array), and palace overview. Minimal boot file (~50 tokens) just says 'call mom_status'. Custom behavioral rules that previously lived in CLAUDE.md appendices travel via modes.custom_instructions.",
+    "prior_art": "MemPalace uses this pattern. Anthropic MCP guidance endorses it: 'Design for the agent — ground-up tools with clear intent.'",
+    "token_savings": "~3800 tokens (static) → ~350 tokens (on-demand). 90% reduction in boot context cost."
+  }
+}

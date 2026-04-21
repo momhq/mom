@@ -18,7 +18,7 @@ import (
 func newTestLeoDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 	if err := os.MkdirAll(filepath.Join(leoDir, "memory"), 0755); err != nil {
 		t.Fatal(err)
 	}

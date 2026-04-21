@@ -1,0 +1,31 @@
+{
+  "id": "fact-v010-implementation-complete",
+  "type": "fact",
+  "lifecycle": "state",
+  "scope": "project",
+  "tags": ["v0-10", "release", "implementation", "branches"],
+  "created": "2026-04-21T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-21T00:00:00Z",
+  "updated_by": "leo",
+  "summary": "All 10 v0.10 issues implemented on separate branches, ready for integration merge and testing.",
+  "content": {
+    "status": "All branches committed locally, build and tests pass on each individually.",
+    "branches": [
+      {"issue": 83, "branch": "feat/83-dead-code-cleanup", "scope": "dead code removal (-1404 lines)"},
+      {"issue": 84, "branch": "feat/84-schema-cleanup", "scope": "session-log schema retired fields"},
+      {"issue": 85, "branch": "feat/85-bootstrap-fixes", "scope": "index regen + auto-open graph"},
+      {"issue": 86, "branch": "feat/86-cli-rename", "scope": "leo → mom binary"},
+      {"issue": 87, "branch": "feat/87-path-migration", "scope": ".leo/ → .mom/ paths + upgrade command"},
+      {"issue": 88, "branch": "feat/88-rebrand", "scope": "LEO → MOM all strings"},
+      {"issue": 89, "branch": "feat/89-kb-memory-rename", "scope": "kb/ → memory/ package + terminology"},
+      {"issue": 90, "branch": "feat/90-glossary-enforcement", "scope": "transponder deprecation, retired terms"},
+      {"issue": 91, "branch": "feat/91-claude-rework", "scope": "boot instructions + version check (on top of #88)"},
+      {"issue": 92, "branch": "feat/92-homebrew-formula", "scope": "Formula/mom.rb"}
+    ],
+    "skipped": {"issue": 93, "reason": "Docs overhaul — waiting for brand guideline"},
+    "merge_order": "83 + 84 + 85 (independent) → 86 → 87 → 88 → 91 (on top of 88) → 89 → 90 → 92",
+    "known_conflicts": "83/84 overlap on schema.json (profile/pipeline_tier). 87/88/89 overlap on path+name strings.",
+    "next_steps": ["Create v0.10-dev integration branch", "Merge in order, resolve conflicts", "Full test suite", "Tag and release"]
+  }
+}

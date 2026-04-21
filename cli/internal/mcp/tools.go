@@ -64,7 +64,7 @@ func allTools() []toolDef {
 		},
 		{
 			Name:        "list_scopes",
-			Description: "List all discovered .leo/ scopes from the current working directory walk-up.",
+			Description: "List all discovered .mom/ scopes from the current working directory walk-up.",
 			InputSchema: map[string]any{
 				"type":       "object",
 				"properties": map[string]any{},
@@ -72,7 +72,7 @@ func allTools() []toolDef {
 		},
 		{
 			Name:        "create_memory_draft",
-			Description: "Create a draft memory document in the nearest .leo/memory/ directory.",
+			Description: "Create a draft memory document in the nearest .mom/memory/ directory.",
 			InputSchema: map[string]any{
 				"type":     "object",
 				"required": []string{"type", "summary", "tags", "content"},
@@ -160,10 +160,10 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	classification := stringArg(args, "classification")
 	limit := intArg(args, "limit", 10)
 
-	scopes := scope.Walk(s.leoDir)
-	// Also include the leoDir itself as a scope if Walk doesn't find it.
+	scopes := scope.Walk(s.momDir)
+	// Also include the momDir itself as a scope if Walk doesn't find it.
 	if len(scopes) == 0 {
-		scopes = []scope.Scope{{Path: s.leoDir, Label: "repo"}}
+		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
 	}
 
 	// Filter by scope label if specified.
@@ -218,8 +218,8 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 			results = append(results, scored{doc: doc, score: score})
 
 			// Emit telemetry.
-			if s.leoDir != "" {
-				em := transponder.New(s.leoDir, true)
+			if s.momDir != "" {
+				em := transponder.New(s.momDir, true)
 				em.EmitConsumptionEvent(transponder.ConsumptionEvent{
 					MemoryID: doc.ID,
 					TS:       time.Now().UTC().Format(time.RFC3339),
@@ -280,9 +280,9 @@ func (s *Server) toolGetMemory(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, fmt.Errorf("id is required")
 	}
 
-	scopes := scope.Walk(s.leoDir)
+	scopes := scope.Walk(s.momDir)
 	if len(scopes) == 0 {
-		scopes = []scope.Scope{{Path: s.leoDir, Label: "repo"}}
+		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
 	}
 
 	for _, sc := range scopes {
@@ -292,7 +292,7 @@ func (s *Server) toolGetMemory(args map[string]any) (toolCallResult, error) {
 			continue
 		}
 		// Emit telemetry.
-		em := transponder.New(s.leoDir, true)
+		em := transponder.New(s.momDir, true)
 		em.EmitConsumptionEvent(transponder.ConsumptionEvent{
 			MemoryID: doc.ID,
 			TS:       time.Now().UTC().Format(time.RFC3339),
@@ -307,11 +307,11 @@ func (s *Server) toolGetMemory(args map[string]any) (toolCallResult, error) {
 	return toolCallResult{}, fmt.Errorf("memory %q not found in any scope", id)
 }
 
-// toolListScopes lists discovered .leo/ scopes.
+// toolListScopes lists discovered .mom/ scopes.
 func (s *Server) toolListScopes() (toolCallResult, error) {
-	scopes := scope.Walk(s.leoDir)
+	scopes := scope.Walk(s.momDir)
 	if len(scopes) == 0 {
-		scopes = []scope.Scope{{Path: s.leoDir, Label: "repo"}}
+		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
 	}
 
 	type scopeItem struct {
@@ -346,8 +346,8 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 	}
 
 	// Use nearest writable scope or fall back to leoDir.
-	targetDir := s.leoDir
-	if sc, ok := scope.NearestWritable(s.leoDir); ok {
+	targetDir := s.momDir
+	if sc, ok := scope.NearestWritable(s.momDir); ok {
 		targetDir = sc.Path
 	}
 
@@ -402,9 +402,9 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 	scopeLabel := stringArg(args, "scope")
 	limit := intArg(args, "limit", 20)
 
-	scopes := scope.Walk(s.leoDir)
+	scopes := scope.Walk(s.momDir)
 	if len(scopes) == 0 {
-		scopes = []scope.Scope{{Path: s.leoDir, Label: "repo"}}
+		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
 	}
 
 	targetScopes := scopes

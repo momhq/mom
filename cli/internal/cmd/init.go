@@ -24,13 +24,13 @@ var embeddedSchema embed.FS
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize a .leo/ directory in the current project",
+	Short: "Initialize a .mom/ directory in the current project",
 	RunE:  runInit,
 }
 
 func init() {
 	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, cline)")
-	initCmd.Flags().Bool("force", false, "Overwrite existing .leo/ directory")
+	initCmd.Flags().Bool("force", false, "Overwrite existing .mom/ directory")
 	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }
 
@@ -68,7 +68,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
 			cmd.Println()
 			if result.ScopeLabel == "user" || result.ScopeLabel == "org" {
-				// Multi-repo: bootstrap each child repo that has .leo/.
+				// Multi-repo: bootstrap each child repo that has .mom/.
 				if err := bootstrapAllChildRepos(cmd, installDir); err != nil {
 					cmd.Printf("  ⚠ multi-repo bootstrap error: %v\n", err)
 				}
@@ -77,7 +77,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 				if result.BootstrapChoice == "repo" {
 					scanDir = cwd
 				}
-				if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".leo")); err != nil {
+				if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".mom")); err != nil {
 					cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
 				}
 			}
@@ -103,24 +103,24 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 // runInitWithConfig performs the actual directory and file creation using the
 // resolved configuration from either the wizard or flag defaults.
-// cwd is the directory where .leo/ will be created (may differ from os.Getwd()
+// cwd is the directory where .mom/ will be created (may differ from os.Getwd()
 // when the user chose a parent install location during onboarding).
 func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result OnboardingResult) error {
-	leoDir := filepath.Join(cwd, ".leo")
+	leoDir := filepath.Join(cwd, ".mom")
 
 	// Check if already initialized.
 	alreadyExists := false
 	if _, err := os.Stat(leoDir); err == nil {
 		if !force {
-			// .leo/ exists — skip scaffold+config but still honour bootstrap choice.
+			// .mom/ exists — skip scaffold+config but still honour bootstrap choice.
 			alreadyExists = true
 		}
 	}
 
-	// When .leo/ already exists and --force was not given, skip scaffold+config
+	// When .mom/ already exists and --force was not given, skip scaffold+config
 	// but still return nil so the caller can run bootstrap if requested.
 	if alreadyExists {
-		cmd.Println("  .leo/ already exists — skipping scaffold, using existing config.")
+		cmd.Println("  .mom/ already exists — skipping scaffold, using existing config.")
 		return nil
 	}
 
@@ -338,7 +338,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 
 	// ── Done ────────────────────────────────────────────────────────────────
 	cmd.Println()
-	cmd.Println("  ✔ .leo/ structure created")
+	cmd.Println("  ✔ .mom/ structure created")
 	for _, rt := range result.Runtimes {
 		adapter, ok := registry.Get(rt)
 		if !ok {
@@ -360,7 +360,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 }
 
 // bootstrapAllChildRepos walks rootDir recursively, finds every directory that
-// has .leo/, and runs bootstrapInline for each one. Org folders (scope: org)
+// has .mom/, and runs bootstrapInline for each one. Org folders (scope: org)
 // are skipped because they don't contain source code directly.
 func bootstrapAllChildRepos(cmd *cobra.Command, rootDir string) error {
 	entries, err := os.ReadDir(rootDir)
@@ -372,9 +372,9 @@ func bootstrapAllChildRepos(cmd *cobra.Command, rootDir string) error {
 			continue
 		}
 		childPath := filepath.Join(rootDir, e.Name())
-		childLeo := filepath.Join(childPath, ".leo")
+		childLeo := filepath.Join(childPath, ".mom")
 
-		// If this child has .leo/ and .git/, it's a repo — bootstrap it.
+		// If this child has .mom/ and .git/, it's a repo — bootstrap it.
 		gitPath := filepath.Join(childPath, ".git")
 		if _, err := os.Stat(childLeo); err == nil {
 			if _, err := os.Stat(gitPath); err == nil {
@@ -393,7 +393,7 @@ func bootstrapAllChildRepos(cmd *cobra.Command, rootDir string) error {
 	return nil
 }
 
-// propagateInit initializes .leo/ in child directories when the parent scope
+// propagateInit initializes .mom/ in child directories when the parent scope
 // is user or org. Org folders (dirs containing repos) get scope "org", and
 // repos (dirs with .git/) get scope "repo". Already-initialized dirs are skipped.
 func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingResult) {
@@ -407,7 +407,7 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 			continue
 		}
 		childPath := filepath.Join(rootDir, e.Name())
-		childLeo := filepath.Join(childPath, ".leo")
+		childLeo := filepath.Join(childPath, ".mom")
 
 		// Skip if already initialized.
 		if _, statErr := os.Stat(childLeo); statErr == nil {

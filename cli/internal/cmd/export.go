@@ -35,7 +35,7 @@ func init() {
 
 // runExport implements the leo export command.
 func runExport(cmd *cobra.Command, args []string) error {
-	leoDir, err := findLeoDir()
+	leoDir, err := findMomDir()
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	replaceMode, _ := cmd.Flags().GetBool("replace")
 
-	leoDir, err := findLeoDir()
+	leoDir, err := findMomDir()
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	destDocsDir := filepath.Join(leoDir, "memory")
 
 	if replaceMode {
-		// Back up current memory to .leo/backup-{timestamp}/.
+		// Back up current memory to .mom/backup-{timestamp}/.
 		timestamp := time.Now().UTC().Format("20060102-150405")
 		backupDir := filepath.Join(leoDir, "backup-"+timestamp)
 		backupDocsDir := filepath.Join(backupDir, "docs")

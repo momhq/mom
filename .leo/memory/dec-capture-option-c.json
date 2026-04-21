@@ -1,0 +1,27 @@
+{
+  "id": "dec-capture-option-c",
+  "type": "decision",
+  "lifecycle": "learning",
+  "scope": "project",
+  "tags": ["capture", "hooks", "mcp", "architecture", "v011"],
+  "created": "2026-04-21T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-21T00:00:00Z",
+  "updated_by": "leo",
+  "summary": "Capture strategy: hooks primary (zero tokens), MCP tool fallback for runtimes without hooks.",
+  "content": {
+    "decision": "Option C — hook-based capture as primary channel, mom_capture_turn MCP tool as fallback.",
+    "context": "Three capture mechanisms were evaluated: (A) hooks only, (B) MCP only, (C) hooks primary + MCP fallback. Option C gives zero-token capture where hooks exist (Claude Code, Cursor) and universal coverage via MCP for runtimes that lack hooks.",
+    "channels": [
+      {"name": "Stop hook", "command": "mom capture append", "cost": "0 tokens", "primary": true},
+      {"name": "PreCompact hook", "command": "mom capture flush", "cost": "0 tokens", "primary": true},
+      {"name": "MCP fallback", "tool": "mom_capture_turn", "cost": "minimal (tool call overhead)", "primary": false}
+    ],
+    "constraints": [
+      "Stop hooks must be lightweight and silent (stop-hook-lesson)",
+      "No stdout, no processing, no index rebuild in hooks",
+      "Exit 0 always — errors logged to .mom/logs/capture.log"
+    ],
+    "impact": ["Raw JSONL in .mom/raw/ becomes the primary audit trail", "Session-logs become optional"]
+  }
+}

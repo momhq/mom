@@ -49,7 +49,7 @@ type QueryFilter struct {
 }
 
 // Adapter is the interface that storage backends must implement.
-// The JSON adapter (free tier) reads/writes flat JSON files in .leo/memory/.
+// The JSON adapter (free tier) reads/writes flat JSON files in .mom/memory/.
 // Future adapters (MongoDB, etc.) implement the same interface.
 type Adapter interface {
 	Read(id string) (*Doc, error)
