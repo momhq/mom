@@ -398,13 +398,12 @@
         "properties": {
           "content": {
             "type": "object",
-            "required": ["session_id", "timestamp", "repo", "profile", "tasks"],
+            "required": ["session_id", "timestamp", "repo", "tasks"],
             "additionalProperties": false,
             "properties": {
               "session_id": { "type": "string" },
               "timestamp": { "type": "string", "format": "date-time" },
               "repo": { "type": "string" },
-              "profile": { "type": "string" },
               "wrap_up_revisions": { "type": "integer", "minimum": 0 },
               "tasks": {
                 "type": "array",
@@ -416,9 +415,7 @@
                     "task_id": { "type": "string" },
                     "timestamp": { "type": "string", "format": "date-time" },
                     "summary": { "type": "string" },
-                    "tags": { "type": "array", "items": { "type": "string" } },
-                    "pipeline_tier": { "type": "string" },
-                    "profile": { "type": "string" }
+                    "tags": { "type": "array", "items": { "type": "string" } }
                   }
                 }
               }

@@ -107,7 +107,7 @@ func coreConstraints() map[string]string {
     "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
     "how_to_apply": [
       "Collection happens at session wrap-up via the session-wrap-up skill step 'Write session log'",
-      "Session-logs include: tasks performed, pipeline tiers used, profile, wrap-up revision count",
+      "Session-logs include: tasks performed, wrap-up revision count",
       "Session-log docs are stored in .leo/logs/, never indexed, never loaded at boot",
       "External T1 scripts read session-log files from disk for metrics dashboards"
     ],
