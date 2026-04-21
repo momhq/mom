@@ -1,0 +1,35 @@
+{
+  "id": "learn-mempalace-analysis",
+  "type": "learning",
+  "lifecycle": "learning",
+  "scope": "project",
+  "tags": ["mempalace", "competitive-intel", "mcp", "capture", "architecture"],
+  "created": "2026-04-21T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-21T00:00:00Z",
+  "updated_by": "leo",
+  "summary": "MemPalace (48k stars) competitive analysis — validated continuous capture and MCP-first delivery as proven patterns.",
+  "content": {
+    "learning": "MemPalace solves a similar problem with different methods. Key takeaways adopted by MOM.",
+    "mempalace_approach": {
+      "storage": "Verbatim storage in ChromaDB (vector) + SQLite (graph)",
+      "search": "Hybrid: BM25 + vector similarity",
+      "capture": "Continuous via Claude Code hooks (Stop + PreCompact) — zero manual wrap-up needed",
+      "context_delivery": "MCP-first — behavioral instructions embedded in tool responses, no static boot file",
+      "extraction": "Deterministic (no LLM for tagging/classification)"
+    },
+    "what_mom_adopted": [
+      "Continuous raw capture via hooks (Stop + PreCompact) — zero friction",
+      "MCP-first context delivery ('Trojan horse' pattern)",
+      "MCP fallback for runtimes without hooks",
+      "Deterministic extraction (Go, no LLM)"
+    ],
+    "where_mom_differs": [
+      "Structured schema (JSON) vs verbatim storage",
+      "Memory types and lifecycle vs flat documents",
+      "Hierarchical scope (.mom/ walk-up) vs single store",
+      "Enterprise path (OFFICE) with ABAC and governance"
+    ],
+    "source": "https://github.com/MemPalace/mempalace"
+  }
+}

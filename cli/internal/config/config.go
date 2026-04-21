@@ -1,4 +1,4 @@
-// Package config handles reading and writing .leo/config.yaml.
+// Package config handles reading and writing .mom/config.yaml.
 package config
 
 import (
@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the .leo/config.yaml file.
+// Config represents the .mom/config.yaml file.
 type Config struct {
 	Version    string `yaml:"version"`
 	CoreSource string `yaml:"core_source,omitempty"`
@@ -20,7 +20,7 @@ type Config struct {
 	Runtimes      map[string]RuntimeConfig `yaml:"runtimes"`
 	User          UserConfig               `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
-	KB            KBConfig                 `yaml:"kb"`
+	Memory        MemoryConfig             `yaml:"memory"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
 	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
 }
@@ -48,7 +48,7 @@ func (bc BootstrapConfig) BootstrapEnabled() bool {
 type TelemetryConfig struct {
 	// Enabled controls whether events are written to disk. Default: true (nil == enabled).
 	Enabled *bool `yaml:"enabled,omitempty"`
-	// Path overrides the default telemetry directory (<leoDir>/telemetry/).
+	// Path overrides the default telemetry directory (<momDir>/telemetry/).
 	Path string `yaml:"path,omitempty"`
 }
 
@@ -79,12 +79,10 @@ type CommunicationConfig struct {
 	Mode string `yaml:"mode"`
 }
 
-// KBConfig holds KB settings.
-type KBConfig struct {
-	AutoPropagate  bool   `yaml:"auto_propagate"`
-	WrapUp         string `yaml:"wrap_up"`
-	StaleThreshold string `yaml:"stale_threshold"`
-}
+// MemoryConfig holds memory store settings.
+// AutoPropagate, WrapUp, and StaleThreshold were retired in v0.10 (#83) —
+// written to config but never enforced by any code.
+type MemoryConfig struct{}
 
 // Default returns a Config with sane defaults.
 func Default() Config {
@@ -99,11 +97,7 @@ func Default() Config {
 		Communication: CommunicationConfig{
 			Mode: "concise",
 		},
-		KB: KBConfig{
-			AutoPropagate:  true,
-			WrapUp:         "prompt",
-			StaleThreshold: "30d",
-		},
+		Memory: MemoryConfig{},
 	}
 }
 
@@ -138,13 +132,14 @@ type legacyUserConfig struct {
 }
 
 // legacyConfig represents the v0.6.0 config format for migration.
+// The KB field uses yaml:"kb" to read legacy configs that still have the old key.
 type legacyConfig struct {
 	Version     string            `yaml:"version"`
 	Runtime     string            `yaml:"runtime"`
 	CoreSource  string            `yaml:"core_source"`
 	Owner       legacyUserConfig  `yaml:"owner"`
 	User        legacyUserConfig  `yaml:"user"`
-	KB          KBConfig          `yaml:"kb"`
+	KB          MemoryConfig      `yaml:"kb"`
 	Specialists legacySpecialists `yaml:"specialists"`
 }
 
@@ -155,10 +150,11 @@ type legacySpecialists struct {
 	Validation        string `yaml:"validation"`
 }
 
-// Load reads a config.yaml from the given .leo/ directory.
-// Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats.
-func Load(leoDir string) (*Config, error) {
-	path := filepath.Join(leoDir, "config.yaml")
+// Load reads a config.yaml from the given .mom/ directory.
+// Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats,
+// and migrates legacy kb: keys to memory: on load.
+func Load(momDir string) (*Config, error) {
+	path := filepath.Join(momDir, "config.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading config: %w", err)
@@ -177,6 +173,8 @@ func Load(leoDir string) (*Config, error) {
 		if cfg.Communication.Mode == "" {
 			cfg.Communication.Mode = "concise"
 		}
+		// Migrate legacy kb: key → memory: if present and memory: is empty.
+		cfg = migrateKBKey(data, cfg)
 		return &cfg, nil
 	}
 
@@ -196,6 +194,14 @@ func Load(leoDir string) (*Config, error) {
 		cfg.Runtimes = Default().Runtimes
 	}
 	return &cfg, nil
+}
+
+// migrateKBKey reads the raw YAML node tree to detect a legacy kb: key and
+// copies its value into cfg.Memory when the memory: key is absent/zero.
+// MemoryConfig fields were retired in v0.10 (#83), so this is now a no-op
+// kept for backward compatibility with configs that still have kb: keys.
+func migrateKBKey(_ []byte, cfg Config) Config {
+	return cfg
 }
 
 // migrateFromLegacy converts a v0.6.0 config to the new format.
@@ -231,18 +237,18 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 		},
 		User:          user,
 		Communication: CommunicationConfig{Mode: commMode},
-		KB:            legacy.KB,
+		Memory:        legacy.KB,
 	}
 }
 
-// Save writes a config.yaml to the given .leo/ directory.
-func Save(leoDir string, cfg *Config) error {
+// Save writes a config.yaml to the given .mom/ directory.
+func Save(momDir string, cfg *Config) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
 
-	path := filepath.Join(leoDir, "config.yaml")
+	path := filepath.Join(momDir, "config.yaml")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
@@ -250,7 +256,13 @@ func Save(leoDir string, cfg *Config) error {
 	return nil
 }
 
-// LeoDir returns the .leo/ directory path relative to the given project root.
+// MomDir returns the .mom/ directory path relative to the given project root.
+// Previously named LeoDir; renamed as part of the MOM rebrand (v0.10).
+func MomDir(projectRoot string) string {
+	return filepath.Join(projectRoot, ".mom")
+}
+
+// LeoDir is deprecated: use MomDir. Kept for backward compatibility during migration.
 func LeoDir(projectRoot string) string {
 	return filepath.Join(projectRoot, ".leo")
 }

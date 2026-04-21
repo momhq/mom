@@ -7,15 +7,15 @@ func LanguageInstructions(lang string) string {
 	case "pt":
 		return `## Language: Português
 
-Todos os artefatos que você produzir — documentos da KB, issues do GitHub, pull requests, mensagens de commit e comentários de código — devem ser escritos em Português. Identificadores de código (variáveis, funções, tipos) são sempre em inglês independentemente desta configuração. Mensagens de erro e strings de log seguem a convenção do projeto (tipicamente inglês).`
+Todos os artefatos que você produzir — documentos de memória, issues do GitHub, pull requests, mensagens de commit e comentários de código — devem ser escritos em Português. Identificadores de código (variáveis, funções, tipos) são sempre em inglês independentemente desta configuração. Mensagens de erro e strings de log seguem a convenção do projeto (tipicamente inglês).`
 	case "es":
 		return `## Language: Español
 
-Todos los artefactos que produzcas — documentos de KB, issues de GitHub, pull requests, mensajes de commit y comentarios de código — deben estar escritos en Español. Los identificadores de código (variables, funciones, tipos) siempre están en inglés independientemente de esta configuración. Los mensajes de error y strings de log siguen la convención del proyecto (típicamente inglés).`
+Todos los artefactos que produzcas — documentos de memoria, issues de GitHub, pull requests, mensajes de commit y comentarios de código — deben estar escritos en Español. Los identificadores de código (variables, funciones, tipos) siempre están en inglés independientemente de esta configuración. Los mensajes de error y strings de log siguen la convención del proyecto (típicamente inglés).`
 	default:
 		return `## Language: English
 
-All artifacts you produce — KB documents, GitHub issues, pull requests, commit messages, and code comments — must be written in English. Code identifiers (variables, functions, types) are always in English regardless of this setting. Error messages and log strings follow project convention (typically English).`
+All artifacts you produce — memory documents, GitHub issues, pull requests, commit messages, and code comments — must be written in English. Code identifiers (variables, functions, types) are always in English regardless of this setting. Error messages and log strings follow project convention (typically English).`
 	}
 }
 
@@ -85,20 +85,20 @@ Act independently. Execute without asking unless:
 
 For everything else: decide, act, report results.
 Do not ask permission for: file edits, running tests, creating branches,
-writing KB docs, choosing implementation approach.`
+writing memory docs, choosing implementation approach.`
 	case "supervised":
 		return `## Autonomy level: Supervised
 
 Confirm every significant action. Present options before acting.
 
 Act without asking:
-- Reading files, code, KB docs, git history
+- Reading files, code, memory docs, git history
 - Running read-only commands (test, lint, status)
 
 Present options and wait for approval:
 - Any file edit or creation
 - Any git operation beyond status/log/diff
-- KB document changes
+- memory document changes
 - Implementation approach selection
 
 Always confirm:
@@ -114,8 +114,8 @@ Propose before major changes. Confirm before external-facing actions.
 Act without asking:
 - File edits, refactors, bug fixes within clear scope
 - Running tests, linting, validation
-- Reading code, KB docs, git history
-- Writing/updating KB docs
+- Reading code, memory docs, git history
+- Writing/updating memory docs
 
 Propose plan first:
 - Multi-file changes or new features

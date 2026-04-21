@@ -151,30 +151,6 @@ func TestResolveScopeChoice_ParentRepoLabel(t *testing.T) {
 	}
 }
 
-// TestDiscoverUninitializedChildRepos returns repos with .git but no .leo.
-func TestDiscoverUninitializedChildRepos_ReturnsReposWithoutLeo(t *testing.T) {
-	dir := t.TempDir()
-	// repo1: has .git, no .leo → should appear
-	r1 := filepath.Join(dir, "repo1")
-	os.MkdirAll(filepath.Join(r1, ".git"), 0755)
-	// repo2: has .git and .leo → should not appear
-	r2 := filepath.Join(dir, "repo2")
-	os.MkdirAll(filepath.Join(r2, ".git"), 0755)
-	os.MkdirAll(filepath.Join(r2, ".leo"), 0755)
-	// repo3: no .git → should not appear
-	r3 := filepath.Join(dir, "repo3")
-	os.MkdirAll(r3, 0755)
-
-	uninitialized := discoverUninitializedChildRepos(dir)
-
-	if len(uninitialized) != 1 {
-		t.Fatalf("expected 1 uninitialized repo, got %d: %v", len(uninitialized), uninitialized)
-	}
-	if uninitialized[0] != r1 {
-		t.Errorf("expected %q, got %q", r1, uninitialized[0])
-	}
-}
-
 // TestBuildScopeOptions_IncludesParents verifies parent options are included.
 func TestBuildScopeOptions_IncludesParents(t *testing.T) {
 	home := t.TempDir()

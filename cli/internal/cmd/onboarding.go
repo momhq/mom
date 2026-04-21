@@ -9,7 +9,7 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
 )
 
 // OnboardingResult holds the choices the user made during the interactive
@@ -18,8 +18,8 @@ type OnboardingResult struct {
 	Runtimes   []string // ["claude", "codex", "cline"]
 	Language   string   // always "en" — language selection removed in v0.9
 	Mode       string   // "verbose", "concise", "normal", "caveman"
-	CoreSource string   // path to leo-core clone, or "" if skipped
-	// InstallDir is the directory where .leo/ should be created.
+	CoreSource string   // path to mom clone, or "" if skipped
+	// InstallDir is the directory where .mom/ should be created.
 	// Defaults to cwd (current project). Set to a parent for multi-repo installs.
 	InstallDir string
 	// ScopeLabel is the value written to config.yaml scope: field.
@@ -82,10 +82,10 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		// Group 1: Welcome
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Welcome to L.E.O.").
+				Title("Welcome to MOM").
 				Description(
-					"Living Ecosystem Orchestrator\n\n"+
-						"L.E.O. gives your AI coding assistant persistent memory\n"+
+					"Memory Oriented Machine\n\n"+
+						"MOM gives your AI coding assistant persistent memory\n"+
 						"and structured knowledge management.\n\n"+
 						"Let's set up your project. This takes about 30 seconds.",
 				),
@@ -122,8 +122,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		// Group 4: Scope / install location
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("Where should L.E.O. be installed?").
-				Description("Installing in a parent folder lets L.E.O. span all repos beneath it.").
+				Title("Where should MOM be installed?").
+				Description("Installing in a parent folder lets MOM span all repos beneath it.").
 				Options(scopeOptions...).
 				Value(&scopeChoice),
 		),
@@ -131,8 +131,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		// Group 5: Core Source
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Path to your leo-core clone (for updates)").
-				Description("Leave blank to skip — configure later in .leo/config.yaml").
+				Title("Path to your MOM clone (for updates)").
+				Description("Leave blank to skip — configure later in .mom/config.yaml").
 				Value(&coreSource),
 		),
 
@@ -165,12 +165,12 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	// Validate and expand core source path — accept both new (memory) and legacy (kb/docs) layouts.
 	if coreSource != "" {
 		expanded := expandTilde(coreSource)
-		memoryDir := filepath.Join(expanded, ".leo", "memory")
+		memoryDir := filepath.Join(expanded, ".mom", "memory")
 		if _, err := os.Stat(memoryDir); err != nil {
 			// Fall back to legacy layout.
-			legacyDir := filepath.Join(expanded, ".leo", "kb", "docs")
+			legacyDir := filepath.Join(expanded, ".mom", "kb", "docs")
 			if _, err := os.Stat(legacyDir); err != nil {
-				return OnboardingResult{}, fmt.Errorf("not a valid leo-core: %s not found", memoryDir)
+				return OnboardingResult{}, fmt.Errorf("not a valid MOM repo: %s not found", memoryDir)
 			}
 		}
 		coreSource = expanded
@@ -197,7 +197,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Title("Configuration Summary").
 				Description(summaryText),
 			huh.NewConfirm().
-				Title("Create .leo/ with these settings?").
+				Title("Create .mom/ with these settings?").
 				Affirmative("Yes").
 				Negative("No").
 				Value(&confirmed),
@@ -322,30 +322,6 @@ func detectParentDirs(cwd, home string) []ParentScope {
 		dir = next
 	}
 	return parents
-}
-
-// discoverUninitializedChildRepos returns paths of immediate children of dir
-// that have .git/ but do not have .leo/.
-func discoverUninitializedChildRepos(dir string) []string {
-	var result []string
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		child := filepath.Join(dir, e.Name())
-		gitPath := filepath.Join(child, ".git")
-		leoPath := filepath.Join(child, ".leo")
-		gitInfo, gitErr := os.Stat(gitPath)
-		_, leoErr := os.Stat(leoPath)
-		if gitErr == nil && gitInfo.IsDir() && os.IsNotExist(leoErr) {
-			result = append(result, child)
-		}
-	}
-	return result
 }
 
 // cwdScopeRole returns the semantic scope label for cwd by inspecting its
@@ -486,15 +462,8 @@ func runtimesLabel(rts []string) string {
 	return strings.Join(labels, ", ")
 }
 
-func languageLabel(lang string) string {
-	switch lang {
-	case "pt":
-		return "Português"
-	case "es":
-		return "Español"
-	default:
-		return "English"
-	}
+func languageLabel(_ string) string {
+	return "English"
 }
 
 func modeLabel(mode string) string {

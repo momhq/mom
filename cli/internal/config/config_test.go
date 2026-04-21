@@ -26,9 +26,6 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if cfg.Communication.Mode != "concise" {
 		t.Errorf("expected communication.mode %q, got %q", "concise", cfg.Communication.Mode)
 	}
-	if !cfg.KB.AutoPropagate {
-		t.Error("expected auto_propagate to be true")
-	}
 }
 
 func TestSaveAndLoad_RoundTrip(t *testing.T) {
@@ -79,9 +76,9 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestLeoDir(t *testing.T) {
-	got := LeoDir("/home/user/project")
-	expected := filepath.Join("/home/user/project", ".leo")
+func TestMomDir(t *testing.T) {
+	got := MomDir("/home/user/project")
+	expected := filepath.Join("/home/user/project", ".mom")
 	if got != expected {
 		t.Errorf("expected %q, got %q", expected, got)
 	}
@@ -91,7 +88,7 @@ func TestConfigMigrationFromV06(t *testing.T) {
 	dir := t.TempDir()
 	legacyCfg := `version: "1"
 runtime: claude
-core_source: /tmp/leo-core
+core_source: /tmp/mom
 user:
   language: en
   mode: concise
@@ -121,7 +118,7 @@ specialists:
 	if !rc.Enabled {
 		t.Error("expected claude to be enabled after migration")
 	}
-	if cfg.CoreSource != "/tmp/leo-core" {
+	if cfg.CoreSource != "/tmp/mom" {
 		t.Errorf("expected core_source preserved, got %q", cfg.CoreSource)
 	}
 	// communication.mode must be inferred.
@@ -228,9 +225,6 @@ kb:
 	if cfg.User.Language != "en" {
 		t.Errorf("expected language=en, got %q", cfg.User.Language)
 	}
-	if cfg.KB.AutoPropagate != true {
-		t.Error("expected auto_propagate=true")
-	}
 }
 
 func TestConfigEnabledRuntimes(t *testing.T) {
@@ -310,7 +304,7 @@ func TestConfigMultiRuntime(t *testing.T) {
 		},
 		User:          UserConfig{Language: "en"},
 		Communication: CommunicationConfig{Mode: "concise"},
-		KB:            KBConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
+		Memory:        MemoryConfig{},
 	}
 
 	if err := Save(dir, &cfg); err != nil {

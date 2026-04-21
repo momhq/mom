@@ -12,7 +12,7 @@ import (
 // --- Export tests ---
 
 func TestExportCmd_CreatesDefaultDirStructure(t *testing.T) {
-	dir := setupTestKB(t)
+	dir := setupTestMemory(t)
 	writeTestDoc(t, dir, sampleDoc("export-doc-1"))
 	writeTestDoc(t, dir, sampleDoc("export-doc-2"))
 
@@ -31,21 +31,21 @@ func TestExportCmd_CreatesDefaultDirStructure(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	// Default output: ./leo-export/
-	exportDir := filepath.Join(dir, "leo-export")
+	// Default output: ./mom-export/
+	exportDir := filepath.Join(dir, "mom-export")
 	if _, err := os.Stat(exportDir); err != nil {
-		t.Fatalf("leo-export/ directory not created: %v", err)
+		t.Fatalf("mom-export/ directory not created: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(exportDir, "docs")); err != nil {
-		t.Error("leo-export/docs/ not created")
+		t.Error("mom-export/docs/ not created")
 	}
 	if _, err := os.Stat(filepath.Join(exportDir, "index.json")); err != nil {
-		t.Error("leo-export/index.json not created")
+		t.Error("mom-export/index.json not created")
 	}
 }
 
 func TestExportCmd_CopiesAllDocs(t *testing.T) {
-	dir := setupTestKB(t)
+	dir := setupTestMemory(t)
 	writeTestDoc(t, dir, sampleDoc("export-alpha"))
 	writeTestDoc(t, dir, sampleDoc("export-beta"))
 	writeTestDoc(t, dir, sampleDoc("export-gamma"))
@@ -65,7 +65,7 @@ func TestExportCmd_CopiesAllDocs(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	exportDocsDir := filepath.Join(dir, "leo-export", "docs")
+	exportDocsDir := filepath.Join(dir, "mom-export", "docs")
 	for _, id := range []string{"export-alpha", "export-beta", "export-gamma"} {
 		docPath := filepath.Join(exportDocsDir, id+".json")
 		if _, err := os.Stat(docPath); err != nil {
@@ -79,7 +79,7 @@ func TestExportCmd_CopiesAllDocs(t *testing.T) {
 }
 
 func TestExportCmd_CustomOutputPath(t *testing.T) {
-	dir := setupTestKB(t)
+	dir := setupTestMemory(t)
 	writeTestDoc(t, dir, sampleDoc("export-custom"))
 
 	customOut := filepath.Join(dir, "my-custom-export")
@@ -109,10 +109,10 @@ func TestExportCmd_CustomOutputPath(t *testing.T) {
 }
 
 func TestExportCmd_CopiesSchema(t *testing.T) {
-	dir := setupTestKB(t)
+	dir := setupTestMemory(t)
 
-	// Write a schema.json into the .leo/ directory.
-	schemaPath := filepath.Join(dir, ".leo", "schema.json")
+	// Write a schema.json into the .mom/ directory.
+	schemaPath := filepath.Join(dir, ".mom", "schema.json")
 	os.WriteFile(schemaPath, []byte(`{"version":"1"}`), 0644)
 
 	origDir, _ := os.Getwd()
@@ -131,7 +131,7 @@ func TestExportCmd_CopiesSchema(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	exportedSchema := filepath.Join(dir, "leo-export", "schema.json")
+	exportedSchema := filepath.Join(dir, "mom-export", "schema.json")
 	if _, err := os.Stat(exportedSchema); err != nil {
 		t.Error("schema.json not exported")
 	}
@@ -140,25 +140,25 @@ func TestExportCmd_CopiesSchema(t *testing.T) {
 // --- Import tests ---
 
 func TestImportCmd_MergeMode_AddsNewDocs(t *testing.T) {
-	// Source KB: has doc-a, doc-b
-	srcDir := setupTestKB(t)
+	// Source memory: has doc-a, doc-b
+	srcDir := setupTestMemory(t)
 	writeTestDoc(t, srcDir, sampleDoc("import-new-a"))
 	writeTestDoc(t, srcDir, sampleDoc("import-new-b"))
 
-	// Export the source KB.
+	// Export the source memory.
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "memory"),
+		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "index.json"),
+		filepath.Join(srcDir, ".mom", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
-	// Destination KB: empty.
-	destDir := setupTestKB(t)
+	// Destination memory: empty.
+	destDir := setupTestMemory(t)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(destDir)
@@ -175,9 +175,9 @@ func TestImportCmd_MergeMode_AddsNewDocs(t *testing.T) {
 
 	// Both docs should now exist in the destination.
 	for _, id := range []string{"import-new-a", "import-new-b"} {
-		docPath := filepath.Join(destDir, ".leo", "memory", id+".json")
+		docPath := filepath.Join(destDir, ".mom", "memory", id+".json")
 		if _, err := os.Stat(docPath); err != nil {
-			t.Errorf("imported doc %s not found in dest KB", id)
+			t.Errorf("imported doc %s not found in dest memory", id)
 		}
 	}
 
@@ -187,8 +187,8 @@ func TestImportCmd_MergeMode_AddsNewDocs(t *testing.T) {
 }
 
 func TestImportCmd_MergeMode_SkipsExistingDocs(t *testing.T) {
-	// Source KB: has existing-doc with content "original".
-	srcDir := setupTestKB(t)
+	// Source memory: has existing-doc with content "original".
+	srcDir := setupTestMemory(t)
 	doc := sampleDoc("existing-doc")
 	doc.Content = map[string]any{"fact": "original"}
 	writeTestDoc(t, srcDir, doc)
@@ -197,16 +197,16 @@ func TestImportCmd_MergeMode_SkipsExistingDocs(t *testing.T) {
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "memory"),
+		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "index.json"),
+		filepath.Join(srcDir, ".mom", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
-	// Destination KB: already has existing-doc with content "local".
-	destDir := setupTestKB(t)
+	// Destination memory: already has existing-doc with content "local".
+	destDir := setupTestMemory(t)
 	localDoc := sampleDoc("existing-doc")
 	localDoc.Content = map[string]any{"fact": "local"}
 	writeTestDoc(t, destDir, localDoc)
@@ -225,7 +225,7 @@ func TestImportCmd_MergeMode_SkipsExistingDocs(t *testing.T) {
 	}
 
 	// The destination doc should still have "local" content.
-	data, err := os.ReadFile(filepath.Join(destDir, ".leo", "memory", "existing-doc.json"))
+	data, err := os.ReadFile(filepath.Join(destDir, ".mom", "memory", "existing-doc.json"))
 	if err != nil {
 		t.Fatalf("reading destination doc: %v", err)
 	}
@@ -242,24 +242,24 @@ func TestImportCmd_MergeMode_SkipsExistingDocs(t *testing.T) {
 }
 
 func TestImportCmd_ReplaceMode_BacksUpFirst(t *testing.T) {
-	// Source KB: has source-doc.
-	srcDir := setupTestKB(t)
+	// Source memory: has source-doc.
+	srcDir := setupTestMemory(t)
 	writeTestDoc(t, srcDir, sampleDoc("source-doc"))
 
 	// Export it.
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "memory"),
+		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "index.json"),
+		filepath.Join(srcDir, ".mom", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
-	// Destination KB: has existing-doc.
-	destDir := setupTestKB(t)
+	// Destination memory: has existing-doc.
+	destDir := setupTestMemory(t)
 	writeTestDoc(t, destDir, sampleDoc("existing-before-replace"))
 
 	origDir, _ := os.Getwd()
@@ -276,10 +276,10 @@ func TestImportCmd_ReplaceMode_BacksUpFirst(t *testing.T) {
 	}
 
 	// A backup directory should exist at the flat level.
-	leoDir := filepath.Join(destDir, ".leo")
+	leoDir := filepath.Join(destDir, ".mom")
 	entries, err := os.ReadDir(leoDir)
 	if err != nil {
-		t.Fatalf("reading .leo/: %v", err)
+		t.Fatalf("reading .mom/: %v", err)
 	}
 
 	foundBackup := false
@@ -299,24 +299,24 @@ func TestImportCmd_ReplaceMode_BacksUpFirst(t *testing.T) {
 }
 
 func TestImportCmd_ReplaceMode_ReplacesAllDocs(t *testing.T) {
-	// Source KB: has source-doc.
-	srcDir := setupTestKB(t)
+	// Source memory: has source-doc.
+	srcDir := setupTestMemory(t)
 	writeTestDoc(t, srcDir, sampleDoc("source-doc-replace"))
 
 	// Export it.
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "memory"),
+		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "index.json"),
+		filepath.Join(srcDir, ".mom", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
-	// Destination KB: has old-doc that should be gone after replace.
-	destDir := setupTestKB(t)
+	// Destination memory: has old-doc that should be gone after replace.
+	destDir := setupTestMemory(t)
 	writeTestDoc(t, destDir, sampleDoc("old-doc-to-be-gone"))
 
 	origDir, _ := os.Getwd()
@@ -333,12 +333,12 @@ func TestImportCmd_ReplaceMode_ReplacesAllDocs(t *testing.T) {
 	}
 
 	// source-doc-replace should exist.
-	if _, err := os.Stat(filepath.Join(destDir, ".leo", "memory", "source-doc-replace.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(destDir, ".mom", "memory", "source-doc-replace.json")); err != nil {
 		t.Error("source doc not found after replace import")
 	}
 
 	// old-doc-to-be-gone should NOT exist.
-	if _, err := os.Stat(filepath.Join(destDir, ".leo", "memory", "old-doc-to-be-gone.json")); err == nil {
+	if _, err := os.Stat(filepath.Join(destDir, ".mom", "memory", "old-doc-to-be-gone.json")); err == nil {
 		t.Error("old doc should be gone after replace import, but still exists")
 	}
 }
@@ -363,7 +363,7 @@ func TestImportCmd_ValidatesSchema(t *testing.T) {
 	invalidData, _ := json.MarshalIndent(invalidDoc, "", "  ")
 	os.WriteFile(filepath.Join(importDir, "docs", "INVALID_ID.json"), invalidData, 0644)
 
-	destDir := setupTestKB(t)
+	destDir := setupTestMemory(t)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(destDir)
@@ -384,24 +384,24 @@ func TestImportCmd_ValidatesSchema(t *testing.T) {
 }
 
 func TestImportCmd_RebuildsIndexAfterImport(t *testing.T) {
-	srcDir := setupTestKB(t)
+	srcDir := setupTestMemory(t)
 	writeTestDoc(t, srcDir, sampleDoc("index-rebuild-doc"))
 
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
 	copyDir(t,
-		filepath.Join(srcDir, ".leo", "memory"),
+		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
 	copyFile(t,
-		filepath.Join(srcDir, ".leo", "index.json"),
+		filepath.Join(srcDir, ".mom", "index.json"),
 		filepath.Join(exportDir, "index.json"),
 	)
 
-	destDir := setupTestKB(t)
+	destDir := setupTestMemory(t)
 
 	// Corrupt the destination index.
-	indexPath := filepath.Join(destDir, ".leo", "index.json")
+	indexPath := filepath.Join(destDir, ".mom", "index.json")
 	os.WriteFile(indexPath, []byte(`{}`), 0644)
 
 	origDir, _ := os.Getwd()
@@ -428,8 +428,8 @@ func TestImportCmd_RebuildsIndexAfterImport(t *testing.T) {
 }
 
 func TestExportImport_RoundTrip(t *testing.T) {
-	// Set up original KB with two docs.
-	origKBDir := setupTestKB(t)
+	// Set up original memory with two docs.
+	origKBDir := setupTestMemory(t)
 	writeTestDoc(t, origKBDir, sampleDoc("roundtrip-alpha"))
 	writeTestDoc(t, origKBDir, sampleDoc("roundtrip-beta"))
 
@@ -448,8 +448,8 @@ func TestExportImport_RoundTrip(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	// New empty KB.
-	newKBDir := setupTestKB(t)
+	// New empty memory.
+	newKBDir := setupTestMemory(t)
 	os.Chdir(newKBDir)
 
 	buf.Reset()
@@ -462,9 +462,9 @@ func TestExportImport_RoundTrip(t *testing.T) {
 
 	// Both docs should be present.
 	for _, id := range []string{"roundtrip-alpha", "roundtrip-beta"} {
-		docPath := filepath.Join(newKBDir, ".leo", "memory", id+".json")
+		docPath := filepath.Join(newKBDir, ".mom", "memory", id+".json")
 		if _, err := os.Stat(docPath); err != nil {
-			t.Errorf("round-trip: doc %s not found in imported KB", id)
+			t.Errorf("round-trip: doc %s not found in imported memory", id)
 		}
 	}
 }

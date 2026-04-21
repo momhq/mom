@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/cartographer"
-	"github.com/vmarinogg/leo-core/cli/internal/gardener"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
-	"github.com/vmarinogg/leo-core/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/cartographer"
+	"github.com/momhq/mom/cli/internal/gardener"
+	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/transponder"
 )
 
 var bootstrapCmd = &cobra.Command{
@@ -23,8 +24,8 @@ var bootstrapCmd = &cobra.Command{
 	Long: `Bootstrap scans the chosen directory for code, markdown, dependency
 manifests, and commit history to create initial memories.
 
-By default it writes to the nearest .leo/ found by walking up from the
-scan directory. Use --scope to override the target .leo/ location.`,
+By default it writes to the nearest .mom/ found by walking up from the
+scan directory. Use --scope to override the target .mom/ location.`,
 	RunE: runBootstrap,
 }
 
@@ -35,6 +36,7 @@ func init() {
 	bootstrapCmd.Flags().Int("commit-depth", 200, "Number of recent commits to scan")
 	bootstrapCmd.Flags().Int64("max-file-size", 2, "Skip files larger than this many MB")
 	bootstrapCmd.Flags().String("scope", "", "Target scope label (user/org/repo/workspace/custom)")
+	bootstrapCmd.Flags().Bool("no-graph", false, "Skip opening the memory graph in the browser after bootstrap")
 }
 
 func runBootstrap(cmd *cobra.Command, _ []string) error {
@@ -44,6 +46,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	commitDepth, _ := cmd.Flags().GetInt("commit-depth")
 	maxFileSizeMB, _ := cmd.Flags().GetInt64("max-file-size")
 	scopeLabel, _ := cmd.Flags().GetString("scope")
+	noGraph, _ := cmd.Flags().GetBool("no-graph")
 
 	if scanPath == "" {
 		cwd, err := os.Getwd()
@@ -58,19 +61,19 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("resolving path: %w", err)
 	}
 
-	// Resolve target .leo/ directory.
+	// Resolve target .mom/ directory.
 	var targetScope scope.Scope
 	var found bool
 
 	if scopeLabel != "" {
 		targetScope, found = scope.FindByLabel(scanPath, scopeLabel)
 		if !found {
-			return fmt.Errorf("no .leo/ with scope %q found from %s", scopeLabel, scanPath)
+			return fmt.Errorf("no .mom/ with scope %q found from %s", scopeLabel, scanPath)
 		}
 	} else {
 		targetScope, found = scope.NearestWritable(scanPath)
 		if !found {
-			return fmt.Errorf("no .leo/ directory found — run 'leo init' first")
+			return fmt.Errorf("no .mom/ directory found — run 'mom init' first")
 		}
 	}
 
@@ -80,7 +83,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	cfg.Refresh = refresh
 	cfg.DryRun = dryRun
 
-	// For user/org scopes, discover child repos and scan each into its own .leo/.
+	// For user/org scopes, discover child repos and scan each into its own .mom/.
 	if targetScope.Label == "user" || targetScope.Label == "org" {
 		return runMultiRepoBootstrap(cmd, scanPath, targetScope, cfg, dryRun)
 	}
@@ -135,6 +138,12 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 			cmd.Printf("  ⚠ write error: %v\n", writeErr)
 		}
 		written = w
+
+		// Regenerate index.json so memories are immediately visible to recall.
+		adapter := storage.NewJSONAdapter(targetScope.Path)
+		if err := adapter.Reindex(); err != nil {
+			cmd.Printf("  ⚠ index rebuild error: %v\n", err)
+		}
 	}
 
 	cmd.Println()
@@ -163,6 +172,20 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 				cmd.Printf("✓ %d landmarks identified\n", landmarkCount)
 			}
 		}
+
+		// Build and open the memory graph unless suppressed.
+		if !noGraph {
+			data, graphErr := gardener.BuildGraphData(memDir, 50)
+			if graphErr == nil && data.Stats.TotalDocs > 0 {
+				outPath := filepath.Join(os.TempDir(), "leo-memory-graph.html")
+				if writeErr := gardener.WriteGraphHTML(data, outPath); writeErr == nil {
+					cmd.Printf("Graph written to %s\n", outPath)
+					if openErr := openBrowser(outPath); openErr != nil {
+						cmd.Printf("  Open the file in your browser to view the graph.\n")
+					}
+				}
+			}
+		}
 	}
 
 	cmd.Println()
@@ -188,13 +211,13 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 }
 
 // runMultiRepoBootstrap handles bootstrap for user/org scopes by scanning
-// each child repo that has its own .leo/ independently, outputting per-repo
+// each child repo that has its own .mom/ independently, outputting per-repo
 // progress grouped by repo name.
 func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scope.Scope, cfg cartographer.Config, dryRun bool) error {
-	// Discover the parent dir: it's the directory containing the .leo/ (go one level up from .leo/).
+	// Discover the parent dir: it's the directory containing the .mom/ (go one level up from .mom/).
 	parentDir := filepath.Dir(targetScope.Path)
 
-	// Find child repos: immediate children with .git/ (may or may not have .leo/).
+	// Find child repos: immediate children with .git/ (may or may not have .mom/).
 	entries, err := os.ReadDir(parentDir)
 	if err != nil {
 		return fmt.Errorf("reading parent dir: %w", err)
@@ -202,7 +225,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 
 	type repoEntry struct {
 		root   string
-		leoDir string
+		momDir string
 	}
 	var repos []repoEntry
 
@@ -212,24 +235,24 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		}
 		child := filepath.Join(parentDir, e.Name())
 		gitPath := filepath.Join(child, ".git")
-		leoPath := filepath.Join(child, ".leo")
+		momPath := filepath.Join(child, ".mom")
 
 		gitInfo, gitErr := os.Stat(gitPath)
 		if gitErr != nil || !gitInfo.IsDir() {
 			continue // not a git repo
 		}
 
-		leoInfo, leoErr := os.Stat(leoPath)
-		if leoErr != nil || !leoInfo.IsDir() {
-			cmd.Printf("  ⚠ %s — no .leo/ found, skipping (run 'leo init' in this repo first)\n", child)
+		momInfo, momErr := os.Stat(momPath)
+		if momErr != nil || !momInfo.IsDir() {
+			cmd.Printf("  ⚠ %s — no .mom/ found, skipping (run 'mom init' in this repo first)\n", child)
 			continue
 		}
 
-		repos = append(repos, repoEntry{root: child, leoDir: leoPath})
+		repos = append(repos, repoEntry{root: child, momDir: momPath})
 	}
 
 	if len(repos) == 0 {
-		cmd.Println("No initialized child repos found. Run 'leo init' in each repo first.")
+		cmd.Println("No initialized child repos found. Run 'mom init' in each repo first.")
 		return nil
 	}
 
@@ -248,7 +271,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		cmd.Printf("\n  [%s]\n", repoName)
 
 		repoCfg := cfg
-		repoCfg.ScopeDir = repo.leoDir
+		repoCfg.ScopeDir = repo.momDir
 
 		var repoSpinner *bootstrapSpinner
 		if isTTY {
@@ -276,7 +299,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		totalProposed += len(result.Drafts)
 
 		if !dryRun && len(result.Drafts) > 0 {
-			w, writeErr := writeDrafts(result.Drafts, repo.leoDir)
+			w, writeErr := writeDrafts(result.Drafts, repo.momDir)
 			if writeErr != nil {
 				cmd.Printf("    ⚠ write error: %v\n", writeErr)
 			}
@@ -383,10 +406,10 @@ func canonicalLanguageLabel(lang string) string {
 	}
 }
 
-// writeDrafts persists draft memories to .leo/memory/ as JSON files.
+// writeDrafts persists draft memories to .mom/memory/ as JSON files.
 // Returns the count of successfully written memories.
-func writeDrafts(drafts []cartographer.Draft, leoDir string) (int, error) {
-	memDir := filepath.Join(leoDir, "memory")
+func writeDrafts(drafts []cartographer.Draft, momDir string) (int, error) {
+	memDir := filepath.Join(momDir, "memory")
 	if err := os.MkdirAll(memDir, 0755); err != nil {
 		return 0, fmt.Errorf("creating memory dir: %w", err)
 	}
@@ -452,7 +475,7 @@ func writeDraft(d cartographer.Draft, memDir string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// mapDraftType converts cartographer draft types to KB schema types.
+// mapDraftType converts cartographer draft types to memory schema types.
 func mapDraftType(t string) string {
 	switch t {
 	case "decision":
@@ -507,10 +530,10 @@ func countMemoryDocs(memDir string) int {
 }
 
 // runBootstrapInline runs a bootstrap scan from within the init flow.
-// scanDir is the directory to scan; leoDir is the .leo/ to write into.
-func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
+// scanDir is the directory to scan; momDir is the .mom/ to write into.
+func runBootstrapInline(cmd *cobra.Command, scanDir, momDir string) error {
 	cfg := cartographer.DefaultConfig()
-	cfg.ScopeDir = leoDir
+	cfg.ScopeDir = momDir
 
 	isTTY := isTerminalWriter(cmd.OutOrStdout())
 
@@ -547,7 +570,7 @@ func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
 
 	written := 0
 	if len(result.Drafts) > 0 {
-		w, writeErr := writeDrafts(result.Drafts, leoDir)
+		w, writeErr := writeDrafts(result.Drafts, momDir)
 		if writeErr != nil {
 			cmd.Printf("  ⚠ write error: %v\n", writeErr)
 		}

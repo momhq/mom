@@ -10,16 +10,16 @@ import (
 
 	huhspinner "charm.land/huh/v2/spinner"
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
-	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "Upgrade .leo/ to the latest version (preserves your KB docs)",
+	Short: "Upgrade .mom/ to the latest version (preserves your memory docs)",
 	Long: `Upgrades core infrastructure (schema, constraints, skills, runtime files)
-to match the installed leo binary. Your documents in .leo/memory/ are never touched.`,
+to match the installed leo binary. Your documents in .mom/memory/ are never touched.`,
 	RunE: runUpgrade,
 }
 
@@ -36,18 +36,40 @@ type upgradeAction struct {
 func runUpgrade(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-	leoDir, err := findLeoDir()
+	momDir, err := findMomDir()
 	if err != nil {
 		return err
 	}
 
-	projectRoot := filepath.Dir(leoDir)
+	projectRoot := filepath.Dir(momDir)
 	showSpinner := isTerminalWriter(cmd.OutOrStdout())
 
 	var actions []upgradeAction
 	addAction := func(symbol, desc string) {
 		actions = append(actions, upgradeAction{symbol, desc})
 	}
+
+	// ── Phase -1: Migrate .leo/ → .mom/ (v0.10 path migration) ─────────────
+	// When findMomDir() fell back to .leo/ (no .mom/ found), migrate now.
+	isLegacyLeoDir := filepath.Base(momDir) == ".leo"
+	if isLegacyLeoDir {
+		if dryRun {
+			addAction("⚠", fmt.Sprintf("would migrate %s → %s (run without --dry-run)", momDir, filepath.Join(projectRoot, ".mom")))
+		} else {
+			pathActions, err := migrateLeoToMom(momDir)
+			if err != nil {
+				return fmt.Errorf("path migration: %w", err)
+			}
+			for _, a := range pathActions {
+				addAction(a.symbol, a.desc)
+			}
+			// Switch to .mom/ for the rest of the upgrade.
+			momDir = filepath.Join(projectRoot, ".mom")
+		}
+	}
+
+	// leoDir is the resolved .mom/ or .leo/ directory (used throughout upgrade).
+	leoDir := momDir
 
 	// ── Phase 0: Migrate legacy kb/ layout to flat layout ───────────────────
 	if !dryRun {
@@ -60,7 +82,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
-			addAction("⚠", "legacy .leo/kb/ detected — would flatten to new layout (run without --dry-run)")
+			addAction("⚠", "legacy .mom/kb/ detected — would flatten to new layout (run without --dry-run)")
 		}
 	}
 
@@ -127,7 +149,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Remove retired .leo/profiles/ directory (v0.8.0 migration).
+		// Remove retired .mom/profiles/ directory (v0.8.0 migration).
 		profilesDir := filepath.Join(leoDir, "profiles")
 		if _, statErr := os.Stat(profilesDir); statErr == nil {
 			if !dryRun {
@@ -192,7 +214,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return phase1Err
 	}
 
-	// ── Phase 2: Update core KB docs ────────────────────────────────────────
+	// ── Phase 2: Update core memory docs ──────────────────────────────────────
 	var phase2Err error
 	doPhase2 := func() {
 		// Update schema.json.
@@ -341,7 +363,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 	cmd.Println()
 	if !dryRun {
-		cmd.Println("L.E.O. is up to date. Run 'leo doctor' to verify health.")
+		cmd.Println("MOM is up to date. Run 'mom doctor' to verify health.")
 	}
 	return nil
 }
@@ -355,7 +377,7 @@ func fileChanged(path string, data []byte) bool {
 	return string(existing) != string(data)
 }
 
-// migrateKBLayout detects a legacy .leo/kb/ layout and promotes each subdirectory
+// migrateKBLayout detects a legacy .mom/kb/ layout and promotes each subdirectory
 // one level up to the new flat layout. It is idempotent: if the destination already
 // exists it skips that step and reports a conflict rather than overwriting.
 func migrateKBLayout(leoDir string) ([]upgradeAction, error) {
@@ -662,4 +684,56 @@ func removeYAMLKey(mapping *yaml.Node, key string) bool {
 		}
 	}
 	return false
+}
+
+// migrateLeoToMom copies a .leo/ directory to .mom/ at the same level.
+// The .leo/ directory is preserved (not deleted) — users can remove it manually
+// or it will be removed in v0.12. Returns actions describing what was done.
+// If .mom/ already exists, the migration is skipped.
+func migrateLeoToMom(leoDir string) ([]upgradeAction, error) {
+	parent := filepath.Dir(leoDir)
+	momDir := filepath.Join(parent, ".mom")
+
+	// If .mom/ already exists, nothing to do.
+	if _, err := os.Stat(momDir); err == nil {
+		return nil, nil
+	}
+
+	var actions []upgradeAction
+
+	if err := copyDirRecursive(leoDir, momDir); err != nil {
+		return nil, fmt.Errorf("copying .leo/ to .mom/: %w", err)
+	}
+
+	actions = append(actions, upgradeAction{"✔", fmt.Sprintf("migrated %s → %s", leoDir, momDir)})
+	actions = append(actions, upgradeAction{"⚠", ".leo/ preserved — remove it manually after verifying .mom/ works"})
+
+	return actions, nil
+}
+
+// copyDirRecursive recursively copies src directory to dst.
+func copyDirRecursive(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		target := filepath.Join(dst, rel)
+
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(target, data, info.Mode())
+	})
 }

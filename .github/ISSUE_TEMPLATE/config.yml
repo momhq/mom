@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions
-    url: https://github.com/vmarinogg/leo-core/discussions
+    url: https://github.com/momhq/mom/discussions
     about: Ask questions in Discussions instead of opening an issue

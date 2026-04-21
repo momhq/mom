@@ -1,0 +1,27 @@
+{
+  "id": "dec-v011-mcp-first-scope",
+  "type": "decision",
+  "lifecycle": "learning",
+  "scope": "project",
+  "tags": ["v011", "mcp", "release-planning", "architecture", "scope"],
+  "created": "2026-04-21T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-21T00:00:00Z",
+  "updated_by": "leo",
+  "summary": "v0.11 scope locked: MCP-first context delivery + continuous raw capture. Previous scope (dual-output + Cursor + Tier 3) replaced.",
+  "content": {
+    "decision": "v0.11 is MCP-first only. Five phases: (1) mom_status tool, (2) raw capture via hooks, (3) minimal boot file, (4) session-log simplification, (5) Herald/Drafter spike + implementation.",
+    "context": "MemPalace study (48k stars) revealed two gaps in MOM: no continuous capture and heavy boot files. Anthropic MCP guidance ('Design for the agent') confirmed MCP-first as the right path. Previous v0.11 scope (dual-output capture, Cursor adapter, TUI monitor, Clearance) deferred to v0.12.",
+    "deferred_to_v012": ["Cursor adapter", "TUI monitor", "Clearance scaffold", "6W schema adoption"],
+    "github": {
+      "milestone": 6,
+      "issues": [94, 95, 96, 97, 98, 99, 100]
+    },
+    "impact": [
+      "07-release-path.md rewritten for v0.11",
+      "Boot file shrinks from ~3800 tokens to ~350 tokens",
+      "Session-logs become optional (raw is audit trail)",
+      "Adapters shrink to MCP config + hooks + minimal boot trigger"
+    ]
+  }
+}

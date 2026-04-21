@@ -7,15 +7,15 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 var promoteCmd = &cobra.Command{
 	Use:   "promote <memory-id>",
 	Short: "Move a memory doc up to a broader scope",
-	Long: `Moves a memory document from the nearest .leo/ to the nearest
-ancestor .leo/ that has the specified scope label.
+	Long: `Moves a memory document from the nearest .mom/ to the nearest
+ancestor .mom/ that has the specified scope label.
 
 The file is removed from the source scope and written to the target scope.
 Provenance is updated to record the promotion (promoted_from tag added).
@@ -29,7 +29,7 @@ var demoteCmd = &cobra.Command{
 	Use:   "demote <memory-id>",
 	Short: "Move a memory doc down to the nearest (repo) scope",
 	Long: `Moves a memory document from an ancestor scope down to the
-nearest .leo/ (most specific scope).
+nearest .mom/ (most specific scope).
 
 The file is removed from the source scope and written to the target scope.
 Provenance is updated to record the demotion (demoted_from tag added).
@@ -63,7 +63,7 @@ func runPromote(cmd *cobra.Command, args []string) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		return fmt.Errorf("no .leo/ found — run 'leo init' first")
+		return fmt.Errorf("no .mom/ found — run 'mom init' first")
 	}
 
 	// Source: nearest scope.
@@ -108,7 +108,7 @@ func runDemote(cmd *cobra.Command, args []string) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		return fmt.Errorf("no .leo/ found — run 'leo init' first")
+		return fmt.Errorf("no .mom/ found — run 'mom init' first")
 	}
 
 	// Target: nearest scope with the requested label.
@@ -148,7 +148,7 @@ func runDemote(cmd *cobra.Command, args []string) error {
 // moveDoc reads a doc from srcPath, rewrites provenance, writes to dstLeoDir,
 // then removes the original. The provenanceTag is added to the doc's tags.
 func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *cobra.Command) error {
-	doc, err := kb.LoadDoc(srcDocPath)
+	doc, err := memory.LoadDoc(srcDocPath)
 	if err != nil {
 		return fmt.Errorf("reading doc: %w", err)
 	}
@@ -174,7 +174,7 @@ func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *co
 	}
 
 	dstDocPath := filepath.Join(dstMemDir, id+".json")
-	if err := kb.SaveDoc(dstDocPath, doc); err != nil {
+	if err := memory.SaveDoc(dstDocPath, doc); err != nil {
 		return fmt.Errorf("writing doc to destination: %w", err)
 	}
 

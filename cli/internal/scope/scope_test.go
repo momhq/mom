@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 // makeTree creates a directory tree under a temp dir and returns the temp root.
@@ -33,13 +33,13 @@ func writeConfig(t *testing.T, leoDir, label string) {
 func TestWalk_ThreeLevels(t *testing.T) {
 	// Tree: root/.leo, root/a/.leo, root/a/b/.leo — cwd = root/a/b
 	root := makeTree(t,
-		".leo",
-		"a/.leo",
-		"a/b/.leo",
+		".mom",
+		"a/.mom",
+		"a/b/.mom",
 	)
-	writeConfig(t, filepath.Join(root, ".leo"), "user")
-	writeConfig(t, filepath.Join(root, "a", ".leo"), "org")
-	writeConfig(t, filepath.Join(root, "a", "b", ".leo"), "repo")
+	writeConfig(t, filepath.Join(root, ".mom"), "user")
+	writeConfig(t, filepath.Join(root, "a", ".mom"), "org")
+	writeConfig(t, filepath.Join(root, "a", "b", ".mom"), "repo")
 
 	// Patch HOME to root so Walk stops there.
 	t.Setenv("HOME", root)
@@ -52,13 +52,13 @@ func TestWalk_ThreeLevels(t *testing.T) {
 	}
 
 	// Nearest first.
-	if scopes[0].Path != filepath.Join(root, "a", "b", ".leo") {
-		t.Errorf("scopes[0].Path = %q, want %q", scopes[0].Path, filepath.Join(root, "a", "b", ".leo"))
+	if scopes[0].Path != filepath.Join(root, "a", "b", ".mom") {
+		t.Errorf("scopes[0].Path = %q, want %q", scopes[0].Path, filepath.Join(root, "a", "b", ".mom"))
 	}
-	if scopes[1].Path != filepath.Join(root, "a", ".leo") {
+	if scopes[1].Path != filepath.Join(root, "a", ".mom") {
 		t.Errorf("scopes[1].Path = %q", scopes[1].Path)
 	}
-	if scopes[2].Path != filepath.Join(root, ".leo") {
+	if scopes[2].Path != filepath.Join(root, ".mom") {
 		t.Errorf("scopes[2].Path = %q", scopes[2].Path)
 	}
 
@@ -74,7 +74,7 @@ func TestWalk_ThreeLevels(t *testing.T) {
 }
 
 func TestWalk_NoLeoDir(t *testing.T) {
-	// cwd with no .leo/ anywhere.
+	// cwd with no .mom/ anywhere.
 	root := t.TempDir()
 	t.Setenv("HOME", root)
 
@@ -87,12 +87,12 @@ func TestWalk_NoLeoDir(t *testing.T) {
 func TestWalk_StopsAtHome(t *testing.T) {
 	// Tree: root/.leo, root/a/.leo — HOME = root/a (so root/.leo should not appear)
 	root := makeTree(t,
-		".leo",
-		"a/.leo",
+		".mom",
+		"a/.mom",
 		"a/b",
 	)
-	writeConfig(t, filepath.Join(root, ".leo"), "user")
-	writeConfig(t, filepath.Join(root, "a", ".leo"), "repo")
+	writeConfig(t, filepath.Join(root, ".mom"), "user")
+	writeConfig(t, filepath.Join(root, "a", ".mom"), "repo")
 
 	t.Setenv("HOME", filepath.Join(root, "a"))
 
@@ -103,15 +103,15 @@ func TestWalk_StopsAtHome(t *testing.T) {
 	if len(scopes) != 1 {
 		t.Fatalf("expected 1 scope, got %d: %v", len(scopes), scopes)
 	}
-	if scopes[0].Path != filepath.Join(root, "a", ".leo") {
+	if scopes[0].Path != filepath.Join(root, "a", ".mom") {
 		t.Errorf("scopes[0].Path = %q", scopes[0].Path)
 	}
 }
 
 func TestWalk_NearestFirst(t *testing.T) {
 	// Single .leo/ one level above cwd.
-	root := makeTree(t, ".leo", "sub")
-	writeConfig(t, filepath.Join(root, ".leo"), "repo")
+	root := makeTree(t, ".mom", "sub")
+	writeConfig(t, filepath.Join(root, ".mom"), "repo")
 	t.Setenv("HOME", root)
 
 	scopes := scope.Walk(filepath.Join(root, "sub"))
@@ -121,15 +121,15 @@ func TestWalk_NearestFirst(t *testing.T) {
 }
 
 func TestNearestWritable_Found(t *testing.T) {
-	root := makeTree(t, ".leo")
-	writeConfig(t, filepath.Join(root, ".leo"), "repo")
+	root := makeTree(t, ".mom")
+	writeConfig(t, filepath.Join(root, ".mom"), "repo")
 	t.Setenv("HOME", root)
 
 	s, ok := scope.NearestWritable(root)
 	if !ok {
 		t.Fatal("expected NearestWritable to return ok=true")
 	}
-	if s.Path != filepath.Join(root, ".leo") {
+	if s.Path != filepath.Join(root, ".mom") {
 		t.Errorf("Path = %q", s.Path)
 	}
 }
@@ -140,15 +140,15 @@ func TestNearestWritable_NotFound(t *testing.T) {
 
 	_, ok := scope.NearestWritable(root)
 	if ok {
-		t.Fatal("expected ok=false when no .leo/ exists")
+		t.Fatal("expected ok=false when no .mom/ exists")
 	}
 }
 
 func TestDefaultScope_MissingField(t *testing.T) {
 	// A .leo/ with no scope field in config.yaml should default to "repo".
-	root := makeTree(t, ".leo")
+	root := makeTree(t, ".mom")
 	content := "version: \"1\"\nruntimes:\n  claude:\n    enabled: true\n"
-	if err := os.WriteFile(filepath.Join(root, ".leo", "config.yaml"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".mom", "config.yaml"), []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", root)
@@ -163,11 +163,11 @@ func TestDefaultScope_MissingField(t *testing.T) {
 }
 
 func TestMemoryCount(t *testing.T) {
-	root := makeTree(t, ".leo/memory")
-	writeConfig(t, filepath.Join(root, ".leo"), "repo")
+	root := makeTree(t, ".mom/memory")
+	writeConfig(t, filepath.Join(root, ".mom"), "repo")
 
 	// Write 2 JSON files and 1 non-JSON.
-	memDir := filepath.Join(root, ".leo", "memory")
+	memDir := filepath.Join(root, ".mom", "memory")
 	os.WriteFile(filepath.Join(memDir, "a.json"), []byte("{}"), 0644)    //nolint:errcheck
 	os.WriteFile(filepath.Join(memDir, "b.json"), []byte("{}"), 0644)    //nolint:errcheck
 	os.WriteFile(filepath.Join(memDir, "notes.txt"), []byte("hi"), 0644) //nolint:errcheck

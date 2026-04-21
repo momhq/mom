@@ -25,7 +25,7 @@ const graphHTMLTemplate = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEO Memory Graph</title>
+<title>MOM Memory Graph</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #001423; color: #FFF5E5; overflow: hidden; }
@@ -53,7 +53,7 @@ svg { width: 100%%; height: 100%%; }
 <div id="container">
 <svg id="graph"></svg>
 <div class="stats">
-  <h2>LEO Memory Graph</h2>
+  <h2>MOM Memory Graph</h2>
   <div><span>Documents:</span> <span class="value" id="stat-docs"></span></div>
   <div><span>Edges:</span> <span class="value" id="stat-edges"></span></div>
   <div><span>Landmarks:</span> <span class="value" id="stat-landmarks"></span></div>

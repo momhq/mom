@@ -14,24 +14,24 @@ type CacheEntry struct {
 	DraftCount    int    `json:"draft_count"`
 }
 
-// Cache is a file-level SHA256 cache stored at <leoDir>/cache/bootstrap/manifest.json.
+// Cache is a file-level SHA256 cache stored at <momDir>/cache/bootstrap/manifest.json.
 type Cache struct {
 	mu       sync.RWMutex
 	manifest map[string]CacheEntry
 	path     string // absolute path to manifest.json
 }
 
-// NewCache creates a Cache for the given leoDir. If leoDir is empty or the
+// NewCache creates a Cache for the given momDir. If momDir is empty or the
 // manifest does not exist, an empty in-memory cache is returned.
-func NewCache(leoDir string) *Cache {
+func NewCache(momDir string) *Cache {
 	c := &Cache{
 		manifest: make(map[string]CacheEntry),
 	}
-	if leoDir == "" {
+	if momDir == "" {
 		return c
 	}
 
-	dir := filepath.Join(leoDir, "cache", "bootstrap")
+	dir := filepath.Join(momDir, "cache", "bootstrap")
 	c.path = filepath.Join(dir, "manifest.json")
 
 	data, err := os.ReadFile(c.path)

@@ -1,13 +1,22 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "leo",
-	Short: "LEO — Living Ecosystem Orchestrator",
+	Use:   "mom",
+	Short: "MOM — Memory Oriented Machine",
 	Long:  "A living knowledge infrastructure where humans and agents think, decide, and evolve together.",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if warning := checkVersionCache(); warning != "" {
+			fmt.Fprintln(os.Stderr, warning)
+		}
+		refreshVersionCacheAsync()
+	},
 }
 
 func Execute() error {
@@ -23,7 +32,6 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(reindexCmd)
 	rootCmd.AddCommand(validateCmd)
-	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(promoteCmd)

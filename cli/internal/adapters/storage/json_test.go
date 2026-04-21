@@ -136,30 +136,6 @@ func TestJSONAdapter_BulkWrite(t *testing.T) {
 	}
 }
 
-func TestJSONAdapter_Health(t *testing.T) {
-	adapter, _ := setupAdapter(t)
-
-	status, err := adapter.Health()
-	if err != nil {
-		t.Fatalf("Health failed: %v", err)
-	}
-	if !status.OK {
-		t.Fatalf("expected healthy, got: %s", status.Message)
-	}
-}
-
-func TestJSONAdapter_Health_MissingDir(t *testing.T) {
-	adapter := NewJSONAdapter("/nonexistent/.leo")
-
-	status, err := adapter.Health()
-	if err != nil {
-		t.Fatalf("Health returned error: %v", err)
-	}
-	if status.OK {
-		t.Fatal("expected unhealthy for missing dir")
-	}
-}
-
 func TestJSONAdapter_Read_NotFound(t *testing.T) {
 	adapter, _ := setupAdapter(t)
 

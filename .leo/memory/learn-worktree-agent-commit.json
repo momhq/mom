@@ -1,0 +1,18 @@
+{
+  "id": "learn-worktree-agent-commit",
+  "type": "learning",
+  "lifecycle": "learning",
+  "scope": "project",
+  "tags": ["agent", "worktree", "workflow", "git"],
+  "created": "2026-04-21T00:00:00Z",
+  "created_by": "leo",
+  "updated": "2026-04-21T00:00:00Z",
+  "updated_by": "leo",
+  "summary": "Worktree agents must receive explicit commit instructions or changes leak uncommitted to the main tree.",
+  "content": {
+    "learning": "When delegating work to Sonnet agents on isolated worktrees, the agent may write files and report success without committing. The worktree gets cleaned up, and uncommitted changes either leak to the main tree or are lost.",
+    "fix": "Include explicit git add + git commit commands in the agent prompt. Example: 'CRITICAL: You MUST commit your changes before finishing. git add -A && git commit -m \"...\"'",
+    "observed": "Wave 1-3 agents committed cleanly. Wave 4 (#88, #91) did not commit — changes leaked to main tree and had to be re-run with explicit instructions.",
+    "impact": "Lost ~10 minutes re-running two agents. No data loss since agent output transcripts recorded what was changed."
+  }
+}

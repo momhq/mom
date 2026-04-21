@@ -35,7 +35,7 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of unacceptable behavior may be reported via
-[GitHub Issues](https://github.com/vmarinogg/leo-core/issues) or by contacting
+[GitHub Issues](https://github.com/momhq/mom/issues) or by contacting
 the project maintainer directly.
 
 All complaints will be reviewed and investigated promptly and fairly.

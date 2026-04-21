@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/capture-payload",
+  "$id": "https://github.com/momhq/mom/mrp/v0/capture-payload",
   "title": "MRP v0 — Capture dual-output payload",
   "description": "Returned by the runtime adapter when a capture event fires (session.end, compact.triggered, clear.triggered). Both fields land: raw for future re-processing, drafts for immediate use.",
   "type": "object",

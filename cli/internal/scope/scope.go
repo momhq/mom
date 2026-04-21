@@ -1,6 +1,6 @@
-// Package scope handles multi-level .leo/ discovery and write routing.
+// Package scope handles multi-level .mom/ discovery and write routing.
 //
-// Walk-up discovery finds every ancestor directory that contains a .leo/ folder,
+// Walk-up discovery finds every ancestor directory that contains a .mom/ folder,
 // starting from cwd and stopping at (but not crossing) $HOME. Symlinks are
 // skipped intentionally: following symlinks could create cycles or traverse
 // unexpected filesystem trees.
@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/config"
 )
 
 // ValidScopeLabels is the set of accepted scope values in config.yaml.
@@ -26,9 +26,9 @@ var ValidScopeLabels = map[string]bool{
 	"custom":    true,
 }
 
-// Scope represents a single .leo/ install found during walk-up.
+// Scope represents a single .mom/ install found during walk-up.
 type Scope struct {
-	// Path is the absolute path to the .leo/ directory.
+	// Path is the absolute path to the .mom/ directory.
 	Path string
 	// Label is the value of the scope: field in config.yaml.
 	// Defaults to "repo" when absent or empty.
@@ -53,7 +53,7 @@ func (s Scope) MemoryCount() int {
 }
 
 // Walk walks up from cwd and returns every ancestor directory that contains a
-// .leo/ subdirectory, ordered nearest-first. It stops at $HOME (exclusive) —
+// .mom/ subdirectory, ordered nearest-first. It stops at $HOME (exclusive) —
 // it never walks above the user's home directory.
 //
 // Symlinks are skipped: if a directory entry is a symlink, it is not followed.
@@ -69,7 +69,7 @@ func Walk(cwd string) []Scope {
 	dir := cwd
 
 	for {
-		candidate := filepath.Join(dir, ".leo")
+		candidate := filepath.Join(dir, ".mom")
 		if isRealDir(candidate) {
 			label := loadScopeLabel(candidate)
 			scopes = append(scopes, Scope{Path: candidate, Label: label})
@@ -92,7 +92,7 @@ func Walk(cwd string) []Scope {
 }
 
 // NearestWritable returns the nearest (most specific) scope for cwd.
-// If no .leo/ exists, it returns a zero Scope and false.
+// If no .mom/ exists, it returns a zero Scope and false.
 func NearestWritable(cwd string) (Scope, bool) {
 	scopes := Walk(cwd)
 	if len(scopes) == 0 {
@@ -120,10 +120,10 @@ func ValidateLabel(label string) error {
 	return fmt.Errorf("invalid scope %q: must be one of user, org, repo, workspace, custom", label)
 }
 
-// loadScopeLabel reads the scope field from config.yaml in leoDir.
+// loadScopeLabel reads the scope field from config.yaml in momDir.
 // Returns "repo" on any error or when the field is absent/empty.
-func loadScopeLabel(leoDir string) string {
-	cfg, err := config.Load(leoDir)
+func loadScopeLabel(momDir string) string {
+	cfg, err := config.Load(momDir)
 	if err != nil {
 		return "repo"
 	}

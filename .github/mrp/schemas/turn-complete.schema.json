@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/turn-complete",
+  "$id": "https://github.com/momhq/mom/mrp/v0/turn-complete",
   "title": "MRP v0 — turn.complete event",
   "description": "Emitted when one full turn finishes (user prompt + runtime response). Opt-in — adapters that cannot track turn boundaries must not synthesize this event.",
   "type": "object",

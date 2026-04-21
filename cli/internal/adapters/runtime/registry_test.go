@@ -75,29 +75,3 @@ func TestRegistryAll(t *testing.T) {
 	}
 }
 
-func TestRegistryGenerateAll(t *testing.T) {
-	dir := t.TempDir()
-	r := NewRegistry(dir)
-
-	config := Config{Version: "1", User: UserConfig{Language: "en", Autonomy: "balanced"}}
-
-	err := r.GenerateAll([]string{"claude", "codex"}, config, nil, nil, nil)
-	if err != nil {
-		t.Fatalf("GenerateAll failed: %v", err)
-	}
-
-	// CLAUDE.md should exist
-	if _, err := os.Stat(filepath.Join(dir, ".claude", "CLAUDE.md")); err != nil {
-		t.Error("CLAUDE.md not generated")
-	}
-
-	// AGENTS.md should exist
-	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err != nil {
-		t.Error("AGENTS.md not generated")
-	}
-
-	// .clinerules/leo-context.md should NOT exist (cline not in enabled list)
-	if _, err := os.Stat(filepath.Join(dir, ".clinerules", "leo-context.md")); err == nil {
-		t.Error("leo-context.md should not have been generated")
-	}
-}

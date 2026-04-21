@@ -1,0 +1,34 @@
+{
+  "id": "dec-6w-schema-exploration",
+  "type": "decision",
+  "boot": false,
+  "summary": "6W schema model (WHAT/WHERE/WHEN/WHO/HOW/WHY) for all memory types. Unifies recall, simplifies graph ingestion. Exploration, not locked.",
+  "lifecycle": "learning",
+  "scope": "project",
+  "tags": ["schema", "6w", "architecture", "core", "exploration"],
+  "created": "2026-04-20T00:00:00Z",
+  "created_by": "user",
+  "updated": "2026-04-20T00:00:00Z",
+  "updated_by": "leo",
+  "confidence": "INFERRED",
+  "promotion_state": "draft",
+  "classification": "INTERNAL",
+  "provenance": {},
+  "content": {
+    "decision": "Every memory should answer six questions at the top level: WHAT, WHERE, WHEN, WHO, HOW, WHY. Type-specific content stays in the content block. This unifies recall across types and makes graph ingestion trivial.",
+    "context": "Current schema has type-specific content shapes with no unified core. Recall logic needs type-specific handling. Session-logs carry context that memories lack. Logs are richer than memories for reconstructing what happened — the 6W model fixes this by moving context into memories.",
+    "why": "Uniform query surface across all memory types. Recall becomes type-independent. Graph mapping is direct: each W maps to either a node property or an edge type. Session-logs simplify to pure volumetrics. Benefits Core immediately, graph-readiness is a bonus.",
+    "alternatives_considered": [
+      "Keep type-specific schemas, add unified fields incrementally — rejected: half-measure, doesn't solve the recall uniformity problem",
+      "Merge memory + session-log into one record — rejected: conflates metrics with knowledge, better to enrich memories and simplify logs separately"
+    ],
+    "impact": [
+      "Schema change benefits Core independently of graph DB timeline",
+      "Session-logs shrink to volumetrics (duration, counts), narrative moves to memories",
+      "Dead fields in session-log (profile, pipeline_tier) removed",
+      "Next step: validate 6W mapping against 5-10 real memories from current KB",
+      "Candidate for v0.11 scope"
+    ],
+    "reversible": true
+  }
+}

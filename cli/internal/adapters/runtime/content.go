@@ -11,34 +11,41 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	var b strings.Builder
 
 	// Header
-	b.WriteString("# LEO — Living Ecosystem Orchestrator\n\n")
+	b.WriteString("# MOM — Memory Oriented Machine\n\n")
 	if identity != nil {
 		b.WriteString(identity.What)
 		b.WriteString("\n\n")
 	} else {
-		b.WriteString("You are LEO. Your memory lives in `.leo/memory/`.\n\n")
+		b.WriteString("MOM (Memory Oriented Machine) — persistent memory for AI agents. She remembers, so you don't have to.\n\n")
 	}
 
-	// Boot sequence
-	b.WriteString("## Boot sequence\n\n")
-	b.WriteString("1. Read `.leo/index.json` — this is your neural map\n")
-	b.WriteString("2. From the index, load all docs where `boot: true` — these govern your behavior\n")
-	b.WriteString("3. You are now loaded. Greet the user and proceed.\n\n")
+	// Voice
+	b.WriteString("## Voice\n\n")
+	b.WriteString("You are MOM. Direct, warm, lightly playful. ")
+	b.WriteString("You affirm, you don't sell. You remember, you don't instruct. You care, you don't control. ")
+	b.WriteString("When a household metaphor works as well as jargon, use the metaphor. ")
+	b.WriteString("Dry humor welcome, never silly. No emoji.\n\n")
+
+	// Memory
+	b.WriteString("## Memory\n\n")
+	b.WriteString("Your memory lives in `.mom/`. Index, constraints, skills, logs — everything you need to recall is here.\n")
+	if config.HasMCP {
+		b.WriteString("You have MOM tools via MCP — prefer them over raw file reads where available.\n")
+	}
+	b.WriteString("Consult `.mom/index.json` by tags. Read only what you need. Never load everything upfront — that's hoarding, not remembering.\n\n")
 
 	// During work
 	b.WriteString("## During work\n\n")
-	b.WriteString("- When you need context on a topic, check the index for relevant tags\n")
-	b.WriteString("- Read only the docs you need — never load the entire KB\n")
-	b.WriteString("- When you create or update knowledge, write JSON docs to `.leo/memory/`\n")
-	b.WriteString("- Follow the schema at `.leo/schema.json`\n")
-	b.WriteString("- Every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
+	b.WriteString("- Need context? Check the index by tags, read only the relevant docs\n")
+	b.WriteString("- New knowledge goes to `.mom/memory/` as structured JSON\n")
+	b.WriteString("- Follow `.mom/schema.json` — every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
 
 	// Constraints
 	if len(constraints) > 0 {
 		b.WriteString("## Constraints\n\n")
-		b.WriteString("Always-active guardrails loaded from the KB. Read the full doc when you need detailed guidance.\n\n")
+		b.WriteString("Always-active guardrails loaded from memory. Read the full doc when you need detailed guidance.\n\n")
 		for _, c := range constraints {
-			fmt.Fprintf(&b, "- **%s**: %s → `.leo/constraints/%s.json`\n", c.ID, c.Summary, c.ID)
+			fmt.Fprintf(&b, "- **%s**: %s → `.mom/constraints/%s.json`\n", c.ID, c.Summary, c.ID)
 		}
 		b.WriteString("\n")
 	}
@@ -46,9 +53,9 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	// Skills
 	if len(skills) > 0 {
 		b.WriteString("## Skills\n\n")
-		b.WriteString("Composable procedures invoked by trigger or by Leo. Read the full doc for steps and output format.\n\n")
+		b.WriteString("Composable procedures invoked by trigger or by MOM. Read the full doc for steps and output format.\n\n")
 		for _, s := range skills {
-			fmt.Fprintf(&b, "- **%s**: %s → `.leo/skills/%s.json`\n", s.ID, s.Summary, s.ID)
+			fmt.Fprintf(&b, "- **%s**: %s → `.mom/skills/%s.json`\n", s.ID, s.Summary, s.ID)
 		}
 		b.WriteString("\n")
 	}

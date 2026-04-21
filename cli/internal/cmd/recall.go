@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 const (
@@ -28,9 +28,9 @@ Results are ranked by:
   - Landmark boost (+0.3) for landmark memories
 
 Examples:
-  leo recall "authentication"
-  leo recall "api" --tags auth,security --limit 5
-  leo recall "" --scope repo`,
+  mom recall "authentication"
+  mom recall "api" --tags auth,security --limit 5
+  mom recall "" --scope repo`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runRecall,
 }
@@ -42,7 +42,7 @@ func init() {
 }
 
 type recallResult struct {
-	doc   *kb.Doc
+	doc   *memory.Doc
 	score float64
 }
 
@@ -63,7 +63,7 @@ func runRecall(cmd *cobra.Command, args []string) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .leo/ directory found. Run 'leo init' first.\n")
+		cmd.Printf("No .mom/ directory found. Run 'mom init' first.\n")
 		return nil
 	}
 
@@ -102,7 +102,7 @@ func runRecall(cmd *cobra.Command, args []string) error {
 			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 				continue
 			}
-			doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 			if err != nil {
 				continue
 			}
@@ -164,7 +164,7 @@ func runRecall(cmd *cobra.Command, args []string) error {
 
 // scoreRecall computes a relevance score for a doc given a query and tag filters.
 // Returns 0 if tag filters are set but not matched (exclude from results).
-func scoreRecall(doc *kb.Doc, query string, filterTags map[string]bool) float64 {
+func scoreRecall(doc *memory.Doc, query string, filterTags map[string]bool) float64 {
 	// If tag filter specified, doc must match ALL filter tags.
 	if len(filterTags) > 0 {
 		docTagSet := make(map[string]bool, len(doc.Tags))

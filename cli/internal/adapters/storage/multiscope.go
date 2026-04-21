@@ -4,16 +4,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 // InheritedDoc wraps a Doc with metadata about which scope it came from
 // and whether it is inherited (read-only from the child's perspective).
 type InheritedDoc struct {
 	*Doc
-	// ScopePath is the .leo/ directory this doc was read from.
+	// ScopePath is the .mom/ directory this doc was read from.
 	ScopePath string
-	// ScopeLabel is the scope label declared in that .leo/'s config.yaml.
+	// ScopeLabel is the scope label declared in that .mom/'s config.yaml.
 	ScopeLabel string
 	// Inherited is true for docs that come from an ancestor scope (not the
 	// nearest/writable scope). Inherited docs are read-only from the child's
@@ -22,7 +22,7 @@ type InheritedDoc struct {
 }
 
 // ReadAllScopes walks up from cwd and reads every memory doc from every
-// ancestor .leo/ directory. Results are merged nearest-first: when the same
+// ancestor .mom/ directory. Results are merged nearest-first: when the same
 // document ID appears in multiple scopes, the child's copy wins.
 //
 // Symlinks are not followed (inherited from scope.Walk).

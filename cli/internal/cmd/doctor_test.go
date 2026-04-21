@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-// TestDoctorBase_LegacyLayoutDetection verifies that when .leo/kb/ exists,
+// TestDoctorBase_LegacyLayoutDetection verifies that when .mom/kb/ exists,
 // doctor prints the migration prompt and exits cleanly without running normal checks.
 func TestDoctorBase_LegacyLayoutDetection(t *testing.T) {
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
-	// Create legacy layout: .leo/kb/ present (pre-v0.8.0 structure).
+	// Create legacy layout: .mom/kb/ present (pre-v0.8.0 structure).
 	os.MkdirAll(filepath.Join(leoDir, "kb", "docs"), 0755)
 	os.MkdirAll(filepath.Join(leoDir, "kb", "constraints"), 0755)
 	os.MkdirAll(filepath.Join(leoDir, "kb", "skills"), 0755)
@@ -44,8 +44,8 @@ func TestDoctorBase_LegacyLayoutDetection(t *testing.T) {
 	}
 
 	// Must contain the upgrade instruction.
-	if !strings.Contains(out, "leo upgrade") {
-		t.Errorf("expected 'leo upgrade' in output, got:\n%s", out)
+	if !strings.Contains(out, "mom upgrade") {
+		t.Errorf("expected 'mom upgrade' in output, got:\n%s", out)
 	}
 
 	// Normal checks must NOT run — memory/ check output should be absent.
@@ -58,7 +58,7 @@ func TestDoctorBase_LegacyLayoutDetection(t *testing.T) {
 // does NOT trigger the legacy detection — normal checks run as expected.
 func TestDoctorBase_ModernLayout_RunsNormally(t *testing.T) {
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Create flat v0.8.0 layout — no kb/ directory.
 	for _, d := range []string{"memory", "constraints", "skills", "logs", "telemetry", "cache"} {
@@ -87,8 +87,8 @@ func TestDoctorBase_ModernLayout_RunsNormally(t *testing.T) {
 		t.Errorf("modern layout must not trigger legacy detection, got:\n%s", out)
 	}
 
-	// Normal checks must have run — .leo/ directory check must appear.
-	if !strings.Contains(out, ".leo/ directory") {
+	// Normal checks must have run — .mom/ directory check must appear.
+	if !strings.Contains(out, ".mom/ directory") {
 		t.Errorf("expected normal doctor checks to run for modern layout, got:\n%s", out)
 	}
 }

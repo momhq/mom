@@ -9,27 +9,27 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/momhq/mom/cli/internal/memory"
 )
 
 // JSONAdapter implements the Adapter interface using flat JSON files
-// in .leo/memory/ with an index at .leo/index.json.
+// in .mom/memory/ with an index at .mom/index.json.
 type JSONAdapter struct {
 	docsDir   string
 	indexPath string
 }
 
-// NewJSONAdapter creates a JSONAdapter for the given .leo/ directory.
-func NewJSONAdapter(leoDir string) *JSONAdapter {
+// NewJSONAdapter creates a JSONAdapter for the given .mom/ directory.
+func NewJSONAdapter(momDir string) *JSONAdapter {
 	return &JSONAdapter{
-		docsDir:   filepath.Join(leoDir, "memory"),
-		indexPath: filepath.Join(leoDir, "index.json"),
+		docsDir:   filepath.Join(momDir, "memory"),
+		indexPath: filepath.Join(momDir, "index.json"),
 	}
 }
 
 func (a *JSONAdapter) Read(id string) (*Doc, error) {
 	path := filepath.Join(a.docsDir, id+".json")
-	kbDoc, err := kb.LoadDoc(path)
+	kbDoc, err := memory.LoadDoc(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading doc %q: %w", id, err)
 	}
@@ -47,7 +47,7 @@ func (a *JSONAdapter) Write(doc *Doc) error {
 		return fmt.Errorf("creating docs dir: %w", err)
 	}
 
-	if err := kb.SaveDoc(path, kbDoc); err != nil {
+	if err := memory.SaveDoc(path, kbDoc); err != nil {
 		return err
 	}
 
@@ -113,31 +113,12 @@ func (a *JSONAdapter) BulkWrite(docs []*Doc) error {
 			return fmt.Errorf("creating docs dir: %w", err)
 		}
 
-		if err := kb.SaveDoc(path, kbDoc); err != nil {
+		if err := memory.SaveDoc(path, kbDoc); err != nil {
 			return err
 		}
 	}
 
 	return a.rebuildIndex()
-}
-
-func (a *JSONAdapter) Health() (*HealthStatus, error) {
-	info, err := os.Stat(a.docsDir)
-	if err != nil {
-		return &HealthStatus{OK: false, Message: fmt.Sprintf("docs dir not accessible: %v", err)}, nil
-	}
-	if !info.IsDir() {
-		return &HealthStatus{OK: false, Message: "docs path is not a directory"}, nil
-	}
-
-	// Try writing a temp file to verify write access.
-	tmp := filepath.Join(a.docsDir, ".health-check")
-	if err := os.WriteFile(tmp, []byte("ok"), 0644); err != nil {
-		return &HealthStatus{OK: false, Message: fmt.Sprintf("no write access: %v", err)}, nil
-	}
-	os.Remove(tmp)
-
-	return &HealthStatus{OK: true, Message: "ok"}, nil
 }
 
 // Reindex publicly exposes rebuildIndex for callers outside this package
@@ -165,7 +146,7 @@ func (a *JSONAdapter) rebuildIndex() error {
 		}
 
 		path := filepath.Join(a.docsDir, e.Name())
-		doc, err := kb.LoadDoc(path)
+		doc, err := memory.LoadDoc(path)
 		if err != nil {
 			continue
 		}
@@ -327,8 +308,8 @@ func intersect(a, b []string) []string {
 	return result
 }
 
-// Conversion helpers between storage.Doc and kb.Doc.
-func kbDocToStorage(d *kb.Doc) *Doc {
+// Conversion helpers between storage.Doc and memory.Doc.
+func kbDocToStorage(d *memory.Doc) *Doc {
 	return &Doc{
 		ID:              d.ID,
 		Type:            d.Type,
@@ -352,8 +333,8 @@ func kbDocToStorage(d *kb.Doc) *Doc {
 	}
 }
 
-func storageDocToKB(d *Doc) *kb.Doc {
-	return &kb.Doc{
+func storageDocToKB(d *Doc) *memory.Doc {
+	return &memory.Doc{
 		ID:              d.ID,
 		Type:            d.Type,
 		Boot:            d.Boot,

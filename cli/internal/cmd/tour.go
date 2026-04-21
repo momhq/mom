@@ -5,13 +5,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/gardener"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/gardener"
+	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 var tourCmd = &cobra.Command{
@@ -20,8 +21,8 @@ var tourCmd = &cobra.Command{
 	Long: `Display the top landmark memories — high-centrality docs that sit at
 structural crossroads of the memory graph.
 
-Landmarks are computed by 'leo reindex --landmarks' or automatically during
-'leo bootstrap' (when doc count >= 100).`,
+Landmarks are computed by 'mom reindex --landmarks' or automatically during
+'mom bootstrap' (when doc count >= 100).`,
 	RunE: runTour,
 }
 
@@ -42,7 +43,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .leo/ directory found. Run 'leo init' first.\n")
+		cmd.Printf("No .mom/ directory found. Run 'mom init' first.\n")
 		return nil
 	}
 
@@ -71,12 +72,12 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	memDir := filepath.Join(targetScope.Path, "memory")
 	entries, err := os.ReadDir(memDir)
 	if err != nil {
-		cmd.Printf("No landmarks found. Run 'leo reindex --landmarks' first.\n")
+		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' first.\n")
 		return nil
 	}
 
 	type landmarkEntry struct {
-		doc   *kb.Doc
+		doc   *memory.Doc
 		score float64
 	}
 
@@ -85,7 +86,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 			continue
 		}
-		doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+		doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 		if err != nil {
 			continue
 		}
@@ -100,7 +101,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks found. Run 'leo reindex --landmarks' first.\n")
+		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' first.\n")
 		return nil
 	}
 
@@ -151,12 +152,12 @@ func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
 	}
 
 	if data.Stats.TotalDocs == 0 {
-		cmd.Println("No memories found. Run 'leo bootstrap' first.")
+		cmd.Println("No memories found. Run 'mom bootstrap' first.")
 		return nil
 	}
 
 	// Write HTML to a temp file.
-	outPath := filepath.Join(os.TempDir(), "leo-memory-graph.html")
+	outPath := filepath.Join(os.TempDir(), "mom-memory-graph.html")
 	if err := gardener.WriteGraphHTML(data, outPath); err != nil {
 		return fmt.Errorf("writing graph HTML: %w", err)
 	}
@@ -172,7 +173,14 @@ func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
 	return nil
 }
 
-// openBrowser opens a URL in the default browser.
+// openBrowser opens a URL in the default browser (cross-platform).
 func openBrowser(url string) error {
-	return exec.Command("open", url).Start()
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", url).Start()
+	case "windows":
+		return exec.Command("cmd", "/c", "start", url).Start()
+	default: // linux and others
+		return exec.Command("xdg-open", url).Start()
+	}
 }
