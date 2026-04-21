@@ -32,7 +32,11 @@ Self-hosting since v0.2 — MOM builds itself with its own memory.
 
 ```bash
 # Install via Homebrew
-brew install momhq/tap/mom
+brew tap momhq/tap
+brew install mom
+
+# Update
+brew update && brew upgrade mom
 
 # Or build from source
 git clone https://github.com/momhq/mom.git
