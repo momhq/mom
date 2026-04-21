@@ -57,8 +57,8 @@ type Server struct {
 }
 
 // New creates a new Server rooted at the given .mom/ directory.
-func New(leoDir string) *Server {
-	return &Server{momDir: leoDir}
+func New(momDir string) *Server {
+	return &Server{momDir: momDir}
 }
 
 // Serve runs the JSON-RPC 2.0 stdio loop. It reads newline-delimited requests

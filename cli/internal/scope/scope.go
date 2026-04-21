@@ -120,10 +120,10 @@ func ValidateLabel(label string) error {
 	return fmt.Errorf("invalid scope %q: must be one of user, org, repo, workspace, custom", label)
 }
 
-// loadScopeLabel reads the scope field from config.yaml in leoDir.
+// loadScopeLabel reads the scope field from config.yaml in momDir.
 // Returns "repo" on any error or when the field is absent/empty.
-func loadScopeLabel(leoDir string) string {
-	cfg, err := config.Load(leoDir)
+func loadScopeLabel(momDir string) string {
+	cfg, err := config.Load(momDir)
 	if err != nil {
 		return "repo"
 	}

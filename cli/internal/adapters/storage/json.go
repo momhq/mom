@@ -20,10 +20,10 @@ type JSONAdapter struct {
 }
 
 // NewJSONAdapter creates a JSONAdapter for the given .mom/ directory.
-func NewJSONAdapter(leoDir string) *JSONAdapter {
+func NewJSONAdapter(momDir string) *JSONAdapter {
 	return &JSONAdapter{
-		docsDir:   filepath.Join(leoDir, "memory"),
-		indexPath: filepath.Join(leoDir, "index.json"),
+		docsDir:   filepath.Join(momDir, "memory"),
+		indexPath: filepath.Join(momDir, "index.json"),
 	}
 }
 

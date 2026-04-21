@@ -48,7 +48,7 @@ func (bc BootstrapConfig) BootstrapEnabled() bool {
 type TelemetryConfig struct {
 	// Enabled controls whether events are written to disk. Default: true (nil == enabled).
 	Enabled *bool `yaml:"enabled,omitempty"`
-	// Path overrides the default telemetry directory (<leoDir>/telemetry/).
+	// Path overrides the default telemetry directory (<momDir>/telemetry/).
 	Path string `yaml:"path,omitempty"`
 }
 
@@ -153,8 +153,8 @@ type legacySpecialists struct {
 // Load reads a config.yaml from the given .mom/ directory.
 // Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats,
 // and migrates legacy kb: keys to memory: on load.
-func Load(leoDir string) (*Config, error) {
-	path := filepath.Join(leoDir, "config.yaml")
+func Load(momDir string) (*Config, error) {
+	path := filepath.Join(momDir, "config.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading config: %w", err)
@@ -242,13 +242,13 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 }
 
 // Save writes a config.yaml to the given .mom/ directory.
-func Save(leoDir string, cfg *Config) error {
+func Save(momDir string, cfg *Config) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
 
-	path := filepath.Join(leoDir, "config.yaml")
+	path := filepath.Join(momDir, "config.yaml")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
@@ -257,6 +257,12 @@ func Save(leoDir string, cfg *Config) error {
 }
 
 // MomDir returns the .mom/ directory path relative to the given project root.
+// Previously named LeoDir; renamed as part of the MOM rebrand (v0.10).
 func MomDir(projectRoot string) string {
 	return filepath.Join(projectRoot, ".mom")
+}
+
+// LeoDir is deprecated: use MomDir. Kept for backward compatibility during migration.
+func LeoDir(projectRoot string) string {
+	return filepath.Join(projectRoot, ".leo")
 }

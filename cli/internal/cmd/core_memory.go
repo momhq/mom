@@ -51,7 +51,7 @@ func coreConstraints() map[string]string {
       "Spending money: paid API calls, cloud deploys, domain/license purchases",
       "External publication: git push to main on public repo, merging PR, social media post, app store release",
       "Destructive action: rm -rf, git reset --hard, force push, drop table, mass delete",
-      "Structural change: creating new agent role, adding/modifying core rule, architecture change outside task scope",
+      "Structural change: adding/modifying a core rule, architecture change outside task scope",
       "Unresolvable ambiguity: contradiction between rules, strategic decisions requiring inference of user intent"
     ],
     "responsibility": "All agents without exception.",

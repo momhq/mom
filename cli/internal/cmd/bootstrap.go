@@ -225,7 +225,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 
 	type repoEntry struct {
 		root   string
-		leoDir string
+		momDir string
 	}
 	var repos []repoEntry
 
@@ -248,7 +248,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 			continue
 		}
 
-		repos = append(repos, repoEntry{root: child, leoDir: momPath})
+		repos = append(repos, repoEntry{root: child, momDir: momPath})
 	}
 
 	if len(repos) == 0 {
@@ -271,7 +271,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		cmd.Printf("\n  [%s]\n", repoName)
 
 		repoCfg := cfg
-		repoCfg.ScopeDir = repo.leoDir
+		repoCfg.ScopeDir = repo.momDir
 
 		var repoSpinner *bootstrapSpinner
 		if isTTY {
@@ -299,7 +299,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		totalProposed += len(result.Drafts)
 
 		if !dryRun && len(result.Drafts) > 0 {
-			w, writeErr := writeDrafts(result.Drafts, repo.leoDir)
+			w, writeErr := writeDrafts(result.Drafts, repo.momDir)
 			if writeErr != nil {
 				cmd.Printf("    ⚠ write error: %v\n", writeErr)
 			}
@@ -408,8 +408,8 @@ func canonicalLanguageLabel(lang string) string {
 
 // writeDrafts persists draft memories to .mom/memory/ as JSON files.
 // Returns the count of successfully written memories.
-func writeDrafts(drafts []cartographer.Draft, leoDir string) (int, error) {
-	memDir := filepath.Join(leoDir, "memory")
+func writeDrafts(drafts []cartographer.Draft, momDir string) (int, error) {
+	memDir := filepath.Join(momDir, "memory")
 	if err := os.MkdirAll(memDir, 0755); err != nil {
 		return 0, fmt.Errorf("creating memory dir: %w", err)
 	}
@@ -530,10 +530,10 @@ func countMemoryDocs(memDir string) int {
 }
 
 // runBootstrapInline runs a bootstrap scan from within the init flow.
-// scanDir is the directory to scan; leoDir is the .mom/ to write into.
-func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
+// scanDir is the directory to scan; momDir is the .mom/ to write into.
+func runBootstrapInline(cmd *cobra.Command, scanDir, momDir string) error {
 	cfg := cartographer.DefaultConfig()
-	cfg.ScopeDir = leoDir
+	cfg.ScopeDir = momDir
 
 	isTTY := isTerminalWriter(cmd.OutOrStdout())
 
@@ -570,7 +570,7 @@ func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
 
 	written := 0
 	if len(result.Drafts) > 0 {
-		w, writeErr := writeDrafts(result.Drafts, leoDir)
+		w, writeErr := writeDrafts(result.Drafts, momDir)
 		if writeErr != nil {
 			cmd.Printf("  ⚠ write error: %v\n", writeErr)
 		}

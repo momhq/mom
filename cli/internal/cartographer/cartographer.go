@@ -140,7 +140,7 @@ func (r *Result) Duration() time.Duration {
 	return r.EndedAt.Sub(r.StartedAt)
 }
 
-// Cartographer orchestrates a scan pass over a directory tree.
+// Cartographer coordinates a scan pass over a directory tree.
 type Cartographer struct {
 	cfg        Config
 	extractors []Extractor

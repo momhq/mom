@@ -238,6 +238,8 @@ func selectLandmarksDiverse(docs []docEntry, degree []float64, tagDocIndices map
 }
 
 // TagGraph represents tag co-occurrence data for incremental updates.
+// TODO(v0.11): evaluate renaming to TagIndex or TaggerGraph once Herald/Tagger
+// component boundaries are stable.
 type TagGraph struct {
 	// Tags maps each tag to the list of doc IDs that carry it.
 	Tags map[string][]string `json:"tags"`
