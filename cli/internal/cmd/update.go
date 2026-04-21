@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 )
 
 var updateCmd = &cobra.Command{
@@ -187,7 +187,7 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 		}
 
 		srcPath := filepath.Join(coreDocsDir, e.Name())
-		coreDoc, err := kb.LoadDoc(srcPath)
+		coreDoc, err := memory.LoadDoc(srcPath)
 		if err != nil {
 			// Skip unparseable docs.
 			continue
@@ -200,7 +200,7 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 
 		tgtPath := filepath.Join(projDocsDir, e.Name())
 
-		localDoc, err := kb.LoadDoc(tgtPath)
+		localDoc, err := memory.LoadDoc(tgtPath)
 		if err != nil {
 			// Local doesn't exist — add it.
 			plan.DocsToAdd = append(plan.DocsToAdd, SyncItem{
@@ -440,7 +440,7 @@ func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command
 // displaySyncPlan prints the sync plan to the command output.
 func displaySyncPlan(cmd *cobra.Command, source string, plan *SyncPlan) {
 	cmd.Printf("\n  Source: %s\n\n", source)
-	cmd.Println("  KB docs:")
+	cmd.Println("  Memory docs:")
 
 	for _, item := range plan.DocsToAdd {
 		cmd.Printf("    + %-30s (new)\n", item.ID)

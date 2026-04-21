@@ -123,7 +123,7 @@ func coreConstraints() map[string]string {
   "id": "propagation",
   "type": "constraint",
   "boot": true,
-  "summary": "No task is complete until the KB reflects what changed. Decisions, patterns, facts, and learnings must be materialized before reporting done.",
+  "summary": "No task is complete until the memory reflects what changed. Decisions, patterns, facts, and learnings must be materialized before reporting done.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["propagation", "wrap-up", "persistence", "knowledge-management"],
@@ -132,15 +132,15 @@ func coreConstraints() map[string]string {
   "updated": "2026-04-15T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "constraint": "No task is complete until the KB reflects what changed. Decisions, patterns, facts, and learnings must be materialized as JSON docs in the KB before reporting done.",
-    "why": "Without propagation, knowledge stays in conversation context and dies with the session. The KB is the system's long-term memory — if it doesn't reflect what happened, the next session starts blind.",
+    "constraint": "No task is complete until the memory reflects what changed. Decisions, patterns, facts, and learnings must be materialized as JSON docs in memory before reporting done.",
+    "why": "Without propagation, knowledge stays in conversation context and dies with the session. Memory is the system's long-term store — if it doesn't reflect what happened, the next session starts blind.",
     "how_to_apply": [
       "Primary trigger: explicit user end-of-session signal invokes session-wrap-up skill",
-      "Secondary trigger: when a decision is clearly locked mid-session, create a single KB doc immediately",
+      "Secondary trigger: when a decision is clearly locked mid-session, create a single memory doc immediately",
       "Safety net: if many decisions accumulate without a closing signal, ask once",
       "When in doubt about propagating mid-session, wait for wrap-up"
     ],
-    "responsibility": "Leo is solely responsible for propagation. Specialists report to Leo, only Leo writes to the KB.",
+    "responsibility": "Leo is solely responsible for propagation. Specialists report to Leo, only Leo writes to memory.",
     "anti_patterns": [
       "Running full wrap-up without explicit trigger",
       "Writing 'current project status' docs that will be stale in a week",
@@ -152,7 +152,7 @@ func coreConstraints() map[string]string {
   "id": "inheritance",
   "type": "constraint",
   "boot": true,
-  "summary": "Project KB docs extend core KB docs — they specialize, never override. Core provides the foundation, project adds specifics.",
+  "summary": "Project memory docs extend core memory docs — they specialize, never override. Core provides the foundation, project adds specifics.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["inheritance", "extension", "core-project", "propagation"],
@@ -161,7 +161,7 @@ func coreConstraints() map[string]string {
   "updated": "2026-04-15T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "constraint": "Project KB docs (scope: project) complement core KB docs (scope: core) — they extend, never override. The principle 'extend never override' is structural.",
+    "constraint": "Project memory docs (scope: project) complement core memory docs (scope: core) — they extend, never override. The principle 'extend never override' is structural.",
     "why": "This lets the core update rules, patterns, and identity without breaking projects. Without it, a project would copy core content and lose the benefit of global updates.",
     "how_to_apply": [
       "Core docs (scope: core) define universal behavior. Project docs (scope: project) add specifics",
@@ -186,7 +186,7 @@ func coreSkills() map[string]string {
   "id": "session-wrap-up",
   "type": "skill",
   "boot": true,
-  "summary": "End-of-session knowledge propagation: inventory changes, classify, present plan, write KB docs, write session log, report.",
+  "summary": "End-of-session knowledge propagation: inventory changes, classify, present plan, write memory docs, write session log, report.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["wrap-up", "propagation", "persistence", "session"],
@@ -202,7 +202,7 @@ func coreSkills() map[string]string {
       {"name": "Inventory", "instruction": "List what changed: decisions, state changes, artifacts, learnings. Skip implementation details.", "wait_for_approval": false},
       {"name": "Classify", "instruction": "For each item: determine type, lifecycle, tags, id. Check index for existing docs to update.", "wait_for_approval": false},
       {"name": "Present plan", "instruction": "Show the user: new docs, updates, skipped items, commit strategy. Wait for approval.", "wait_for_approval": true},
-      {"name": "Execute", "instruction": "Write JSON docs to KB following schema. Stage exact files. Commit with clear message.", "wait_for_approval": false},
+      {"name": "Execute", "instruction": "Write JSON docs to memory following schema. Stage exact files. Commit with clear message.", "wait_for_approval": false},
       {"name": "Write session log", "instruction": "Write a session-log doc to .leo/logs/ using this template: {id: 'session-YYYY-MM-DD-XXXX', type: 'session-log', lifecycle: 'state', scope: 'project', tags: ['session-log'], content: {session_id: (same as id), timestamp: (now), repo: (repo name), communication_mode: (active mode from config), wrap_up_revisions: (count of rejected plans), tasks: [{task_id, timestamp, summary, tags}]}}. Create .leo/logs/ directory if it doesn't exist. Session-logs are NOT indexed and NOT loaded at boot.", "wait_for_approval": false},
       {"name": "Report", "instruction": "Brief report: commit SHA, files changed, session log written, deferred items.", "wait_for_approval": false}
     ],
@@ -225,7 +225,7 @@ func defaultIdentity() string {
   "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together.",
   "philosophy": "LEO is the memory and knowledge layer above any AI runtime. The runtime handles task execution; LEO handles persistence, governance, and organizational knowledge. What the runtime forgets, LEO remembers.",
   "constraints": [
-    "All KB content is JSON — runtime files (CLAUDE.md, AGENTS.md, .clinerules) are generated artifacts",
+    "All memory content is JSON — runtime files (CLAUDE.md, AGENTS.md, .clinerules) are generated artifacts",
     "Core artifacts are English only — interaction language is personal choice",
     "No rule change without explicit approval from the user",
     "Scripts must never require AI tokens — if it's deterministic, it's a script"

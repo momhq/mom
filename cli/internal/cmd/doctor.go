@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	leort "github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 )
 
@@ -220,7 +220,7 @@ func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
 			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 				continue
 			}
-			doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 			if err != nil {
 				continue
 			}
@@ -455,12 +455,12 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 
 	// Load all docs, filter landmarks.
 	type landmarkEntry struct {
-		doc *kb.Doc
+		doc *memory.Doc
 	}
 	var landmarks []landmarkEntry
 
 	for _, name := range jsonFiles {
-		doc, err := kb.LoadDoc(filepath.Join(memDir, name))
+		doc, err := memory.LoadDoc(filepath.Join(memDir, name))
 		if err != nil {
 			continue
 		}
@@ -581,7 +581,7 @@ func runDoctorBundle(cmd *cobra.Command) error {
 			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 				continue
 			}
-			doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 			if err != nil {
 				continue
 			}

@@ -26,7 +26,7 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if cfg.Communication.Mode != "concise" {
 		t.Errorf("expected communication.mode %q, got %q", "concise", cfg.Communication.Mode)
 	}
-	if !cfg.KB.AutoPropagate {
+	if !cfg.Memory.AutoPropagate {
 		t.Error("expected auto_propagate to be true")
 	}
 }
@@ -228,7 +228,7 @@ kb:
 	if cfg.User.Language != "en" {
 		t.Errorf("expected language=en, got %q", cfg.User.Language)
 	}
-	if cfg.KB.AutoPropagate != true {
+	if cfg.Memory.AutoPropagate != true {
 		t.Error("expected auto_propagate=true")
 	}
 }
@@ -310,7 +310,7 @@ func TestConfigMultiRuntime(t *testing.T) {
 		},
 		User:          UserConfig{Language: "en"},
 		Communication: CommunicationConfig{Mode: "concise"},
-		KB:            KBConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
+		Memory:        MemoryConfig{AutoPropagate: true, WrapUp: "prompt", StaleThreshold: "30d"},
 	}
 
 	if err := Save(dir, &cfg); err != nil {

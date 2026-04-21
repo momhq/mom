@@ -197,7 +197,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			Communication: config.CommunicationConfig{
 				Mode: commMode,
 			},
-			KB: config.Default().KB,
+			Memory: config.Default().Memory,
 		}
 
 		if err := config.Save(leoDir, &cfg); err != nil {

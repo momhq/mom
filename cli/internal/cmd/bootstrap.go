@@ -452,7 +452,7 @@ func writeDraft(d cartographer.Draft, memDir string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// mapDraftType converts cartographer draft types to KB schema types.
+// mapDraftType converts cartographer draft types to memory schema types.
 func mapDraftType(t string) string {
 	switch t {
 	case "decision":

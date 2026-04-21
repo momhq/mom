@@ -14,7 +14,7 @@ import (
 // Helpers
 // ---------------------------------------------------------------------------
 
-// coreDoc returns a minimal valid KB doc as a JSON byte slice.
+// coreDoc returns a minimal valid memory doc as a JSON byte slice.
 func coreDoc(id string, scope string, updated time.Time) []byte {
 	doc := map[string]any{
 		"id":         id,
@@ -51,7 +51,7 @@ func setupFakeCore(t *testing.T) string {
 		t.Fatalf("setupFakeCore: creating memory dir: %v", err)
 	}
 
-	schema := []byte(`{"version":"1","description":"Leo KB schema"}`)
+	schema := []byte(`{"version":"1","description":"MOM memory schema"}`)
 	if err := os.WriteFile(filepath.Join(core, ".leo", "schema.json"), schema, 0644); err != nil {
 		t.Fatalf("setupFakeCore: writing schema: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestUpdateCmd_SyncsSchema(t *testing.T) {
 	core := setupFakeCore(t)
 
 	// Core schema is already different from project schema (set in setupFakeProject).
-	// setupFakeCore writes: {"version":"1","description":"Leo KB schema"}
+	// setupFakeCore writes: {"version":"1","description":"MOM memory schema"}
 	// setupFakeProject writes: {"version":"0","description":"old schema"}
 
 	_, err := runUpdateCmd(t, proj, []string{"--source", core, "--yes"})

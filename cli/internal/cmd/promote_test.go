@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 )
 
 // makeLeoPair creates two nested .leo/ installs under a tmpdir:
@@ -48,10 +48,10 @@ func writeConfigWithScope(t *testing.T, leoDir, label string) {
 	}
 }
 
-// writeKBTestDoc writes a minimal valid KB doc JSON file to leoDir/memory/<id>.json.
-func writeKBTestDoc(t *testing.T, leoDir, id string) {
+// writeMemoryTestDoc writes a minimal valid memory doc JSON file to leoDir/memory/<id>.json.
+func writeMemoryTestDoc(t *testing.T, leoDir, id string) {
 	t.Helper()
-	doc := &kb.Doc{
+	doc := &memory.Doc{
 		ID:        id,
 		Type:      "fact",
 		Lifecycle: "permanent",
@@ -69,7 +69,7 @@ func writeKBTestDoc(t *testing.T, leoDir, id string) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		t.Fatalf("writeKBTestDoc: %v", err)
+		t.Fatalf("writeMemoryTestDoc: %v", err)
 	}
 }
 
@@ -93,7 +93,7 @@ func TestPromote_HappyPath(t *testing.T) {
 	root, sub, leoUser, leoRepo := makeLeoPair(t)
 	t.Setenv("HOME", root)
 
-	writeKBTestDoc(t, leoRepo, "my-fact")
+	writeMemoryTestDoc(t, leoRepo, "my-fact")
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("to", "user", "")
@@ -127,7 +127,7 @@ func TestPromote_HappyPath(t *testing.T) {
 	}
 
 	// Provenance tag should be present.
-	doc, err := kb.LoadDoc(dstPath)
+	doc, err := memory.LoadDoc(dstPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestPromote_NoAncestorWithScope(t *testing.T) {
 	t.Setenv("HOME", root)
 
 	_, leoRepo := filepath.Join(root, ".leo"), filepath.Join(sub, ".leo")
-	writeKBTestDoc(t, leoRepo, "my-fact")
+	writeMemoryTestDoc(t, leoRepo, "my-fact")
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("to", "org", "") // no org scope in tree
@@ -172,7 +172,7 @@ func TestDemote_HappyPath(t *testing.T) {
 	root, sub, leoUser, leoRepo := makeLeoPair(t)
 	t.Setenv("HOME", root)
 
-	writeKBTestDoc(t, leoUser, "user-fact")
+	writeMemoryTestDoc(t, leoUser, "user-fact")
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("to", "repo", "")
@@ -205,7 +205,7 @@ func TestDemote_HappyPath(t *testing.T) {
 	}
 
 	// Provenance tag should be present.
-	doc, err := kb.LoadDoc(dstPath)
+	doc, err := memory.LoadDoc(dstPath)
 	if err != nil {
 		t.Fatal(err)
 	}

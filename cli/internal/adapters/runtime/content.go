@@ -28,7 +28,7 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	// During work
 	b.WriteString("## During work\n\n")
 	b.WriteString("- When you need context on a topic, check the index for relevant tags\n")
-	b.WriteString("- Read only the docs you need — never load the entire KB\n")
+	b.WriteString("- Read only the docs you need — never load the entire memory\n")
 	b.WriteString("- When you create or update knowledge, write JSON docs to `.leo/memory/`\n")
 	b.WriteString("- Follow the schema at `.leo/schema.json`\n")
 	b.WriteString("- Every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
@@ -36,7 +36,7 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	// Constraints
 	if len(constraints) > 0 {
 		b.WriteString("## Constraints\n\n")
-		b.WriteString("Always-active guardrails loaded from the KB. Read the full doc when you need detailed guidance.\n\n")
+		b.WriteString("Always-active guardrails loaded from memory. Read the full doc when you need detailed guidance.\n\n")
 		for _, c := range constraints {
 			fmt.Fprintf(&b, "- **%s**: %s → `.leo/constraints/%s.json`\n", c.ID, c.Summary, c.ID)
 		}

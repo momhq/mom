@@ -20,7 +20,7 @@ type Config struct {
 	Runtimes      map[string]RuntimeConfig `yaml:"runtimes"`
 	User          UserConfig               `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
-	KB            KBConfig                 `yaml:"kb"`
+	Memory        MemoryConfig             `yaml:"memory"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
 	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
 }
@@ -79,8 +79,8 @@ type CommunicationConfig struct {
 	Mode string `yaml:"mode"`
 }
 
-// KBConfig holds KB settings.
-type KBConfig struct {
+// MemoryConfig holds memory store settings.
+type MemoryConfig struct {
 	AutoPropagate  bool   `yaml:"auto_propagate"`
 	WrapUp         string `yaml:"wrap_up"`
 	StaleThreshold string `yaml:"stale_threshold"`
@@ -99,7 +99,7 @@ func Default() Config {
 		Communication: CommunicationConfig{
 			Mode: "concise",
 		},
-		KB: KBConfig{
+		Memory: MemoryConfig{
 			AutoPropagate:  true,
 			WrapUp:         "prompt",
 			StaleThreshold: "30d",
@@ -138,13 +138,14 @@ type legacyUserConfig struct {
 }
 
 // legacyConfig represents the v0.6.0 config format for migration.
+// The KB field uses yaml:"kb" to read legacy configs that still have the old key.
 type legacyConfig struct {
 	Version     string            `yaml:"version"`
 	Runtime     string            `yaml:"runtime"`
 	CoreSource  string            `yaml:"core_source"`
 	Owner       legacyUserConfig  `yaml:"owner"`
 	User        legacyUserConfig  `yaml:"user"`
-	KB          KBConfig          `yaml:"kb"`
+	KB          MemoryConfig      `yaml:"kb"`
 	Specialists legacySpecialists `yaml:"specialists"`
 }
 
@@ -156,7 +157,8 @@ type legacySpecialists struct {
 }
 
 // Load reads a config.yaml from the given .leo/ directory.
-// Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats.
+// Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats,
+// and migrates legacy kb: keys to memory: on load.
 func Load(leoDir string) (*Config, error) {
 	path := filepath.Join(leoDir, "config.yaml")
 	data, err := os.ReadFile(path)
@@ -177,6 +179,8 @@ func Load(leoDir string) (*Config, error) {
 		if cfg.Communication.Mode == "" {
 			cfg.Communication.Mode = "concise"
 		}
+		// Migrate legacy kb: key → memory: if present and memory: is empty.
+		cfg = migrateKBKey(data, cfg)
 		return &cfg, nil
 	}
 
@@ -196,6 +200,40 @@ func Load(leoDir string) (*Config, error) {
 		cfg.Runtimes = Default().Runtimes
 	}
 	return &cfg, nil
+}
+
+// migrateKBKey reads the raw YAML node tree to detect a legacy kb: key and
+// copies its value into cfg.Memory when the memory: key is absent/zero.
+func migrateKBKey(data []byte, cfg Config) Config {
+	// Only migrate if memory block is zero-valued (not set in config).
+	if cfg.Memory.AutoPropagate || cfg.Memory.WrapUp != "" || cfg.Memory.StaleThreshold != "" {
+		return cfg
+	}
+
+	// Parse into a yaml.Node document to access raw keys.
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil || root.Kind == 0 {
+		return cfg
+	}
+
+	// root is a DocumentNode; its first child is the MappingNode.
+	if len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return cfg
+	}
+	mapping := root.Content[0]
+
+	// Mapping nodes store key/value pairs as consecutive Content entries.
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == "kb" {
+			var legacyMem MemoryConfig
+			if err := mapping.Content[i+1].Decode(&legacyMem); err == nil {
+				cfg.Memory = legacyMem
+			}
+			return cfg
+		}
+	}
+
+	return cfg
 }
 
 // migrateFromLegacy converts a v0.6.0 config to the new format.
@@ -231,7 +269,7 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 		},
 		User:          user,
 		Communication: CommunicationConfig{Mode: commMode},
-		KB:            legacy.KB,
+		Memory:        legacy.KB,
 	}
 }
 

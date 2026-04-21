@@ -9,12 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/gardener"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 )
 
 var reindexCmd = &cobra.Command{
 	Use:   "reindex",
-	Short: "Rebuild the KB index from docs",
+	Short: "Rebuild the memory index from docs",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		landmarksFlag, _ := cmd.Flags().GetBool("landmarks")
 
@@ -88,7 +88,7 @@ var reindexCmd = &cobra.Command{
 
 var validateCmd = &cobra.Command{
 	Use:   "validate [file]",
-	Short: "Validate KB documents against the schema",
+	Short: "Validate memory documents against the schema",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		all, _ := cmd.Flags().GetBool("all")
 
@@ -105,7 +105,7 @@ var validateCmd = &cobra.Command{
 			return fmt.Errorf("reading file: %w", err)
 		}
 
-		doc := &kb.Doc{}
+		doc := &memory.Doc{}
 		if err := json.Unmarshal(data, doc); err != nil {
 			return fmt.Errorf("parsing JSON: %w", err)
 		}
@@ -122,7 +122,7 @@ var validateCmd = &cobra.Command{
 
 func init() {
 	reindexCmd.Flags().Bool("landmarks", false, "Compute landmark centrality scores after reindexing")
-	validateCmd.Flags().Bool("all", false, "Validate all KB documents")
+	validateCmd.Flags().Bool("all", false, "Validate all memory documents")
 }
 
 // countLandmarks returns the number of docs with landmark=true in memDir.
@@ -133,7 +133,7 @@ func countLandmarks(memDir string) int {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
 			continue
 		}
-		doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+		doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 		if err != nil {
 			continue
 		}
@@ -163,7 +163,7 @@ func validateAll(cmd *cobra.Command) error {
 		}
 
 		path := filepath.Join(docsDir, e.Name())
-		doc, err := kb.LoadDoc(path)
+		doc, err := memory.LoadDoc(path)
 		if err != nil {
 			cmd.Printf("✗ %s: %v\n", e.Name(), err)
 			errors++

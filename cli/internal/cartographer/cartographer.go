@@ -1,4 +1,4 @@
-// Package cartographer scans existing code, docs, and commits to seed the KB
+// Package cartographer scans existing code, docs, and commits to seed the memory store
 // with initial memories. It is the bootstrap pass for new Leo installations.
 package cartographer
 
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// Confidence constants mirror the KB schema values.
+// Confidence constants mirror the memory schema values.
 const (
 	ConfidenceExtracted = "EXTRACTED"
 	ConfidenceInferred  = "INFERRED"

@@ -16,7 +16,7 @@ var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Remove all Leo files from this project",
 	Long: `Removes .leo/ directory and any generated runtime files (e.g. .claude/CLAUDE.md, AGENTS.md).
-Optionally backs up your KB before removal using the export command.`,
+Optionally backs up your memory before removal using the export command.`,
 	RunE: runUninstall,
 }
 
@@ -83,7 +83,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 	if !yes {
 		cmd.Println("This will remove all Leo files from this project:")
 		if hasLeoDir {
-			cmd.Println("  - .leo/ (config, KB, profiles, cache)")
+			cmd.Println("  - .leo/ (config, memory, profiles, cache)")
 		}
 		for _, adapter := range adapters {
 			for _, f := range adapter.GeneratedFiles() {
@@ -109,7 +109,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		if yes {
 			doBackup = true
 		} else {
-			cmd.Print("  Back up KB before removing? [Y/n]: ")
+			cmd.Print("  Back up memory before removing? [Y/n]: ")
 			scanner := bufio.NewScanner(cmd.InOrStdin())
 			answer := ""
 			if scanner.Scan() {

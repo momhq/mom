@@ -1,4 +1,4 @@
-// Package gardener provides landmark computation for the KB memory graph.
+// Package gardener provides landmark computation for the memory graph.
 // Landmarks are high-centrality memory documents that sit at structural
 // crossroads — connected to many others via shared tags.
 package gardener

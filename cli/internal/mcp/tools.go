@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 	"github.com/vmarinogg/leo-core/cli/internal/transponder"
 )
@@ -184,7 +184,7 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	}
 
 	type scored struct {
-		doc   *kb.Doc
+		doc   *memory.Doc
 		score float64
 	}
 	var results []scored
@@ -199,7 +199,7 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 				continue
 			}
-			doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 			if err != nil {
 				continue
 			}
@@ -287,7 +287,7 @@ func (s *Server) toolGetMemory(args map[string]any) (toolCallResult, error) {
 
 	for _, sc := range scopes {
 		path := filepath.Join(sc.Path, "memory", id+".json")
-		doc, err := kb.LoadDoc(path)
+		doc, err := memory.LoadDoc(path)
 		if err != nil {
 			continue
 		}
@@ -355,7 +355,7 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 	id := slugify(summary)
 	now := time.Now().UTC()
 
-	doc := &kb.Doc{
+	doc := &memory.Doc{
 		ID:             id,
 		Type:           docType,
 		Lifecycle:      "learning",
@@ -370,7 +370,7 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 		PromotionState: "draft",
 		Classification: "INTERNAL",
 		Compartments:   map[string][]string{},
-		Provenance: &kb.Provenance{
+		Provenance: &memory.Provenance{
 			Runtime:      "mcp",
 			TriggerEvent: "create_memory_draft",
 		},
@@ -383,7 +383,7 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 	}
 
 	path := filepath.Join(memDir, id+".json")
-	if err := kb.SaveDoc(path, doc); err != nil {
+	if err := memory.SaveDoc(path, doc); err != nil {
 		return toolCallResult{}, fmt.Errorf("saving draft: %w", err)
 	}
 
@@ -437,7 +437,7 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 				continue
 			}
-			doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 			if err != nil {
 				continue
 			}
@@ -483,7 +483,7 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 
 const landmarkBoost = 0.3
 
-func scoreMemory(doc *kb.Doc, query string, filterTags map[string]bool) float64 {
+func scoreMemory(doc *memory.Doc, query string, filterTags map[string]bool) float64 {
 	// If tag filter specified, doc must match ALL filter tags.
 	if len(filterTags) > 0 {
 		docTagSet := make(map[string]bool, len(doc.Tags))

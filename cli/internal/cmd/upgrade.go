@@ -17,7 +17,7 @@ import (
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "Upgrade .leo/ to the latest version (preserves your KB docs)",
+	Short: "Upgrade .leo/ to the latest version (preserves your memory docs)",
 	Long: `Upgrades core infrastructure (schema, constraints, skills, runtime files)
 to match the installed leo binary. Your documents in .leo/memory/ are never touched.`,
 	RunE: runUpgrade,
@@ -192,7 +192,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return phase1Err
 	}
 
-	// ── Phase 2: Update core KB docs ────────────────────────────────────────
+	// ── Phase 2: Update core memory docs ──────────────────────────────────────
 	var phase2Err error
 	doPhase2 := func() {
 		// Update schema.json.

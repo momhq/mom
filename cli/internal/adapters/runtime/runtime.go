@@ -14,14 +14,14 @@ type UserConfig struct {
 	CommunicationMode string
 }
 
-// Constraint represents a KB constraint document.
+// Constraint represents a memory constraint document.
 type Constraint struct {
 	ID      string
 	Summary string
 	Tags    []string
 }
 
-// Skill represents a KB skill document.
+// Skill represents a memory skill document.
 type Skill struct {
 	ID      string
 	Summary string

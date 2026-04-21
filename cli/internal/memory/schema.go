@@ -1,5 +1,5 @@
-// Package kb provides types and validation for KB documents.
-package kb
+// Package memory provides types and validation for memory documents.
+package memory
 
 import (
 	"encoding/json"
@@ -46,7 +46,7 @@ type Provenance struct {
 	RawExhaustRef string `json:"raw_exhaust_ref,omitempty"`
 }
 
-// Doc represents a KB document.
+// Doc represents a memory document.
 type Doc struct {
 	ID              string              `json:"id"`
 	Type            string              `json:"type"`
@@ -92,7 +92,7 @@ func (d *Doc) ApplyDefaults() {
 	// CentralityScore defaults to nil (*float64) — no action needed.
 }
 
-// Validate checks the document against the KB schema rules.
+// Validate checks the document against the memory schema rules.
 func (d *Doc) Validate() error {
 	if !validID.MatchString(d.ID) {
 		return fmt.Errorf("invalid id %q: must be kebab-case", d.ID)
