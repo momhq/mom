@@ -24,24 +24,9 @@ jobs:
       - name: Run tests
         run: go test ./...
 
-  build:
+  build-darwin:
     needs: test
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
-          - os: macos-13
-            goos: darwin
-            goarch: amd64
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: cli
@@ -53,35 +38,59 @@ jobs:
           go-version: "1.26"
           cache-dependency-path: cli/go.sum
 
-      - name: Install cross-compiler
-        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+      - name: Build darwin/arm64
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
-          echo "CC=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build \
+            -ldflags "-s -w -X github.com/momhq/mom/cli/internal/cmd.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/cli/internal/cmd.Commit=${GITHUB_SHA::7}" \
+            -o bin/mom-darwin-arm64 ./cmd/mom
 
-      - name: Build
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 1
+      - name: Build darwin/amd64
         run: |
-          BINARY="mom-${{ matrix.goos }}-${{ matrix.goarch }}"
-          go build -ldflags "-s -w \
-            -X github.com/momhq/mom/cli/internal/cmd.Version=${GITHUB_REF#refs/tags/} \
-            -X github.com/momhq/mom/cli/internal/cmd.Commit=${GITHUB_SHA::7}" \
-            -o "bin/${BINARY}" ./cmd/mom
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build \
+            -ldflags "-s -w -X github.com/momhq/mom/cli/internal/cmd.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/cli/internal/cmd.Commit=${GITHUB_SHA::7}" \
+            -o bin/mom-darwin-amd64 ./cmd/mom
 
       - name: Compress
-        run: gzip -k bin/mom-*
+        run: |
+          cd bin && gzip -k mom-darwin-arm64 && gzip -k mom-darwin-amd64
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mom-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: cli/bin/mom-*.gz
+          name: darwin-binaries
+          path: cli/bin/mom-darwin-*.gz
+
+  build-linux:
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: cli/go.sum
+
+      - name: Build linux/amd64
+        run: |
+          CGO_ENABLED=1 go build \
+            -ldflags "-s -w -X github.com/momhq/mom/cli/internal/cmd.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/cli/internal/cmd.Commit=${GITHUB_SHA::7}" \
+            -o bin/mom-linux-amd64 ./cmd/mom
+
+      - name: Compress
+        run: cd bin && gzip -k mom-linux-amd64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries
+          path: cli/bin/mom-linux-*.gz
 
   release:
-    needs: build
+    needs: [build-darwin, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
