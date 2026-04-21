@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
@@ -8,6 +11,12 @@ var rootCmd = &cobra.Command{
 	Use:   "mom",
 	Short: "MOM — Memory Oriented Machine",
 	Long:  "A living knowledge infrastructure where humans and agents think, decide, and evolve together.",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if warning := checkVersionCache(); warning != "" {
+			fmt.Fprintln(os.Stderr, warning)
+		}
+		refreshVersionCacheAsync()
+	},
 }
 
 func Execute() error {

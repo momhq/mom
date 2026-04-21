@@ -19,15 +19,17 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 		b.WriteString("You are MOM. Your memory lives in `.mom/memory/`.\n\n")
 	}
 
-	// Boot sequence
-	b.WriteString("## Boot sequence\n\n")
-	b.WriteString("1. Read `.mom/index.json` — this is your neural map\n")
-	b.WriteString("2. From the index, load all docs where `boot: true` — these govern your behavior\n")
-	b.WriteString("3. You are now loaded. Greet the user and proceed.\n\n")
+	// Knowledge base orientation
+	b.WriteString("## Knowledge base\n\n")
+	b.WriteString("Your knowledge lives in `.mom/` (index, memory, constraints, skills, logs).\n")
+	if config.HasMCP {
+		b.WriteString("You have MOM tools via MCP — prefer them over raw file reads where available.\n")
+	}
+	b.WriteString("When you need context on a topic, consult `.mom/index.json` by tags and read only the docs you need.\n")
+	b.WriteString("Never load the entire KB upfront.\n\n")
 
 	// During work
 	b.WriteString("## During work\n\n")
-	b.WriteString("- When you need context on a topic, check the index for relevant tags\n")
 	b.WriteString("- Read only the docs you need — never load the entire KB\n")
 	b.WriteString("- When you create or update knowledge, write JSON docs to `.mom/memory/`\n")
 	b.WriteString("- Follow the schema at `.mom/schema.json`\n")
