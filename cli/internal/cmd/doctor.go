@@ -60,13 +60,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 	leoDir, err := findLeoDir()
 	if err != nil {
-		cmd.Printf("✗ .leo/ directory: not found — run 'leo init' first\n")
+		cmd.Printf("✗ .leo/ directory: not found — run 'mom init' first\n")
 		return err
 	}
 
 	// Detect legacy layout (.leo/kb/ present = pre-v0.8.0 install).
 	if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
-		cmd.Printf("⚠ Legacy layout detected (.leo/kb/ present)\n  Run 'leo upgrade' to migrate to the v0.8.0 flat layout.\n")
+		cmd.Printf("⚠ Legacy layout detected (.leo/kb/ present)\n  Run 'mom upgrade' to migrate to the v0.8.0 flat layout.\n")
 		return nil
 	}
 
@@ -153,7 +153,7 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 	}
 
 	// Check 7: Version.
-	cmd.Printf("✔ leo version: %s (%s)\n", Version, Commit)
+	cmd.Printf("✔ mom version: %s (%s)\n", Version, Commit)
 
 	// Check 8: Telemetry status.
 	if cfg != nil {
@@ -426,7 +426,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .leo/ directory found. Run 'leo init' first.\n")
+		cmd.Printf("No .leo/ directory found. Run 'mom init' first.\n")
 		return nil
 	}
 
@@ -448,7 +448,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(jsonFiles) < landmarkComputationThreshold {
-		cmd.Printf("No landmarks computed yet. Run 'leo reindex --landmarks' to compute.\n")
+		cmd.Printf("No landmarks computed yet. Run 'mom reindex --landmarks' to compute.\n")
 		cmd.Printf("(Graph below computation threshold: %d/%d memories)\n", len(jsonFiles), landmarkComputationThreshold)
 		return nil
 	}
@@ -470,7 +470,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks found. Run 'leo reindex --landmarks' to compute.\n")
+		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' to compute.\n")
 		return nil
 	}
 
@@ -524,13 +524,13 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 // ─── --bundle ────────────────────────────────────────────────────────────────
 
 func runDoctorBundle(cmd *cobra.Command) error {
-	cmd.Printf("=== LEO DIAGNOSTIC BUNDLE ===\n")
+	cmd.Printf("=== MOM DIAGNOSTIC BUNDLE ===\n")
 	cmd.Printf("Generated: (deterministic — no timestamp)\n")
 	cmd.Printf("Note: All network calls: NONE. Local files only.\n\n")
 
 	// Version info.
 	cmd.Printf("--- Version ---\n")
-	cmd.Printf("Leo:  %s (%s)\n", Version, Commit)
+	cmd.Printf("Mom:  %s (%s)\n", Version, Commit)
 	cmd.Printf("Go:   %s\n", runtime.Version())
 	cmd.Printf("OS:   %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	cmd.Printf("\n")
@@ -538,7 +538,7 @@ func runDoctorBundle(cmd *cobra.Command) error {
 	leoDir, leoDirErr := findLeoDir()
 	if leoDirErr != nil {
 		cmd.Printf("--- Error ---\n")
-		cmd.Printf(".leo/ directory not found. Run 'leo init' first.\n")
+		cmd.Printf(".leo/ directory not found. Run 'mom init' first.\n")
 		return nil
 	}
 

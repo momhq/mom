@@ -28,7 +28,7 @@ var importCmd = &cobra.Command{
 }
 
 func init() {
-	exportCmd.Flags().String("output", "", "Output directory path (default: ./leo-export)")
+	exportCmd.Flags().String("output", "", "Output directory path (default: ./mom-export)")
 	importCmd.Flags().Bool("merge", false, "Merge: keep existing docs, add new, skip conflicts (default)")
 	importCmd.Flags().Bool("replace", false, "Replace: back up current KB, then replace entirely")
 }
@@ -46,14 +46,14 @@ func runExport(cmd *cobra.Command, args []string) error {
 	if outputFlag != "" {
 		outputDir = outputFlag
 	} else if len(args) > 0 {
-		outputDir = filepath.Join(args[0], "leo-export")
+		outputDir = filepath.Join(args[0], "mom-export")
 	} else {
-		// Default: ./leo-export relative to cwd.
+		// Default: ./mom-export relative to cwd.
 		cwd, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("getting cwd: %w", err)
 		}
-		outputDir = filepath.Join(cwd, "leo-export")
+		outputDir = filepath.Join(cwd, "mom-export")
 	}
 
 	docsOutputDir := filepath.Join(outputDir, "docs")

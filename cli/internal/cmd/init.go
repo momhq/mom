@@ -356,7 +356,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	printExperimentalWarnings(cmd, registry, result.Runtimes)
 
 	cmd.Println()
-	cmd.Println("L.E.O. is ready. Run 'leo status' to check health.")
+	cmd.Println("MOM is ready. Run 'mom status' to check health.")
 	return nil
 }
 

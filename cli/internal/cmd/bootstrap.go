@@ -70,7 +70,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	} else {
 		targetScope, found = scope.NearestWritable(scanPath)
 		if !found {
-			return fmt.Errorf("no .leo/ directory found — run 'leo init' first")
+			return fmt.Errorf("no .leo/ directory found — run 'mom init' first")
 		}
 	}
 
@@ -221,7 +221,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 
 		leoInfo, leoErr := os.Stat(leoPath)
 		if leoErr != nil || !leoInfo.IsDir() {
-			cmd.Printf("  ⚠ %s — no .leo/ found, skipping (run 'leo init' in this repo first)\n", child)
+			cmd.Printf("  ⚠ %s — no .leo/ found, skipping (run 'mom init' in this repo first)\n", child)
 			continue
 		}
 
@@ -229,7 +229,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 	}
 
 	if len(repos) == 0 {
-		cmd.Println("No initialized child repos found. Run 'leo init' in each repo first.")
+		cmd.Println("No initialized child repos found. Run 'mom init' in each repo first.")
 		return nil
 	}
 
