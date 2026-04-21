@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/config"
 )
 
 // setupTestMemoryWithConfig creates a .mom/ with config.yaml and returns the temp dir.

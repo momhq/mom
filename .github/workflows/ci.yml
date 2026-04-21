@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,8 +27,38 @@ jobs:
       - name: Build
         run: make build
 
-      - name: Test
-        run: make test
+      - name: Test with coverage
+        run: go test -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          THRESHOLD=60
+          if [ "$(echo "$COVERAGE < $THRESHOLD" | bc -l)" -eq 1 ]; then
+            echo "::error::Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
+
+      - name: Check new Go files have tests
+        if: github.event_name == 'pull_request'
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          MISSING=""
+          for f in $(git diff --name-only --diff-filter=A origin/main -- 'cli/internal/**/*.go' | grep -v '_test.go$'); do
+            TEST_FILE="${f%%.go}_test.go"
+            if [ ! -f "$TEST_FILE" ]; then
+              MISSING="$MISSING\n- \`$f\` (expected \`$TEST_FILE\`)"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::warning::New Go files without corresponding test files:${MISSING}"
+            # Post comment on PR
+            BODY=$(printf "### TDD check\n\nNew source files missing test coverage:\n%b\n\nPer [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md#tdd), all code must follow test-driven development." "$MISSING")
+            gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY" || true
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
     runs-on: ubuntu-latest
@@ -43,3 +77,6 @@ jobs:
         with:
           version: v2.11
           working-directory: cli
+
+      - name: Vet
+        run: go vet ./...

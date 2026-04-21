@@ -13,7 +13,7 @@ import (
 var clineCapabilitiesYAML []byte
 
 // ClineAdapter implements the Adapter interface for Cline.
-// It reads from .mom/ and generates .clinerules/leo-context.md.
+// It reads from .mom/ and generates .clinerules/mom-context.md.
 type ClineAdapter struct {
 	projectRoot string
 }
@@ -35,9 +35,9 @@ func (a *ClineAdapter) GenerateContextFile(config Config, constraints []Constrai
 
 	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
 
-	contextFile := filepath.Join(rulesDir, "leo-context.md")
+	contextFile := filepath.Join(rulesDir, "mom-context.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {
-		return fmt.Errorf("writing leo-context.md: %w", err)
+		return fmt.Errorf("writing mom-context.md: %w", err)
 	}
 
 	return nil
@@ -57,11 +57,11 @@ func (a *ClineAdapter) DetectRuntime() bool {
 }
 
 func (a *ClineAdapter) GeneratedFiles() []string {
-	return []string{filepath.Join(".clinerules", "leo-context.md")}
+	return []string{filepath.Join(".clinerules", "mom-context.md")}
 }
 
 // GeneratedDirs returns nil — .clinerules/ may contain user's workflows, hooks,
-// and custom rules. Uninstall never removes the directory, only leo-context.md.
+// and custom rules. Uninstall never removes the directory, only mom-context.md.
 func (a *ClineAdapter) GeneratedDirs() []string {
 	return nil
 }

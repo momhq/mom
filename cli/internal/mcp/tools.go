@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
-	"github.com/vmarinogg/leo-core/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/transponder"
 )
 
 // toolDef describes one MCP tool for the tools/list response.

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/session-start",
+  "$id": "https://github.com/momhq/mom/mrp/v0/session-start",
   "title": "MRP v0 — session.start event",
   "type": "object",
   "required": ["mrp_version", "event", "session_id", "runtime", "timestamp", "started_at"],

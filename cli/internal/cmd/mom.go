@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 )
 
 // storageDoc is a type alias for use in command implementations.
@@ -25,13 +25,17 @@ func findMomDir() (string, error) {
 	for {
 		momCandidate := filepath.Join(dir, ".mom")
 		if info, err := os.Stat(momCandidate); err == nil && info.IsDir() {
-			return momCandidate, nil
+			if isMomProject(momCandidate) {
+				return momCandidate, nil
+			}
 		}
 
 		if leoFallback == "" {
 			leoCandidate := filepath.Join(dir, ".leo")
 			if info, err := os.Stat(leoCandidate); err == nil && info.IsDir() {
-				leoFallback = leoCandidate
+				if isMomProject(leoCandidate) {
+					leoFallback = leoCandidate
+				}
 			}
 		}
 
@@ -48,6 +52,19 @@ func findMomDir() (string, error) {
 	}
 
 	return "", fmt.Errorf("no .mom/ directory found — run 'mom init' first")
+}
+
+// isMomProject returns true if dir looks like a MOM/LEO project directory
+// (has config.yaml, memory/, or index.json). This prevents ~/.mom/cache/
+// (created by version check) from being mistaken for a project.
+func isMomProject(dir string) bool {
+	markers := []string{"config.yaml", "memory", "index.json"}
+	for _, m := range markers {
+		if _, err := os.Stat(filepath.Join(dir, m)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // newStorageAdapter creates a JSONAdapter for the current project.

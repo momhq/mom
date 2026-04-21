@@ -64,7 +64,7 @@ type Adapter interface {
 	Name() string
 
 	// GenerateContextFile generates the runtime's boot file
-	// (e.g. CLAUDE.md, AGENTS.md, .clinerules/leo-context.md) from Leo's config,
+	// (e.g. CLAUDE.md, AGENTS.md, .clinerules/mom-context.md) from MOM's config,
 	// constraints, skills, and identity.
 	GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
 

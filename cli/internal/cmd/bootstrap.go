@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
-	"github.com/vmarinogg/leo-core/cli/internal/cartographer"
-	"github.com/vmarinogg/leo-core/cli/internal/gardener"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
-	"github.com/vmarinogg/leo-core/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/cartographer"
+	"github.com/momhq/mom/cli/internal/gardener"
+	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/transponder"
 )
 
 var bootstrapCmd = &cobra.Command{

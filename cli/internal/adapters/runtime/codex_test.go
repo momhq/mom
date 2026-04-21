@@ -55,7 +55,7 @@ func TestCodexAdapter_GenerateContextFile(t *testing.T) {
 		"MOM — Memory Oriented Machine",
 		"anti-hallucination",
 		"session-wrap-up",
-		"## Knowledge base",
+		"## Memory",
 	}
 	for _, check := range checks {
 		if !strings.Contains(s, check) {

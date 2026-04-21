@@ -9,7 +9,7 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
 )
 
 // OnboardingResult holds the choices the user made during the interactive
@@ -18,7 +18,7 @@ type OnboardingResult struct {
 	Runtimes   []string // ["claude", "codex", "cline"]
 	Language   string   // always "en" — language selection removed in v0.9
 	Mode       string   // "verbose", "concise", "normal", "caveman"
-	CoreSource string   // path to leo-core clone, or "" if skipped
+	CoreSource string   // path to mom clone, or "" if skipped
 	// InstallDir is the directory where .mom/ should be created.
 	// Defaults to cwd (current project). Set to a parent for multi-repo installs.
 	InstallDir string
@@ -131,7 +131,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		// Group 5: Core Source
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Path to your leo-core clone (for updates)").
+				Title("Path to your MOM clone (for updates)").
 				Description("Leave blank to skip — configure later in .mom/config.yaml").
 				Value(&coreSource),
 		),
@@ -170,7 +170,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 			// Fall back to legacy layout.
 			legacyDir := filepath.Join(expanded, ".mom", "kb", "docs")
 			if _, err := os.Stat(legacyDir); err != nil {
-				return OnboardingResult{}, fmt.Errorf("not a valid leo-core: %s not found", memoryDir)
+				return OnboardingResult{}, fmt.Errorf("not a valid MOM repo: %s not found", memoryDir)
 			}
 		}
 		coreSource = expanded

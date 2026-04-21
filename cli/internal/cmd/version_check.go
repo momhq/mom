@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const githubReleasesURL = "https://api.github.com/repos/vmarinogg/leo-core/releases/latest"
+const githubReleasesURL = "https://api.github.com/repos/momhq/mom/releases/latest"
 
 type versionCache struct {
 	CheckedAt     time.Time `json:"checked_at"`

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/compact-triggered",
+  "$id": "https://github.com/momhq/mom/mrp/v0/compact-triggered",
   "title": "MRP v0 — compact.triggered event",
   "description": "Emitted when the user or runtime triggers /compact. Fires capture in auto bypass mode (no interactive wrap-up).",
   "type": "object",

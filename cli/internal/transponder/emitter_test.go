@@ -56,7 +56,7 @@ func TestEmitSessionEvent(t *testing.T) {
 
 	e.EmitSessionEvent(SessionEvent{
 		SessionID:     "s-abc",
-		RepoID:        "leo-core",
+		RepoID:        "mom",
 		Runtime:       "claude-code",
 		StartedAt:     "2026-04-18T12:00:00Z",
 		Trigger:       "normal",

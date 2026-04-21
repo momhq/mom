@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/vmarinogg/leo-core/mrp/v0/session-end",
+  "$id": "https://github.com/momhq/mom/mrp/v0/session-end",
   "title": "MRP v0 — session.end event",
   "type": "object",
   "required": ["mrp_version", "event", "session_id", "runtime", "timestamp", "started_at", "ended_at"],

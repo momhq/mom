@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/memory"
 )
 
 // JSONAdapter implements the Adapter interface using flat JSON files

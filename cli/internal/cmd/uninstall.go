@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
-	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/config"
 )
 
 var uninstallCmd = &cobra.Command{

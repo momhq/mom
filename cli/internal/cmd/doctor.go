@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	leort "github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
-	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	leort "github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 func init() {

@@ -14,9 +14,9 @@ import (
 	huhspinner "charm.land/huh/v2/spinner"
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
-	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/transponder"
 )
 
 //go:embed schema.json

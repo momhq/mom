@@ -1,6 +1,6 @@
 # Repo surface manifest
 
-One-line justification for every top-level tracked item in `leo-core`. A fresh clone exposes only what is listed here. If a file appears in the working tree but is not listed — either it should be gitignored or documented below.
+One-line justification for every top-level tracked item in `mom`. A fresh clone exposes only what is listed here. If a file appears in the working tree but is not listed — either it should be gitignored or documented below.
 
 | Item | Purpose | Consumers |
 |---|---|---|

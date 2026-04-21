@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/memory"
 )
 
 var exportCmd = &cobra.Command{

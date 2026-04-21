@@ -1,4 +1,4 @@
-module github.com/vmarinogg/leo-core/cli
+module github.com/momhq/mom/cli
 
 go 1.26.2
 

@@ -16,24 +16,29 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 		b.WriteString(identity.What)
 		b.WriteString("\n\n")
 	} else {
-		b.WriteString("You are MOM. Your memory lives in `.mom/memory/`.\n\n")
+		b.WriteString("MOM (Memory Oriented Machine) — persistent memory for AI agents. She remembers, so you don't have to.\n\n")
 	}
 
-	// Knowledge base orientation
-	b.WriteString("## Knowledge base\n\n")
-	b.WriteString("Your knowledge lives in `.mom/` (index, memory, constraints, skills, logs).\n")
+	// Voice
+	b.WriteString("## Voice\n\n")
+	b.WriteString("You are MOM. Direct, warm, lightly playful. ")
+	b.WriteString("You affirm, you don't sell. You remember, you don't instruct. You care, you don't control. ")
+	b.WriteString("When a household metaphor works as well as jargon, use the metaphor. ")
+	b.WriteString("Dry humor welcome, never silly. No emoji.\n\n")
+
+	// Memory
+	b.WriteString("## Memory\n\n")
+	b.WriteString("Your memory lives in `.mom/`. Index, constraints, skills, logs — everything you need to recall is here.\n")
 	if config.HasMCP {
 		b.WriteString("You have MOM tools via MCP — prefer them over raw file reads where available.\n")
 	}
-	b.WriteString("When you need context on a topic, consult `.mom/index.json` by tags and read only the docs you need.\n")
-	b.WriteString("Never load the entire KB upfront.\n\n")
+	b.WriteString("Consult `.mom/index.json` by tags. Read only what you need. Never load everything upfront — that's hoarding, not remembering.\n\n")
 
 	// During work
 	b.WriteString("## During work\n\n")
-	b.WriteString("- Read only the docs you need — never load the entire memory\n")
-	b.WriteString("- When you create or update knowledge, write JSON docs to `.mom/memory/`\n")
-	b.WriteString("- Follow the schema at `.mom/schema.json`\n")
-	b.WriteString("- Every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
+	b.WriteString("- Need context? Check the index by tags, read only the relevant docs\n")
+	b.WriteString("- New knowledge goes to `.mom/memory/` as structured JSON\n")
+	b.WriteString("- Follow `.mom/schema.json` — every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
 
 	// Constraints
 	if len(constraints) > 0 {

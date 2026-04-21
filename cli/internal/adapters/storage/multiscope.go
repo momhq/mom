@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 // InheritedDoc wraps a Doc with metadata about which scope it came from

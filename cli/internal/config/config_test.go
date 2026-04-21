@@ -88,7 +88,7 @@ func TestConfigMigrationFromV06(t *testing.T) {
 	dir := t.TempDir()
 	legacyCfg := `version: "1"
 runtime: claude
-core_source: /tmp/leo-core
+core_source: /tmp/mom
 user:
   language: en
   mode: concise
@@ -118,7 +118,7 @@ specialists:
 	if !rc.Enabled {
 		t.Error("expected claude to be enabled after migration")
 	}
-	if cfg.CoreSource != "/tmp/leo-core" {
+	if cfg.CoreSource != "/tmp/mom" {
 		t.Errorf("expected core_source preserved, got %q", cfg.CoreSource)
 	}
 	// communication.mode must be inferred.

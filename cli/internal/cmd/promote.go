@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 var promoteCmd = &cobra.Command{

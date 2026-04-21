@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 // makeTree creates a directory tree under a temp dir and returns the temp root.

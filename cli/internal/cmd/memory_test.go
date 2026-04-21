@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 )
 
 // setupTestMemory creates a .mom/ with a JSONAdapter and returns the temp dir.

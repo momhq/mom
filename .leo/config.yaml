@@ -1,5 +1,5 @@
 version: "1"
-core_source: ~/Github/leo-core
+core_source: ~/Github/mom/mom
 runtimes:
     claude:
         enabled: true

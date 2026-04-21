@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/memory"
 )
 
 // makeScope creates a .leo/ with config.yaml and an optional memory dir.

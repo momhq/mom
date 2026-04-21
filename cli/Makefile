@@ -1,6 +1,6 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
-LDFLAGS  = -ldflags "-X github.com/vmarinogg/leo-core/cli/internal/cmd.Version=$(VERSION) -X github.com/vmarinogg/leo-core/cli/internal/cmd.Commit=$(COMMIT)"
+LDFLAGS  = -ldflags "-X github.com/momhq/mom/cli/internal/cmd.Version=$(VERSION) -X github.com/momhq/mom/cli/internal/cmd.Commit=$(COMMIT)"
 
 .PHONY: build test lint clean install brew-audit
 

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/mcp"
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/mcp"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 var serveCmd = &cobra.Command{

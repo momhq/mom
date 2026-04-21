@@ -1,4 +1,4 @@
-# Contributing to Leo
+# Contributing to MOM
 
 ## Prerequisites
 
@@ -8,8 +8,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/vmarinogg/leo-core.git
-cd leo-core/cli
+git clone https://github.com/momhq/mom.git
+cd mom/cli
 make build
 make test
 ```
@@ -18,45 +18,35 @@ make test
 
 ```
 cli/
-├── cmd/leo/main.go              # entrypoint
+├── cmd/mom/main.go              # entrypoint
+├── cmd/leo/main.go              # deprecated alias (prints warning)
 ├── internal/
 │   ├── cmd/                     # cobra commands (init, upgrade, CRUD, ops, export)
-│   ├── adapters/runtime/        # RuntimeAdapter interface + impls (claude, codex, cline, …)
+│   ├── adapters/runtime/        # RuntimeAdapter interface + impls (claude, codex, cline)
 │   ├── adapters/storage/        # StorageAdapter interface + impls (JSON)
-│   ├── config/                  # .leo/config.yaml handling
-│   └── kb/                      # KB document types and validation
+│   ├── config/                  # .mom/config.yaml handling
+│   ├── memory/                  # memory document types and validation
+│   ├── mcp/                     # MCP server (tools + resources)
+│   ├── cartographer/            # multi-repo scope detection
+│   ├── gardener/                # memory lifecycle, dedup, landmarks
+│   ├── transponder/             # local telemetry emitter (deprecated, see Herald)
+│   └── scope/                   # scope resolution
 ├── Makefile
 ├── go.mod
 └── go.sum
 
-.leo/                            # Leo's own config + KB (dogfooding)
-├── config.yaml                  # user preferences
+.mom/                            # MOM's own memory (dogfooding)
+├── config.yaml                  # preferences
 ├── identity.json                # project identity
-├── kb/docs/                     # knowledge documents (JSON)
-├── kb/constraints/              # always-active guardrails
-├── kb/skills/                   # composable procedures
-├── kb/schema.json               # document schema
-└── kb/index.json                # tag-based index
+├── memory/                      # memory documents (JSON)
+├── constraints/                 # always-active guardrails
+├── skills/                      # composable procedures
+├── schema.json                  # document schema
+└── index.json                   # tag-based index
 ```
 
 See [.github/repo-surface.md](.github/repo-surface.md) for the full one-line
 justification of every tracked top-level item and the rules for adding new ones.
-
-### Future package naming (v0.9+)
-
-When new internal components land (Watchman, Drafter, Gardener, etc.), they are
-created directly with canonical names — no post-hoc rename. The locked mapping:
-
-| Concept | Go package path |
-|---|---|
-| Capture trigger layer | `cli/internal/watchman/` |
-| Memory draft normalizer | `cli/internal/drafter/` |
-| Memory schema validator | `cli/internal/validator/` |
-| Memory indexer / search | `cli/internal/librarian/` |
-| Tag graph | `cli/internal/tagger/` |
-| Lifecycle + dedup + stale + conflict (merged) | `cli/internal/gardener/` |
-| RBAC + ABAC | `cli/internal/clearance/` |
-| Local telemetry emitter | `cli/internal/transponder/` |
 
 ## Adding a runtime adapter
 

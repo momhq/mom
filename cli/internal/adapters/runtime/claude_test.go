@@ -85,7 +85,8 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		"no filler",
 		"Balanced",
 		"Propose before",
-		"## Knowledge base",
+		"## Voice",
+		"## Memory",
 		"## During work",
 	}
 	for _, check := range checks {
@@ -148,7 +149,7 @@ func TestClaudeAdapter_GenerateContextFile_NoIdentity(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "You are MOM") {
+	if !strings.Contains(s, "She remembers, so you don't have to") {
 		t.Error("CLAUDE.md missing fallback identity text")
 	}
 }

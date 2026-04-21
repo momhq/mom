@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/vmarinogg/leo-core/cli/internal/cmd"
+	"github.com/momhq/mom/cli/internal/cmd"
 )
 
 func main() {

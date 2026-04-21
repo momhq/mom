@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/memory"
 )
 
 // makeLeoPair creates two nested .mom/ installs under a tmpdir:

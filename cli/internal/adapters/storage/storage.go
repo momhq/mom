@@ -4,7 +4,7 @@ package storage
 import (
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/memory"
 )
 
 // Doc represents a memory document in the storage layer.

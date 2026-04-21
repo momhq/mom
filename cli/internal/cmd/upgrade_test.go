@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/config"
 )
 
 // setupV060Project creates a .mom/ with v0.6.0-style config and minimal structure.

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/mcp"
+	"github.com/momhq/mom/cli/internal/mcp"
 )
 
 // helpers

@@ -1,7 +1,7 @@
 class Mom < Formula
   desc "Memory Oriented Machine — persistent memory for AI agents"
-  homepage "https://github.com/vmarinogg/leo-core"
-  url "https://github.com/vmarinogg/leo-core/archive/refs/tags/v#{version}.tar.gz"
+  homepage "https://github.com/momhq/mom"
+  url "https://github.com/momhq/mom/archive/refs/tags/v#{version}.tar.gz"
   license "Apache-2.0"
 
   bottle :unneeded
@@ -12,7 +12,7 @@ class Mom < Formula
     cd "cli" do
       system "go", "build",
         "-o", "#{bin}/mom",
-        "-ldflags", "-s -w -X github.com/vmarinogg/leo-core/cli/internal/cmd.Version=#{version}",
+        "-ldflags", "-s -w -X github.com/momhq/mom/cli/internal/cmd.Version=#{version}",
         "./cmd/mom"
     end
     bin.install_symlink "mom" => "leo"

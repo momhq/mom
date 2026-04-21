@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
-	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/config"
 )
 
 func TestInitCmd_CreatesLeoStructure(t *testing.T) {
@@ -136,7 +136,7 @@ func TestInitCmd_MultiRuntime(t *testing.T) {
 	files := map[string]string{
 		".claude/CLAUDE.md":          "Claude",
 		"AGENTS.md":                  "Codex",
-		".clinerules/leo-context.md": "Cline",
+		".clinerules/mom-context.md": "Cline",
 	}
 
 	for path, name := range files {

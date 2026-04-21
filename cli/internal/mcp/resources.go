@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vmarinogg/leo-core/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 // resourceDef describes one MCP resource for resources/list.

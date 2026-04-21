@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vmarinogg/leo-core/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/config"
 )
 
 // ValidScopeLabels is the set of accepted scope values in config.yaml.
