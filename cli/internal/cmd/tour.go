@@ -21,8 +21,8 @@ var tourCmd = &cobra.Command{
 	Long: `Display the top landmark memories — high-centrality docs that sit at
 structural crossroads of the memory graph.
 
-Landmarks are computed by 'leo reindex --landmarks' or automatically during
-'leo bootstrap' (when doc count >= 100).`,
+Landmarks are computed by 'mom reindex --landmarks' or automatically during
+'mom bootstrap' (when doc count >= 100).`,
 	RunE: runTour,
 }
 
@@ -43,7 +43,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .leo/ directory found. Run 'leo init' first.\n")
+		cmd.Printf("No .leo/ directory found. Run 'mom init' first.\n")
 		return nil
 	}
 
@@ -72,7 +72,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	memDir := filepath.Join(targetScope.Path, "memory")
 	entries, err := os.ReadDir(memDir)
 	if err != nil {
-		cmd.Printf("No landmarks found. Run 'leo reindex --landmarks' first.\n")
+		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' first.\n")
 		return nil
 	}
 
@@ -101,7 +101,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks found. Run 'leo reindex --landmarks' first.\n")
+		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' first.\n")
 		return nil
 	}
 
@@ -152,12 +152,12 @@ func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
 	}
 
 	if data.Stats.TotalDocs == 0 {
-		cmd.Println("No memories found. Run 'leo bootstrap' first.")
+		cmd.Println("No memories found. Run 'mom bootstrap' first.")
 		return nil
 	}
 
 	// Write HTML to a temp file.
-	outPath := filepath.Join(os.TempDir(), "leo-memory-graph.html")
+	outPath := filepath.Join(os.TempDir(), "mom-memory-graph.html")
 	if err := gardener.WriteGraphHTML(data, outPath); err != nil {
 		return fmt.Errorf("writing graph HTML: %w", err)
 	}

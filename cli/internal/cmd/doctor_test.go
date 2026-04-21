@@ -44,8 +44,8 @@ func TestDoctorBase_LegacyLayoutDetection(t *testing.T) {
 	}
 
 	// Must contain the upgrade instruction.
-	if !strings.Contains(out, "leo upgrade") {
-		t.Errorf("expected 'leo upgrade' in output, got:\n%s", out)
+	if !strings.Contains(out, "mom upgrade") {
+		t.Errorf("expected 'mom upgrade' in output, got:\n%s", out)
 	}
 
 	// Normal checks must NOT run — memory/ check output should be absent.

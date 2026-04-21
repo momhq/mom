@@ -28,9 +28,9 @@ Results are ranked by:
   - Landmark boost (+0.3) for landmark memories
 
 Examples:
-  leo recall "authentication"
-  leo recall "api" --tags auth,security --limit 5
-  leo recall "" --scope repo`,
+  mom recall "authentication"
+  mom recall "api" --tags auth,security --limit 5
+  mom recall "" --scope repo`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runRecall,
 }
@@ -63,7 +63,7 @@ func runRecall(cmd *cobra.Command, args []string) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .leo/ directory found. Run 'leo init' first.\n")
+		cmd.Printf("No .leo/ directory found. Run 'mom init' first.\n")
 		return nil
 	}
 

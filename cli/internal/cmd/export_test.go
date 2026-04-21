@@ -31,16 +31,16 @@ func TestExportCmd_CreatesDefaultDirStructure(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	// Default output: ./leo-export/
-	exportDir := filepath.Join(dir, "leo-export")
+	// Default output: ./mom-export/
+	exportDir := filepath.Join(dir, "mom-export")
 	if _, err := os.Stat(exportDir); err != nil {
-		t.Fatalf("leo-export/ directory not created: %v", err)
+		t.Fatalf("mom-export/ directory not created: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(exportDir, "docs")); err != nil {
-		t.Error("leo-export/docs/ not created")
+		t.Error("mom-export/docs/ not created")
 	}
 	if _, err := os.Stat(filepath.Join(exportDir, "index.json")); err != nil {
-		t.Error("leo-export/index.json not created")
+		t.Error("mom-export/index.json not created")
 	}
 }
 
@@ -65,7 +65,7 @@ func TestExportCmd_CopiesAllDocs(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	exportDocsDir := filepath.Join(dir, "leo-export", "docs")
+	exportDocsDir := filepath.Join(dir, "mom-export", "docs")
 	for _, id := range []string{"export-alpha", "export-beta", "export-gamma"} {
 		docPath := filepath.Join(exportDocsDir, id+".json")
 		if _, err := os.Stat(docPath); err != nil {
@@ -131,7 +131,7 @@ func TestExportCmd_CopiesSchema(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	exportedSchema := filepath.Join(dir, "leo-export", "schema.json")
+	exportedSchema := filepath.Join(dir, "mom-export", "schema.json")
 	if _, err := os.Stat(exportedSchema); err != nil {
 		t.Error("schema.json not exported")
 	}
