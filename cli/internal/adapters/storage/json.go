@@ -13,13 +13,13 @@ import (
 )
 
 // JSONAdapter implements the Adapter interface using flat JSON files
-// in .leo/memory/ with an index at .leo/index.json.
+// in .mom/memory/ with an index at .mom/index.json.
 type JSONAdapter struct {
 	docsDir   string
 	indexPath string
 }
 
-// NewJSONAdapter creates a JSONAdapter for the given .leo/ directory.
+// NewJSONAdapter creates a JSONAdapter for the given .mom/ directory.
 func NewJSONAdapter(leoDir string) *JSONAdapter {
 	return &JSONAdapter{
 		docsDir:   filepath.Join(leoDir, "memory"),

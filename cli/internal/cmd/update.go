@@ -56,7 +56,7 @@ type SyncItem struct {
 }
 
 func runUpdate(cmd *cobra.Command, args []string) error {
-	leoDir, err := findLeoDir()
+	leoDir, err := findMomDir()
 	if err != nil {
 		return err
 	}
@@ -72,16 +72,16 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		source = cfg.CoreSource
 	}
 	if source == "" {
-		return fmt.Errorf("no core source configured — use --source or set core_source in .leo/config.yaml")
+		return fmt.Errorf("no core source configured — use --source or set core_source in .mom/config.yaml")
 	}
 
 	source = expandTilde(source)
 
 	// Validate core source — accept both old (kb/docs) and new (memory) layouts.
-	kbDocsDir := filepath.Join(source, ".leo", "memory")
+	kbDocsDir := filepath.Join(source, ".mom", "memory")
 	if _, err := os.Stat(kbDocsDir); err != nil {
 		// Fall back to legacy layout for backward compatibility.
-		kbDocsDir = filepath.Join(source, ".leo", "kb", "docs")
+		kbDocsDir = filepath.Join(source, ".mom", "kb", "docs")
 		if _, err := os.Stat(kbDocsDir); err != nil {
 			return fmt.Errorf("not a valid leo-core: %s not found", kbDocsDir)
 		}
@@ -162,11 +162,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 // resolveCoreDocsDir returns the memory dir from coreSource, falling back to
 // the legacy kb/docs layout for cores that have not yet been migrated.
 func resolveCoreDocsDir(coreSource string) string {
-	newPath := filepath.Join(coreSource, ".leo", "memory")
+	newPath := filepath.Join(coreSource, ".mom", "memory")
 	if _, err := os.Stat(newPath); err == nil {
 		return newPath
 	}
-	return filepath.Join(coreSource, ".leo", "kb", "docs")
+	return filepath.Join(coreSource, ".mom", "kb", "docs")
 }
 
 // computeSyncPlan compares core docs against the project and produces a plan.
@@ -224,9 +224,9 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 	}
 
 	// Compare constraints.
-	coreConstraintsDir := filepath.Join(coreSource, ".leo", "constraints")
+	coreConstraintsDir := filepath.Join(coreSource, ".mom", "constraints")
 	if _, err := os.Stat(coreConstraintsDir); err != nil {
-		coreConstraintsDir = filepath.Join(coreSource, ".leo", "kb", "constraints")
+		coreConstraintsDir = filepath.Join(coreSource, ".mom", "kb", "constraints")
 	}
 	projConstraintsDir := filepath.Join(leoDir, "constraints")
 	if constraintEntries, err := os.ReadDir(coreConstraintsDir); err == nil {
@@ -253,9 +253,9 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 	}
 
 	// Compare skills.
-	coreSkillsDir := filepath.Join(coreSource, ".leo", "skills")
+	coreSkillsDir := filepath.Join(coreSource, ".mom", "skills")
 	if _, err := os.Stat(coreSkillsDir); err != nil {
-		coreSkillsDir = filepath.Join(coreSource, ".leo", "kb", "skills")
+		coreSkillsDir = filepath.Join(coreSource, ".mom", "kb", "skills")
 	}
 	projSkillsDir := filepath.Join(leoDir, "skills")
 	if skillEntries, err := os.ReadDir(coreSkillsDir); err == nil {
@@ -282,20 +282,20 @@ func computeSyncPlan(coreSource, leoDir string) (*SyncPlan, error) {
 	}
 
 	// Compare identity.json.
-	coreIdentity := filepath.Join(coreSource, ".leo", "identity.json")
+	coreIdentity := filepath.Join(coreSource, ".mom", "identity.json")
 	projIdentity := filepath.Join(leoDir, "identity.json")
 	plan.IdentityChanged = !filesEqual(coreIdentity, projIdentity)
 
 	// Compare schema files.
-	coreSchema := filepath.Join(coreSource, ".leo", "schema.json")
+	coreSchema := filepath.Join(coreSource, ".mom", "schema.json")
 	if _, err := os.Stat(coreSchema); err != nil {
-		coreSchema = filepath.Join(coreSource, ".leo", "kb", "schema.json")
+		coreSchema = filepath.Join(coreSource, ".mom", "kb", "schema.json")
 	}
 	projSchema := filepath.Join(leoDir, "schema.json")
 	plan.SchemaChanged = !filesEqual(coreSchema, projSchema)
 
 	// Compare profile files.
-	coreProfilesDir := filepath.Join(coreSource, ".leo", "profiles")
+	coreProfilesDir := filepath.Join(coreSource, ".mom", "profiles")
 	projProfilesDir := filepath.Join(leoDir, "profiles")
 
 	profileEntries, err := os.ReadDir(coreProfilesDir)
@@ -390,7 +390,7 @@ func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command
 
 	// Copy identity.json.
 	if plan.IdentityChanged {
-		coreIdentity := filepath.Join(coreSource, ".leo", "identity.json")
+		coreIdentity := filepath.Join(coreSource, ".mom", "identity.json")
 		projIdentity := filepath.Join(leoDir, "identity.json")
 		if err := copyFileContents(coreIdentity, projIdentity); err != nil {
 			return fmt.Errorf("updating identity.json: %w", err)
@@ -398,9 +398,9 @@ func applySyncPlan(plan *SyncPlan, leoDir, coreSource string, cmd *cobra.Command
 	}
 
 	if plan.SchemaChanged {
-		coreSchema := filepath.Join(coreSource, ".leo", "schema.json")
+		coreSchema := filepath.Join(coreSource, ".mom", "schema.json")
 		if _, err := os.Stat(coreSchema); err != nil {
-			coreSchema = filepath.Join(coreSource, ".leo", "kb", "schema.json")
+			coreSchema = filepath.Join(coreSource, ".mom", "kb", "schema.json")
 		}
 		projSchema := filepath.Join(leoDir, "schema.json")
 		if err := copyFileContents(coreSchema, projSchema); err != nil {

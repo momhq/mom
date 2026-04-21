@@ -27,24 +27,24 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 		t.Fatalf("init failed: %v", err)
 	}
 
-	// Verify .leo/ structure.
+	// Verify .mom/ structure.
 	expected := []string{
-		".leo/config.yaml",
-		".leo/identity.json",
-		".leo/schema.json",
-		".leo/index.json",
-		".leo/logs",
+		".mom/config.yaml",
+		".mom/identity.json",
+		".mom/schema.json",
+		".mom/index.json",
+		".mom/logs",
 		".claude/CLAUDE.md",
-		".leo/constraints/anti-hallucination.json",
-		".leo/skills/session-wrap-up.json",
+		".mom/constraints/anti-hallucination.json",
+		".mom/skills/session-wrap-up.json",
 	}
 	// Retired files must NOT exist.
 	retired := []string{
-		".leo/profiles/general-manager.yaml",
-		".leo/profiles/backend-engineer.yaml",
-		".leo/constraints/delegation-mandatory.json",
-		".leo/skills/task-intake.json",
-		".leo/kb",
+		".mom/profiles/general-manager.yaml",
+		".mom/profiles/backend-engineer.yaml",
+		".mom/constraints/delegation-mandatory.json",
+		".mom/skills/task-intake.json",
+		".mom/kb",
 	}
 	for _, path := range retired {
 		full := filepath.Join(dir, path)
@@ -61,7 +61,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	}
 
 	// Verify directories.
-	dirs := []string{".leo/memory", ".leo/skills", ".leo/constraints", ".leo/logs", ".leo/telemetry", ".leo/cache"}
+	dirs := []string{".mom/memory", ".mom/skills", ".mom/constraints", ".mom/logs", ".mom/telemetry", ".mom/cache"}
 	for _, d := range dirs {
 		full := filepath.Join(dir, d)
 		info, err := os.Stat(full)
@@ -79,7 +79,7 @@ func TestInitCmd_SkipsScaffoldIfAlreadyExists(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(origDir)
 
-	os.MkdirAll(filepath.Join(dir, ".leo"), 0755)
+	os.MkdirAll(filepath.Join(dir, ".mom"), 0755)
 
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
@@ -87,7 +87,7 @@ func TestInitCmd_SkipsScaffoldIfAlreadyExists(t *testing.T) {
 	rootCmd.SetArgs([]string{"init", "--runtimes", "claude"})
 
 	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("expected graceful skip when .leo/ already exists, got error: %v", err)
+		t.Fatalf("expected graceful skip when .mom/ already exists, got error: %v", err)
 	}
 	if !strings.Contains(buf.String(), "already exists") {
 		t.Errorf("expected skip message in output, got: %s", buf.String())
@@ -100,7 +100,7 @@ func TestInitCmd_ForceOverwrite(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(origDir)
 
-	os.MkdirAll(filepath.Join(dir, ".leo"), 0755)
+	os.MkdirAll(filepath.Join(dir, ".mom"), 0755)
 
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
@@ -111,8 +111,8 @@ func TestInitCmd_ForceOverwrite(t *testing.T) {
 		t.Fatalf("init --force failed: %v", err)
 	}
 
-	// Should have created the structure despite existing .leo/.
-	if _, err := os.Stat(filepath.Join(dir, ".leo", "config.yaml")); err != nil {
+	// Should have created the structure despite existing .mom/.
+	if _, err := os.Stat(filepath.Join(dir, ".mom", "config.yaml")); err != nil {
 		t.Error("config.yaml not created with --force")
 	}
 }
@@ -147,7 +147,7 @@ func TestInitCmd_MultiRuntime(t *testing.T) {
 	}
 
 	// Config should have all three runtimes.
-	cfg, err := config.Load(filepath.Join(dir, ".leo"))
+	cfg, err := config.Load(filepath.Join(dir, ".mom"))
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
 	}

@@ -14,7 +14,7 @@ import (
 // makeScope creates a .leo/ with config.yaml and an optional memory dir.
 func makeScope(t *testing.T, parent, scopeLabel string) string {
 	t.Helper()
-	leoDir := filepath.Join(parent, ".leo")
+	leoDir := filepath.Join(parent, ".mom")
 	if err := os.MkdirAll(filepath.Join(leoDir, "memory"), 0755); err != nil {
 		t.Fatal(err)
 	}

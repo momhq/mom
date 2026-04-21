@@ -13,7 +13,7 @@ import (
 var clineCapabilitiesYAML []byte
 
 // ClineAdapter implements the Adapter interface for Cline.
-// It reads from .leo/ and generates .clinerules/leo-context.md.
+// It reads from .mom/ and generates .clinerules/leo-context.md.
 type ClineAdapter struct {
 	projectRoot string
 }

@@ -42,7 +42,7 @@ const newShapeDocJSON = `{
 		"session_id": "sess-abc123",
 		"trigger_event": "session.end",
 		"commit_sha": "deadbeef",
-		"raw_exhaust_ref": ".leo/cache/exhaust-abc123.json"
+		"raw_exhaust_ref": ".mom/cache/exhaust-abc123.json"
 	},
 	"landmark": true,
 	"centrality_score": 0.85,
@@ -149,7 +149,7 @@ func TestNewShapeDoc_RoundTrip(t *testing.T) {
 	if doc2.Provenance == nil || doc2.Provenance.Runtime != "claude-code" {
 		t.Errorf("provenance.runtime mismatch: got %v", doc2.Provenance)
 	}
-	if doc2.Provenance.RawExhaustRef != ".leo/cache/exhaust-abc123.json" {
+	if doc2.Provenance.RawExhaustRef != ".mom/cache/exhaust-abc123.json" {
 		t.Errorf("provenance.raw_exhaust_ref mismatch: got %q", doc2.Provenance.RawExhaustRef)
 	}
 	if !doc2.Landmark {
@@ -312,14 +312,14 @@ func TestProvenanceRawExhaustRef(t *testing.T) {
 	}
 }
 
-// findRepoMemoryDir walks up from the current directory looking for .leo/memory.
+// findRepoMemoryDir walks up from the current directory looking for .mom/memory.
 func findRepoMemoryDir() (string, bool) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", false
 	}
 	for {
-		candidate := filepath.Join(dir, ".leo", "memory")
+		candidate := filepath.Join(dir, ".mom", "memory")
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
 			return candidate, true
 		}
@@ -331,12 +331,12 @@ func findRepoMemoryDir() (string, bool) {
 	}
 }
 
-// TestLiveMemoryFiles verifies all memory files in the repo's own .leo/memory/
+// TestLiveMemoryFiles verifies all memory files in the repo's own .mom/memory/
 // continue to load and validate without error after the schema evolution.
 func TestLiveMemoryFiles(t *testing.T) {
 	memoryDir, found := findRepoMemoryDir()
 	if !found {
-		t.Skip("skipping live memory test: .leo/memory not found in any ancestor directory")
+		t.Skip("skipping live memory test: .mom/memory not found in any ancestor directory")
 	}
 
 	entries, err := os.ReadDir(memoryDir)

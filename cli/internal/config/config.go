@@ -1,4 +1,4 @@
-// Package config handles reading and writing .leo/config.yaml.
+// Package config handles reading and writing .mom/config.yaml.
 package config
 
 import (
@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the .leo/config.yaml file.
+// Config represents the .mom/config.yaml file.
 type Config struct {
 	Version    string `yaml:"version"`
 	CoreSource string `yaml:"core_source,omitempty"`
@@ -155,7 +155,7 @@ type legacySpecialists struct {
 	Validation        string `yaml:"validation"`
 }
 
-// Load reads a config.yaml from the given .leo/ directory.
+// Load reads a config.yaml from the given .mom/ directory.
 // Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats.
 func Load(leoDir string) (*Config, error) {
 	path := filepath.Join(leoDir, "config.yaml")
@@ -235,7 +235,7 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 	}
 }
 
-// Save writes a config.yaml to the given .leo/ directory.
+// Save writes a config.yaml to the given .mom/ directory.
 func Save(leoDir string, cfg *Config) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -250,7 +250,7 @@ func Save(leoDir string, cfg *Config) error {
 	return nil
 }
 
-// LeoDir returns the .leo/ directory path relative to the given project root.
-func LeoDir(projectRoot string) string {
-	return filepath.Join(projectRoot, ".leo")
+// MomDir returns the .mom/ directory path relative to the given project root.
+func MomDir(projectRoot string) string {
+	return filepath.Join(projectRoot, ".mom")
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/vmarinogg/leo-core/cli/internal/config"
 )
 
-// setupV060Project creates a .leo/ with v0.6.0-style config and minimal structure.
+// setupV060Project creates a .mom/ with v0.6.0-style config and minimal structure.
 // resetUpgradeFlags resets cobra flag state between tests.
 func resetUpgradeFlags(t *testing.T) {
 	t.Helper()
@@ -23,7 +23,7 @@ func resetUpgradeFlags(t *testing.T) {
 func setupV060Project(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Create directories using the legacy kb/ layout to simulate a pre-v0.8 install.
 	for _, d := range []string{
@@ -129,7 +129,7 @@ func TestUpgradeCmd_MigratesConfig(t *testing.T) {
 	}
 
 	// Config should be loadable and have runtimes map.
-	cfg, err := config.Load(filepath.Join(dir, ".leo"))
+	cfg, err := config.Load(filepath.Join(dir, ".mom"))
 	if err != nil {
 		t.Fatalf("loading config after upgrade: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestUpgradeCmd_RemovesProfilesDir(t *testing.T) {
 	}
 
 	// profiles/ directory must be gone after upgrade.
-	profilesDir := filepath.Join(dir, ".leo", "profiles")
+	profilesDir := filepath.Join(dir, ".mom", "profiles")
 	if _, err := os.Stat(profilesDir); err == nil {
 		t.Error("profiles/ directory should have been removed by upgrade")
 	}
@@ -189,7 +189,7 @@ func TestUpgradeCmd_RemovesRetiredConstraints(t *testing.T) {
 		t.Fatalf("upgrade failed: %v\noutput:\n%s", err, buf.String())
 	}
 
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// After layout migration, retired constraints are in the new location.
 	for _, name := range []string{"delegation-mandatory", "think-before-execute", "know-what-you-dont-know", "peer-review-automatic"} {
@@ -239,7 +239,7 @@ func TestUpgradeCmd_Idempotent(t *testing.T) {
 	}
 
 	// profiles/ still gone.
-	if _, err := os.Stat(filepath.Join(dir, ".leo", "profiles")); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, ".mom", "profiles")); err == nil {
 		t.Error("profiles/ should not reappear on second upgrade")
 	}
 }
@@ -262,7 +262,7 @@ func TestUpgradeCmd_UpdatesSchema(t *testing.T) {
 	}
 
 	// Schema should be updated (not the old one) — now at the flat location.
-	schema, err := os.ReadFile(filepath.Join(dir, ".leo", "schema.json"))
+	schema, err := os.ReadFile(filepath.Join(dir, ".mom", "schema.json"))
 	if err != nil {
 		t.Fatal("schema.json not found after upgrade")
 	}
@@ -292,7 +292,7 @@ func TestUpgradeCmd_PreservesUserDocs(t *testing.T) {
 	}
 
 	// User doc must still exist — migrated from kb/docs/ to memory/.
-	docPath := filepath.Join(dir, ".leo", "memory", "my-decision.json")
+	docPath := filepath.Join(dir, ".mom", "memory", "my-decision.json")
 	data, err := os.ReadFile(docPath)
 	if err != nil {
 		t.Fatal("user doc my-decision.json was deleted during upgrade")
@@ -320,7 +320,7 @@ func TestUpgradeCmd_CreatesLogsDir(t *testing.T) {
 	}
 
 	// logs/ dir should exist now at the flat location.
-	logsDir := filepath.Join(dir, ".leo", "logs")
+	logsDir := filepath.Join(dir, ".mom", "logs")
 	info, err := os.Stat(logsDir)
 	if err != nil {
 		t.Fatal("logs dir not created during upgrade")
@@ -339,7 +339,7 @@ func TestUpgradeCmd_DryRun(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Read schema before (still in legacy location since dry-run, but the file is there from setupV060Project).
-	schemaBefore, _ := os.ReadFile(filepath.Join(dir, ".leo", "kb", "schema.json"))
+	schemaBefore, _ := os.ReadFile(filepath.Join(dir, ".mom", "kb", "schema.json"))
 
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
@@ -351,7 +351,7 @@ func TestUpgradeCmd_DryRun(t *testing.T) {
 	}
 
 	// Schema should NOT have changed (dry-run leaves kb/ in place).
-	schemaAfter, _ := os.ReadFile(filepath.Join(dir, ".leo", "kb", "schema.json"))
+	schemaAfter, _ := os.ReadFile(filepath.Join(dir, ".mom", "kb", "schema.json"))
 	if string(schemaBefore) != string(schemaAfter) {
 		t.Error("dry-run modified schema.json")
 	}
@@ -362,7 +362,7 @@ func TestUpgradeCmd_DryRun(t *testing.T) {
 	}
 
 	// profiles/ should still exist (dry-run doesn't remove it).
-	if _, err := os.Stat(filepath.Join(dir, ".leo", "profiles")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".mom", "profiles")); err != nil {
 		t.Error("dry-run should not have removed profiles/")
 	}
 }
@@ -370,7 +370,7 @@ func TestUpgradeCmd_DryRun(t *testing.T) {
 func TestUpgradeCmd_MigratesMetricDocs(t *testing.T) {
 	resetUpgradeFlags(t)
 	dir := setupV060Project(t)
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Write a doc with type "metric".
 	metricDoc := map[string]interface{}{
@@ -519,11 +519,11 @@ func TestUpgradeCmd_MigratesKBLayout(t *testing.T) {
 		t.Fatalf("upgrade failed: %v\noutput:\n%s", err, buf.String())
 	}
 
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// kb/ must be gone after migration.
 	if _, err := os.Stat(filepath.Join(leoDir, "kb")); err == nil {
-		t.Error("legacy .leo/kb/ should have been removed after migration")
+		t.Error("legacy .mom/kb/ should have been removed after migration")
 	}
 
 	// memory/ must exist (was kb/docs/).
@@ -587,7 +587,7 @@ func TestUpgradeCmd_MigrationIdempotent(t *testing.T) {
 		t.Fatalf("second upgrade (idempotent) failed: %v\noutput:\n%s", err, buf.String())
 	}
 
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 	if _, err := os.Stat(filepath.Join(leoDir, "kb")); err == nil {
 		t.Error("kb/ should not reappear on second upgrade")
 	}
@@ -596,7 +596,7 @@ func TestUpgradeCmd_MigrationIdempotent(t *testing.T) {
 func TestUpgradeCmd_PartialMigrationSkipsExisting(t *testing.T) {
 	resetUpgradeFlags(t)
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Set up a partial migration: kb/docs AND memory/ both exist (memory/ wins — skip kb/docs).
 	// Also include constraints/ and skills/ at the new flat locations (already migrated).
@@ -655,11 +655,11 @@ func TestInitCmd_NewLayout_NoKBDir(t *testing.T) {
 		t.Fatalf("init failed: %v", err)
 	}
 
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// kb/ must NEVER be created by init.
 	if _, err := os.Stat(filepath.Join(leoDir, "kb")); err == nil {
-		t.Error("init must not create legacy .leo/kb/ directory")
+		t.Error("init must not create legacy .mom/kb/ directory")
 	}
 
 	// New flat layout must be created.
@@ -682,7 +682,7 @@ func TestInitCmd_NewLayout_NoKBDir(t *testing.T) {
 func TestUpgradeCmd_ScrubsDeadConfigFields(t *testing.T) {
 	resetUpgradeFlags(t)
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 	os.MkdirAll(leoDir, 0755)
 	os.MkdirAll(filepath.Join(leoDir, "constraints"), 0755)
 	os.MkdirAll(filepath.Join(leoDir, "skills"), 0755)
@@ -754,7 +754,7 @@ kb:
 func TestUpgradeCmd_MigratesFactASTToPattern(t *testing.T) {
 	resetUpgradeFlags(t)
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 	memDir := filepath.Join(leoDir, "memory")
 	os.MkdirAll(memDir, 0755)
 	os.MkdirAll(filepath.Join(leoDir, "constraints"), 0755)
@@ -881,7 +881,7 @@ func TestUpgradeCmd_MigratesFactASTToPattern(t *testing.T) {
 func TestUpgradeCmd_ScrubIdempotent(t *testing.T) {
 	resetUpgradeFlags(t)
 	dir := t.TempDir()
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 	os.MkdirAll(leoDir, 0755)
 	os.MkdirAll(filepath.Join(leoDir, "constraints"), 0755)
 	os.MkdirAll(filepath.Join(leoDir, "skills"), 0755)

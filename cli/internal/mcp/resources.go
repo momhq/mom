@@ -31,13 +31,13 @@ func allResources() []resourceDef {
 		{
 			URI:         "mom://identity",
 			Name:        "MOM Identity",
-			Description: "Identity document from the nearest .leo/ scope.",
+			Description: "Identity document from the nearest .mom/ scope.",
 			MIMEType:    "application/json",
 		},
 		{
 			URI:         "mom://constraints",
 			Name:        "MOM Constraints",
-			Description: "Constraint summaries from the nearest .leo/ scope.",
+			Description: "Constraint summaries from the nearest .mom/ scope.",
 			MIMEType:    "application/json",
 		},
 		{
@@ -82,9 +82,9 @@ func (s *Server) handleResourcesRead(params json.RawMessage) (any, *rpcError) {
 
 // readIdentity returns the identity.json from the nearest scope.
 func (s *Server) readIdentity() (any, *rpcError) {
-	// Look for identity.json in the leoDir first, then walk up.
-	candidates := []string{filepath.Join(s.leoDir, "identity.json")}
-	for _, sc := range scope.Walk(s.leoDir) {
+	// Look for identity.json in the momDir first, then walk up.
+	candidates := []string{filepath.Join(s.momDir, "identity.json")}
+	for _, sc := range scope.Walk(s.momDir) {
 		candidates = append(candidates, filepath.Join(sc.Path, "identity.json"))
 	}
 
@@ -109,7 +109,7 @@ func (s *Server) readIdentity() (any, *rpcError) {
 
 // readConstraints returns summaries of all constraint docs in the nearest scope.
 func (s *Server) readConstraints() (any, *rpcError) {
-	// Collect constraint JSON files from leoDir/constraints/ and walk-up scopes.
+	// Collect constraint JSON files from momDir/constraints/ and walk-up scopes.
 	type constraintSummary struct {
 		ID      string `json:"id"`
 		Summary string `json:"summary,omitempty"`
@@ -151,8 +151,8 @@ func (s *Server) readConstraints() (any, *rpcError) {
 		}
 	}
 
-	addFromDir(filepath.Join(s.leoDir, "constraints"))
-	for _, sc := range scope.Walk(s.leoDir) {
+	addFromDir(filepath.Join(s.momDir, "constraints"))
+	for _, sc := range scope.Walk(s.momDir) {
 		addFromDir(filepath.Join(sc.Path, "constraints"))
 	}
 
@@ -166,9 +166,9 @@ func (s *Server) readConstraints() (any, *rpcError) {
 
 // readScopes returns the scope hierarchy.
 func (s *Server) readScopes() (any, *rpcError) {
-	scopes := scope.Walk(s.leoDir)
+	scopes := scope.Walk(s.momDir)
 	if len(scopes) == 0 {
-		scopes = []scope.Scope{{Path: s.leoDir, Label: "repo"}}
+		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
 	}
 
 	type scopeEntry struct {

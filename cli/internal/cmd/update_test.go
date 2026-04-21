@@ -38,52 +38,52 @@ func coreDoc(id string, scope string, updated time.Time) []byte {
 
 // setupFakeCore creates a temp directory with the leo-core structure (new flat layout):
 //
-//	tmpCore/.leo/memory/
-//	tmpCore/.leo/schema.json
+//	tmpCore/.mom/memory/
+//	tmpCore/.mom/schema.json
 //
 // It returns the path to the tmpCore directory.
 func setupFakeCore(t *testing.T) string {
 	t.Helper()
 	core := t.TempDir()
 
-	docsDir := filepath.Join(core, ".leo", "memory")
+	docsDir := filepath.Join(core, ".mom", "memory")
 	if err := os.MkdirAll(docsDir, 0755); err != nil {
 		t.Fatalf("setupFakeCore: creating memory dir: %v", err)
 	}
 
 	schema := []byte(`{"version":"1","description":"Leo KB schema"}`)
-	if err := os.WriteFile(filepath.Join(core, ".leo", "schema.json"), schema, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(core, ".mom", "schema.json"), schema, 0644); err != nil {
 		t.Fatalf("setupFakeCore: writing schema: %v", err)
 	}
 
-	profilesDir := filepath.Join(core, ".leo", "profiles")
+	profilesDir := filepath.Join(core, ".mom", "profiles")
 	if err := os.MkdirAll(profilesDir, 0755); err != nil {
 		t.Fatalf("setupFakeCore: creating profiles dir: %v", err)
 	}
 
 	// Identity.json.
 	identity := []byte(`{"name":"Leo","version":"1"}`)
-	if err := os.WriteFile(filepath.Join(core, ".leo", "identity.json"), identity, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(core, ".mom", "identity.json"), identity, 0644); err != nil {
 		t.Fatalf("setupFakeCore: writing identity.json: %v", err)
 	}
 
 	return core
 }
 
-// addCoreDoc writes a doc JSON file into {core}/.leo/memory/.
+// addCoreDoc writes a doc JSON file into {core}/.mom/memory/.
 func addCoreDoc(t *testing.T, core, id, scope string, updated time.Time) {
 	t.Helper()
-	path := filepath.Join(core, ".leo", "memory", id+".json")
+	path := filepath.Join(core, ".mom", "memory", id+".json")
 	if err := os.WriteFile(path, coreDoc(id, scope, updated), 0644); err != nil {
 		t.Fatalf("addCoreDoc: %v", err)
 	}
 }
 
-// setupFakeProject creates a temp directory with the project .leo/ structure (new flat layout).
+// setupFakeProject creates a temp directory with the project .mom/ structure (new flat layout).
 func setupFakeProject(t *testing.T) string {
 	t.Helper()
 	proj := t.TempDir()
-	leoDir := filepath.Join(proj, ".leo")
+	leoDir := filepath.Join(proj, ".mom")
 	dirs := []string{
 		leoDir,
 		filepath.Join(leoDir, "memory"),
@@ -131,7 +131,7 @@ func runUpdateCmdWithInput(t *testing.T, projDir string, args []string, input st
 	updateCmd.Flags().Set("yes", "false")
 
 	origDir, _ := os.Getwd()
-	os.Chdir(filepath.Join(projDir)) // project root, not .leo/
+	os.Chdir(filepath.Join(projDir)) // project root, not .mom/
 	defer os.Chdir(origDir)
 
 	buf := new(bytes.Buffer)
@@ -176,7 +176,7 @@ func TestUpdateCmd_InvalidSource(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid source path")
 	}
-	if !strings.Contains(err.Error(), ".leo/memory") && !strings.Contains(err.Error(), ".leo/kb/docs") {
+	if !strings.Contains(err.Error(), ".mom/memory") && !strings.Contains(err.Error(), ".mom/kb/docs") {
 		t.Errorf("expected error about missing memory dir, got: %v", err)
 	}
 }
@@ -203,7 +203,7 @@ func TestUpdateCmd_DryRun(t *testing.T) {
 	}
 
 	// No files should have been copied.
-	entries, _ := os.ReadDir(filepath.Join(proj, ".leo", "memory"))
+	entries, _ := os.ReadDir(filepath.Join(proj, ".mom", "memory"))
 	if len(entries) > 0 {
 		t.Errorf("dry-run should not write files, found %d file(s)", len(entries))
 	}
@@ -222,7 +222,7 @@ func TestUpdateCmd_AddsNewDocs(t *testing.T) {
 		t.Fatalf("update failed: %v", err)
 	}
 
-	docsDir := filepath.Join(proj, ".leo", "memory")
+	docsDir := filepath.Join(proj, ".mom", "memory")
 	for _, id := range []string{"evidence-over-claim", "anti-hallucination"} {
 		p := filepath.Join(docsDir, id+".json")
 		if _, err := os.Stat(p); err != nil {
@@ -242,7 +242,7 @@ func TestUpdateCmd_UpdatesNewerDocs(t *testing.T) {
 	addCoreDoc(t, core, "my-rule", "core", t2)
 
 	// Write project doc with t1.
-	projDocPath := filepath.Join(proj, ".leo", "memory", "my-rule.json")
+	projDocPath := filepath.Join(proj, ".mom", "memory", "my-rule.json")
 	if err := os.WriteFile(projDocPath, coreDoc("my-rule", "core", t1), 0644); err != nil {
 		t.Fatalf("writing project doc: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestUpdateCmd_SkipsUnchangedDocs(t *testing.T) {
 	addCoreDoc(t, core, "stable-rule", "core", ts)
 
 	// Project already has the same doc with the same timestamp.
-	projDocPath := filepath.Join(proj, ".leo", "memory", "stable-rule.json")
+	projDocPath := filepath.Join(proj, ".mom", "memory", "stable-rule.json")
 	origContent := coreDoc("stable-rule", "core", ts)
 	if err := os.WriteFile(projDocPath, origContent, 0644); err != nil {
 		t.Fatalf("writing project doc: %v", err)
@@ -301,7 +301,7 @@ func TestUpdateCmd_PreservesProjectDocs(t *testing.T) {
 	addCoreDoc(t, core, "core-rule", "core", t1)
 
 	// Project has its own project-scoped doc.
-	projDocPath := filepath.Join(proj, ".leo", "memory", "project-decision.json")
+	projDocPath := filepath.Join(proj, ".mom", "memory", "project-decision.json")
 	projDocContent := coreDoc("project-decision", "project", t1)
 	if err := os.WriteFile(projDocPath, projDocContent, 0644); err != nil {
 		t.Fatalf("writing project doc: %v", err)
@@ -332,11 +332,11 @@ func TestUpdateCmd_SyncsSchema(t *testing.T) {
 	}
 
 	// Project schema should now match core schema.
-	projSchema, err := os.ReadFile(filepath.Join(proj, ".leo", "schema.json"))
+	projSchema, err := os.ReadFile(filepath.Join(proj, ".mom", "schema.json"))
 	if err != nil {
 		t.Fatalf("reading project schema: %v", err)
 	}
-	coreSchema, err := os.ReadFile(filepath.Join(core, ".leo", "schema.json"))
+	coreSchema, err := os.ReadFile(filepath.Join(core, ".mom", "schema.json"))
 	if err != nil {
 		t.Fatalf("reading core schema: %v", err)
 	}
@@ -345,10 +345,10 @@ func TestUpdateCmd_SyncsSchema(t *testing.T) {
 	}
 }
 
-// addCoreProfile writes a profile YAML file into {core}/.leo/profiles/.
+// addCoreProfile writes a profile YAML file into {core}/.mom/profiles/.
 func addCoreProfile(t *testing.T, core, name, content string) {
 	t.Helper()
-	dir := filepath.Join(core, ".leo", "profiles")
+	dir := filepath.Join(core, ".mom", "profiles")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatalf("addCoreProfile: creating profiles dir: %v", err)
 	}
@@ -358,10 +358,10 @@ func addCoreProfile(t *testing.T, core, name, content string) {
 	}
 }
 
-// addProjectProfile writes a profile YAML file into {proj}/.leo/profiles/.
+// addProjectProfile writes a profile YAML file into {proj}/.mom/profiles/.
 func addProjectProfile(t *testing.T, proj, name, content string) {
 	t.Helper()
-	dir := filepath.Join(proj, ".leo", "profiles")
+	dir := filepath.Join(proj, ".mom", "profiles")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatalf("addProjectProfile: creating profiles dir: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestUpdateCmd_AddsNewProfiles(t *testing.T) {
 	}
 
 	// Both profiles should have been copied.
-	profilesDir := filepath.Join(proj, ".leo", "profiles")
+	profilesDir := filepath.Join(proj, ".mom", "profiles")
 	for _, name := range []string{"go-specialist", "security-reviewer"} {
 		p := filepath.Join(profilesDir, name+".yaml")
 		if _, err := os.Stat(p); err != nil {
@@ -415,7 +415,7 @@ func TestUpdateCmd_KeepsConflictingProfilesWithYes(t *testing.T) {
 	}
 
 	// With --yes, safe default is to KEEP local (don't replace).
-	data, err := os.ReadFile(filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml"))
+	data, err := os.ReadFile(filepath.Join(proj, ".mom", "profiles", "go-specialist.yaml"))
 	if err != nil {
 		t.Fatalf("reading profile: %v", err)
 	}
@@ -441,7 +441,7 @@ func TestUpdateCmd_ReplacesConflictProfileInteractively(t *testing.T) {
 	}
 
 	// Profile should have been replaced with core version.
-	data, err := os.ReadFile(filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml"))
+	data, err := os.ReadFile(filepath.Join(proj, ".mom", "profiles", "go-specialist.yaml"))
 	if err != nil {
 		t.Fatalf("reading profile: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestUpdateCmd_KeepsConflictProfileInteractively(t *testing.T) {
 	}
 
 	// Profile should still have the local content.
-	data, err := os.ReadFile(filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml"))
+	data, err := os.ReadFile(filepath.Join(proj, ".mom", "profiles", "go-specialist.yaml"))
 	if err != nil {
 		t.Fatalf("reading profile: %v", err)
 	}
@@ -485,7 +485,7 @@ func TestUpdateCmd_SkipsUnchangedProfiles(t *testing.T) {
 	addCoreProfile(t, core, "go-specialist", content)
 
 	// Record modification time before update.
-	profPath := filepath.Join(proj, ".leo", "profiles", "go-specialist.yaml")
+	profPath := filepath.Join(proj, ".mom", "profiles", "go-specialist.yaml")
 	info, _ := os.Stat(profPath)
 	modBefore := info.ModTime()
 
@@ -531,7 +531,7 @@ func TestUpdateCmd_DryRunShowsProfiles(t *testing.T) {
 	}
 
 	// No profile files should have been written.
-	profilesDir := filepath.Join(proj, ".leo", "profiles")
+	profilesDir := filepath.Join(proj, ".mom", "profiles")
 	entries, _ := os.ReadDir(profilesDir)
 	// Only the one we placed (security-reviewer) should be there, not go-specialist.
 	for _, e := range entries {
@@ -556,7 +556,7 @@ func TestUpdateCmd_SkipsNonCoreScopeDocs(t *testing.T) {
 		t.Fatalf("update failed: %v", err)
 	}
 
-	docsDir := filepath.Join(proj, ".leo", "memory")
+	docsDir := filepath.Join(proj, ".mom", "memory")
 
 	// project-specific should NOT be copied.
 	if _, err := os.Stat(filepath.Join(docsDir, "project-specific.json")); err == nil {

@@ -79,9 +79,9 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestLeoDir(t *testing.T) {
-	got := LeoDir("/home/user/project")
-	expected := filepath.Join("/home/user/project", ".leo")
+func TestMomDir(t *testing.T) {
+	got := MomDir("/home/user/project")
+	expected := filepath.Join("/home/user/project", ".mom")
 	if got != expected {
 		t.Errorf("expected %q, got %q", expected, got)
 	}

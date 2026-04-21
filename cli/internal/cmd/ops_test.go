@@ -12,12 +12,12 @@ import (
 	"github.com/vmarinogg/leo-core/cli/internal/config"
 )
 
-// setupTestKBWithConfig creates a .leo/ with config.yaml and returns the temp dir.
+// setupTestKBWithConfig creates a .mom/ with config.yaml and returns the temp dir.
 func setupTestKBWithConfig(t *testing.T, runtime string) string {
 	t.Helper()
 	dir := setupTestKB(t) // reuse existing helper from kb_test.go
 
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Write a real config.yaml.
 	cfg := config.Default()
@@ -163,7 +163,7 @@ func TestDoctorCmd_AllChecksPass(t *testing.T) {
 }
 
 func TestDoctorCmd_MissingLeoDir(t *testing.T) {
-	dir := t.TempDir() // no .leo/ at all
+	dir := t.TempDir() // no .mom/ at all
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
@@ -175,13 +175,13 @@ func TestDoctorCmd_MissingLeoDir(t *testing.T) {
 	rootCmd.SetArgs([]string{"doctor"})
 
 	if err := rootCmd.Execute(); err == nil {
-		t.Fatal("expected error when .leo/ is missing")
+		t.Fatal("expected error when .mom/ is missing")
 	}
 }
 
 func TestDoctorCmd_InvalidConfigYaml(t *testing.T) {
 	dir := setupTestKB(t)
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Write malformed YAML — {unclosed is guaranteed to fail yaml.Unmarshal.
 	os.WriteFile(filepath.Join(leoDir, "config.yaml"), []byte("{unclosed\n"), 0644)
@@ -250,7 +250,7 @@ func TestDoctorCmd_ShowsScopesSection(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(origDir)
 
-	// Set HOME to dir so scope.Walk finds the .leo/ there.
+	// Set HOME to dir so scope.Walk finds the .mom/ there.
 	t.Setenv("HOME", dir)
 
 	buf := new(bytes.Buffer)
@@ -272,7 +272,7 @@ func TestDoctorCmd_ShowsScopesSection(t *testing.T) {
 
 func TestDoctorCmd_InvalidDocFails(t *testing.T) {
 	dir := setupTestKBWithConfig(t, "claude")
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Write a corrupt JSON doc directly (bypassing adapter validation).
 	corruptDoc := []byte(`{"id": "corrupt", "type": ""}`)
@@ -299,7 +299,7 @@ func TestDoctorCmd_InvalidDocFails(t *testing.T) {
 
 func TestDoctorCmd_InvalidProfileWarns(t *testing.T) {
 	dir := setupTestKBWithConfig(t, "claude")
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 	profilesDir := filepath.Join(leoDir, "profiles")
 
 	// Write a bad YAML profile — {unclosed is guaranteed to fail yaml.Unmarshal.
@@ -326,7 +326,7 @@ func TestDoctorCmd_InvalidProfileWarns(t *testing.T) {
 
 func TestDoctorCmd_OrphanIndexEntry(t *testing.T) {
 	dir := setupTestKBWithConfig(t, "claude")
-	leoDir := filepath.Join(dir, ".leo")
+	leoDir := filepath.Join(dir, ".mom")
 
 	// Write a doc, then remove it from disk (leaving index orphan).
 	writeTestDoc(t, dir, sampleDoc("orphan-doc"))

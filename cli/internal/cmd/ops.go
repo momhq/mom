@@ -23,13 +23,13 @@ var statusCmd = &cobra.Command{
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
-	Short: "Check .leo/ health and diagnose issues",
+	Short: "Check .mom/ health and diagnose issues",
 	RunE:  runDoctor,
 }
 
 // runStatus implements `leo status`.
 func runStatus(cmd *cobra.Command, args []string) error {
-	leoDir, err := findLeoDir()
+	leoDir, err := findMomDir()
 	if err != nil {
 		return err
 	}

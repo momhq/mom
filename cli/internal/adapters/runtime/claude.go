@@ -15,7 +15,7 @@ import (
 var claudeCapabilitiesYAML []byte
 
 // ClaudeAdapter implements the Adapter interface for Claude Code.
-// It reads from .leo/ and generates .claude/CLAUDE.md + settings.json.
+// It reads from .mom/ and generates .claude/CLAUDE.md + settings.json.
 type ClaudeAdapter struct {
 	projectRoot string
 }

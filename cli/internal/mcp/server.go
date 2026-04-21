@@ -53,12 +53,12 @@ type rpcError struct {
 
 // Server is the MCP server instance.
 type Server struct {
-	leoDir string
+	momDir string
 }
 
-// New creates a new Server rooted at the given .leo/ directory.
+// New creates a new Server rooted at the given .mom/ directory.
 func New(leoDir string) *Server {
-	return &Server{leoDir: leoDir}
+	return &Server{momDir: leoDir}
 }
 
 // Serve runs the JSON-RPC 2.0 stdio loop. It reads newline-delimited requests
@@ -69,7 +69,7 @@ func New(leoDir string) *Server {
 // stderr.
 func (s *Server) Serve(in io.Reader, out io.Writer) {
 	fmt.Fprintf(os.Stderr, "MOM MCP server v%s | scope: %s | listening on stdio\n",
-		Version, s.leoDir)
+		Version, s.momDir)
 
 	// Open log file in append mode.
 	logFile := s.openLog()
@@ -161,7 +161,7 @@ func (s *Server) handleInitialize(_ json.RawMessage) (any, *rpcError) {
 // openLog opens (or creates) the MCP server log file in append mode.
 // Returns nil on failure so the caller can handle nil gracefully.
 func (s *Server) openLog() *os.File {
-	logDir := s.leoDir + "/logs"
+	logDir := s.momDir + "/logs"
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil
 	}

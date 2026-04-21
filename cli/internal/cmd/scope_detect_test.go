@@ -160,7 +160,7 @@ func TestDiscoverUninitializedChildRepos_ReturnsReposWithoutLeo(t *testing.T) {
 	// repo2: has .git and .leo → should not appear
 	r2 := filepath.Join(dir, "repo2")
 	os.MkdirAll(filepath.Join(r2, ".git"), 0755)
-	os.MkdirAll(filepath.Join(r2, ".leo"), 0755)
+	os.MkdirAll(filepath.Join(r2, ".mom"), 0755)
 	// repo3: no .git → should not appear
 	r3 := filepath.Join(dir, "repo3")
 	os.MkdirAll(r3, 0755)

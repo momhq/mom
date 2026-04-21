@@ -25,7 +25,7 @@ func init() {
 	doctorCmd.Flags().Bool("bundle", false, "Print a redacted diagnostic bundle to stdout")
 
 	// Update doctor command metadata.
-	doctorCmd.Long = `Check .leo/ health and diagnose issues.
+	doctorCmd.Long = `Check .mom/ health and diagnose issues.
 
 No network calls; this command reads only local files.
 
@@ -58,26 +58,26 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 // ─── base doctor ──────────────────────────────────────────────────────────────
 
 func runDoctorBase(cmd *cobra.Command, verbose bool) error {
-	leoDir, err := findLeoDir()
+	leoDir, err := findMomDir()
 	if err != nil {
-		cmd.Printf("✗ .leo/ directory: not found — run 'leo init' first\n")
+		cmd.Printf("✗ .mom/ directory: not found — run 'mom init' first\n")
 		return err
 	}
 
-	// Detect legacy layout (.leo/kb/ present = pre-v0.8.0 install).
+	// Detect legacy layout (.mom/kb/ present = pre-v0.8.0 install).
 	if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
-		cmd.Printf("⚠ Legacy layout detected (.leo/kb/ present)\n  Run 'leo upgrade' to migrate to the v0.8.0 flat layout.\n")
+		cmd.Printf("⚠ Legacy layout detected (.mom/kb/ present)\n  Run 'mom upgrade' to migrate to the v0.8.0 flat layout.\n")
 		return nil
 	}
 
 	failed := false
 
-	// Check 1: .leo/ exists and is writable.
+	// Check 1: .mom/ exists and is writable.
 	if err := checkDirWritable(leoDir); err != nil {
-		cmd.Printf("✗ .leo/ directory: %v\n", err)
+		cmd.Printf("✗ .mom/ directory: %v\n", err)
 		failed = true
 	} else {
-		cmd.Printf("✔ .leo/ directory: exists and writable\n")
+		cmd.Printf("✔ .mom/ directory: exists and writable\n")
 	}
 
 	// Check 2: config.yaml is valid.
@@ -243,7 +243,7 @@ func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
 	}
 
 	// Capture pipeline latency from telemetry.
-	leoDir, err := findLeoDir()
+	leoDir, err := findMomDir()
 	if err == nil {
 		telDir := filepath.Join(leoDir, "telemetry")
 		printCapturePipelineLatency(cmd, telDir)
@@ -322,7 +322,7 @@ func printExtractorModelUsage(cmd *cobra.Command, telDir string) {
 // ─── --telemetry-preview ──────────────────────────────────────────────────────
 
 func runDoctorTelemetryPreview(cmd *cobra.Command) error {
-	leoDir, leoDirErr := findLeoDir()
+	leoDir, leoDirErr := findMomDir()
 
 	// Config for telemetry enabled status.
 	var telEnabled bool
@@ -338,13 +338,13 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 	cmd.Printf("Telemetry mode: LOCAL-ONLY (no network calls)\n")
 	if !telEnabled {
 		cmd.Printf("Status: disabled\n")
-		cmd.Printf("\nTo enable: set telemetry.enabled: true in .leo/config.yaml\n")
+		cmd.Printf("\nTo enable: set telemetry.enabled: true in .mom/config.yaml\n")
 		return nil
 	}
 	cmd.Printf("Status: enabled\n")
 
 	if leoDirErr != nil {
-		cmd.Printf("\n(no .leo/ directory found)\n")
+		cmd.Printf("\n(no .mom/ directory found)\n")
 		return nil
 	}
 
@@ -405,10 +405,10 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 		} else {
 			sizeStr = fmt.Sprintf("%.1f KB", float64(size)/1024)
 		}
-		rel := ".leo/telemetry/" + today + ".jsonl"
+		rel := ".mom/telemetry/" + today + ".jsonl"
 		cmd.Printf("\nFull file: %s (%s)\n", rel, sizeStr)
 	} else {
-		cmd.Printf("\nFull file: .leo/telemetry/%s.jsonl (not yet created)\n", today)
+		cmd.Printf("\nFull file: .mom/telemetry/%s.jsonl (not yet created)\n", today)
 	}
 
 	return nil
@@ -426,7 +426,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .leo/ directory found. Run 'leo init' first.\n")
+		cmd.Printf("No .mom/ directory found. Run 'mom init' first.\n")
 		return nil
 	}
 
@@ -448,7 +448,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(jsonFiles) < landmarkComputationThreshold {
-		cmd.Printf("No landmarks computed yet. Run 'leo reindex --landmarks' to compute.\n")
+		cmd.Printf("No landmarks computed yet. Run 'mom reindex --landmarks' to compute.\n")
 		cmd.Printf("(Graph below computation threshold: %d/%d memories)\n", len(jsonFiles), landmarkComputationThreshold)
 		return nil
 	}
@@ -470,7 +470,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks found. Run 'leo reindex --landmarks' to compute.\n")
+		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' to compute.\n")
 		return nil
 	}
 
@@ -535,10 +535,10 @@ func runDoctorBundle(cmd *cobra.Command) error {
 	cmd.Printf("OS:   %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	cmd.Printf("\n")
 
-	leoDir, leoDirErr := findLeoDir()
+	leoDir, leoDirErr := findMomDir()
 	if leoDirErr != nil {
 		cmd.Printf("--- Error ---\n")
-		cmd.Printf(".leo/ directory not found. Run 'leo init' first.\n")
+		cmd.Printf(".mom/ directory not found. Run 'mom init' first.\n")
 		return nil
 	}
 

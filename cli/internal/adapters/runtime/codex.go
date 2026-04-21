@@ -13,7 +13,7 @@ import (
 var codexCapabilitiesYAML []byte
 
 // CodexAdapter implements the Adapter interface for OpenAI Codex.
-// It reads from .leo/ and generates AGENTS.md at the project root.
+// It reads from .mom/ and generates AGENTS.md at the project root.
 type CodexAdapter struct {
 	projectRoot string
 }

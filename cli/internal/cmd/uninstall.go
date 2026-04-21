@@ -15,7 +15,7 @@ import (
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Remove all Leo files from this project",
-	Long: `Removes .leo/ directory and any generated runtime files (e.g. .claude/CLAUDE.md, AGENTS.md).
+	Long: `Removes .mom/ directory and any generated runtime files (e.g. .claude/CLAUDE.md, AGENTS.md).
 Optionally backs up your KB before removal using the export command.`,
 	RunE: runUninstall,
 }
@@ -23,7 +23,7 @@ Optionally backs up your KB before removal using the export command.`,
 func init() {
 	uninstallCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	uninstallCmd.Flags().Bool("no-backup", false, "Skip backup prompt — delete without exporting")
-	uninstallCmd.Flags().Bool("force", false, "Force removal even if .leo/ is not found")
+	uninstallCmd.Flags().Bool("force", false, "Force removal even if .mom/ is not found")
 }
 
 func runUninstall(cmd *cobra.Command, args []string) error {
@@ -32,12 +32,12 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("getting cwd: %w", err)
 	}
 
-	leoDir := filepath.Join(cwd, ".leo")
+	leoDir := filepath.Join(cwd, ".mom")
 	hasLeoDir := true
 	if _, err := os.Stat(leoDir); err != nil {
 		force, _ := cmd.Flags().GetBool("force")
 		if !force {
-			return fmt.Errorf("no .leo/ directory found in %s", cwd)
+			return fmt.Errorf("no .mom/ directory found in %s", cwd)
 		}
 		hasLeoDir = false
 	}
@@ -83,7 +83,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 	if !yes {
 		cmd.Println("This will remove all Leo files from this project:")
 		if hasLeoDir {
-			cmd.Println("  - .leo/ (config, KB, profiles, cache)")
+			cmd.Println("  - .mom/ (config, KB, profiles, cache)")
 		}
 		for _, adapter := range adapters {
 			for _, f := range adapter.GeneratedFiles() {
@@ -129,12 +129,12 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Remove .leo/.
+	// Remove .mom/.
 	if hasLeoDir {
 		if err := os.RemoveAll(leoDir); err != nil {
-			return fmt.Errorf("removing .leo/: %w", err)
+			return fmt.Errorf("removing .mom/: %w", err)
 		}
-		cmd.Println("  ✔ Removed .leo/")
+		cmd.Println("  ✔ Removed .mom/")
 	}
 
 	// Remove generated runtime files via adapters.
