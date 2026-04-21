@@ -1,4 +1,4 @@
-package kb
+package memory
 
 import (
 	"os"

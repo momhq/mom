@@ -307,7 +307,7 @@ func nodeTypeToKind(lang, nodeType string) string {
 		return "const"
 	default:
 		// Sanitise tree-sitter node types (e.g. "variable_declarator") to
-		// kebab-case so they are valid KB tags.
+		// kebab-case so they are valid memory tags.
 		return strings.ReplaceAll(nodeType, "_", "-")
 	}
 }

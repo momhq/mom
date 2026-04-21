@@ -20,7 +20,7 @@ type Config struct {
 	Runtimes      map[string]RuntimeConfig `yaml:"runtimes"`
 	User          UserConfig               `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
-	KB            KBConfig                 `yaml:"kb"`
+	Memory        MemoryConfig             `yaml:"memory"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
 	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
 }
@@ -79,10 +79,10 @@ type CommunicationConfig struct {
 	Mode string `yaml:"mode"`
 }
 
-// KBConfig holds KB settings.
+// MemoryConfig holds memory store settings.
 // AutoPropagate, WrapUp, and StaleThreshold were retired in v0.10 (#83) —
 // written to config but never enforced by any code.
-type KBConfig struct{}
+type MemoryConfig struct{}
 
 // Default returns a Config with sane defaults.
 func Default() Config {
@@ -97,7 +97,7 @@ func Default() Config {
 		Communication: CommunicationConfig{
 			Mode: "concise",
 		},
-		KB: KBConfig{},
+		Memory: MemoryConfig{},
 	}
 }
 
@@ -132,17 +132,27 @@ type legacyUserConfig struct {
 }
 
 // legacyConfig represents the v0.6.0 config format for migration.
+// The KB field uses yaml:"kb" to read legacy configs that still have the old key.
 type legacyConfig struct {
-	Version    string           `yaml:"version"`
-	Runtime    string           `yaml:"runtime"`
-	CoreSource string           `yaml:"core_source"`
-	Owner      legacyUserConfig `yaml:"owner"`
-	User       legacyUserConfig `yaml:"user"`
-	KB         KBConfig         `yaml:"kb"`
+	Version     string            `yaml:"version"`
+	Runtime     string            `yaml:"runtime"`
+	CoreSource  string            `yaml:"core_source"`
+	Owner       legacyUserConfig  `yaml:"owner"`
+	User        legacyUserConfig  `yaml:"user"`
+	KB          MemoryConfig      `yaml:"kb"`
+	Specialists legacySpecialists `yaml:"specialists"`
+}
+
+type legacySpecialists struct {
+	OrchestratorModel string `yaml:"orchestrator_model"`
+	DefaultModel      string `yaml:"default_model"`
+	SimpleTaskModel   string `yaml:"simple_task_model"`
+	Validation        string `yaml:"validation"`
 }
 
 // Load reads a config.yaml from the given .mom/ directory.
-// Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats.
+// Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats,
+// and migrates legacy kb: keys to memory: on load.
 func Load(leoDir string) (*Config, error) {
 	path := filepath.Join(leoDir, "config.yaml")
 	data, err := os.ReadFile(path)
@@ -163,6 +173,8 @@ func Load(leoDir string) (*Config, error) {
 		if cfg.Communication.Mode == "" {
 			cfg.Communication.Mode = "concise"
 		}
+		// Migrate legacy kb: key → memory: if present and memory: is empty.
+		cfg = migrateKBKey(data, cfg)
 		return &cfg, nil
 	}
 
@@ -182,6 +194,14 @@ func Load(leoDir string) (*Config, error) {
 		cfg.Runtimes = Default().Runtimes
 	}
 	return &cfg, nil
+}
+
+// migrateKBKey reads the raw YAML node tree to detect a legacy kb: key and
+// copies its value into cfg.Memory when the memory: key is absent/zero.
+// MemoryConfig fields were retired in v0.10 (#83), so this is now a no-op
+// kept for backward compatibility with configs that still have kb: keys.
+func migrateKBKey(_ []byte, cfg Config) Config {
+	return cfg
 }
 
 // migrateFromLegacy converts a v0.6.0 config to the new format.
@@ -217,7 +237,7 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 		},
 		User:          user,
 		Communication: CommunicationConfig{Mode: commMode},
-		KB:            legacy.KB,
+		Memory:        legacy.KB,
 	}
 }
 

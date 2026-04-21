@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 )
 
@@ -148,7 +148,7 @@ func runDemote(cmd *cobra.Command, args []string) error {
 // moveDoc reads a doc from srcPath, rewrites provenance, writes to dstLeoDir,
 // then removes the original. The provenanceTag is added to the doc's tags.
 func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *cobra.Command) error {
-	doc, err := kb.LoadDoc(srcDocPath)
+	doc, err := memory.LoadDoc(srcDocPath)
 	if err != nil {
 		return fmt.Errorf("reading doc: %w", err)
 	}
@@ -174,7 +174,7 @@ func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *co
 	}
 
 	dstDocPath := filepath.Join(dstMemDir, id+".json")
-	if err := kb.SaveDoc(dstDocPath, doc); err != nil {
+	if err := memory.SaveDoc(dstDocPath, doc); err != nil {
 		return fmt.Errorf("writing doc to destination: %w", err)
 	}
 

@@ -10,19 +10,19 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 )
 
 var exportCmd = &cobra.Command{
 	Use:   "export [path]",
-	Short: "Export KB to a portable format",
+	Short: "Export memory to a portable format",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runExport,
 }
 
 var importCmd = &cobra.Command{
 	Use:   "import [path]",
-	Short: "Import KB from a portable format",
+	Short: "Import memory from a portable format",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runImport,
 }
@@ -30,7 +30,7 @@ var importCmd = &cobra.Command{
 func init() {
 	exportCmd.Flags().String("output", "", "Output directory path (default: ./mom-export)")
 	importCmd.Flags().Bool("merge", false, "Merge: keep existing docs, add new, skip conflicts (default)")
-	importCmd.Flags().Bool("replace", false, "Replace: back up current KB, then replace entirely")
+	importCmd.Flags().Bool("replace", false, "Replace: back up current memory, then replace entirely")
 }
 
 // runExport implements the leo export command.
@@ -213,7 +213,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		srcPath := filepath.Join(srcDocsDir, e.Name())
 
 		// Validate the doc.
-		kbDoc, err := kb.LoadDoc(srcPath)
+		kbDoc, err := memory.LoadDoc(srcPath)
 		if err != nil {
 			cmd.Printf("  error: %s: cannot parse: %v\n", e.Name(), err)
 			errCount++

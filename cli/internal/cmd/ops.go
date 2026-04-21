@@ -11,13 +11,13 @@ import (
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/runtime"
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
 	"github.com/vmarinogg/leo-core/cli/internal/config"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 )
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show KB status summary",
+	Short: "Show memory status summary",
 	RunE:  runStatus,
 }
 
@@ -149,7 +149,7 @@ func validateAllDocs(cmd *cobra.Command, dir string, label string) (int, map[str
 		}
 
 		path := filepath.Join(dir, e.Name())
-		doc, loadErr := kb.LoadDoc(path)
+		doc, loadErr := memory.LoadDoc(path)
 		if loadErr != nil {
 			cmd.Printf("✗ %s %s: %v\n", label, e.Name(), loadErr)
 			errors++

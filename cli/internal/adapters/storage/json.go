@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 )
 
 // JSONAdapter implements the Adapter interface using flat JSON files
@@ -29,7 +29,7 @@ func NewJSONAdapter(leoDir string) *JSONAdapter {
 
 func (a *JSONAdapter) Read(id string) (*Doc, error) {
 	path := filepath.Join(a.docsDir, id+".json")
-	kbDoc, err := kb.LoadDoc(path)
+	kbDoc, err := memory.LoadDoc(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading doc %q: %w", id, err)
 	}
@@ -47,7 +47,7 @@ func (a *JSONAdapter) Write(doc *Doc) error {
 		return fmt.Errorf("creating docs dir: %w", err)
 	}
 
-	if err := kb.SaveDoc(path, kbDoc); err != nil {
+	if err := memory.SaveDoc(path, kbDoc); err != nil {
 		return err
 	}
 
@@ -113,7 +113,7 @@ func (a *JSONAdapter) BulkWrite(docs []*Doc) error {
 			return fmt.Errorf("creating docs dir: %w", err)
 		}
 
-		if err := kb.SaveDoc(path, kbDoc); err != nil {
+		if err := memory.SaveDoc(path, kbDoc); err != nil {
 			return err
 		}
 	}
@@ -146,7 +146,7 @@ func (a *JSONAdapter) rebuildIndex() error {
 		}
 
 		path := filepath.Join(a.docsDir, e.Name())
-		doc, err := kb.LoadDoc(path)
+		doc, err := memory.LoadDoc(path)
 		if err != nil {
 			continue
 		}
@@ -308,8 +308,8 @@ func intersect(a, b []string) []string {
 	return result
 }
 
-// Conversion helpers between storage.Doc and kb.Doc.
-func kbDocToStorage(d *kb.Doc) *Doc {
+// Conversion helpers between storage.Doc and memory.Doc.
+func kbDocToStorage(d *memory.Doc) *Doc {
 	return &Doc{
 		ID:              d.ID,
 		Type:            d.Type,
@@ -333,8 +333,8 @@ func kbDocToStorage(d *kb.Doc) *Doc {
 	}
 }
 
-func storageDocToKB(d *Doc) *kb.Doc {
-	return &kb.Doc{
+func storageDocToKB(d *Doc) *memory.Doc {
+	return &memory.Doc{
 		ID:              d.ID,
 		Type:            d.Type,
 		Boot:            d.Boot,

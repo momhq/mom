@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/vmarinogg/leo-core/cli/internal/adapters/storage"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 )
 
 // makeScope creates a .leo/ with config.yaml and an optional memory dir.
@@ -25,10 +25,10 @@ func makeScope(t *testing.T, parent, scopeLabel string) string {
 	return leoDir
 }
 
-// writeDoc writes a minimal valid KB JSON doc to leoDir/memory/<id>.json.
+// writeDoc writes a minimal valid memory JSON doc to leoDir/memory/<id>.json.
 func writeDoc(t *testing.T, leoDir, id string) {
 	t.Helper()
-	doc := &kb.Doc{
+	doc := &memory.Doc{
 		ID:        id,
 		Type:      "fact",
 		Lifecycle: "permanent",

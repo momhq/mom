@@ -304,7 +304,7 @@ func TestConfigMultiRuntime(t *testing.T) {
 		},
 		User:          UserConfig{Language: "en"},
 		Communication: CommunicationConfig{Mode: "concise"},
-		KB:            KBConfig{},
+		Memory:        MemoryConfig{},
 	}
 
 	if err := Save(dir, &cfg); err != nil {

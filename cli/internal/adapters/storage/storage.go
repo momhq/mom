@@ -1,13 +1,13 @@
-// Package storage defines the StorageAdapter interface for KB persistence.
+// Package storage defines the StorageAdapter interface for memory persistence.
 package storage
 
 import (
 	"time"
 
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 )
 
-// Doc represents a KB document in the storage layer.
+// Doc represents a memory document in the storage layer.
 type Doc struct {
 	ID              string              `json:"id"`
 	Type            string              `json:"type"`
@@ -24,13 +24,13 @@ type Doc struct {
 	PromotionState  string              `json:"promotion_state,omitempty"`
 	Classification  string              `json:"classification,omitempty"`
 	Compartments    map[string][]string `json:"compartments,omitempty"`
-	Provenance      *kb.Provenance      `json:"provenance,omitempty"`
+	Provenance      *memory.Provenance      `json:"provenance,omitempty"`
 	Landmark        bool                `json:"landmark,omitempty"`
 	CentralityScore *float64            `json:"centrality_score,omitempty"`
 	Content         map[string]any      `json:"content"`
 }
 
-// Index represents the KB index.
+// Index represents the memory index.
 type Index struct {
 	Version     string              `json:"version"`
 	LastRebuilt string              `json:"last_rebuilt"`
@@ -40,7 +40,7 @@ type Index struct {
 	ByLifecycle map[string][]string `json:"by_lifecycle"`
 }
 
-// QueryFilter defines criteria for querying KB documents.
+// QueryFilter defines criteria for querying memory documents.
 type QueryFilter struct {
 	Tags      []string
 	Type      string

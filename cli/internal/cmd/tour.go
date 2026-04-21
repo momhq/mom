@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vmarinogg/leo-core/cli/internal/gardener"
-	"github.com/vmarinogg/leo-core/cli/internal/kb"
+	"github.com/vmarinogg/leo-core/cli/internal/memory"
 	"github.com/vmarinogg/leo-core/cli/internal/scope"
 )
 
@@ -77,7 +77,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	}
 
 	type landmarkEntry struct {
-		doc   *kb.Doc
+		doc   *memory.Doc
 		score float64
 	}
 
@@ -86,7 +86,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 			continue
 		}
-		doc, err := kb.LoadDoc(filepath.Join(memDir, e.Name()))
+		doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
 		if err != nil {
 			continue
 		}
