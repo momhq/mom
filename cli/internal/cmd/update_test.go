@@ -62,7 +62,7 @@ func setupFakeCore(t *testing.T) string {
 	}
 
 	// Identity.json.
-	identity := []byte(`{"name":"Leo","version":"1"}`)
+	identity := []byte(`{"name":"MOM","version":"1"}`)
 	if err := os.WriteFile(filepath.Join(core, ".leo", "identity.json"), identity, 0644); err != nil {
 		t.Fatalf("setupFakeCore: writing identity.json: %v", err)
 	}

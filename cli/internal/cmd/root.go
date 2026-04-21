@@ -6,7 +6,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "leo",
-	Short: "LEO — Living Ecosystem Orchestrator",
+	Short: "MOM — Memory Oriented Machine",
 	Long:  "A living knowledge infrastructure where humans and agents think, decide, and evolve together.",
 }
 

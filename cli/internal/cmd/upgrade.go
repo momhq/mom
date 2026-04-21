@@ -341,7 +341,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 	cmd.Println()
 	if !dryRun {
-		cmd.Println("L.E.O. is up to date. Run 'leo doctor' to verify health.")
+		cmd.Println("MOM is up to date. Run 'leo doctor' to verify health.")
 	}
 	return nil
 }
