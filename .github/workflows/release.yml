@@ -8,15 +8,13 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  test:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: cli
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
@@ -26,22 +24,81 @@ jobs:
       - name: Run tests
         run: go test ./...
 
-      - name: Build all platforms
-        run: make build-all
+  build:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: macos-13
+            goos: darwin
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: cli/go.sum
+
+      - name: Install cross-compiler
+        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CC=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          BINARY="mom-${{ matrix.goos }}-${{ matrix.goarch }}"
+          go build -ldflags "-s -w \
+            -X github.com/momhq/mom/cli/internal/cmd.Version=${GITHUB_REF#refs/tags/} \
+            -X github.com/momhq/mom/cli/internal/cmd.Commit=${GITHUB_SHA::7}" \
+            -o "bin/${BINARY}" ./cmd/mom
+
+      - name: Compress
+        run: gzip -k bin/mom-*
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mom-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: cli/bin/mom-*.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
 
       - name: Create GitHub Release
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          cd bin
-          # Compress binaries
-          for f in mom-*; do
-            gzip -k "$f"
-          done
-          cd ..
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
-            bin/mom-*.gz
+            artifacts/mom-*.gz
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -49,10 +106,8 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
-          # Get the source tarball SHA
           TARBALL_URL="https://github.com/momhq/mom/archive/refs/tags/${TAG}.tar.gz"
           SHA256=$(curl -sL "$TARBALL_URL" | sha256sum | awk '{print $1}')
-          # Dispatch to homebrew-tap repo
           gh api repos/momhq/homebrew-tap/dispatches \
             -f event_type=update-formula \
             -f "client_payload[version]=$VERSION" \
