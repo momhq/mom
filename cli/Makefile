@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 LDFLAGS  = -ldflags "-X github.com/vmarinogg/leo-core/cli/internal/cmd.Version=$(VERSION) -X github.com/vmarinogg/leo-core/cli/internal/cmd.Commit=$(COMMIT)"
 
-.PHONY: build test lint clean install
+.PHONY: build test lint clean install brew-audit
 
 build:
 	go build $(LDFLAGS) -o bin/leo ./cmd/leo
@@ -29,6 +29,9 @@ lint:
 
 clean:
 	rm -rf bin/
+
+brew-audit:
+	brew audit --formula ../Formula/mom.rb
 
 # Cross-compilation targets
 .PHONY: build-all
