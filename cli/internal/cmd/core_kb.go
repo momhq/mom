@@ -82,7 +82,7 @@ func coreConstraints() map[string]string {
       "Research: sources cited with URL, author, date",
       "Writing: final text pasted, not 'I wrote it and it's good'"
     ],
-    "responsibility": "All agents. Leo rejects deliveries without evidence.",
+    "responsibility": "All agents. MOM rejects deliveries without evidence.",
     "anti_patterns": [
       "'Build passed' without the output",
       "'Tested and it works' without describing what was tested",
@@ -103,15 +103,15 @@ func coreConstraints() map[string]string {
   "updated": "2026-04-17T00:00:00Z",
   "updated_by": "system",
   "content": {
-    "constraint": "Every session leaves one session-log doc in .mom/logs/. L.E.O. produces logs at wrap-up, never consumes them — monitoring is external.",
-    "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
+    "constraint": "Every session leaves one session-log doc in .mom/logs/. MOM produces logs at wrap-up, never consumes them — monitoring is external.",
+    "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If MOM forgets to log, the dataset becomes skewed.",
     "how_to_apply": [
       "Collection happens at session wrap-up via the session-wrap-up skill step 'Write session log'",
       "Session-logs include: tasks performed, wrap-up revision count",
       "Session-log docs are stored in .mom/logs/, never indexed, never loaded at boot",
       "External T1 scripts read session-log files from disk for metrics dashboards"
     ],
-    "responsibility": "Enforced by the session-wrap-up skill. L.E.O. provides the data, external scripts consume it.",
+    "responsibility": "Enforced by the session-wrap-up skill. MOM provides the data, external scripts consume it.",
     "anti_patterns": [
       "Skipping session-log for 'trivial' sessions",
       "Loading session-log docs at boot or during work",
@@ -140,7 +140,7 @@ func coreConstraints() map[string]string {
       "Safety net: if many decisions accumulate without a closing signal, ask once",
       "When in doubt about propagating mid-session, wait for wrap-up"
     ],
-    "responsibility": "Leo is solely responsible for propagation. Only Leo writes to the KB.",
+    "responsibility": "MOM is solely responsible for propagation. Only MOM writes to the KB.",
     "anti_patterns": [
       "Running full wrap-up without explicit trigger",
       "Writing 'current project status' docs that will be stale in a week",
@@ -168,7 +168,7 @@ func coreConstraints() map[string]string {
       "Project can add stricter rules but cannot disable or weaken a core constraint",
       "leo update syncs core-scoped docs to downstream projects"
     ],
-    "responsibility": "Leo loads both core and project docs. Leo can explain which came from core vs project.",
+    "responsibility": "MOM loads both core and project docs. MOM can explain which came from core vs project.",
     "anti_patterns": [
       "Removing core behavior from a project",
       "Inlining core content into project docs",
@@ -197,7 +197,7 @@ func coreSkills() map[string]string {
   "content": {
     "description": "Orchestrates end-of-session knowledge propagation and session logging.",
     "triggers": ["wrap up", "close the session", "done for today", "finalize", "fecha a sessão", "consolida aí", "pronto por hoje", "pode fechar"],
-    "invoked_by": "leo",
+    "invoked_by": "mom",
     "steps": [
       {"name": "Inventory", "instruction": "List what changed: decisions, state changes, artifacts, learnings. Skip implementation details.", "wait_for_approval": false},
       {"name": "Classify", "instruction": "For each item: determine type, lifecycle, tags, id. Check index for existing docs to update.", "wait_for_approval": false},
@@ -222,8 +222,8 @@ func coreSkills() map[string]string {
 // defaultIdentity returns the default identity.json content.
 func defaultIdentity() string {
 	return `{
-  "what": "L.E.O. (Living Ecosystem Orchestrator) — a living knowledge infrastructure where humans and agents think, decide, and evolve together.",
-  "philosophy": "LEO is the memory and knowledge layer above any AI runtime. The runtime handles task execution; LEO handles persistence, governance, and organizational knowledge. What the runtime forgets, LEO remembers.",
+  "what": "MOM (Memory Oriented Machine) — a living knowledge infrastructure where humans and agents think, decide, and evolve together.",
+  "philosophy": "MOM is the memory and knowledge layer above any AI runtime. The runtime handles task execution; MOM handles persistence, governance, and organizational knowledge. What the runtime forgets, MOM remembers.",
   "constraints": [
     "All KB content is JSON — runtime files (CLAUDE.md, AGENTS.md, .clinerules) are generated artifacts",
     "Core artifacts are English only — interaction language is personal choice",

@@ -12,7 +12,7 @@ var (
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the mom CLI version",
+	Short: "Print the MOM CLI version",
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Printf("mom %s (%s)\n", Version, Commit)
 	},

@@ -11,12 +11,12 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	var b strings.Builder
 
 	// Header
-	b.WriteString("# LEO — Living Ecosystem Orchestrator\n\n")
+	b.WriteString("# MOM — Memory Oriented Machine\n\n")
 	if identity != nil {
 		b.WriteString(identity.What)
 		b.WriteString("\n\n")
 	} else {
-		b.WriteString("You are LEO. Your memory lives in `.mom/memory/`.\n\n")
+		b.WriteString("You are MOM. Your memory lives in `.mom/memory/`.\n\n")
 	}
 
 	// Boot sequence
@@ -46,7 +46,7 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	// Skills
 	if len(skills) > 0 {
 		b.WriteString("## Skills\n\n")
-		b.WriteString("Composable procedures invoked by trigger or by Leo. Read the full doc for steps and output format.\n\n")
+		b.WriteString("Composable procedures invoked by trigger or by MOM. Read the full doc for steps and output format.\n\n")
 		for _, s := range skills {
 			fmt.Fprintf(&b, "- **%s**: %s → `.mom/skills/%s.json`\n", s.ID, s.Summary, s.ID)
 		}

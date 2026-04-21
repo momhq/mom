@@ -1,6 +1,6 @@
 package transponder
 
-// MRP v0 event structs — wire protocol between a runtime adapter and L.E.O.
+// MRP v0 event structs — wire protocol between a runtime adapter and MOM.
 // Field names match JSON schema definitions in .github/mrp/schemas/.
 
 // MRPSessionStart is the session.start MRP event.

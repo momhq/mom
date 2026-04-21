@@ -82,10 +82,10 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		// Group 1: Welcome
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Welcome to L.E.O.").
+				Title("Welcome to MOM").
 				Description(
-					"Living Ecosystem Orchestrator\n\n"+
-						"L.E.O. gives your AI coding assistant persistent memory\n"+
+					"Memory Oriented Machine\n\n"+
+						"MOM gives your AI coding assistant persistent memory\n"+
 						"and structured knowledge management.\n\n"+
 						"Let's set up your project. This takes about 30 seconds.",
 				),
@@ -122,8 +122,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		// Group 4: Scope / install location
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("Where should L.E.O. be installed?").
-				Description("Installing in a parent folder lets L.E.O. span all repos beneath it.").
+				Title("Where should MOM be installed?").
+				Description("Installing in a parent folder lets MOM span all repos beneath it.").
 				Options(scopeOptions...).
 				Value(&scopeChoice),
 		),
