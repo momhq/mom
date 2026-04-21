@@ -96,20 +96,6 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Copy profiles.
-	profilesCount := 0
-	srcProfiles := filepath.Join(leoDir, "profiles")
-	if dirExists(srcProfiles) {
-		dstProfiles := filepath.Join(outputDir, "profiles")
-		if err := os.MkdirAll(dstProfiles, 0755); err != nil {
-			return fmt.Errorf("creating profiles dir: %w", err)
-		}
-		profilesCount, err = copyYAMLDir(srcProfiles, dstProfiles)
-		if err != nil {
-			return fmt.Errorf("copying profiles: %w", err)
-		}
-	}
-
 	// Copy index.json.
 	srcIndex := filepath.Join(leoDir, "index.json")
 	dstIndex := filepath.Join(outputDir, "index.json")
@@ -144,8 +130,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	cmd.Printf("Exported to %s: %d docs, %d constraints, %d skills, %d profiles\n",
-		outputDir, docCount, constraintsCount, skillsCount, profilesCount)
+	cmd.Printf("Exported to %s: %d docs, %d constraints, %d skills\n",
+		outputDir, docCount, constraintsCount, skillsCount)
 	return nil
 }
 
@@ -277,16 +263,6 @@ func runImport(cmd *cobra.Command, args []string) error {
 		importDirFiles(srcSkills, destSkills, ".json", replaceMode)
 	}
 
-	// Import profiles if present.
-	srcProfiles := filepath.Join(importPath, "profiles")
-	if dirExists(srcProfiles) {
-		destProfiles := filepath.Join(leoDir, "profiles")
-		if err := os.MkdirAll(destProfiles, 0755); err != nil {
-			return fmt.Errorf("create profiles dir: %w", err)
-		}
-		importDirFiles(srcProfiles, destProfiles, ".yaml", replaceMode)
-	}
-
 	// Import identity.json if present.
 	srcIdentity := filepath.Join(importPath, "identity.json")
 	if _, err := os.Stat(srcIdentity); err == nil {
@@ -372,11 +348,6 @@ func dirExists(path string) bool {
 // copyJSONDir copies all .json files from src to dst. Returns count.
 func copyJSONDir(src, dst string) (int, error) {
 	return copyDirByExt(src, dst, ".json")
-}
-
-// copyYAMLDir copies all .yaml files from src to dst. Returns count.
-func copyYAMLDir(src, dst string) (int, error) {
-	return copyDirByExt(src, dst, ".yaml")
 }
 
 // copyDirByExt copies all files with the given extension from src to dst.

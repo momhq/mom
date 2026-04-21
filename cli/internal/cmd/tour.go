@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -172,7 +173,14 @@ func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
 	return nil
 }
 
-// openBrowser opens a URL in the default browser.
+// openBrowser opens a URL in the default browser (cross-platform).
 func openBrowser(url string) error {
-	return exec.Command("open", url).Start()
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", url).Start()
+	case "windows":
+		return exec.Command("cmd", "/c", "start", url).Start()
+	default: // linux and others
+		return exec.Command("xdg-open", url).Start()
+	}
 }

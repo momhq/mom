@@ -23,7 +23,6 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(reindexCmd)
 	rootCmd.AddCommand(validateCmd)
-	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(promoteCmd)

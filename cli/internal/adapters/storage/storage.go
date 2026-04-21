@@ -48,12 +48,6 @@ type QueryFilter struct {
 	Lifecycle string
 }
 
-// HealthStatus reports the storage backend's health.
-type HealthStatus struct {
-	OK      bool
-	Message string
-}
-
 // Adapter is the interface that storage backends must implement.
 // The JSON adapter (free tier) reads/writes flat JSON files in .leo/memory/.
 // Future adapters (MongoDB, etc.) implement the same interface.
@@ -64,5 +58,4 @@ type Adapter interface {
 	Delete(id string) error
 	List() (*Index, error)
 	BulkWrite(docs []*Doc) error
-	Health() (*HealthStatus, error)
 }

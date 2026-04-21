@@ -55,16 +55,3 @@ func (r *Registry) All() []Adapter {
 	return all
 }
 
-// GenerateAll calls GenerateContextFile on each enabled adapter.
-func (r *Registry) GenerateAll(enabled []string, config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
-	for _, name := range enabled {
-		adapter, ok := r.adapters[name]
-		if !ok {
-			continue
-		}
-		if err := adapter.GenerateContextFile(config, constraints, skills, identity); err != nil {
-			return err
-		}
-	}
-	return nil
-}

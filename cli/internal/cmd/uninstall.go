@@ -83,7 +83,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 	if !yes {
 		cmd.Println("This will remove all Leo files from this project:")
 		if hasLeoDir {
-			cmd.Println("  - .leo/ (config, KB, profiles, cache)")
+			cmd.Println("  - .leo/ (config, memory, cache)")
 		}
 		for _, adapter := range adapters {
 			for _, f := range adapter.GeneratedFiles() {

@@ -6,9 +6,8 @@ type SessionEvent struct {
 	SessionID     string  `json:"session_id"`
 	OrgID         string  `json:"org_id,omitempty"`
 	RepoID        string  `json:"repo_id"`
-	Runtime       string  `json:"runtime"`
-	Tier          string  `json:"tier"`
-	StartedAt     string  `json:"started_at"`
+	Runtime   string  `json:"runtime"`
+	StartedAt string  `json:"started_at"`
 	EndedAt       *string `json:"ended_at"`
 	Trigger       string  `json:"trigger"`
 	TurnCount     int     `json:"turn_count"`

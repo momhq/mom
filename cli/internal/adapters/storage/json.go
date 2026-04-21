@@ -121,25 +121,6 @@ func (a *JSONAdapter) BulkWrite(docs []*Doc) error {
 	return a.rebuildIndex()
 }
 
-func (a *JSONAdapter) Health() (*HealthStatus, error) {
-	info, err := os.Stat(a.docsDir)
-	if err != nil {
-		return &HealthStatus{OK: false, Message: fmt.Sprintf("docs dir not accessible: %v", err)}, nil
-	}
-	if !info.IsDir() {
-		return &HealthStatus{OK: false, Message: "docs path is not a directory"}, nil
-	}
-
-	// Try writing a temp file to verify write access.
-	tmp := filepath.Join(a.docsDir, ".health-check")
-	if err := os.WriteFile(tmp, []byte("ok"), 0644); err != nil {
-		return &HealthStatus{OK: false, Message: fmt.Sprintf("no write access: %v", err)}, nil
-	}
-	os.Remove(tmp)
-
-	return &HealthStatus{OK: true, Message: "ok"}, nil
-}
-
 // Reindex publicly exposes rebuildIndex for callers outside this package
 // (e.g. the update command after copying files directly to the docs dir).
 func (a *JSONAdapter) Reindex() error {

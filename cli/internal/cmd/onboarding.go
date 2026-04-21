@@ -324,30 +324,6 @@ func detectParentDirs(cwd, home string) []ParentScope {
 	return parents
 }
 
-// discoverUninitializedChildRepos returns paths of immediate children of dir
-// that have .git/ but do not have .leo/.
-func discoverUninitializedChildRepos(dir string) []string {
-	var result []string
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		child := filepath.Join(dir, e.Name())
-		gitPath := filepath.Join(child, ".git")
-		leoPath := filepath.Join(child, ".leo")
-		gitInfo, gitErr := os.Stat(gitPath)
-		_, leoErr := os.Stat(leoPath)
-		if gitErr == nil && gitInfo.IsDir() && os.IsNotExist(leoErr) {
-			result = append(result, child)
-		}
-	}
-	return result
-}
-
 // cwdScopeRole returns the semantic scope label for cwd by inspecting its
 // children. If cwd contains git repos (directly or via org sub-folders), it
 // gets "user" or "org"; otherwise "repo".
@@ -486,15 +462,8 @@ func runtimesLabel(rts []string) string {
 	return strings.Join(labels, ", ")
 }
 
-func languageLabel(lang string) string {
-	switch lang {
-	case "pt":
-		return "Português"
-	case "es":
-		return "Español"
-	default:
-		return "English"
-	}
+func languageLabel(_ string) string {
+	return "English"
 }
 
 func modeLabel(mode string) string {

@@ -80,11 +80,9 @@ type CommunicationConfig struct {
 }
 
 // KBConfig holds KB settings.
-type KBConfig struct {
-	AutoPropagate  bool   `yaml:"auto_propagate"`
-	WrapUp         string `yaml:"wrap_up"`
-	StaleThreshold string `yaml:"stale_threshold"`
-}
+// AutoPropagate, WrapUp, and StaleThreshold were retired in v0.10 (#83) —
+// written to config but never enforced by any code.
+type KBConfig struct{}
 
 // Default returns a Config with sane defaults.
 func Default() Config {
@@ -99,11 +97,7 @@ func Default() Config {
 		Communication: CommunicationConfig{
 			Mode: "concise",
 		},
-		KB: KBConfig{
-			AutoPropagate:  true,
-			WrapUp:         "prompt",
-			StaleThreshold: "30d",
-		},
+		KB: KBConfig{},
 	}
 }
 
@@ -139,20 +133,12 @@ type legacyUserConfig struct {
 
 // legacyConfig represents the v0.6.0 config format for migration.
 type legacyConfig struct {
-	Version     string            `yaml:"version"`
-	Runtime     string            `yaml:"runtime"`
-	CoreSource  string            `yaml:"core_source"`
-	Owner       legacyUserConfig  `yaml:"owner"`
-	User        legacyUserConfig  `yaml:"user"`
-	KB          KBConfig          `yaml:"kb"`
-	Specialists legacySpecialists `yaml:"specialists"`
-}
-
-type legacySpecialists struct {
-	OrchestratorModel string `yaml:"orchestrator_model"`
-	DefaultModel      string `yaml:"default_model"`
-	SimpleTaskModel   string `yaml:"simple_task_model"`
-	Validation        string `yaml:"validation"`
+	Version    string           `yaml:"version"`
+	Runtime    string           `yaml:"runtime"`
+	CoreSource string           `yaml:"core_source"`
+	Owner      legacyUserConfig `yaml:"owner"`
+	User       legacyUserConfig `yaml:"user"`
+	KB         KBConfig         `yaml:"kb"`
 }
 
 // Load reads a config.yaml from the given .leo/ directory.

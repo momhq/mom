@@ -88,10 +88,6 @@ type Adapter interface {
 	// Used to distinguish Leo-generated files from user-created ones.
 	Watermark() string
 
-	// DefaultTierMapping returns the default capability tier → model mapping
-	// for this runtime. Returns nil if the runtime manages its own model selection.
-	DefaultTierMapping() map[string]string
-
 	// Capabilities returns the MRP v0 capability declaration for this adapter.
 	// Loaded from the embedded YAML file in capabilities/.
 	Capabilities() AdapterCapability

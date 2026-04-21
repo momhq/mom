@@ -51,7 +51,7 @@ func coreConstraints() map[string]string {
       "Spending money: paid API calls, cloud deploys, domain/license purchases",
       "External publication: git push to main on public repo, merging PR, social media post, app store release",
       "Destructive action: rm -rf, git reset --hard, force push, drop table, mass delete",
-      "Structural change: creating new specialist, adding/modifying core rule, architecture change outside task scope",
+      "Structural change: creating new agent role, adding/modifying core rule, architecture change outside task scope",
       "Unresolvable ambiguity: contradiction between rules, strategic decisions requiring inference of user intent"
     ],
     "responsibility": "All agents without exception.",
@@ -107,7 +107,7 @@ func coreConstraints() map[string]string {
     "why": "Without metrics, refining the core becomes guesswork. With metrics, we look at the worst numbers and go straight to the pain. If Leo forgets to log, the dataset becomes skewed.",
     "how_to_apply": [
       "Collection happens at session wrap-up via the session-wrap-up skill step 'Write session log'",
-      "Session-logs include: tasks performed, pipeline tiers used, profile, wrap-up revision count",
+      "Session-logs include: tasks performed, wrap-up revision count",
       "Session-log docs are stored in .leo/logs/, never indexed, never loaded at boot",
       "External T1 scripts read session-log files from disk for metrics dashboards"
     ],
@@ -140,7 +140,7 @@ func coreConstraints() map[string]string {
       "Safety net: if many decisions accumulate without a closing signal, ask once",
       "When in doubt about propagating mid-session, wait for wrap-up"
     ],
-    "responsibility": "Leo is solely responsible for propagation. Specialists report to Leo, only Leo writes to the KB.",
+    "responsibility": "Leo is solely responsible for propagation. Only Leo writes to the KB.",
     "anti_patterns": [
       "Running full wrap-up without explicit trigger",
       "Writing 'current project status' docs that will be stale in a week",

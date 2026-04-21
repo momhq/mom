@@ -58,7 +58,6 @@ func TestEmitSessionEvent(t *testing.T) {
 		SessionID:     "s-abc",
 		RepoID:        "leo-core",
 		Runtime:       "claude-code",
-		Tier:          "execution",
 		StartedAt:     "2026-04-18T12:00:00Z",
 		Trigger:       "normal",
 		TurnCount:     12,

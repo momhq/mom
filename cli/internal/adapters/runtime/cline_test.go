@@ -130,13 +130,6 @@ func TestClineAdapter_SupportsHooks(t *testing.T) {
 	}
 }
 
-func TestClineAdapter_DefaultTierMapping(t *testing.T) {
-	a := NewClineAdapter("/tmp/test")
-	if tiers := a.DefaultTierMapping(); tiers != nil {
-		t.Errorf("expected nil tier mapping for cline, got %v", tiers)
-	}
-}
-
 func TestClineAdapter_NoIdentity(t *testing.T) {
 	dir := t.TempDir()
 	a := NewClineAdapter(dir)

@@ -297,33 +297,6 @@ func TestDoctorCmd_InvalidDocFails(t *testing.T) {
 	}
 }
 
-func TestDoctorCmd_InvalidProfileWarns(t *testing.T) {
-	dir := setupTestKBWithConfig(t, "claude")
-	leoDir := filepath.Join(dir, ".leo")
-	profilesDir := filepath.Join(leoDir, "profiles")
-
-	// Write a bad YAML profile — {unclosed is guaranteed to fail yaml.Unmarshal.
-	os.WriteFile(filepath.Join(profilesDir, "bad.yaml"), []byte("{unclosed\n"), 0644)
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
-
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"doctor"})
-
-	// May fail or warn — either is acceptable.
-	rootCmd.Execute()
-
-	out := buf.String()
-	hasIssue := strings.Contains(out, "✗") || strings.Contains(out, "⚠")
-	if !hasIssue {
-		t.Errorf("expected warning or failure for invalid profile, got:\n%s", out)
-	}
-}
-
 func TestDoctorCmd_OrphanIndexEntry(t *testing.T) {
 	dir := setupTestKBWithConfig(t, "claude")
 	leoDir := filepath.Join(dir, ".leo")

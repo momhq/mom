@@ -102,20 +102,6 @@ func TestCodexAdapter_SupportsHooks(t *testing.T) {
 	}
 }
 
-func TestCodexAdapter_DefaultTierMapping(t *testing.T) {
-	a := NewCodexAdapter("/tmp/test")
-	tiers := a.DefaultTierMapping()
-
-	if tiers["orchestration"] != "o3" {
-		t.Errorf("expected orchestration=o3, got %q", tiers["orchestration"])
-	}
-	if tiers["execution"] != "gpt-4.1" {
-		t.Errorf("expected execution=gpt-4.1, got %q", tiers["execution"])
-	}
-	if tiers["review"] != "gpt-4.1-mini" {
-		t.Errorf("expected review=gpt-4.1-mini, got %q", tiers["review"])
-	}
-}
 
 func TestCodexAdapter_NoIdentity(t *testing.T) {
 	dir := t.TempDir()

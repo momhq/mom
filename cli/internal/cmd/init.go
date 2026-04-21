@@ -326,7 +326,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		SessionID: "s-init",
 		RepoID:    filepath.Base(cwd),
 		Runtime:   cfg.PrimaryRuntime(),
-		Tier:      "execution",
 		StartedAt: startedAt,
 		Trigger:   "normal",
 	})

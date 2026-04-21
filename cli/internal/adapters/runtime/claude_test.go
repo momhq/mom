@@ -218,22 +218,6 @@ func TestClaudeAdapter_Watermark(t *testing.T) {
 	}
 }
 
-func TestClaudeAdapter_DefaultTierMapping(t *testing.T) {
-	a := NewClaudeAdapter("/tmp/test")
-	tiers := a.DefaultTierMapping()
-
-	expected := map[string]string{
-		"orchestration": "opus",
-		"execution":     "sonnet",
-		"review":        "sonnet",
-	}
-
-	for k, v := range expected {
-		if tiers[k] != v {
-			t.Errorf("tier %q: expected %q, got %q", k, v, tiers[k])
-		}
-	}
-}
 
 func TestWatermarkPresent(t *testing.T) {
 	dir := t.TempDir()
