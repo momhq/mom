@@ -85,7 +85,7 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		"no filler",
 		"Balanced",
 		"Propose before",
-		"boot: true",
+		"## Knowledge base",
 		"## During work",
 	}
 	for _, check := range checks {

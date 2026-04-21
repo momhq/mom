@@ -5,6 +5,7 @@ package runtime
 type Config struct {
 	Version string
 	User    UserConfig
+	HasMCP  bool
 }
 
 // UserConfig holds user preferences.
