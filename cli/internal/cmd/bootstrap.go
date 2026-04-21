@@ -202,7 +202,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 
 	type repoEntry struct {
 		root   string
-		leoDir string
+		momDir string
 	}
 	var repos []repoEntry
 
@@ -212,20 +212,27 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		}
 		child := filepath.Join(parentDir, e.Name())
 		gitPath := filepath.Join(child, ".git")
-		leoPath := filepath.Join(child, ".leo")
 
 		gitInfo, gitErr := os.Stat(gitPath)
 		if gitErr != nil || !gitInfo.IsDir() {
 			continue // not a git repo
 		}
 
-		leoInfo, leoErr := os.Stat(leoPath)
-		if leoErr != nil || !leoInfo.IsDir() {
-			cmd.Printf("  ⚠ %s — no .leo/ found, skipping (run 'leo init' in this repo first)\n", child)
+		// Prefer .mom/ (current name), fall back to .leo/ (legacy).
+		momPath := filepath.Join(child, ".mom")
+		leoPath := filepath.Join(child, ".leo")
+		resolvedDir := ""
+		if info, err := os.Stat(momPath); err == nil && info.IsDir() {
+			resolvedDir = momPath
+		} else if info, err := os.Stat(leoPath); err == nil && info.IsDir() {
+			resolvedDir = leoPath
+		}
+		if resolvedDir == "" {
+			cmd.Printf("  ⚠ %s — no .mom/ found, skipping (run 'mom init' in this repo first)\n", child)
 			continue
 		}
 
-		repos = append(repos, repoEntry{root: child, leoDir: leoPath})
+		repos = append(repos, repoEntry{root: child, momDir: resolvedDir})
 	}
 
 	if len(repos) == 0 {
@@ -248,7 +255,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		cmd.Printf("\n  [%s]\n", repoName)
 
 		repoCfg := cfg
-		repoCfg.ScopeDir = repo.leoDir
+		repoCfg.ScopeDir = repo.momDir
 
 		var repoSpinner *bootstrapSpinner
 		if isTTY {
@@ -276,7 +283,7 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 		totalProposed += len(result.Drafts)
 
 		if !dryRun && len(result.Drafts) > 0 {
-			w, writeErr := writeDrafts(result.Drafts, repo.leoDir)
+			w, writeErr := writeDrafts(result.Drafts, repo.momDir)
 			if writeErr != nil {
 				cmd.Printf("    ⚠ write error: %v\n", writeErr)
 			}
@@ -383,10 +390,10 @@ func canonicalLanguageLabel(lang string) string {
 	}
 }
 
-// writeDrafts persists draft memories to .leo/memory/ as JSON files.
+// writeDrafts persists draft memories to .mom/memory/ as JSON files.
 // Returns the count of successfully written memories.
-func writeDrafts(drafts []cartographer.Draft, leoDir string) (int, error) {
-	memDir := filepath.Join(leoDir, "memory")
+func writeDrafts(drafts []cartographer.Draft, momDir string) (int, error) {
+	memDir := filepath.Join(momDir, "memory")
 	if err := os.MkdirAll(memDir, 0755); err != nil {
 		return 0, fmt.Errorf("creating memory dir: %w", err)
 	}
@@ -507,10 +514,10 @@ func countMemoryDocs(memDir string) int {
 }
 
 // runBootstrapInline runs a bootstrap scan from within the init flow.
-// scanDir is the directory to scan; leoDir is the .leo/ to write into.
-func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
+// scanDir is the directory to scan; momDir is the .mom/ to write into.
+func runBootstrapInline(cmd *cobra.Command, scanDir, momDir string) error {
 	cfg := cartographer.DefaultConfig()
-	cfg.ScopeDir = leoDir
+	cfg.ScopeDir = momDir
 
 	isTTY := isTerminalWriter(cmd.OutOrStdout())
 
@@ -547,7 +554,7 @@ func runBootstrapInline(cmd *cobra.Command, scanDir, leoDir string) error {
 
 	written := 0
 	if len(result.Drafts) > 0 {
-		w, writeErr := writeDrafts(result.Drafts, leoDir)
+		w, writeErr := writeDrafts(result.Drafts, momDir)
 		if writeErr != nil {
 			cmd.Printf("  ⚠ write error: %v\n", writeErr)
 		}

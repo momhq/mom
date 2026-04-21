@@ -53,12 +53,12 @@ type rpcError struct {
 
 // Server is the MCP server instance.
 type Server struct {
-	leoDir string
+	leoDir string // momDir: the .mom/ (or legacy .leo/) directory for this project
 }
 
-// New creates a new Server rooted at the given .leo/ directory.
-func New(leoDir string) *Server {
-	return &Server{leoDir: leoDir}
+// New creates a new Server rooted at the given .mom/ directory.
+func New(momDir string) *Server {
+	return &Server{leoDir: momDir}
 }
 
 // Serve runs the JSON-RPC 2.0 stdio loop. It reads newline-delimited requests

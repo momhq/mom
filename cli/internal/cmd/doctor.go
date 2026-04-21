@@ -271,14 +271,14 @@ func printCapturePipelineLatency(cmd *cobra.Command, telDir string) {
 	}
 
 	if len(latencies) == 0 {
-		cmd.Printf("\n  Capture pipeline latency: no data\n")
+		cmd.Printf("\n  Capture latency: no data\n")
 		return
 	}
 
 	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 	p50 := latencies[len(latencies)*50/100]
 	p95 := latencies[len(latencies)*95/100]
-	cmd.Printf("\n  Capture pipeline latency (last 7d): p50=%dms  p95=%dms\n", p50, p95)
+	cmd.Printf("\n  Capture latency (last 7d): p50=%dms  p95=%dms\n", p50, p95)
 }
 
 // printExtractorModelUsage prints the top 5 extractor models used in last 7 days.

@@ -109,7 +109,7 @@ func (s *Server) readIdentity() (any, *rpcError) {
 
 // readConstraints returns summaries of all constraint docs in the nearest scope.
 func (s *Server) readConstraints() (any, *rpcError) {
-	// Collect constraint JSON files from leoDir/constraints/ and walk-up scopes.
+	// Collect constraint JSON files from momDir/constraints/ and walk-up scopes.
 	type constraintSummary struct {
 		ID      string `json:"id"`
 		Summary string `json:"summary,omitempty"`

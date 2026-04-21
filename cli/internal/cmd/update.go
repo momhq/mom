@@ -16,7 +16,7 @@ import (
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Sync core rules and profiles from leo-core into this project",
+	Short: "Sync core rules from mom-core into this project",
 	RunE:  runUpdate,
 }
 

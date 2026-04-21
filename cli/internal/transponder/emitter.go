@@ -1,3 +1,4 @@
+// Package transponder handles telemetry emission. Will be renamed to herald in v0.11.
 package transponder
 
 import (
@@ -13,18 +14,18 @@ import (
 var nowFn = func() time.Time { return time.Now().UTC() }
 
 // Emitter writes operational telemetry events to JSONL files under
-// <leoDir>/telemetry/. It is safe for concurrent use.
+// <momDir>/telemetry/. It is safe for concurrent use.
 type Emitter struct {
 	dir     string
 	enabled bool
 	mu      sync.Mutex
 }
 
-// New returns an Emitter that writes to <leoDir>/telemetry/.
+// New returns an Emitter that writes to <momDir>/telemetry/.
 // If enabled is false a no-op emitter is returned.
 // If the telemetry directory does not exist it is created with mode 0755.
-func New(leoDir string, enabled bool) *Emitter {
-	dir := filepath.Join(leoDir, "telemetry")
+func New(momDir string, enabled bool) *Emitter {
+	dir := filepath.Join(momDir, "telemetry")
 	e := &Emitter{dir: dir, enabled: enabled}
 	if !enabled {
 		return e

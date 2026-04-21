@@ -140,7 +140,7 @@ func (r *Result) Duration() time.Duration {
 	return r.EndedAt.Sub(r.StartedAt)
 }
 
-// Cartographer orchestrates a scan pass over a directory tree.
+// Cartographer coordinates a scan pass over a directory tree.
 type Cartographer struct {
 	cfg        Config
 	extractors []Extractor
@@ -352,20 +352,26 @@ func (c *Cartographer) collectFiles(rootDir string) ([]string, error) {
 	return paths, nil
 }
 
-// ScanTarget pairs a repository root with the .leo/ directory to write into.
+// ScanTarget pairs a repository root with the .mom/ directory to write into.
 type ScanTarget struct {
 	RootDir string // directory to scan
-	LeoDir  string // .leo/ to use for cache and output
+	MomDir  string // .mom/ to use for cache and output
+	LeoDir  string // Deprecated: use MomDir. Kept for backward compatibility.
 }
 
 // MultiScan runs Scan for each target independently, using each target's own
-// .leo/ directory for cache and memory output.
+// .mom/ directory for cache and memory output.
 // baseConfig is used as a template; ScopeDir is overridden per target.
 func MultiScan(ctx context.Context, targets []ScanTarget, baseConfig Config) ([]*Result, error) {
 	results := make([]*Result, 0, len(targets))
 	for _, target := range targets {
 		cfg := baseConfig
-		cfg.ScopeDir = target.LeoDir
+		// Prefer MomDir; fall back to LeoDir for callers not yet migrated.
+		scopeDir := target.MomDir
+		if scopeDir == "" {
+			scopeDir = target.LeoDir
+		}
+		cfg.ScopeDir = scopeDir
 
 		cart := New(cfg)
 		result, err := cart.Scan(ctx, target.RootDir)

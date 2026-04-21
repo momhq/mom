@@ -161,7 +161,7 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	limit := intArg(args, "limit", 10)
 
 	scopes := scope.Walk(s.leoDir)
-	// Also include the leoDir itself as a scope if Walk doesn't find it.
+	// Also include the momDir itself as a scope if Walk doesn't find it.
 	if len(scopes) == 0 {
 		scopes = []scope.Scope{{Path: s.leoDir, Label: "repo"}}
 	}
