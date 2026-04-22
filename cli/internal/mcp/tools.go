@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/transponder"
 )
@@ -95,6 +96,18 @@ func allTools() []toolDef {
 				},
 			},
 		},
+		{
+			Name:        "mom_record_turn",
+			Description: "Fallback recording for runtimes without hooks. Appends a turn to .mom/raw/.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"text"},
+				"properties": map[string]any{
+					"text":       map[string]any{"type": "string", "description": "The conversation turn text to record"},
+					"session_id": map[string]any{"type": "string", "description": "Optional session ID"},
+				},
+			},
+		},
 	}
 }
 
@@ -135,6 +148,8 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolCreateMemoryDraft(req.Arguments)
 	case "list_landmarks":
 		result, err = s.toolListLandmarks(req.Arguments)
+	case "mom_record_turn":
+		result, err = s.toolRecordTurn(req.Arguments)
 	default:
 		return nil, &rpcError{Code: errCodeMethodNotFound, Message: "unknown tool: " + req.Name}
 	}
@@ -477,6 +492,71 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 
 	text, _ := json.MarshalIndent(items, "", "  ")
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
+}
+
+// toolRecordTurn is the MCP fallback for runtimes that don't support hooks.
+// It appends a turn to .mom/raw/<YYYY-MM-DD>.jsonl.
+func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
+	text := stringArg(args, "text")
+	if text == "" {
+		return toolCallResult{}, fmt.Errorf("text is required")
+	}
+	sessionID := stringArg(args, "session_id")
+
+	targetDir := s.momDir
+	if sc, ok := scope.NearestWritable(s.momDir); ok {
+		targetDir = sc.Path
+	}
+
+	input := recorder.HookInput{
+		SessionID:     sessionID,
+		HookEventName: "mcp",
+		Cwd:           s.momDir,
+	}
+
+	// Write directly without a transcript path — build entry manually.
+	rawDir := filepath.Join(targetDir, "raw")
+	if err := os.MkdirAll(rawDir, 0755); err != nil {
+		return toolCallResult{}, fmt.Errorf("creating raw dir: %w", err)
+	}
+
+	now := time.Now().UTC()
+	dailyFile := filepath.Join(rawDir, now.Format("2006-01-02")+".jsonl")
+
+	type rawEntry struct {
+		Timestamp string `json:"timestamp"`
+		Event     string `json:"event"`
+		Text      string `json:"text"`
+		SessionID string `json:"session_id"`
+	}
+	entry := rawEntry{
+		Timestamp: now.Format(time.RFC3339),
+		Event:     input.HookEventName,
+		Text:      text,
+		SessionID: sessionID,
+	}
+
+	line, err := json.Marshal(entry)
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("marshaling entry: %w", err)
+	}
+
+	f, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("opening raw file: %w", err)
+	}
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		f.Close()
+		return toolCallResult{}, fmt.Errorf("writing entry: %w", err)
+	}
+	f.Close()
+
+	result := map[string]any{
+		"status":   "recorded",
+		"raw_file": dailyFile,
+	}
+	text2, _ := json.MarshalIndent(result, "", "  ")
+	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text2)}}}, nil
 }
 
 // --- Scoring (mirrors recall.go) ---

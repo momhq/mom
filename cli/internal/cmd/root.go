@@ -40,4 +40,5 @@ func init() {
 	rootCmd.AddCommand(recallCmd)
 	rootCmd.AddCommand(tourCmd)
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(recordCmd)
 }
