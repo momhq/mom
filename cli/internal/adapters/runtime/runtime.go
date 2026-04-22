@@ -3,9 +3,10 @@ package runtime
 
 // Config represents the user's .mom/config.yaml configuration.
 type Config struct {
-	Version string
-	User    UserConfig
-	HasMCP  bool
+	Version  string
+	User     UserConfig
+	HasMCP   bool
+	Delivery string // "mcp" (default) or "context-file"
 }
 
 // UserConfig holds user preferences.

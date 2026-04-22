@@ -28,7 +28,13 @@ func (a *CodexAdapter) Name() string {
 }
 
 func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
+	var body string
+	if config.Delivery == "context-file" {
+		body = BuildContextContent(config, constraints, skills, identity)
+	} else {
+		body = BuildMinimalContextContent()
+	}
+	content := a.Watermark() + "\n\n" + body
 
 	agentsFile := filepath.Join(a.projectRoot, "AGENTS.md")
 	if err := os.WriteFile(agentsFile, []byte(content), 0644); err != nil {

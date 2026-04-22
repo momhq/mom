@@ -468,9 +468,9 @@ func TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent(t *testing.T) {
 		}
 	}
 
-	// Must contain communication mode directive.
-	if !strings.Contains(string(data), "## Communication mode:") {
-		t.Error("CLAUDE.md must contain communication mode section")
+	// Must contain the MCP-first boot directive (default delivery is "mcp").
+	if !strings.Contains(string(data), "mom_status") {
+		t.Error("CLAUDE.md must contain mom_status directive (MCP-first delivery)")
 	}
 }
 
