@@ -33,7 +33,13 @@ func (a *ClineAdapter) GenerateContextFile(config Config, constraints []Constrai
 		return fmt.Errorf("creating .clinerules dir: %w", err)
 	}
 
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
+	var body string
+	if config.Delivery == "context-file" {
+		body = BuildContextContent(config, constraints, skills, identity)
+	} else {
+		body = BuildMinimalContextContent()
+	}
+	content := a.Watermark() + "\n\n" + body
 
 	contextFile := filepath.Join(rulesDir, "mom-context.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {

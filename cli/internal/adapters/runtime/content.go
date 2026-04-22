@@ -5,6 +5,20 @@ import (
 	"strings"
 )
 
+// BuildMinimalContextContent generates a slim boot file for MCP-first delivery.
+// The behavioral protocol is delivered on-demand via mom_status.
+func BuildMinimalContextContent() string {
+	return `# MOM — Memory-Oriented Manager
+
+You have MOM tools via MCP. Call ` + "`mom_status`" + ` at the start of every session.
+
+For memory operations: search_memories, get_memory, create_memory_draft,
+list_landmarks, list_scopes.
+
+Do NOT skip mom_status — it contains your operating instructions.
+`
+}
+
 // BuildContextContent generates the shared Markdown content used by all adapters.
 // Each adapter calls this and writes the result to its specific output file.
 func BuildContextContent(config Config, constraints []Constraint, skills []Skill, identity *Identity) string {

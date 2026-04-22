@@ -40,7 +40,8 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 	a := NewClaudeAdapter(dir)
 
 	config := Config{
-		Version: "1",
+		Version:  "1",
+		Delivery: "context-file",
 		User: UserConfig{
 			Language:          "en",
 			Autonomy:          "balanced",
@@ -132,7 +133,8 @@ func TestClaudeAdapter_GenerateContextFile_NoIdentity(t *testing.T) {
 	a := NewClaudeAdapter(dir)
 
 	config := Config{
-		Version: "1",
+		Version:  "1",
+		Delivery: "context-file",
 		User: UserConfig{
 			Language: "en",
 			Autonomy: "balanced",
@@ -170,8 +172,9 @@ func TestClaudeAdapter_GenerateContextFile_CommunicationModes(t *testing.T) {
 			dir := t.TempDir()
 			a := NewClaudeAdapter(dir)
 			cfg := Config{
-				Version: "1",
-				User:    UserConfig{Language: "en", Autonomy: "balanced", CommunicationMode: tc.mode},
+				Version:  "1",
+				Delivery: "context-file",
+				User:     UserConfig{Language: "en", Autonomy: "balanced", CommunicationMode: tc.mode},
 			}
 			if err := a.GenerateContextFile(cfg, nil, nil, nil); err != nil {
 				t.Fatalf("GenerateContextFile failed: %v", err)

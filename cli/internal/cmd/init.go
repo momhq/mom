@@ -481,6 +481,10 @@ func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 	if commMode == "" {
 		commMode = "concise"
 	}
+	delivery := cfg.Delivery
+	if delivery == "" {
+		delivery = "mcp"
+	}
 	return runtime.Config{
 		Version: cfg.Version,
 		User: runtime.UserConfig{
@@ -488,6 +492,7 @@ func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 			Autonomy:          "balanced",
 			CommunicationMode: commMode,
 		},
+		Delivery: delivery,
 	}
 }
 

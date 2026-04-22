@@ -35,7 +35,13 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constra
 		return fmt.Errorf("creating .claude dir: %w", err)
 	}
 
-	content := a.Watermark() + "\n\n" + BuildContextContent(config, constraints, skills, identity)
+	var body string
+	if config.Delivery == "context-file" {
+		body = BuildContextContent(config, constraints, skills, identity)
+	} else {
+		body = BuildMinimalContextContent()
+	}
+	content := a.Watermark() + "\n\n" + body
 
 	contextFile := filepath.Join(claudeDir, "CLAUDE.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {
