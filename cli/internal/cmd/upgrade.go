@@ -307,20 +307,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	// ── Phase 3: Rebuild index and regenerate runtime files ─────────────────
 	var phase3Err error
 	doPhase3 := func() {
-		// Rebuild index.
-		indexPath := filepath.Join(leoDir, "index.json")
-		if !dryRun {
-			indexData, err := buildCoreIndex()
-			if err != nil {
-				phase3Err = fmt.Errorf("building index: %w", err)
-				return
-			}
-			if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
-				phase3Err = fmt.Errorf("writing index: %w", err)
-				return
-			}
-		}
-		addAction("✔", "index.json rebuilt")
 
 		// Regenerate runtime context files.
 		if !dryRun {

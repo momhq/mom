@@ -21,7 +21,7 @@ var tourCmd = &cobra.Command{
 	Long: `Display the top landmark memories — high-centrality docs that sit at
 structural crossroads of the memory graph.
 
-Landmarks are computed by 'mom reindex --landmarks' or automatically during
+Landmarks are computed automatically during
 'mom bootstrap' (when doc count >= 100).`,
 	RunE: runTour,
 }
@@ -72,7 +72,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	memDir := filepath.Join(targetScope.Path, "memory")
 	entries, err := os.ReadDir(memDir)
 	if err != nil {
-		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' first.\n")
+		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' first.\n")
 		return nil
 	}
 
@@ -101,7 +101,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' first.\n")
+		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' first.\n")
 		return nil
 	}
 

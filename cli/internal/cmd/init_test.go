@@ -32,7 +32,6 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 		".mom/config.yaml",
 		".mom/identity.json",
 		".mom/schema.json",
-		".mom/index.json",
 		".mom/logs",
 		".claude/CLAUDE.md",
 		".mom/constraints/anti-hallucination.json",

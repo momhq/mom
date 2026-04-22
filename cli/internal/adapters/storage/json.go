@@ -1,29 +1,26 @@
 package storage
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/momhq/mom/cli/internal/memory"
 )
 
 // JSONAdapter implements the Adapter interface using flat JSON files
-// in .mom/memory/ with an index at .mom/index.json.
+// in .mom/memory/. The index is built on-the-fly by scanning the directory;
+// there is no persistent index.json file.
 type JSONAdapter struct {
-	docsDir   string
-	indexPath string
+	docsDir string
 }
 
 // NewJSONAdapter creates a JSONAdapter for the given .mom/ directory.
 func NewJSONAdapter(momDir string) *JSONAdapter {
 	return &JSONAdapter{
-		docsDir:   filepath.Join(momDir, "memory"),
-		indexPath: filepath.Join(momDir, "index.json"),
+		docsDir: filepath.Join(momDir, "memory"),
 	}
 }
 
@@ -47,11 +44,7 @@ func (a *JSONAdapter) Write(doc *Doc) error {
 		return fmt.Errorf("creating docs dir: %w", err)
 	}
 
-	if err := memory.SaveDoc(path, kbDoc); err != nil {
-		return err
-	}
-
-	return a.rebuildIndex()
+	return memory.SaveDoc(path, kbDoc)
 }
 
 func (a *JSONAdapter) Query(filter QueryFilter) ([]*Doc, error) {
@@ -81,24 +74,56 @@ func (a *JSONAdapter) Delete(id string) error {
 		return fmt.Errorf("deleting doc %q: %w", id, err)
 	}
 
-	return a.rebuildIndex()
+	return nil
 }
 
+// List scans .mom/memory/ and builds an Index on-the-fly.
+// No persistent index.json is required.
 func (a *JSONAdapter) List() (*Index, error) {
-	data, err := os.ReadFile(a.indexPath)
+	entries, err := os.ReadDir(a.docsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Index{Version: "1"}, nil
 		}
-		return nil, fmt.Errorf("reading index: %w", err)
+		return nil, fmt.Errorf("reading docs dir: %w", err)
 	}
 
-	var idx Index
-	if err := json.Unmarshal(data, &idx); err != nil {
-		return nil, fmt.Errorf("parsing index: %w", err)
+	idx := &Index{
+		Version:     "1",
+		ByTag:       make(map[string][]string),
+		ByType:      make(map[string][]string),
+		ByScope:     make(map[string][]string),
+		ByLifecycle: make(map[string][]string),
 	}
 
-	return &idx, nil
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join(a.docsDir, e.Name())
+		doc, err := memory.LoadDoc(path)
+		if err != nil {
+			continue
+		}
+
+		id := doc.ID
+
+		for _, tag := range doc.Tags {
+			idx.ByTag[tag] = appendUnique(idx.ByTag[tag], id)
+		}
+		idx.ByType[doc.Type] = appendUnique(idx.ByType[doc.Type], id)
+		idx.ByScope[doc.Scope] = appendUnique(idx.ByScope[doc.Scope], id)
+		idx.ByLifecycle[doc.Lifecycle] = appendUnique(idx.ByLifecycle[doc.Lifecycle], id)
+	}
+
+	// Sort all slices for deterministic output.
+	sortMapValues(idx.ByTag)
+	sortMapValues(idx.ByType)
+	sortMapValues(idx.ByScope)
+	sortMapValues(idx.ByLifecycle)
+
+	return idx, nil
 }
 
 func (a *JSONAdapter) BulkWrite(docs []*Doc) error {
@@ -116,101 +141,6 @@ func (a *JSONAdapter) BulkWrite(docs []*Doc) error {
 		if err := memory.SaveDoc(path, kbDoc); err != nil {
 			return err
 		}
-	}
-
-	return a.rebuildIndex()
-}
-
-// Reindex publicly exposes rebuildIndex for callers outside this package
-// (e.g. the update command after copying files directly to the docs dir).
-func (a *JSONAdapter) Reindex() error {
-	return a.rebuildIndex()
-}
-
-// rebuildIndex scans all docs and rebuilds the index.json.
-func (a *JSONAdapter) rebuildIndex() error {
-	entries, err := os.ReadDir(a.docsDir)
-	if err != nil {
-		return fmt.Errorf("reading docs dir: %w", err)
-	}
-
-	byTag := make(map[string][]string)
-	byType := make(map[string][]string)
-	byScope := make(map[string][]string)
-	byLifecycle := make(map[string][]string)
-	total := 0
-
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
-		}
-
-		path := filepath.Join(a.docsDir, e.Name())
-		doc, err := memory.LoadDoc(path)
-		if err != nil {
-			continue
-		}
-
-		total++
-		id := doc.ID
-
-		for _, tag := range doc.Tags {
-			byTag[tag] = appendUnique(byTag[tag], id)
-		}
-		byType[doc.Type] = appendUnique(byType[doc.Type], id)
-		byScope[doc.Scope] = appendUnique(byScope[doc.Scope], id)
-		byLifecycle[doc.Lifecycle] = appendUnique(byLifecycle[doc.Lifecycle], id)
-	}
-
-	// Sort all slices for deterministic output.
-	sortMapValues(byTag)
-	sortMapValues(byType)
-	sortMapValues(byScope)
-	sortMapValues(byLifecycle)
-
-	// Find most connected tag.
-	mostConnected := ""
-	maxConns := 0
-	for tag, ids := range byTag {
-		if len(ids) > maxConns {
-			maxConns = len(ids)
-			mostConnected = tag
-		}
-	}
-
-	// Count unique tags.
-	totalTags := len(byTag)
-
-	// Count docs by type.
-	docsByType := make(map[string]int)
-	for t, ids := range byType {
-		docsByType[t] = len(ids)
-	}
-
-	idx := map[string]any{
-		"version":      "1",
-		"last_rebuilt": time.Now().UTC().Format(time.RFC3339),
-		"stats": map[string]any{
-			"total_docs":         total,
-			"total_tags":         totalTags,
-			"docs_by_type":       docsByType,
-			"stale_count":        0,
-			"most_connected_tag": mostConnected,
-		},
-		"by_tag":       byTag,
-		"by_type":      byType,
-		"by_scope":     byScope,
-		"by_lifecycle": byLifecycle,
-	}
-
-	data, err := json.MarshalIndent(idx, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling index: %w", err)
-	}
-
-	data = append(data, '\n')
-	if err := os.WriteFile(a.indexPath, data, 0644); err != nil {
-		return fmt.Errorf("writing index: %w", err)
 	}
 
 	return nil

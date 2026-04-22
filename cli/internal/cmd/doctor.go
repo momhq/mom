@@ -448,7 +448,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(jsonFiles) < landmarkComputationThreshold {
-		cmd.Printf("No landmarks computed yet. Run 'mom reindex --landmarks' to compute.\n")
+		cmd.Printf("No landmarks computed yet. Run 'mom bootstrap --path .' to compute.\n")
 		cmd.Printf("(Graph below computation threshold: %d/%d memories)\n", len(jsonFiles), landmarkComputationThreshold)
 		return nil
 	}
@@ -470,7 +470,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks found. Run 'mom reindex --landmarks' to compute.\n")
+		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' to compute.\n")
 		return nil
 	}
 

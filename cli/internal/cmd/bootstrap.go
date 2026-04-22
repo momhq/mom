@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/cartographer"
 	"github.com/momhq/mom/cli/internal/gardener"
 	"github.com/momhq/mom/cli/internal/scope"
@@ -139,11 +138,6 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 		}
 		written = w
 
-		// Regenerate index.json so memories are immediately visible to recall.
-		adapter := storage.NewJSONAdapter(targetScope.Path)
-		if err := adapter.Reindex(); err != nil {
-			cmd.Printf("  ⚠ index rebuild error: %v\n", err)
-		}
 	}
 
 	cmd.Println()
