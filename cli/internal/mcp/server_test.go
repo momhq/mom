@@ -195,7 +195,7 @@ func TestToolsList(t *testing.T) {
 		name, _ := tool["name"].(string)
 		names[name] = true
 	}
-	expected := []string{"search_memories", "get_memory", "list_scopes", "create_memory_draft", "list_landmarks", "mom_status"}
+	expected := []string{"search_memories", "get_memory", "list_scopes", "create_memory_draft", "list_landmarks", "mom_status", "mom_record_turn"}
 	for _, n := range expected {
 		if !names[n] {
 			t.Errorf("tool %q missing from tools/list", n)
