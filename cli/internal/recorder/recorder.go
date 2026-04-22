@@ -109,11 +109,11 @@ func Record(momDir string, input HookInput) error {
 		return nil
 	}
 	if _, err := df.Write(append(line, '\n')); err != nil {
-		df.Close()
+		_ = df.Close()
 		logError(momDir, fmt.Errorf("writing entry: %w", err))
 		return nil
 	}
-	df.Close()
+	_ = df.Close()
 
 	// 7. Update cursor with new offset.
 	newOffset := cursor.LastOffset + int64(len(newContent))

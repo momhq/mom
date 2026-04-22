@@ -58,12 +58,14 @@ func runLog(cmd *cobra.Command, _ []string) error {
 	}
 
 	logsDir := filepath.Join(sc.Path, "logs")
-	os.MkdirAll(logsDir, 0755)
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return nil // best-effort
+	}
 
 	outPath := filepath.Join(logsDir, fmt.Sprintf("session-%s.json", input.SessionID))
 	outData, _ := json.MarshalIndent(sessionLog, "", "  ")
 	outData = append(outData, '\n')
-	os.WriteFile(outPath, outData, 0644)
+	_ = os.WriteFile(outPath, outData, 0644)
 
 	return nil
 }

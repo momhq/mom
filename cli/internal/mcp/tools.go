@@ -553,10 +553,10 @@ func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, fmt.Errorf("opening raw file: %w", err)
 	}
 	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
+		_ = f.Close()
 		return toolCallResult{}, fmt.Errorf("writing entry: %w", err)
 	}
-	f.Close()
+	_ = f.Close()
 
 	result := map[string]any{
 		"status":   "recorded",

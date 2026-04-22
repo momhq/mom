@@ -4,12 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/momhq/mom/cli/internal/adapters/storage"
 )
-
-// storageDoc is a type alias for use in command implementations.
-type storageDoc = storage.Doc
 
 // findMomDir walks up from cwd to find .mom/ directory.
 // Falls back to .leo/ for backward compatibility (v0.10/v0.11 transition).
@@ -65,13 +60,4 @@ func isMomProject(dir string) bool {
 		}
 	}
 	return false
-}
-
-// newStorageAdapter creates a JSONAdapter for the current project.
-func newStorageAdapter() (*storage.JSONAdapter, error) {
-	momDir, err := findMomDir()
-	if err != nil {
-		return nil, err
-	}
-	return storage.NewJSONAdapter(momDir), nil
 }
