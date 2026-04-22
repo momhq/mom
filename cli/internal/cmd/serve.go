@@ -31,7 +31,7 @@ this command to its MCP config:
   {
     "mcpServers": {
       "mom": {
-        "command": "leo",
+        "command": "mom",
         "args": ["serve", "mcp"]
       }
     }

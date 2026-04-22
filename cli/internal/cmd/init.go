@@ -302,6 +302,14 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				genErr = err
 				return
 			}
+
+			// Register MCP server config for Claude.
+			if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+			}
 		}
 
 		if showSpinner {

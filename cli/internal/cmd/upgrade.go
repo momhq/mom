@@ -569,6 +569,13 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 		if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
+
+		// Ensure MCP server config is registered for Claude.
+		if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
+			if err := ca.RegisterMCP(); err != nil {
+				return fmt.Errorf("registering MCP config: %w", err)
+			}
+		}
 	}
 
 	return nil

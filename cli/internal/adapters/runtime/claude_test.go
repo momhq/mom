@@ -214,6 +214,55 @@ func TestClaudeAdapter_RegisterHooks(t *testing.T) {
 	}
 }
 
+func TestClaudeAdapter_RegisterMCP_Fresh(t *testing.T) {
+	dir := t.TempDir()
+	a := NewClaudeAdapter(dir)
+
+	if err := a.RegisterMCP(); err != nil {
+		t.Fatalf("RegisterMCP failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatalf("reading .mcp.json: %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"mom"`) {
+		t.Error(".mcp.json missing mom server entry")
+	}
+	if !strings.Contains(s, `"command": "mom"`) {
+		t.Error(".mcp.json missing mom command")
+	}
+	if !strings.Contains(s, `"serve"`) {
+		t.Error(".mcp.json missing serve arg")
+	}
+}
+
+func TestClaudeAdapter_RegisterMCP_PreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	a := NewClaudeAdapter(dir)
+
+	// Write an existing .mcp.json with another server.
+	existing := `{"mcpServers": {"other": {"command": "other-tool", "args": ["run"]}}}` + "\n"
+	os.WriteFile(filepath.Join(dir, ".mcp.json"), []byte(existing), 0644)
+
+	if err := a.RegisterMCP(); err != nil {
+		t.Fatalf("RegisterMCP failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatalf("reading .mcp.json: %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"other"`) {
+		t.Error(".mcp.json lost existing server entry")
+	}
+	if !strings.Contains(s, `"mom"`) {
+		t.Error(".mcp.json missing mom server entry")
+	}
+}
+
 func TestClaudeAdapter_Watermark(t *testing.T) {
 	a := NewClaudeAdapter("/tmp/test")
 	wm := a.Watermark()

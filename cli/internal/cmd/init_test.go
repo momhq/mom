@@ -34,6 +34,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 		".mom/schema.json",
 		".mom/logs",
 		".claude/CLAUDE.md",
+		".mcp.json",
 		".mom/constraints/anti-hallucination.json",
 		".mom/skills/session-wrap-up.json",
 	}
