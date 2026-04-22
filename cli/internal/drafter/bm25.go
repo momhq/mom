@@ -3,67 +3,30 @@ package drafter
 import (
 	"math"
 	"strings"
+
+	"github.com/momhq/mom/cli/internal/search"
 )
 
-const (
-	bm25K1 = 1.2
-	bm25B  = 0.75
-)
-
-// BM25Index indexes a vocabulary for ranking.
+// BM25Index wraps search.BM25Index with drafter-specific RankCandidates method.
 type BM25Index struct {
-	docs   [][]string     // tokenized documents (existing tags)
-	df     map[string]int // document frequency
-	avgLen float64
+	inner *search.BM25Index
+	// docs mirrors inner's tokenized corpus for RankCandidates iteration.
+	docs [][]string
 }
 
 // NewBM25Index builds an index from existing tag vocabulary.
 func NewBM25Index(vocab []string) *BM25Index {
-	idx := &BM25Index{df: make(map[string]int)}
-	for _, tag := range vocab {
-		tokens := tokenizeBM25(tag)
-		idx.docs = append(idx.docs, tokens)
-		seen := make(map[string]bool)
-		for _, t := range tokens {
-			if !seen[t] {
-				seen[t] = true
-				idx.df[t]++
-			}
-		}
+	inner := search.NewBM25Index(vocab)
+	docs := make([][]string, len(vocab))
+	for i, v := range vocab {
+		docs[i] = search.TokenizeBM25(v)
 	}
-	total := 0
-	for _, d := range idx.docs {
-		total += len(d)
-	}
-	if len(idx.docs) > 0 {
-		idx.avgLen = float64(total) / float64(len(idx.docs))
-	}
-	return idx
+	return &BM25Index{inner: inner, docs: docs}
 }
 
 // Score returns a BM25 score for a query against a document.
 func (idx *BM25Index) Score(query string, docTokens []string) float64 {
-	queryTokens := tokenizeBM25(query)
-	n := float64(len(idx.docs))
-	dl := float64(len(docTokens))
-
-	tf := make(map[string]int)
-	for _, t := range docTokens {
-		tf[t]++
-	}
-
-	var score float64
-	for _, qt := range queryTokens {
-		docFreq := float64(idx.df[qt])
-		if docFreq == 0 {
-			continue
-		}
-		idf := math.Log((n - docFreq + 0.5) / (docFreq + 0.5))
-		termFreq := float64(tf[qt])
-		tfNorm := (termFreq * (bm25K1 + 1)) / (termFreq + bm25K1*(1-bm25B+bm25B*dl/idx.avgLen))
-		score += idf * tfNorm
-	}
-	return score
+	return idx.inner.Score(query, docTokens)
 }
 
 // RankCandidates ranks RAKE candidates against existing vocabulary.
@@ -74,10 +37,10 @@ func (idx *BM25Index) RankCandidates(candidates []RakeCandidate) []string {
 	}
 	var results []scored
 	for _, c := range candidates {
-		tokens := tokenizeBM25(c.Phrase)
+		tokens := search.TokenizeBM25(c.Phrase)
 		s := 0.0
 		for _, doc := range idx.docs {
-			s = math.Max(s, idx.Score(c.Phrase, doc))
+			s = math.Max(s, idx.inner.Score(c.Phrase, doc))
 		}
 		results = append(results, scored{tag: strings.Join(tokens, "-"), score: s + c.Score})
 	}
@@ -96,14 +59,7 @@ func (idx *BM25Index) RankCandidates(candidates []RakeCandidate) []string {
 	return tags
 }
 
+// tokenizeBM25 is a package-local alias for the shared tokenizer.
 func tokenizeBM25(s string) []string {
-	s = strings.ToLower(s)
-	var tokens []string
-	for _, word := range strings.Fields(s) {
-		clean := strings.Trim(word, ".,;:!?()[]{}\"'`")
-		if clean != "" && !stopwords[clean] {
-			tokens = append(tokens, clean)
-		}
-	}
-	return tokens
+	return search.TokenizeBM25(s)
 }
