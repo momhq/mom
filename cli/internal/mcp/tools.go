@@ -12,6 +12,7 @@ import (
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/search"
 	"github.com/momhq/mom/cli/internal/transponder"
 )
 
@@ -108,6 +109,20 @@ func allTools() []toolDef {
 				},
 			},
 		},
+		{
+			Name:        "mom_recall",
+			Description: "Search your memory for relevant context. Returns ranked results using BM25 text search.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"query"},
+				"properties": map[string]any{
+					"query":       map[string]any{"type": "string", "description": "Search query (keywords or natural language)"},
+					"max_results": map[string]any{"type": "integer", "description": "Maximum results (default 5)"},
+					"tags":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (AND logic)"},
+					"session_id":  map[string]any{"type": "string", "description": "Filter by source session"},
+				},
+			},
+		},
 	}
 }
 
@@ -150,6 +165,8 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolListLandmarks(req.Arguments)
 	case "mom_record_turn":
 		result, err = s.toolRecordTurn(req.Arguments)
+	case "mom_recall":
+		result, err = s.toolMomRecall(req.Arguments)
 	default:
 		return nil, &rpcError{Code: errCodeMethodNotFound, Message: "unknown tool: " + req.Name}
 	}
@@ -557,6 +574,37 @@ func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
 	}
 	text2, _ := json.MarshalIndent(result, "", "  ")
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text2)}}}, nil
+}
+
+// toolMomRecall performs BM25 search over memory docs and returns ranked results.
+func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
+	query := stringArg(args, "query")
+	maxResults := intArg(args, "max_results", 5)
+	tags := stringSliceArg(args, "tags")
+	sessionID := stringArg(args, "session_id")
+
+	// Resolve memory directory from nearest scope or fall back to momDir.
+	memDir := filepath.Join(s.momDir, "memory")
+	if sc, ok := scope.NearestWritable(s.momDir); ok {
+		memDir = filepath.Join(sc.Path, "memory")
+	}
+
+	results, err := search.Search(memDir, search.SearchOptions{
+		Query:      query,
+		MaxResults: maxResults,
+		Tags:       tags,
+		SessionID:  sessionID,
+	})
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("mom_recall search failed: %w", err)
+	}
+
+	if len(results) == 0 {
+		return toolCallResult{Content: []toolContent{{Type: "text", Text: "No memories matched."}}}, nil
+	}
+
+	text, _ := json.MarshalIndent(results, "", "  ")
+	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
 }
 
 // --- Scoring (mirrors recall.go) ---
