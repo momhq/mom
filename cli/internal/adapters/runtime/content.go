@@ -52,7 +52,7 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	b.WriteString("## During work\n\n")
 	b.WriteString("- Need context? Check the index by tags, read only the relevant docs\n")
 	b.WriteString("- New knowledge goes to `.mom/memory/` as structured JSON\n")
-	b.WriteString("- Follow `.mom/schema.json` — every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
+	b.WriteString("- Follow `.mom/schema.json` — every doc needs: id, scope, tags, created, created_by, content\n\n")
 
 	// Constraints
 	if len(constraints) > 0 {

@@ -269,8 +269,8 @@ func TestUpgradeCmd_UpdatesSchema(t *testing.T) {
 	if strings.Contains(string(schema), `"old"`) {
 		t.Error("schema.json was not updated")
 	}
-	if !strings.Contains(string(schema), "session-log") {
-		t.Error("schema.json missing session-log type")
+	if !strings.Contains(string(schema), "mom-memory-doc-v2") {
+		t.Error("schema.json not updated to v2")
 	}
 }
 
