@@ -18,10 +18,10 @@ import (
 	"github.com/momhq/mom/cli/internal/transponder"
 )
 
-var bootstrapCmd = &cobra.Command{
-	Use:   "bootstrap",
+var mapCmd = &cobra.Command{
+	Use:   "map",
 	Short: "Scan existing code, docs, and commits to seed the memory",
-	Long: `Bootstrap scans the chosen directory for code, markdown, dependency
+	Long: `Map scans the chosen directory for code, markdown, dependency
 manifests, and commit history to create initial memories.
 
 By default it writes to the nearest .mom/ found by walking up from the
@@ -29,14 +29,27 @@ scan directory. Use --scope to override the target .mom/ location.`,
 	RunE: runBootstrap,
 }
 
+// bootstrapAliasCmd is a hidden backward-compat alias for the renamed "map" command.
+var bootstrapAliasCmd = &cobra.Command{
+	Use:    "bootstrap",
+	Hidden: true,
+	Short:  "Alias for 'mom map' (deprecated)",
+	RunE:   mapCmd.RunE,
+}
+
+func registerMapFlags(cmd *cobra.Command) {
+	cmd.Flags().String("path", "", "Directory to scan (default: current directory)")
+	cmd.Flags().Bool("refresh", false, "Re-scan all files, ignoring the SHA256 cache")
+	cmd.Flags().Bool("dry-run", false, "Show what would be written without persisting")
+	cmd.Flags().Int("commit-depth", 200, "Number of recent commits to scan")
+	cmd.Flags().Int64("max-file-size", 2, "Skip files larger than this many MB")
+	cmd.Flags().String("scope", "", "Target scope label (user/org/repo/workspace/custom)")
+	cmd.Flags().Bool("no-graph", false, "Skip opening the memory graph in the browser after bootstrap")
+}
+
 func init() {
-	bootstrapCmd.Flags().String("path", "", "Directory to scan (default: current directory)")
-	bootstrapCmd.Flags().Bool("refresh", false, "Re-scan all files, ignoring the SHA256 cache")
-	bootstrapCmd.Flags().Bool("dry-run", false, "Show what would be written without persisting")
-	bootstrapCmd.Flags().Int("commit-depth", 200, "Number of recent commits to scan")
-	bootstrapCmd.Flags().Int64("max-file-size", 2, "Skip files larger than this many MB")
-	bootstrapCmd.Flags().String("scope", "", "Target scope label (user/org/repo/workspace/custom)")
-	bootstrapCmd.Flags().Bool("no-graph", false, "Skip opening the memory graph in the browser after bootstrap")
+	registerMapFlags(mapCmd)
+	registerMapFlags(bootstrapAliasCmd)
 }
 
 func runBootstrap(cmd *cobra.Command, _ []string) error {
@@ -177,7 +190,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 		if !noGraph {
 			data, graphErr := gardener.BuildGraphData(memDir, 50)
 			if graphErr == nil && data.Stats.TotalDocs > 0 {
-				outPath := filepath.Join(os.TempDir(), "leo-memory-graph.html")
+				outPath := filepath.Join(os.TempDir(), "mom-memory-graph.html")
 				if writeErr := gardener.WriteGraphHTML(data, outPath); writeErr == nil {
 					cmd.Printf("Graph written to %s\n", outPath)
 					if openErr := openBrowser(outPath); openErr != nil {
