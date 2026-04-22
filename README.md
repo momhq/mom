@@ -93,30 +93,35 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 | `mom status` | Memory summary — document count, tags, health |
 | `mom doctor` | Diagnostic checks on `.mom/` health |
 | `mom recall <query>` | BM25 search across memory |
-| `mom promote <id>` | Promote a draft memory to curated |
-| `mom demote <id>` | Demote a memory back to draft |
+| `mom record` | Record raw conversation data from hook stdin |
 | `mom draft` | Extract memory drafts from raw session capture |
+| `mom log` | Generate session-level observability data from transcript |
+| `mom diagnose` | Compute derived metrics from session logs |
 | `mom map` | Cartographer — scan repo and generate initial memory |
-| `mom reindex` | Rebuild index from documents on disk |
+| `mom tour` | Show top landmark memories at current scope |
+| `mom promote <id>` | Move a memory doc up to a broader scope |
+| `mom demote <id>` | Move a memory doc down to the nearest scope |
 | `mom validate` | Validate documents against schema |
 | `mom export` | Export memory to portable directory |
 | `mom import` | Import memory (merge or replace) |
-| `mom upgrade` | Migrate from older versions (injects `.mcp.json`) |
-| `mom tour` | Guided walkthrough of your memory |
-| `mom serve mcp` | Start MCP stdio server |
+| `mom upgrade` | Upgrade `.mom/` to the latest version (preserves memory) |
+| `mom uninstall` | Remove all MOM files from this project |
+| `mom serve --mcp` | Start MCP stdio server |
 | `mom version` | Print version |
 
 ## Supported Runtimes
 
-| Runtime | Adapter | Status |
-|---------|---------|--------|
-| Claude Code | MCP + hooks + context file | Stable |
-| OpenAI Codex | Context file | Stable |
-| Cline | Context file | Stable |
+| Runtime | MCP | Hooks | Boot file | Status |
+|---------|-----|-------|-----------|--------|
+| Claude Code | Yes | Stop + SessionEnd | CLAUDE.md | Full support |
+| OpenAI Codex | Yes | — | AGENTS.md | Boot file + MCP |
+| Cline | Yes | — | .clinerules/ | Boot file + MCP |
+| Windsurf | Yes | — | .windsurf/rules/ | Boot file + MCP |
+| Cursor | Yes | — | .cursor/rules/ | Boot file + MCP |
 
 ## Current Status
 
-MOM is in active development (v0.11). It works, and it self-hosts — the tool builds itself with its own memory.
+MOM is in active development (v0.11.2). It works, and it self-hosts — the tool builds itself with its own memory.
 
 What's in v0.11:
 - **MCP-first context delivery** — behavioral protocol via `mom_status` tool, `.mcp.json` auto-injected
@@ -125,7 +130,7 @@ What's in v0.11:
 - **Cartographer** — AST-based repo scanning for initial memory bootstrap
 - **Simplified schema (v2)** — free-form content, promotion-based lifecycle (`draft`/`curated`)
 - **Herald event bus** — internal telemetry and event emission
-- Three runtime adapters (Claude Code, Codex, Cline)
+- Five runtime adapters (Claude Code, Codex, Cline, Windsurf, Cursor)
 - Communication modes (verbose, concise, normal, caveman)
 - Multi-repo support with scope-based memory
 - Homebrew installation with automated tap updates

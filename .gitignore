@@ -5,9 +5,17 @@
 .vscode/
 .idea/
 
-# Claude Code (local configs)
+# MOM (generated at runtime by mom init/upgrade)
+.mom/
+.mcp.json
+
+# Runtime-generated adapter files
 .claude/
 CLAUDE.md
+AGENTS.md
+.clinerules/
+.windsurf/
+.cursor/rules/
 
 # Not part of core
 /dashboard/
@@ -15,24 +23,9 @@ CLAUDE.md
 /posts/
 /rules/
 
-# Leo cache (ephemeral)
-.leo/cache/
-
-# Leo runtime directories (gitignored, generated at runtime)
-.leo/logs/
-.leo/telemetry/
-
-# Architecture drafts (internal, do not publish)
-.leo/architecture/
-.leo/kb/
-
-# Leo export output
-leo-export/
-
 # CLI build artifacts
 cli/bin/
 .aider*
 
-# Runtime-generated adapter files (like CLAUDE.md)
-AGENTS.md
-.clinerules/
+# Export output
+mom-export/
