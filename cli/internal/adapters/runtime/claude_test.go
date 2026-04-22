@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -205,12 +206,85 @@ func TestClaudeAdapter_RegisterHooks(t *testing.T) {
 		t.Fatalf("reading settings.json: %v", err)
 	}
 
-	s := string(content)
-	if !strings.Contains(s, "PostToolUse") {
-		t.Error("settings.json missing hook event")
+	// Verify Claude Code hooks format: { "hooks": { "Event": [ { "matcher": "...", "hooks": [...] } ] } }
+	var settings map[string]any
+	if err := json.Unmarshal(content, &settings); err != nil {
+		t.Fatalf("parsing settings.json: %v", err)
 	}
-	if !strings.Contains(s, "validate.sh") {
-		t.Error("settings.json missing hook command")
+
+	hooksMap, ok := settings["hooks"].(map[string]any)
+	if !ok {
+		t.Fatal("hooks should be a map keyed by event name")
+	}
+
+	postToolUse, ok := hooksMap["PostToolUse"].([]any)
+	if !ok {
+		t.Fatal("hooks.PostToolUse should be an array")
+	}
+	if len(postToolUse) != 1 {
+		t.Fatalf("expected 1 matcher group, got %d", len(postToolUse))
+	}
+
+	group, ok := postToolUse[0].(map[string]any)
+	if !ok {
+		t.Fatal("matcher group should be a map")
+	}
+	if group["matcher"] != "Write" {
+		t.Errorf("expected matcher 'Write', got %v", group["matcher"])
+	}
+
+	innerHooks, ok := group["hooks"].([]any)
+	if !ok || len(innerHooks) == 0 {
+		t.Fatal("matcher group should have a hooks array")
+	}
+	hookEntry, ok := innerHooks[0].(map[string]any)
+	if !ok {
+		t.Fatal("hook entry should be a map")
+	}
+	if hookEntry["type"] != "command" {
+		t.Errorf("expected type 'command', got %v", hookEntry["type"])
+	}
+	if hookEntry["command"] != "validate.sh" {
+		t.Errorf("expected command 'validate.sh', got %v", hookEntry["command"])
+	}
+}
+
+func TestClaudeAdapter_RegisterHooks_DefaultHooks(t *testing.T) {
+	dir := t.TempDir()
+	a := NewClaudeAdapter(dir)
+
+	if err := a.RegisterHooks(DefaultHooks()); err != nil {
+		t.Fatalf("RegisterHooks with defaults failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatalf("reading settings.json: %v", err)
+	}
+
+	var settings map[string]any
+	if err := json.Unmarshal(content, &settings); err != nil {
+		t.Fatalf("parsing settings.json: %v", err)
+	}
+
+	hooksMap, ok := settings["hooks"].(map[string]any)
+	if !ok {
+		t.Fatal("hooks should be a map")
+	}
+
+	stop, ok := hooksMap["Stop"].([]any)
+	if !ok {
+		t.Fatal("hooks.Stop should be an array")
+	}
+	if len(stop) != 1 {
+		t.Fatalf("expected 1 Stop matcher group, got %d", len(stop))
+	}
+
+	group := stop[0].(map[string]any)
+	innerHooks := group["hooks"].([]any)
+	hookEntry := innerHooks[0].(map[string]any)
+	if hookEntry["command"] != "mom record" {
+		t.Errorf("expected command 'mom record', got %v", hookEntry["command"])
 	}
 }
 

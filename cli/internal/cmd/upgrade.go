@@ -135,6 +135,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			filepath.Join(leoDir, "logs"),
 			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
+			filepath.Join(leoDir, "raw"),
 		}
 		for _, d := range newDirs {
 			if _, err := os.Stat(d); os.IsNotExist(err) {
@@ -570,10 +571,13 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
 
-		// Ensure MCP server config is registered for Claude.
+		// Ensure MCP server config and hooks are registered for Claude.
 		if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
 			if err := ca.RegisterMCP(); err != nil {
 				return fmt.Errorf("registering MCP config: %w", err)
+			}
+			if err := ca.RegisterHooks(runtime.DefaultHooks()); err != nil {
+				return fmt.Errorf("registering hooks: %w", err)
 			}
 		}
 	}

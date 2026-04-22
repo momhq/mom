@@ -59,6 +59,11 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 	claudeDir := filepath.Join(a.projectRoot, ".claude")
 	settingsPath := filepath.Join(claudeDir, "settings.json")
 
+	// Ensure .claude/ exists.
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		return fmt.Errorf("creating .claude dir: %w", err)
+	}
+
 	// Load existing settings or start fresh.
 	settings := make(map[string]any)
 	if data, err := os.ReadFile(settingsPath); err == nil {
@@ -67,20 +72,36 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 		}
 	}
 
-	// Build hooks structure.
-	hooksList := make([]map[string]any, 0, len(hooks))
+	// Build Claude Code hooks structure:
+	//   "hooks": { "EventName": [ { "matcher": "...", "hooks": [ {...} ] } ] }
+	hooksMap := make(map[string]any)
+
+	// Group HookDefs by event.
+	byEvent := make(map[string][]HookDef)
 	for _, h := range hooks {
-		hook := map[string]any{
-			"type":    h.Event,
-			"command": h.Command,
-		}
-		if h.Matcher != "" {
-			hook["matcher"] = h.Matcher
-		}
-		hooksList = append(hooksList, hook)
+		byEvent[h.Event] = append(byEvent[h.Event], h)
 	}
 
-	settings["hooks"] = hooksList
+	for event, defs := range byEvent {
+		var matcherGroups []map[string]any
+		for _, d := range defs {
+			entry := map[string]any{
+				"type":    "command",
+				"command": d.Command,
+				"timeout": 10,
+			}
+			group := map[string]any{
+				"hooks": []map[string]any{entry},
+			}
+			if d.Matcher != "" {
+				group["matcher"] = d.Matcher
+			}
+			matcherGroups = append(matcherGroups, group)
+		}
+		hooksMap[event] = matcherGroups
+	}
+
+	settings["hooks"] = hooksMap
 
 	data, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
@@ -93,6 +114,17 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 	}
 
 	return nil
+}
+
+// DefaultHooks returns the standard MOM hooks for Claude Code.
+// These wire up continuous recording via the Stop event.
+func DefaultHooks() []HookDef {
+	return []HookDef{
+		{
+			Event:   "Stop",
+			Command: "mom record",
+		},
+	}
 }
 
 func (a *ClaudeAdapter) DetectRuntime() bool {
