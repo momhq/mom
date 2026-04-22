@@ -546,11 +546,6 @@ func TestUpgradeCmd_MigratesKBLayout(t *testing.T) {
 		t.Error("skills/ directory not created by migration")
 	}
 
-	// index.json must be at the flat level.
-	if _, err := os.Stat(filepath.Join(leoDir, "index.json")); err != nil {
-		t.Error("index.json not at flat level after migration")
-	}
-
 	// schema.json must be at the flat level.
 	if _, err := os.Stat(filepath.Join(leoDir, "schema.json")); err != nil {
 		t.Error("schema.json not at flat level after migration")
@@ -670,7 +665,7 @@ func TestInitCmd_NewLayout_NoKBDir(t *testing.T) {
 	}
 
 	// Flat files at root level.
-	for _, f := range []string{"index.json", "schema.json"} {
+	for _, f := range []string{"schema.json"} {
 		if _, err := os.Stat(filepath.Join(leoDir, f)); err != nil {
 			t.Errorf("init must create flat file: %s", f)
 		}

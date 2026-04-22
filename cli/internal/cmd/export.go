@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -96,13 +95,6 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Copy index.json.
-	srcIndex := filepath.Join(leoDir, "index.json")
-	dstIndex := filepath.Join(outputDir, "index.json")
-	if err := copyFileContents(srcIndex, dstIndex); err != nil {
-		return fmt.Errorf("copying index.json: %w", err)
-	}
-
 	// Copy schema.json if it exists.
 	srcSchema := filepath.Join(leoDir, "schema.json")
 	if _, err := os.Stat(srcSchema); err == nil {
@@ -176,12 +168,6 @@ func runImport(cmd *cobra.Command, args []string) error {
 			if err := copyFileContents(src, dst); err != nil {
 				return fmt.Errorf("backing up %s: %w", e.Name(), err)
 			}
-		}
-
-		// Copy index.json to backup if it exists.
-		srcIdx := filepath.Join(leoDir, "index.json")
-		if _, err := os.Stat(srcIdx); err == nil {
-			copyFileContents(srcIdx, filepath.Join(backupDir, "index.json")) //nolint:errcheck
 		}
 
 		// Remove all existing docs.
@@ -277,44 +263,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		copyFileContents(srcConfig, dstConfig) //nolint:errcheck
 	}
 
-	// Rebuild the index after import.
-	adapter, err := newStorageAdapter()
-	if err != nil {
-		return fmt.Errorf("creating adapter for reindex: %w", err)
-	}
-
-	// Read all docs and BulkWrite to rebuild index.
-	allEntries, _ := os.ReadDir(destDocsDir)
-	var docs []*storageDoc
-	for _, e := range allEntries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
-		}
-		id := strings.TrimSuffix(e.Name(), ".json")
-		doc, err := adapter.Read(id)
-		if err != nil {
-			continue
-		}
-		docs = append(docs, doc)
-	}
-	if len(docs) > 0 {
-		if err := adapter.BulkWrite(docs); err != nil {
-			cmd.Printf("  warning: index rebuild failed: %v\n", err)
-		}
-	} else {
-		// No docs — write an empty index.
-		indexPath := filepath.Join(leoDir, "index.json")
-		emptyIdx := map[string]any{
-			"version": "1", "last_rebuilt": time.Now().UTC().Format(time.RFC3339),
-			"by_tag": map[string]any{}, "by_type": map[string]any{},
-			"by_scope": map[string]any{}, "by_lifecycle": map[string]any{},
-		}
-		if data, err := json.MarshalIndent(emptyIdx, "", "  "); err == nil {
-			_ = os.WriteFile(indexPath, append(data, '\n'), 0644)
-		}
-	}
-
-	cmd.Printf("Import complete: %d imported, %d skipped, %d error(s)\n",
+		cmd.Printf("Import complete: %d imported, %d skipped, %d error(s)\n",
 		imported, skipped, errCount)
 	return nil
 }

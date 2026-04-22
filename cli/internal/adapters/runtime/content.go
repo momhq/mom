@@ -32,7 +32,7 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	if config.HasMCP {
 		b.WriteString("You have MOM tools via MCP — prefer them over raw file reads where available.\n")
 	}
-	b.WriteString("Consult `.mom/index.json` by tags. Read only what you need. Never load everything upfront — that's hoarding, not remembering.\n\n")
+	b.WriteString("Read only what you need. Never load everything upfront — that's hoarding, not remembering.\n\n")
 
 	// During work
 	b.WriteString("## During work\n\n")

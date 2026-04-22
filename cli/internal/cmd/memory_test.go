@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,15 +17,6 @@ func setupTestMemory(t *testing.T) string {
 	dir := t.TempDir()
 	leoDir := filepath.Join(dir, ".mom")
 	os.MkdirAll(filepath.Join(leoDir, "memory"), 0755)
-
-	// Write empty index.
-	idx := map[string]any{
-		"version": "1", "last_rebuilt": "", "by_tag": map[string]any{},
-		"by_type": map[string]any{}, "by_scope": map[string]any{},
-		"by_lifecycle": map[string]any{},
-	}
-	data, _ := json.MarshalIndent(idx, "", "  ")
-	os.WriteFile(filepath.Join(leoDir, "index.json"), data, 0644)
 
 	return dir
 }
@@ -70,28 +60,3 @@ func TestValidateCmd_AllValid(t *testing.T) {
 	}
 }
 
-func TestReindexCmd_RebuildsIndex(t *testing.T) {
-	dir := setupTestMemory(t)
-	writeTestDoc(t, dir, sampleDoc("reindex-doc"))
-
-	// Corrupt the index.
-	indexPath := filepath.Join(dir, ".mom", "index.json")
-	os.WriteFile(indexPath, []byte(`{}`), 0644)
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
-
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"reindex"})
-
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("reindex failed: %v", err)
-	}
-
-	if !strings.Contains(buf.String(), "Index rebuilt") {
-		t.Errorf("expected rebuild message, got: %s", buf.String())
-	}
-}

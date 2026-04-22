@@ -58,7 +58,7 @@ func findMomDir() (string, error) {
 // (has config.yaml, memory/, or index.json). This prevents ~/.mom/cache/
 // (created by version check) from being mistaken for a project.
 func isMomProject(dir string) bool {
-	markers := []string{"config.yaml", "memory", "index.json"}
+	markers := []string{"config.yaml", "memory"}
 	for _, m := range markers {
 		if _, err := os.Stat(filepath.Join(dir, m)); err == nil {
 			return true

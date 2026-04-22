@@ -39,9 +39,7 @@ func TestExportCmd_CreatesDefaultDirStructure(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(exportDir, "docs")); err != nil {
 		t.Error("mom-export/docs/ not created")
 	}
-	if _, err := os.Stat(filepath.Join(exportDir, "index.json")); err != nil {
-		t.Error("mom-export/index.json not created")
-	}
+
 }
 
 func TestExportCmd_CopiesAllDocs(t *testing.T) {
@@ -100,9 +98,7 @@ func TestExportCmd_CustomOutputPath(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(customOut, "docs")); err != nil {
 		t.Error("custom output docs/ dir not created")
 	}
-	if _, err := os.Stat(filepath.Join(customOut, "index.json")); err != nil {
-		t.Error("custom output index.json not created")
-	}
+
 	if _, err := os.Stat(filepath.Join(customOut, "docs", "export-custom.json")); err != nil {
 		t.Error("custom output doc not found")
 	}
@@ -152,10 +148,6 @@ func TestImportCmd_MergeMode_AddsNewDocs(t *testing.T) {
 		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
-	copyFile(t,
-		filepath.Join(srcDir, ".mom", "index.json"),
-		filepath.Join(exportDir, "index.json"),
-	)
 
 	// Destination memory: empty.
 	destDir := setupTestMemory(t)
@@ -199,10 +191,6 @@ func TestImportCmd_MergeMode_SkipsExistingDocs(t *testing.T) {
 	copyDir(t,
 		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
-	)
-	copyFile(t,
-		filepath.Join(srcDir, ".mom", "index.json"),
-		filepath.Join(exportDir, "index.json"),
 	)
 
 	// Destination memory: already has existing-doc with content "local".
@@ -252,10 +240,6 @@ func TestImportCmd_ReplaceMode_BacksUpFirst(t *testing.T) {
 	copyDir(t,
 		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
-	)
-	copyFile(t,
-		filepath.Join(srcDir, ".mom", "index.json"),
-		filepath.Join(exportDir, "index.json"),
 	)
 
 	// Destination memory: has existing-doc.
@@ -309,10 +293,6 @@ func TestImportCmd_ReplaceMode_ReplacesAllDocs(t *testing.T) {
 	copyDir(t,
 		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
-	)
-	copyFile(t,
-		filepath.Join(srcDir, ".mom", "index.json"),
-		filepath.Join(exportDir, "index.json"),
 	)
 
 	// Destination memory: has old-doc that should be gone after replace.
@@ -383,9 +363,9 @@ func TestImportCmd_ValidatesSchema(t *testing.T) {
 	}
 }
 
-func TestImportCmd_RebuildsIndexAfterImport(t *testing.T) {
+func TestImportCmd_ImportedDocExists(t *testing.T) {
 	srcDir := setupTestMemory(t)
-	writeTestDoc(t, srcDir, sampleDoc("index-rebuild-doc"))
+	writeTestDoc(t, srcDir, sampleDoc("import-exists-doc"))
 
 	exportDir := filepath.Join(srcDir, "export-src")
 	os.MkdirAll(filepath.Join(exportDir, "docs"), 0755)
@@ -393,16 +373,8 @@ func TestImportCmd_RebuildsIndexAfterImport(t *testing.T) {
 		filepath.Join(srcDir, ".mom", "memory"),
 		filepath.Join(exportDir, "docs"),
 	)
-	copyFile(t,
-		filepath.Join(srcDir, ".mom", "index.json"),
-		filepath.Join(exportDir, "index.json"),
-	)
 
 	destDir := setupTestMemory(t)
-
-	// Corrupt the destination index.
-	indexPath := filepath.Join(destDir, ".mom", "index.json")
-	os.WriteFile(indexPath, []byte(`{}`), 0644)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(destDir)
@@ -417,13 +389,10 @@ func TestImportCmd_RebuildsIndexAfterImport(t *testing.T) {
 		t.Fatalf("import failed: %v", err)
 	}
 
-	// Index should now reference index-rebuild-doc.
-	indexData, err := os.ReadFile(indexPath)
-	if err != nil {
-		t.Fatalf("reading index: %v", err)
-	}
-	if !strings.Contains(string(indexData), "index-rebuild-doc") {
-		t.Error("index not rebuilt: does not reference imported doc")
+	// Imported doc should exist on disk.
+	docPath := filepath.Join(destDir, ".mom", "memory", "import-exists-doc.json")
+	if _, err := os.Stat(docPath); err != nil {
+		t.Error("imported doc not found in dest memory")
 	}
 }
 
