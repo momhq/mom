@@ -12,7 +12,7 @@ import (
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
-	"github.com/momhq/mom/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/herald"
 )
 
 // toolDef describes one MCP tool for the tools/list response.
@@ -241,8 +241,8 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 
 			// Emit telemetry.
 			if s.momDir != "" {
-				em := transponder.New(s.momDir, true)
-				em.EmitConsumptionEvent(transponder.ConsumptionEvent{
+				em := herald.New(s.momDir, true)
+				em.EmitConsumptionEvent(herald.ConsumptionEvent{
 					MemoryID: doc.ID,
 					TS:       time.Now().UTC().Format(time.RFC3339),
 					ByAgent:  "mcp",
@@ -314,8 +314,8 @@ func (s *Server) toolGetMemory(args map[string]any) (toolCallResult, error) {
 			continue
 		}
 		// Emit telemetry.
-		em := transponder.New(s.momDir, true)
-		em.EmitConsumptionEvent(transponder.ConsumptionEvent{
+		em := herald.New(s.momDir, true)
+		em.EmitConsumptionEvent(herald.ConsumptionEvent{
 			MemoryID: doc.ID,
 			TS:       time.Now().UTC().Format(time.RFC3339),
 			ByAgent:  "mcp",

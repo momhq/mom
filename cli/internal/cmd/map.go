@@ -14,7 +14,7 @@ import (
 	"github.com/momhq/mom/cli/internal/cartographer"
 	"github.com/momhq/mom/cli/internal/gardener"
 	"github.com/momhq/mom/cli/internal/scope"
-	"github.com/momhq/mom/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/herald"
 )
 
 var mapCmd = &cobra.Command{
@@ -202,8 +202,8 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	cmd.Println("  · \"What was the last major refactor about?\"")
 
 	// Emit telemetry.
-	emitter := transponder.New(targetScope.Path, true)
-	emitter.EmitCaptureEvent(transponder.CaptureEvent{
+	emitter := herald.New(targetScope.Path, true)
+	emitter.EmitCaptureEvent(herald.CaptureEvent{
 		CaptureID:        fmt.Sprintf("bootstrap-%d", time.Now().UnixMilli()),
 		TS:               time.Now().UTC().Format(time.RFC3339),
 		ExtractorModel:   "cartographer",

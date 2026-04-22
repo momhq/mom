@@ -1,4 +1,4 @@
-package transponder
+package herald
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 // schemaDir returns the absolute path to .github/mrp/schemas/ relative to
 // this test file. The path walks four levels up from the package directory:
 //
-//	cli/internal/transponder  →  cli/internal  →  cli  →  mom  →  .github/mrp/schemas
+//	cli/internal/herald  →  cli/internal  →  cli  →  mom  →  .github/mrp/schemas
 func schemaDir(t *testing.T) string {
 	t.Helper()
 	_, thisFile, _, ok := runtime.Caller(0)

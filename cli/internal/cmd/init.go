@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
-	"github.com/momhq/mom/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/herald"
 )
 
 //go:embed schema.json
@@ -310,15 +310,15 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 
 	// ── Telemetry: emit smoke events ────────────────────────────────────────
 	startedAt := time.Now().UTC().Format(time.RFC3339)
-	emitter := transponder.New(leoDir, cfg.Telemetry.TelemetryEnabled())
-	emitter.EmitSessionEvent(transponder.SessionEvent{
+	emitter := herald.New(leoDir, cfg.Telemetry.TelemetryEnabled())
+	emitter.EmitSessionEvent(herald.SessionEvent{
 		SessionID: "s-init",
 		RepoID:    filepath.Base(cwd),
 		Runtime:   cfg.PrimaryRuntime(),
 		StartedAt: startedAt,
 		Trigger:   "normal",
 	})
-	emitter.EmitRuntimeHealth(transponder.RuntimeHealth{
+	emitter.EmitRuntimeHealth(herald.RuntimeHealth{
 		Runtime:       cfg.PrimaryRuntime(),
 		TS:            time.Now().UTC().Format(time.RFC3339),
 		WrapUpSuccess: true,
