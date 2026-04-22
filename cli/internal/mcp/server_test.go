@@ -182,7 +182,7 @@ func TestToolsList(t *testing.T) {
 	if !ok {
 		t.Fatalf("tools not an array: %v", result["tools"])
 	}
-	if len(tools) != 7 {
+	if len(tools) != 8 {
 		t.Errorf("expected 8 tools, got %d", len(tools))
 	}
 
