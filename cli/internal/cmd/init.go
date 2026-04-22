@@ -17,6 +17,7 @@ import (
 	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 //go:embed schema.json
@@ -85,18 +86,27 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Non-interactive path: use flags/defaults. Always installs at cwd with repo scope.
+	// Non-interactive path: use flags/defaults.
+	// When --force, look for an existing .mom/ up the directory tree so we
+	// regenerate context files in the right place instead of the cwd.
+	installDir := cwd
+	if force {
+		if sc, ok := scope.NearestWritable(cwd); ok {
+			installDir = filepath.Dir(sc.Path)
+		}
+	}
+
 	runtimes, _ := cmd.Flags().GetStringSlice("runtimes")
 	if len(runtimes) == 0 {
 		runtimes = []string{"claude"}
 	}
 
 	defaults := config.Default()
-	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
+	return runInitWithConfig(cmd, installDir, force, OnboardingResult{
 		Runtimes:   runtimes,
 		Language:   defaults.User.Language,
 		Mode:       defaults.Communication.Mode,
-		InstallDir: cwd,
+		InstallDir: installDir,
 		ScopeLabel: "repo",
 	})
 }

@@ -26,7 +26,6 @@ type CaptureEvent struct {
 	MemoriesAccepted int      `json:"memories_accepted"`
 	Tags             []string `json:"tags"`
 	Summary          string   `json:"summary"`
-	ConfidenceAvg    string   `json:"confidence_avg"`
 }
 
 // MemoryMutation records a create/update/dedup/deprecate/reconcile on a memory doc.
@@ -37,8 +36,6 @@ type MemoryMutation struct {
 	TS             string  `json:"ts"`
 	PrevHash       *string `json:"prev_hash"`
 	NewHash        string  `json:"new_hash"`
-	Lifecycle      string  `json:"lifecycle"`
-	Confidence     string  `json:"confidence"`
 	PromotionState string  `json:"promotion_state"`
 	By             string  `json:"by"`
 }

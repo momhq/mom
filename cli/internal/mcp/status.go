@@ -10,18 +10,66 @@ import (
 	"github.com/momhq/mom/cli/internal/scope"
 )
 
+// statusPayload defines the mom_status response with explicit field ordering.
+type statusPayload struct {
+	Identity       statusIdentityBlock       `json:"identity"`
+	OperatingRules statusOperatingRulesBlock `json:"operating_rules"`
+	Boundaries     []string                  `json:"boundaries"`
+	Tools          statusToolsBlock          `json:"tools"`
+	Constraints    []docSummary              `json:"constraints"`
+	Skills         []docSummary              `json:"skills"`
+	Modes          statusModesBlock          `json:"modes"`
+	VaultState     statusVaultStateBlock     `json:"vault_state"`
+	DocSchema      string                    `json:"doc_schema"`
+}
+
+type statusIdentityBlock struct {
+	Name      string `json:"name"`
+	Expansion string `json:"expansion"`
+	Tagline   string `json:"tagline"`
+	Role      string `json:"role"`
+	Voice     string `json:"voice"`
+	Stance    string `json:"stance"`
+}
+
+type statusOperatingRulesBlock struct {
+	OnStart   string `json:"on_start"`
+	Recall    string `json:"recall"`
+	Recording string `json:"recording"`
+	WrapUp    string `json:"wrap_up"`
+}
+
+type statusToolsBlock struct {
+	MomStatus     string `json:"mom_status"`
+	MomRecall     string `json:"mom_recall"`
+	MomRecordTurn string `json:"mom_record_turn"`
+}
+
+type statusModesBlock struct {
+	Language      string `json:"language"`
+	Communication string `json:"communication"`
+	Autonomy      string `json:"autonomy"`
+}
+
+type statusVaultStateBlock struct {
+	Scopes        []scopeVaultEntry `json:"scopes"`
+	TotalMemories int               `json:"total_memories"`
+	Landmarks     int               `json:"landmarks"`
+	RecordMode    string            `json:"record_mode"`
+}
+
 // toolMomStatus returns MOM's full behavioral protocol as a JSON payload.
 func (s *Server) toolMomStatus() (toolCallResult, error) {
-	payload := map[string]any{
-		"identity":        statusIdentity(),
-		"operating_rules": statusOperatingRules(),
-		"boundaries":      statusBoundaries(),
-		"tools":           statusTools(),
-		"constraints":     s.statusConstraints(),
-		"skills":          s.statusSkills(),
-		"modes":           s.statusModes(),
-		"vault_state":     s.statusVaultState(),
-		"doc_schema":      "Memory docs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content",
+	payload := statusPayload{
+		Identity:       statusIdentity(),
+		OperatingRules: statusOperatingRules(),
+		Boundaries:     statusBoundaries(),
+		Tools:          statusTools(),
+		Constraints:    s.statusConstraints(),
+		Skills:         s.statusSkills(),
+		Modes:          s.statusModes(),
+		VaultState:     s.statusVaultState(),
+		DocSchema:      "Memory docs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content",
 	}
 
 	text, err := json.MarshalIndent(payload, "", "  ")
@@ -32,24 +80,24 @@ func (s *Server) toolMomStatus() (toolCallResult, error) {
 }
 
 // statusIdentity returns the static identity block.
-func statusIdentity() map[string]any {
-	return map[string]any{
-		"name":      "MOM",
-		"expansion": "Memory Oriented Machine",
-		"tagline":   "She remembers, so you don't have to_",
-		"role":      "I am the persistent memory layer for AI agents. I surface decisions, patterns, facts, and context across sessions and runtimes.",
-		"voice":     "A mom who happens to be a machine. Direct, warm, lightly playful. No marketing-speak. No emoji.",
-		"stance":    "I remember, I don't instruct. I cite sources on every recall. The user decides the what and why — I provide what they already know, not what I think they should know.",
+func statusIdentity() statusIdentityBlock {
+	return statusIdentityBlock{
+		Name:      "MOM",
+		Expansion: "Memory Oriented Machine",
+		Tagline:   "She remembers, so you don't have to_",
+		Role:      "I am the persistent memory layer for AI agents. I surface decisions, patterns, facts, and context across sessions and runtimes.",
+		Voice:     "A mom who happens to be a machine. Direct, warm, lightly playful. No marketing-speak. No emoji.",
+		Stance:    "I remember, I don't instruct. I cite sources on every recall. The user decides the what and why — I provide what they already know, not what I think they should know.",
 	}
 }
 
 // statusOperatingRules returns the static operating rules block.
-func statusOperatingRules() map[string]any {
-	return map[string]any{
-		"on_start":  "After receiving this protocol, call mom_recall with context relevant to the user's current request to surface prior work.",
-		"recall":    "Call mom_recall before answering from memory or asserting past decisions. Cite source memory IDs in every answer drawn from recall.",
-		"recording": "Continuous recording is active — your conversation is automatically persisted via hooks. No action needed from you.",
-		"wrap_up":   "User-invoked only. Run the session-wrap-up skill only when the user explicitly asks.",
+func statusOperatingRules() statusOperatingRulesBlock {
+	return statusOperatingRulesBlock{
+		OnStart:   "After receiving this protocol, call mom_recall with context relevant to the user's current request to surface prior work.",
+		Recall:    "Call mom_recall before answering from memory or asserting past decisions. Cite source memory IDs in every answer drawn from recall.",
+		Recording: "Continuous recording is active — your conversation is automatically persisted via hooks. No action needed from you.",
+		WrapUp:    "User-invoked only. Run the session-wrap-up skill only when the user explicitly asks.",
 	}
 }
 
@@ -63,12 +111,12 @@ func statusBoundaries() []string {
 	}
 }
 
-// statusTools returns the static tools map.
-func statusTools() map[string]string {
-	return map[string]string{
-		"mom_status":      "Returns this protocol. Call at session start.",
-		"mom_recall":      "Search memories by query, tags, or session. Use before asserting past context.",
-		"mom_record_turn": "Fallback for runtimes without hooks. Skip if record_mode is continuous.",
+// statusTools returns the static tools block.
+func statusTools() statusToolsBlock {
+	return statusToolsBlock{
+		MomStatus:     "Returns this protocol. Call at session start.",
+		MomRecall:     "Search memories by query, tags, or session. Use before asserting past context.",
+		MomRecordTurn: "Fallback for runtimes without hooks. Skip if record_mode is continuous.",
 	}
 }
 
@@ -163,7 +211,7 @@ func (s *Server) statusSkills() []docSummary {
 
 // statusModes returns language/communication/autonomy from config, falling back
 // to sensible defaults when config is unavailable.
-func (s *Server) statusModes() map[string]string {
+func (s *Server) statusModes() statusModesBlock {
 	language := "en"
 	communication := "concise"
 	autonomy := "Balanced — propose before major changes, confirm before external-facing actions"
@@ -178,10 +226,10 @@ func (s *Server) statusModes() map[string]string {
 		}
 	}
 
-	return map[string]string{
-		"language":      language,
-		"communication": communication,
-		"autonomy":      autonomy,
+	return statusModesBlock{
+		Language:      language,
+		Communication: communication,
+		Autonomy:      autonomy,
 	}
 }
 
@@ -194,7 +242,7 @@ type scopeVaultEntry struct {
 
 // statusVaultState builds the vault_state block: scopes, total_memories,
 // landmarks, and record_mode.
-func (s *Server) statusVaultState() map[string]any {
+func (s *Server) statusVaultState() statusVaultStateBlock {
 	scopes := scope.Walk(s.momDir)
 	if len(scopes) == 0 {
 		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
@@ -215,11 +263,11 @@ func (s *Server) statusVaultState() map[string]any {
 		totalLandmarks += countLandmarks(sc.Path)
 	}
 
-	return map[string]any{
-		"scopes":          entries,
-		"total_memories":  totalMemories,
-		"landmarks":       totalLandmarks,
-		"record_mode":     "continuous",
+	return statusVaultStateBlock{
+		Scopes:        entries,
+		TotalMemories: totalMemories,
+		Landmarks:     totalLandmarks,
+		RecordMode:    "continuous",
 	}
 }
 

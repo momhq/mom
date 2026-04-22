@@ -346,18 +346,9 @@ func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 			continue
 		}
 
-		symbol := "✓"
-		if er.Count > 0 && er.Ambiguous == er.Count {
-			symbol = "⚠"
-		}
-
-		cmd.Printf("  %s %-16s — %3d memories  (%d EXTRACTED · %d INFERRED · %d AMBIGUOUS)\n",
-			symbol,
+		cmd.Printf("  ✓ %-16s — %3d memories\n",
 			item.label,
 			er.Count,
-			er.Extracted,
-			er.Inferred,
-			er.Ambiguous,
 		)
 
 		// For AST, print per-language breakdown if we have data.
@@ -443,23 +434,13 @@ func writeDraft(d cartographer.Draft, memDir string) error {
 	}
 	content["summary"] = d.Summary
 
-	lifecycle := "learning"
-	if d.Type == "decision" || d.Type == "fact" || d.Type == "pattern" {
-		lifecycle = "permanent"
-	}
-
 	doc := map[string]any{
 		"id":              id,
-		"type":            mapDraftType(d.Type),
 		"summary":         d.Summary,
-		"lifecycle":       lifecycle,
 		"scope":           "project",
 		"tags":            d.Tags,
 		"created":         now.Format(time.RFC3339),
 		"created_by":      "cartographer",
-		"updated":         now.Format(time.RFC3339),
-		"updated_by":      "cartographer",
-		"confidence":      d.Confidence,
 		"promotion_state": "draft",
 		"classification":  "INTERNAL",
 		"provenance": map[string]any{
@@ -482,43 +463,11 @@ func writeDraft(d cartographer.Draft, memDir string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// mapDraftType converts cartographer draft types to memory schema types.
-func mapDraftType(t string) string {
-	switch t {
-	case "decision":
-		return "decision"
-	case "fact":
-		return "fact"
-	case "pattern":
-		return "pattern"
-	case "learning":
-		return "learning"
-	default:
-		return "fact"
-	}
-}
-
 // draftID generates a short, deterministic ID for a draft memory.
 func draftID(d cartographer.Draft) string {
-	raw := d.Type + ":" + d.Summary + ":" + d.Provenance.SourceFile
+	raw := d.Summary + ":" + d.Provenance.SourceFile
 	h := cartographer.DraftHash(raw)
-	return draftTypePrefix(d.Type) + h[:12]
-}
-
-// draftTypePrefix returns a short prefix for the draft type.
-func draftTypePrefix(t string) string {
-	switch t {
-	case "decision":
-		return "dec-"
-	case "fact":
-		return "fact-"
-	case "pattern":
-		return "pat-"
-	case "learning":
-		return "learn-"
-	default:
-		return "mem-"
-	}
+	return "mem-" + h[:12]
 }
 
 // countMemoryDocs returns the total number of .json files in memDir.

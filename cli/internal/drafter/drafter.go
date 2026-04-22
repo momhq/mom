@@ -22,7 +22,6 @@ type Draft struct {
 	SourceSession string   `json:"source_session"`
 	SourceFile    string   `json:"source_file"`
 	SourceLines   [2]int   `json:"source_lines"`
-	Lifecycle     string   `json:"lifecycle"`
 	Created       string   `json:"created"`
 }
 
@@ -51,7 +50,11 @@ func (d *Drafter) Process(since time.Time) ([]Draft, error) {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
 			continue
 		}
-		turns, _ := readRawFile(filepath.Join(d.rawDir, e.Name()), since)
+		filePath := filepath.Join(d.rawDir, e.Name())
+		turns, _ := readRawFile(filePath, since)
+		for i := range turns {
+			turns[i].SourceFile = filePath
+		}
 		allTurns = append(allTurns, turns...)
 	}
 
@@ -135,14 +138,19 @@ func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25In
 			tagSlice = tagSlice[:15]
 		}
 
+		// Use the source file from the first turn in the chunk.
+		sourceFile := ""
+		if chunk.StartIdx < len(turns) {
+			sourceFile = turns[chunk.StartIdx].SourceFile
+		}
+
 		drafts = append(drafts, Draft{
 			ID:            fmt.Sprintf("%s-%03d", sessionID, i+1),
 			Content:       content,
 			Tags:          tagSlice,
 			SourceSession: sessionID,
-			SourceFile:    d.rawDir,
+			SourceFile:    sourceFile,
 			SourceLines:   [2]int{chunk.StartIdx, chunk.EndIdx},
-			Lifecycle:     "draft",
 			Created:       time.Now().UTC().Format(time.RFC3339),
 		})
 	}
@@ -151,10 +159,11 @@ func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25In
 }
 
 type rawTurn struct {
-	Timestamp string `json:"timestamp"`
-	Event     string `json:"event"`
-	Text      string `json:"text"`
-	SessionID string `json:"session_id"`
+	Timestamp  string `json:"timestamp"`
+	Event      string `json:"event"`
+	Text       string `json:"text"`
+	SessionID  string `json:"session_id"`
+	SourceFile string `json:"-"` // path of the .jsonl file this turn came from
 }
 
 func readRawFile(path string, since time.Time) ([]rawTurn, error) {

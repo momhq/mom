@@ -22,24 +22,6 @@ func TestParseCommitLog_Conventional(t *testing.T) {
 		t.Errorf("expected 4 drafts (4 conventional commits), got %d", len(drafts))
 	}
 
-	// feat → decision
-	if drafts[0].Type != "decision" {
-		t.Errorf("feat commit should produce decision, got %q", drafts[0].Type)
-	}
-	if drafts[0].Confidence != ConfidenceInferred {
-		t.Errorf("commit draft should have INFERRED confidence")
-	}
-
-	// fix → learning
-	if drafts[1].Type != "learning" {
-		t.Errorf("fix commit should produce learning, got %q", drafts[1].Type)
-	}
-
-	// refactor → decision
-	if drafts[2].Type != "decision" {
-		t.Errorf("refactor commit should produce decision, got %q", drafts[2].Type)
-	}
-
 	// Non-conventional should be skipped.
 	for _, d := range drafts {
 		if sha, ok := d.Content["commit_sha"].(string); ok && sha == "mno345" {

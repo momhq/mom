@@ -57,10 +57,8 @@ func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, err
 			return
 		}
 		d := Draft{
-			Type:       cur.kind,
-			Summary:    truncate(body, 120),
-			Tags:       []string{cur.kind, "bootstrap"},
-			Confidence: ConfidenceInferred,
+			Summary: truncate(body, 120),
+			Tags:    []string{cur.kind, "bootstrap"},
 			Content: map[string]any{
 				"heading": cur.heading,
 				"body":    body,
@@ -102,11 +100,9 @@ func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, err
 		if m := reDecisionInline.FindStringSubmatch(trimmed); m != nil {
 			flush(i)
 			drafts = append(drafts, Draft{
-				Type:       "decision",
-				Summary:    truncate(m[1], 120),
-				Tags:       []string{"decision", "bootstrap"},
-				Confidence: ConfidenceInferred,
-				Content:    map[string]any{"text": m[1]},
+				Summary: truncate(m[1], 120),
+				Tags:    []string{"decision", "bootstrap"},
+				Content: map[string]any{"text": m[1]},
 				Provenance: ProvenanceMeta{
 					SourceFile:   src.Path,
 					SourceLines:  lineRange(i+1, i+1),
@@ -120,11 +116,9 @@ func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, err
 		if m := rePatternInline.FindStringSubmatch(trimmed); m != nil {
 			flush(i)
 			drafts = append(drafts, Draft{
-				Type:       "pattern",
-				Summary:    truncate(m[1], 120),
-				Tags:       []string{"pattern", "bootstrap"},
-				Confidence: ConfidenceInferred,
-				Content:    map[string]any{"text": m[1]},
+				Summary: truncate(m[1], 120),
+				Tags:    []string{"pattern", "bootstrap"},
+				Content: map[string]any{"text": m[1]},
 				Provenance: ProvenanceMeta{
 					SourceFile:   src.Path,
 					SourceLines:  lineRange(i+1, i+1),
@@ -139,11 +133,9 @@ func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, err
 		urls := reURL.FindAllString(trimmed, -1)
 		for _, u := range urls {
 			drafts = append(drafts, Draft{
-				Type:       "fact",
-				Summary:    "URL reference: " + truncate(u, 100),
-				Tags:       []string{"fact", "url", "bootstrap"},
-				Confidence: ConfidenceInferred,
-				Content:    map[string]any{"url": u},
+				Summary: "URL reference: " + truncate(u, 100),
+				Tags:    []string{"fact", "url", "bootstrap"},
+				Content: map[string]any{"url": u},
 				Provenance: ProvenanceMeta{
 					SourceFile:   src.Path,
 					SourceLines:  lineRange(i+1, i+1),

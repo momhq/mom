@@ -49,15 +49,6 @@ func TestDependencyExtractor_PackageJSON(t *testing.T) {
 		t.Errorf("expected >= 4 dependency drafts, got %d", len(drafts))
 	}
 
-	for _, d := range drafts {
-		if d.Confidence != ConfidenceExtracted {
-			t.Errorf("draft %q has confidence %q, want EXTRACTED", d.Summary, d.Confidence)
-		}
-		if d.Type != "fact" {
-			t.Errorf("draft %q has type %q, want fact", d.Summary, d.Type)
-		}
-	}
-
 	// Check specific packages are present.
 	names := map[string]bool{}
 	for _, d := range drafts {

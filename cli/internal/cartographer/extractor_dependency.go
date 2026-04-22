@@ -67,10 +67,8 @@ func (e *DependencyManifestExtractor) Extract(_ context.Context, src Source) ([]
 			summary = fmt.Sprintf("Depends on %s %s", dep.name, dep.version)
 		}
 		drafts = append(drafts, Draft{
-			Type:       "fact",
-			Summary:    summary,
-			Tags:       []string{"dependency", lang, "bootstrap"},
-			Confidence: ConfidenceExtracted,
+			Summary: summary,
+			Tags:    []string{"dependency", lang, "bootstrap"},
 			Content: map[string]any{
 				"package":  dep.name,
 				"version":  dep.version,

@@ -40,14 +40,13 @@ func allTools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "search_memories",
-			Description: "Search MOM memories by query text, tags, confidence, or classification. Returns ranked results.",
+			Description: "Search MOM memories by query text, tags, or classification. Returns ranked results.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"query":          map[string]any{"type": "string", "description": "Free-text search query"},
 					"scope":          map[string]any{"type": "string", "description": "Restrict to scope label (repo/org/user)"},
 					"tags":           map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (all must match)"},
-					"confidence":     map[string]any{"type": "string", "description": "Filter by confidence (EXTRACTED/INFERRED/AMBIGUOUS)"},
 					"classification": map[string]any{"type": "string", "description": "Filter by classification (PUBLIC/INTERNAL/CONFIDENTIAL)"},
 					"limit":          map[string]any{"type": "integer", "description": "Maximum results (default 10)"},
 				},
@@ -77,9 +76,8 @@ func allTools() []toolDef {
 			Description: "Create a draft memory document in the nearest .mom/memory/ directory.",
 			InputSchema: map[string]any{
 				"type":     "object",
-				"required": []string{"type", "summary", "tags", "content"},
+				"required": []string{"summary", "tags", "content"},
 				"properties": map[string]any{
-					"type":    map[string]any{"type": "string", "description": "Doc type (fact/decision/pattern/learning/…)"},
 					"summary": map[string]any{"type": "string", "description": "One-line summary"},
 					"tags":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Kebab-case tags"},
 					"content": map[string]any{"type": "object", "description": "Freeform content map"},
@@ -195,7 +193,6 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	query := strings.ToLower(stringArg(args, "query"))
 	scopeLabel := stringArg(args, "scope")
 	tags := stringSliceArg(args, "tags")
-	confidence := stringArg(args, "confidence")
 	classification := stringArg(args, "classification")
 	limit := intArg(args, "limit", 10)
 
@@ -242,10 +239,6 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 			if err != nil {
 				continue
 			}
-			// Apply confidence filter.
-			if confidence != "" && !strings.EqualFold(doc.Confidence, confidence) {
-				continue
-			}
 			// Apply classification filter.
 			if classification != "" && !strings.EqualFold(doc.Classification, classification) {
 				continue
@@ -284,12 +277,11 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	}
 
 	type resultItem struct {
-		ID       string  `json:"id"`
-		Score    float64 `json:"score"`
-		Type     string  `json:"type"`
-		Summary  string  `json:"summary"`
+		ID       string   `json:"id"`
+		Score    float64  `json:"score"`
+		Summary  string   `json:"summary"`
 		Tags     []string `json:"tags"`
-		Landmark bool    `json:"landmark,omitempty"`
+		Landmark bool     `json:"landmark,omitempty"`
 	}
 	items := make([]resultItem, len(results))
 	for i, r := range results {
@@ -302,7 +294,6 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 		items[i] = resultItem{
 			ID:       r.doc.ID,
 			Score:    r.score,
-			Type:     r.doc.Type,
 			Summary:  summary,
 			Tags:     r.doc.Tags,
 			Landmark: r.doc.Landmark,
@@ -372,13 +363,12 @@ func (s *Server) toolListScopes() (toolCallResult, error) {
 
 // toolCreateMemoryDraft creates a new draft memory document.
 func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, error) {
-	docType := stringArg(args, "type")
 	summary := stringArg(args, "summary")
 	tags := stringSliceArg(args, "tags")
 	content, _ := args["content"].(map[string]any)
 
-	if docType == "" || summary == "" || len(tags) == 0 {
-		return toolCallResult{}, fmt.Errorf("type, summary, and tags are required")
+	if summary == "" || len(tags) == 0 {
+		return toolCallResult{}, fmt.Errorf("summary and tags are required")
 	}
 	if content == nil {
 		content = map[string]any{}
@@ -396,16 +386,11 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 
 	doc := &memory.Doc{
 		ID:             id,
-		Type:           docType,
-		Lifecycle:      "learning",
 		Scope:          "project",
 		Tags:           tags,
 		Summary:        summary,
 		Created:        now,
 		CreatedBy:      "mcp",
-		Updated:        now,
-		UpdatedBy:      "mcp",
-		Confidence:     "INFERRED",
 		PromotionState: "draft",
 		Classification: "INTERNAL",
 		Compartments:   map[string][]string{},
@@ -459,7 +444,6 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 
 	type landmarkItem struct {
 		ID              string   `json:"id"`
-		Type            string   `json:"type"`
 		Summary         string   `json:"summary"`
 		Tags            []string `json:"tags"`
 		CentralityScore float64  `json:"centrality_score"`
@@ -495,7 +479,6 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 			}
 			items = append(items, landmarkItem{
 				ID:              doc.ID,
-				Type:            doc.Type,
 				Summary:         summary,
 				Tags:            doc.Tags,
 				CentralityScore: score,

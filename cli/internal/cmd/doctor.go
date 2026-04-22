@@ -211,7 +211,6 @@ func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
 			continue
 		}
 
-		confidence := map[string]int{}
 		promotion := map[string]int{}
 		classification := map[string]int{}
 		landmarks := 0
@@ -224,7 +223,6 @@ func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
 			if err != nil {
 				continue
 			}
-			confidence[doc.Confidence]++
 			promotion[doc.PromotionState]++
 			classification[doc.Classification]++
 			if doc.Landmark {
@@ -233,10 +231,8 @@ func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
 		}
 
 		cmd.Printf("  Scope: %s (%s)\n", s.Label, shortenPath(s.Path))
-		cmd.Printf("    Confidence:       EXTRACTED=%d  INFERRED=%d  AMBIGUOUS=%d\n",
-			confidence["EXTRACTED"], confidence["INFERRED"], confidence["AMBIGUOUS"])
-		cmd.Printf("    Promotion state:  draft=%d  curated=%d  validated=%d  deprecated=%d\n",
-			promotion["draft"], promotion["curated"], promotion["validated"], promotion["deprecated"])
+		cmd.Printf("    Promotion state:  draft=%d  curated=%d\n",
+			promotion["draft"], promotion["curated"])
 		cmd.Printf("    Classification:   PUBLIC=%d  INTERNAL=%d  CONFIDENTIAL=%d\n",
 			classification["PUBLIC"], classification["INTERNAL"], classification["CONFIDENTIAL"])
 		cmd.Printf("    Landmarks:        %d\n", landmarks)
@@ -487,7 +483,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	})
 
 	cmd.Printf("Top landmarks at scope: %s (%s)\n\n", s.Label, shortenPath(s.Path))
-	cmd.Printf("  %-30s  %-8s  %-12s  Tags\n", "Memory ID", "Centrality", "Last Updated")
+	cmd.Printf("  %-30s  %-8s  %-12s  Tags\n", "Memory ID", "Centrality", "Created")
 	cmd.Printf("  %s\n", strings.Repeat("-", 80))
 
 	shown := 0
@@ -500,7 +496,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 		if doc.CentralityScore != nil {
 			centrality = *doc.CentralityScore
 		}
-		updated := doc.Updated.Format("2006-01-02")
+		created := doc.Created.Format("2006-01-02")
 		tagCount := len(doc.Tags)
 		tagStr := strings.Join(doc.Tags, ", ")
 		if len(tagStr) > 40 {
@@ -511,7 +507,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 			summary = doc.ID
 		}
 		cmd.Printf("  %-30s  %.4f      %-12s  [%d] %s\n",
-			truncate(doc.ID, 30), centrality, updated, tagCount, tagStr)
+			truncate(doc.ID, 30), centrality, created, tagCount, tagStr)
 		if summary != doc.ID {
 			cmd.Printf("    %s\n", truncate(summary, 76))
 		}
@@ -567,9 +563,8 @@ func runDoctorBundle(cmd *cobra.Command) error {
 	}
 	cmd.Printf("\n")
 
-	// Memory counts per type — no titles, no bodies.
+	// Memory counts per scope.
 	cmd.Printf("--- Memory Counts ---\n")
-	typeCounts := map[string]int{}
 	totalMem := 0
 	for _, s := range scopes {
 		memDir := filepath.Join(s.Path, "memory")
@@ -577,28 +572,17 @@ func runDoctorBundle(cmd *cobra.Command) error {
 		if err != nil {
 			continue
 		}
+		scopeCount := 0
 		for _, e := range entries {
 			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 				continue
 			}
-			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
-			if err != nil {
-				continue
-			}
-			typeCounts[doc.Type]++
-			totalMem++
+			scopeCount++
 		}
+		cmd.Printf("  %-15s %d\n", s.Label, scopeCount)
+		totalMem += scopeCount
 	}
 	cmd.Printf("Total: %d\n", totalMem)
-	// Stable sort by type name.
-	var types []string
-	for t := range typeCounts {
-		types = append(types, t)
-	}
-	sort.Strings(types)
-	for _, t := range types {
-		cmd.Printf("  %-15s %d\n", t, typeCounts[t])
-	}
 	cmd.Printf("\n")
 
 	// Recent errors from RuntimeHealth — content stripped.

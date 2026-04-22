@@ -90,7 +90,6 @@ func TestEmitCaptureEvent(t *testing.T) {
 		MemoriesAccepted: 3,
 		Tags:             []string{"architecture", "auth"},
 		Summary:          "refactored auth flow",
-		ConfidenceAvg:    "EXTRACTED",
 	})
 
 	lines := readLines(t, filepath.Join(telDir, "2026-04-18.jsonl"))
@@ -115,8 +114,6 @@ func TestEmitMemoryMutation(t *testing.T) {
 		TS:             "2026-04-18T10:00:00Z",
 		PrevHash:       &prev,
 		NewHash:        "cafebabe",
-		Lifecycle:      "permanent",
-		Confidence:     "EXTRACTED",
 		PromotionState: "draft",
 		By:             "agent",
 	})

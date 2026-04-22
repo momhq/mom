@@ -31,9 +31,8 @@ func writeTestDoc(t *testing.T, dir string, doc *storage.Doc) {
 
 func sampleDoc(id string) *storage.Doc {
 	return &storage.Doc{
-		ID: id, Type: "fact", Lifecycle: "state", Scope: "project",
+		ID: id, Scope: "project",
 		Tags: []string{"test"}, Created: time.Now().UTC(), CreatedBy: "test",
-		Updated: time.Now().UTC(), UpdatedBy: "test",
 		Content: map[string]any{"fact": "sample fact"},
 	}
 }

@@ -49,16 +49,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	// Compute totals from index maps.
 	totalDocs := 0
-	for _, ids := range idx.ByType {
+	for _, ids := range idx.ByScope {
 		totalDocs += len(ids)
 	}
 	totalTags := len(idx.ByTag)
-
-	// Build docs-by-type map.
-	docsByType := make(map[string]int, len(idx.ByType))
-	for t, ids := range idx.ByType {
-		docsByType[t] = len(ids)
-	}
 
 	// Stale count from raw JSON stats block.
 	staleCount := readRawIndexInt(leoDir, "stats", "stale_count")
@@ -74,13 +68,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	cmd.Printf("Total docs:   %d\n", totalDocs)
 	cmd.Printf("Tags:         %d unique\n", totalTags)
 	cmd.Printf("Stale docs:   %d\n", staleCount)
-
-	if len(docsByType) > 0 {
-		cmd.Printf("Docs by type:\n")
-		for t, count := range docsByType {
-			cmd.Printf("  %-15s %d\n", t, count)
-		}
-	}
 
 	return nil
 }
@@ -186,7 +173,7 @@ func checkIndexConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[str
 
 	// Collect all IDs referenced in the index.
 	indexIDs := make(map[string]bool)
-	for _, ids := range idx.ByType {
+	for _, ids := range idx.ByScope {
 		for _, id := range ids {
 			indexIDs[id] = true
 		}

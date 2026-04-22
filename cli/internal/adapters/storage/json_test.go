@@ -10,14 +10,10 @@ import (
 func testDoc(id string) *Doc {
 	return &Doc{
 		ID:        id,
-		Type:      "fact",
-		Lifecycle: "state",
 		Scope:     "project",
 		Tags:      []string{"test"},
 		Created:   time.Now().UTC(),
 		CreatedBy: "test",
-		Updated:   time.Now().UTC(),
-		UpdatedBy: "test",
 		Content:   map[string]any{"fact": "test fact"},
 	}
 }
@@ -46,16 +42,12 @@ func TestJSONAdapter_WriteAndRead(t *testing.T) {
 	if got.ID != "test-doc" {
 		t.Errorf("expected id %q, got %q", "test-doc", got.ID)
 	}
-	if got.Type != "fact" {
-		t.Errorf("expected type %q, got %q", "fact", got.Type)
-	}
 }
 
 func TestJSONAdapter_WriteValidation(t *testing.T) {
 	adapter, _ := setupAdapter(t)
 	doc := &Doc{
-		ID:   "INVALID_ID",
-		Type: "fact",
+		ID: "INVALID_ID",
 	}
 
 	if err := adapter.Write(doc); err == nil {
@@ -81,18 +73,19 @@ func TestJSONAdapter_Delete(t *testing.T) {
 func TestJSONAdapter_Query(t *testing.T) {
 	adapter, _ := setupAdapter(t)
 
-	adapter.Write(testDoc("doc-a"))
+	docA := testDoc("doc-a")
+	docA.Tags = []string{"alpha"}
+	adapter.Write(docA)
 
 	docB := testDoc("doc-b")
-	docB.Type = "rule"
-	docB.Tags = []string{"test"}
+	docB.Tags = []string{"beta"}
 	docB.Content = map[string]any{
 		"rule": "test rule", "why": "test", "how_to_apply": []any{"test"},
 		"responsibility": "test",
 	}
 	adapter.Write(docB)
 
-	docs, err := adapter.Query(QueryFilter{Type: "fact"})
+	docs, err := adapter.Query(QueryFilter{Tags: []string{"alpha"}})
 	if err != nil {
 		t.Fatalf("Query failed: %v", err)
 	}
@@ -113,8 +106,8 @@ func TestJSONAdapter_RebuildIndex(t *testing.T) {
 		t.Fatalf("List failed: %v", err)
 	}
 
-	if ids, ok := idx.ByType["fact"]; !ok || len(ids) == 0 {
-		t.Fatal("expected fact type in index")
+	if ids, ok := idx.ByTag["test"]; !ok || len(ids) == 0 {
+		t.Fatal("expected test tag in index")
 	}
 }
 
@@ -131,7 +124,7 @@ func TestJSONAdapter_BulkWrite(t *testing.T) {
 		t.Fatalf("List failed: %v", err)
 	}
 
-	if ids := idx.ByType["fact"]; len(ids) != 3 {
+	if ids := idx.ByScope["project"]; len(ids) != 3 {
 		t.Fatalf("expected 3 docs in index, got %d", len(ids))
 	}
 }
@@ -209,8 +202,8 @@ func TestJSONAdapter_Query_CombinedFilters(t *testing.T) {
 	docB.Scope = "project"
 	adapter.Write(docB)
 
-	// Filter by type + scope.
-	docs, err := adapter.Query(QueryFilter{Type: "fact", Scope: "core"})
+	// Filter by scope + tags.
+	docs, err := adapter.Query(QueryFilter{Scope: "core", Tags: []string{"test"}})
 	if err != nil {
 		t.Fatalf("Query failed: %v", err)
 	}
@@ -258,7 +251,7 @@ func TestJSONAdapter_BulkWrite_ValidationFailure(t *testing.T) {
 
 	docs := []*Doc{
 		testDoc("good-doc"),
-		{ID: "BAD_ID", Type: "fact"}, // invalid
+		{ID: "BAD_ID"}, // invalid — no required fields
 	}
 
 	if err := adapter.BulkWrite(docs); err == nil {

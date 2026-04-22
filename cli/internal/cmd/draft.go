@@ -105,21 +105,15 @@ func writeDraftDoc(memDir string, dr drafter.Draft) error {
 	now := time.Now().UTC()
 	doc := &memory.Doc{
 		ID:             dr.ID,
-		Type:           "learning",
-		Lifecycle:      "learning",
 		Scope:          "project",
 		Tags:           dr.Tags,
 		Created:        now,
 		CreatedBy:      "mom-draft",
-		Updated:        now,
-		UpdatedBy:      "mom-draft",
 		SessionID:      dr.SourceSession,
-		Confidence:     "EXTRACTED",
 		PromotionState: "draft",
 		Classification: "INTERNAL",
 		Provenance: &memory.Provenance{
 			Runtime:       "mom-draft",
-			SessionID:     dr.SourceSession,
 			TriggerEvent:  "draft",
 			RawExhaustRef: dr.SourceFile,
 		},

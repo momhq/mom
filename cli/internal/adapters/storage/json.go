@@ -89,11 +89,9 @@ func (a *JSONAdapter) List() (*Index, error) {
 	}
 
 	idx := &Index{
-		Version:     "1",
-		ByTag:       make(map[string][]string),
-		ByType:      make(map[string][]string),
-		ByScope:     make(map[string][]string),
-		ByLifecycle: make(map[string][]string),
+		Version: "1",
+		ByTag:   make(map[string][]string),
+		ByScope: make(map[string][]string),
 	}
 
 	for _, e := range entries {
@@ -112,16 +110,12 @@ func (a *JSONAdapter) List() (*Index, error) {
 		for _, tag := range doc.Tags {
 			idx.ByTag[tag] = appendUnique(idx.ByTag[tag], id)
 		}
-		idx.ByType[doc.Type] = appendUnique(idx.ByType[doc.Type], id)
 		idx.ByScope[doc.Scope] = appendUnique(idx.ByScope[doc.Scope], id)
-		idx.ByLifecycle[doc.Lifecycle] = appendUnique(idx.ByLifecycle[doc.Lifecycle], id)
 	}
 
 	// Sort all slices for deterministic output.
 	sortMapValues(idx.ByTag)
-	sortMapValues(idx.ByType)
 	sortMapValues(idx.ByScope)
-	sortMapValues(idx.ByLifecycle)
 
 	return idx, nil
 }
@@ -161,30 +155,10 @@ func (a *JSONAdapter) filterIDs(idx *Index, filter QueryFilter) []string {
 
 	hasFilter := false
 
-	if filter.Type != "" {
-		hasFilter = true
-		if ids, ok := idx.ByType[filter.Type]; ok {
-			addAll(ids)
-		}
-	}
 	if filter.Scope != "" {
 		hasFilter = true
 		if ids, ok := idx.ByScope[filter.Scope]; ok {
-			if hasFilter {
-				result = intersect(result, ids)
-			} else {
-				addAll(ids)
-			}
-		}
-	}
-	if filter.Lifecycle != "" {
-		hasFilter = true
-		if ids, ok := idx.ByLifecycle[filter.Lifecycle]; ok {
-			if len(result) > 0 {
-				result = intersect(result, ids)
-			} else {
-				addAll(ids)
-			}
+			addAll(ids)
 		}
 	}
 	for _, tag := range filter.Tags {
@@ -199,8 +173,8 @@ func (a *JSONAdapter) filterIDs(idx *Index, filter QueryFilter) []string {
 	}
 
 	if !hasFilter {
-		// No filter — return all doc IDs from all types.
-		for _, ids := range idx.ByType {
+		// No filter — return all doc IDs from all scopes.
+		for _, ids := range idx.ByScope {
 			addAll(ids)
 		}
 	}
@@ -242,17 +216,12 @@ func intersect(a, b []string) []string {
 func kbDocToStorage(d *memory.Doc) *Doc {
 	return &Doc{
 		ID:              d.ID,
-		Type:            d.Type,
 		Boot:            d.Boot,
-		Lifecycle:       d.Lifecycle,
 		Scope:           d.Scope,
 		Tags:            d.Tags,
 		Created:         d.Created,
 		CreatedBy:       d.CreatedBy,
-		Updated:         d.Updated,
-		UpdatedBy:       d.UpdatedBy,
 		SessionID:       d.SessionID,
-		Confidence:      d.Confidence,
 		PromotionState:  d.PromotionState,
 		Classification:  d.Classification,
 		Compartments:    d.Compartments,
@@ -266,17 +235,12 @@ func kbDocToStorage(d *memory.Doc) *Doc {
 func storageDocToKB(d *Doc) *memory.Doc {
 	return &memory.Doc{
 		ID:              d.ID,
-		Type:            d.Type,
 		Boot:            d.Boot,
-		Lifecycle:       d.Lifecycle,
 		Scope:           d.Scope,
 		Tags:            d.Tags,
 		Created:         d.Created,
 		CreatedBy:       d.CreatedBy,
-		Updated:         d.Updated,
-		UpdatedBy:       d.UpdatedBy,
 		SessionID:       d.SessionID,
-		Confidence:      d.Confidence,
 		PromotionState:  d.PromotionState,
 		Classification:  d.Classification,
 		Compartments:    d.Compartments,

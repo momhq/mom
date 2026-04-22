@@ -130,7 +130,7 @@ func runTour(cmd *cobra.Command, _ []string) error {
 		}
 
 		cmd.Printf("%2d. %s\n", i+1, doc.ID)
-		cmd.Printf("    Type:       %s\n", doc.Type)
+		cmd.Printf("    Scope:      %s\n", doc.Scope)
 		cmd.Printf("    Centrality: %.4f\n", lm.score)
 		cmd.Printf("    Tags:       %s\n", strings.Join(doc.Tags, ", "))
 		if summary != doc.ID {

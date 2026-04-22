@@ -329,9 +329,6 @@ func TestDrafterProcess(t *testing.T) {
 		if dr.SourceSession == "" {
 			t.Error("draft source_session must not be empty")
 		}
-		if dr.Lifecycle != "draft" {
-			t.Errorf("expected lifecycle=draft, got %q", dr.Lifecycle)
-		}
 		if dr.Created == "" {
 			t.Error("draft created must not be empty")
 		}

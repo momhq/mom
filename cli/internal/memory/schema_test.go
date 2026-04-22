@@ -10,14 +10,10 @@ import (
 func validDoc() *Doc {
 	return &Doc{
 		ID:        "test-doc",
-		Type:      "fact",
-		Lifecycle: "state",
 		Scope:     "project",
 		Tags:      []string{"test"},
 		Created:   time.Now().UTC(),
 		CreatedBy: "owner",
-		Updated:   time.Now().UTC(),
-		UpdatedBy: "leo",
 		Content:   map[string]any{"fact": "a fact"},
 	}
 }
@@ -67,27 +63,6 @@ func TestValidate_ValidIDs(t *testing.T) {
 	}
 }
 
-func TestValidate_InvalidType(t *testing.T) {
-	doc := validDoc()
-	doc.Type = "invalid-type"
-	if err := doc.Validate(); err == nil {
-		t.Fatal("expected error for invalid type")
-	}
-}
-
-func TestValidate_AllValidTypes(t *testing.T) {
-	types := []string{"constraint", "skill", "identity", "decision", "fact", "feedback", "reference", "session-log", "pattern", "learning"}
-	for _, tp := range types {
-		t.Run(tp, func(t *testing.T) {
-			doc := validDoc()
-			doc.Type = tp
-			if err := doc.Validate(); err != nil {
-				t.Errorf("expected valid for type %q, got: %v", tp, err)
-			}
-		})
-	}
-}
-
 func TestValidate_SummaryField(t *testing.T) {
 	doc := validDoc()
 	doc.Summary = "A concise one-line description"
@@ -96,43 +71,6 @@ func TestValidate_SummaryField(t *testing.T) {
 	}
 	if doc.Summary != "A concise one-line description" {
 		t.Errorf("expected summary %q, got %q", "A concise one-line description", doc.Summary)
-	}
-}
-
-func TestValidate_RuleTypeRejected(t *testing.T) {
-	doc := validDoc()
-	doc.Type = "rule"
-	if err := doc.Validate(); err == nil {
-		t.Fatal("expected error for deprecated type 'rule'")
-	}
-}
-
-func TestValidate_MetricTypeRejected(t *testing.T) {
-	doc := validDoc()
-	doc.Type = "metric"
-	if err := doc.Validate(); err == nil {
-		t.Fatal("expected error for retired type 'metric'")
-	}
-}
-
-func TestValidate_InvalidLifecycle(t *testing.T) {
-	doc := validDoc()
-	doc.Lifecycle = "temporary"
-	if err := doc.Validate(); err == nil {
-		t.Fatal("expected error for invalid lifecycle")
-	}
-}
-
-func TestValidate_AllValidLifecycles(t *testing.T) {
-	lifecycles := []string{"permanent", "learning", "state"}
-	for _, lc := range lifecycles {
-		t.Run(lc, func(t *testing.T) {
-			doc := validDoc()
-			doc.Lifecycle = lc
-			if err := doc.Validate(); err != nil {
-				t.Errorf("expected valid for lifecycle %q, got: %v", lc, err)
-			}
-		})
 	}
 }
 
@@ -168,14 +106,6 @@ func TestValidate_EmptyCreatedBy(t *testing.T) {
 	}
 }
 
-func TestValidate_EmptyUpdatedBy(t *testing.T) {
-	doc := validDoc()
-	doc.UpdatedBy = ""
-	if err := doc.Validate(); err == nil {
-		t.Fatal("expected error for empty updated_by")
-	}
-}
-
 func TestValidate_NilContent(t *testing.T) {
 	doc := validDoc()
 	doc.Content = nil
@@ -189,14 +119,10 @@ func TestLoadDoc_ValidFile(t *testing.T) {
 	path := filepath.Join(dir, "test.json")
 	os.WriteFile(path, []byte(`{
 		"id": "test-doc",
-		"type": "fact",
-		"lifecycle": "state",
 		"scope": "project",
 		"tags": ["test"],
 		"created": "2026-04-13T00:00:00Z",
 		"created_by": "owner",
-		"updated": "2026-04-13T00:00:00Z",
-		"updated_by": "leo",
 		"content": {"fact": "test"}
 	}`), 0644)
 
@@ -241,9 +167,6 @@ func TestSaveDoc_RoundTrip(t *testing.T) {
 
 	if loaded.ID != original.ID {
 		t.Errorf("ID mismatch: %q vs %q", original.ID, loaded.ID)
-	}
-	if loaded.Type != original.Type {
-		t.Errorf("Type mismatch: %q vs %q", original.Type, loaded.Type)
 	}
 	if len(loaded.Tags) != len(original.Tags) {
 		t.Errorf("Tags length mismatch: %d vs %d", len(original.Tags), len(loaded.Tags))
