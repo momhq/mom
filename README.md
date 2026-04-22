@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/momhq/mom/releases"><img src="https://img.shields.io/github/v/release/momhq/mom?style=flat-square&color=FFCC2C" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-4A6B3A?style=flat-square" alt="License"></a>
-  <a href="https://github.com/momhq/mom"><img src="https://img.shields.io/badge/go-1.22+-3B1F0A?style=flat-square" alt="Go 1.22+"></a>
+  <a href="https://github.com/momhq/mom"><img src="https://img.shields.io/badge/go-1.24+-3B1F0A?style=flat-square" alt="Go 1.24+"></a>
   <a href="https://goreportcard.com/report/github.com/momhq/mom/cli"><img src="https://goreportcard.com/badge/github.com/momhq/mom/cli?style=flat-square" alt="Go Report Card"></a>
 </p>
 
@@ -56,16 +56,17 @@ MOM creates a `.mom/` directory in your project — a structured memory layer yo
 ```
 your-project/
 ├── .mom/                           # MOM's home
-│   ├── config.yaml                 # preferences (language, communication mode, autonomy)
-│   ├── index.json                  # tag-based memory index
-│   ├── schema.json                 # document schema
+│   ├── config.yaml                 # preferences (language, communication mode)
+│   ├── schema.json                 # document schema (v2)
 │   ├── identity.json               # project identity
-│   ├── memory/                     # memory documents (decisions, patterns, learnings)
+│   ├── memory/                     # memory documents (structured JSON)
 │   ├── constraints/                # always-active guardrails
 │   ├── skills/                     # composable procedures
+│   ├── raw/                        # continuous session capture (JSONL)
 │   ├── logs/                       # session logs
 │   └── cache/
 │
+├── .mcp.json                       # MCP server config (auto-injected)
 ├── .claude/CLAUDE.md               # auto-generated boot file for Claude Code
 └── your code...
 ```
@@ -78,9 +79,9 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 
 **Runtime-agnostic.** Memory lives in `.mom/`, not in `.claude/` or `.cursor/`. MOM generates the right context for each runtime through adapters. Your memory is yours, not locked to a vendor.
 
-**Schema-validated.** Every memory document is typed, tagged, scoped, and lifecycle-managed. Not a loose Markdown file — a structured, indexed, queryable memory.
+**Schema-validated.** Every memory document is tagged, scoped, and promotion-managed. Not a loose Markdown file — a structured, queryable memory with free-form content.
 
-**MCP-native.** MOM exposes tools via Model Context Protocol. Agents search, read, and write memory through MCP — no file parsing, no guesswork.
+**MCP-first.** MOM delivers context via Model Context Protocol. Agents search, read, and write memory through MCP tools — no file parsing, no guesswork. `.mcp.json` is auto-injected on `mom init`.
 
 **On-prem by default.** Your memory stays in your repo. No cloud dependency. No data leaving your machine.
 
@@ -88,47 +89,46 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 
 | Command | What it does |
 |---------|-------------|
-| `mom init` | Interactive onboarding — runtime, language, mode, autonomy |
+| `mom init` | Interactive onboarding — runtime, language, mode |
 | `mom status` | Memory summary — document count, tags, health |
 | `mom doctor` | Diagnostic checks on `.mom/` health |
-| `mom recall <query>` | Search memory by query |
-| `mom promote <id>` | Promote a draft memory to active |
+| `mom recall <query>` | BM25 search across memory |
+| `mom promote <id>` | Promote a draft memory to curated |
 | `mom demote <id>` | Demote a memory back to draft |
+| `mom draft` | Extract memory drafts from raw session capture |
+| `mom map` | Cartographer — scan repo and generate initial memory |
 | `mom reindex` | Rebuild index from documents on disk |
 | `mom validate` | Validate documents against schema |
 | `mom export` | Export memory to portable directory |
 | `mom import` | Import memory (merge or replace) |
-| `mom upgrade` | Migrate from older versions |
+| `mom upgrade` | Migrate from older versions (injects `.mcp.json`) |
 | `mom tour` | Guided walkthrough of your memory |
-| `mom serve mcp` | Start MCP server |
+| `mom serve mcp` | Start MCP stdio server |
 | `mom version` | Print version |
 
 ## Supported Runtimes
 
 | Runtime | Adapter | Status |
 |---------|---------|--------|
-| Claude Code | Context file + MCP + hooks | Stable |
+| Claude Code | MCP + hooks + context file | Stable |
 | OpenAI Codex | Context file | Stable |
 | Cline | Context file | Stable |
 
 ## Current Status
 
-MOM is in active development (v0.10). It works, and it self-hosts — the tool builds itself with its own memory.
+MOM is in active development (v0.11). It works, and it self-hosts — the tool builds itself with its own memory.
 
-What's working:
-- Structured memory with schema validation and tag-based indexing
+What's in v0.11:
+- **MCP-first context delivery** — behavioral protocol via `mom_status` tool, `.mcp.json` auto-injected
+- **Continuous raw capture** — hooks record every session turn to `.mom/raw/` JSONL
+- **Drafter pipeline** — RAKE + BM25 extraction from raw capture into memory drafts
+- **Cartographer** — AST-based repo scanning for initial memory bootstrap
+- **Simplified schema (v2)** — free-form content, promotion-based lifecycle (`draft`/`curated`)
+- **Herald event bus** — internal telemetry and event emission
 - Three runtime adapters (Claude Code, Codex, Cline)
-- MCP server with search, read, and write tools
-- Communication modes (verbose, concise, caveman)
-- Session logging and memory lifecycle management
+- Communication modes (verbose, concise, normal, caveman)
 - Multi-repo support with scope-based memory
-- Memory graph visualization
-- Homebrew installation
-
-What's next (v0.11):
-- MCP-first context delivery — behavioral protocol via `mom_status` tool
-- Continuous raw capture via hooks
-- Herald event bus and Drafter extraction pipeline
+- Homebrew installation with automated tap updates
 
 ## Contributing
 
