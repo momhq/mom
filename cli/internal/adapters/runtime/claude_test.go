@@ -286,6 +286,21 @@ func TestClaudeAdapter_RegisterHooks_DefaultHooks(t *testing.T) {
 	if hookEntry["command"] != "mom record" {
 		t.Errorf("expected command 'mom record', got %v", hookEntry["command"])
 	}
+
+	sessionEnd, ok := hooksMap["SessionEnd"].([]any)
+	if !ok {
+		t.Fatal("hooks.SessionEnd should be an array")
+	}
+	if len(sessionEnd) != 1 {
+		t.Fatalf("expected 1 SessionEnd matcher group, got %d", len(sessionEnd))
+	}
+
+	seGroup := sessionEnd[0].(map[string]any)
+	seHooks := seGroup["hooks"].([]any)
+	seEntry := seHooks[0].(map[string]any)
+	if seEntry["command"] != "mom draft" {
+		t.Errorf("expected command 'mom draft', got %v", seEntry["command"])
+	}
 }
 
 func TestClaudeAdapter_RegisterMCP_Fresh(t *testing.T) {
