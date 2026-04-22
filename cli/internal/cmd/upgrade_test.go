@@ -269,8 +269,8 @@ func TestUpgradeCmd_UpdatesSchema(t *testing.T) {
 	if strings.Contains(string(schema), `"old"`) {
 		t.Error("schema.json was not updated")
 	}
-	if !strings.Contains(string(schema), "session-log") {
-		t.Error("schema.json missing session-log type")
+	if !strings.Contains(string(schema), "mom-memory-doc-v2") {
+		t.Error("schema.json not updated to v2")
 	}
 }
 
@@ -468,9 +468,9 @@ func TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent(t *testing.T) {
 		}
 	}
 
-	// Must contain communication mode directive.
-	if !strings.Contains(string(data), "## Communication mode:") {
-		t.Error("CLAUDE.md must contain communication mode section")
+	// Must contain the MCP-first boot directive (default delivery is "mcp").
+	if !strings.Contains(string(data), "mom_status") {
+		t.Error("CLAUDE.md must contain mom_status directive (MCP-first delivery)")
 	}
 }
 
@@ -544,11 +544,6 @@ func TestUpgradeCmd_MigratesKBLayout(t *testing.T) {
 	// skills/ must exist.
 	if info, err := os.Stat(filepath.Join(leoDir, "skills")); err != nil || !info.IsDir() {
 		t.Error("skills/ directory not created by migration")
-	}
-
-	// index.json must be at the flat level.
-	if _, err := os.Stat(filepath.Join(leoDir, "index.json")); err != nil {
-		t.Error("index.json not at flat level after migration")
 	}
 
 	// schema.json must be at the flat level.
@@ -670,7 +665,7 @@ func TestInitCmd_NewLayout_NoKBDir(t *testing.T) {
 	}
 
 	// Flat files at root level.
-	for _, f := range []string{"index.json", "schema.json"} {
+	for _, f := range []string{"schema.json"} {
 		if _, err := os.Stat(filepath.Join(leoDir, f)); err != nil {
 			t.Errorf("init must create flat file: %s", f)
 		}

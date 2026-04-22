@@ -32,7 +32,6 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 		".mom/config.yaml",
 		".mom/identity.json",
 		".mom/schema.json",
-		".mom/index.json",
 		".mom/logs",
 		".claude/CLAUDE.md",
 		".mom/constraints/anti-hallucination.json",
@@ -199,6 +198,44 @@ func TestInitCmd_NoWarningForClaudeOnly(t *testing.T) {
 	out := buf.String()
 	if strings.Contains(out, "best-effort") {
 		t.Errorf("did not expect 'best-effort' warning for claude adapter, got:\n%s", out)
+	}
+}
+
+// TestInitCmd_DefaultDeliversMinimalContent verifies that init with default config
+// generates minimal MCP-first boot content (not the legacy full content).
+func TestInitCmd_DefaultDeliversMinimalContent(t *testing.T) {
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"init", "--runtimes", "claude"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("reading CLAUDE.md: %v", err)
+	}
+
+	s := string(content)
+
+	// Must contain the MCP-first directive.
+	if !strings.Contains(s, "mom_status") {
+		t.Error("CLAUDE.md must contain mom_status for MCP-first delivery")
+	}
+
+	// Must NOT contain the verbose legacy sections.
+	legacy := []string{"## Voice", "## Constraints", "## Skills", "## During work"}
+	for _, section := range legacy {
+		if strings.Contains(s, section) {
+			t.Errorf("CLAUDE.md must not contain legacy section %q with default (mcp) delivery", section)
+		}
 	}
 }
 

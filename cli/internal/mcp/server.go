@@ -18,7 +18,7 @@ import (
 
 const (
 	// Version of the MOM MCP server.
-	Version = "0.9.0"
+	Version = "0.11.0"
 	// MCPProtocolVersion is the MCP spec version this server implements.
 	MCPProtocolVersion = "2024-11-05"
 

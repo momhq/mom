@@ -137,7 +137,7 @@ func runRecall(cmd *cobra.Command, args []string) error {
 		results = results[:limit]
 	}
 
-	cmd.Printf("%-36s  %-10s  %-7s  %s\n", "ID", "Score", "Type", "Summary")
+	cmd.Printf("%-36s  %-10s  %s\n", "ID", "Score", "Summary")
 	cmd.Printf("%s\n", strings.Repeat("-", 80))
 	for _, r := range results {
 		landmark := ""
@@ -150,10 +150,9 @@ func runRecall(cmd *cobra.Command, args []string) error {
 				summary = s
 			}
 		}
-		cmd.Printf("%-36s  %-10.3f  %-7s  %s%s\n",
+		cmd.Printf("%-36s  %-10.3f  %s%s\n",
 			truncate(r.doc.ID, 36),
 			r.score,
-			truncate(r.doc.Type, 7),
 			truncate(summary, 40),
 			landmark,
 		)

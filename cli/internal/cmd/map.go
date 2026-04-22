@@ -11,17 +11,16 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/cartographer"
 	"github.com/momhq/mom/cli/internal/gardener"
 	"github.com/momhq/mom/cli/internal/scope"
-	"github.com/momhq/mom/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/herald"
 )
 
-var bootstrapCmd = &cobra.Command{
-	Use:   "bootstrap",
+var mapCmd = &cobra.Command{
+	Use:   "map",
 	Short: "Scan existing code, docs, and commits to seed the memory",
-	Long: `Bootstrap scans the chosen directory for code, markdown, dependency
+	Long: `Map scans the chosen directory for code, markdown, dependency
 manifests, and commit history to create initial memories.
 
 By default it writes to the nearest .mom/ found by walking up from the
@@ -29,14 +28,27 @@ scan directory. Use --scope to override the target .mom/ location.`,
 	RunE: runBootstrap,
 }
 
+// bootstrapAliasCmd is a hidden backward-compat alias for the renamed "map" command.
+var bootstrapAliasCmd = &cobra.Command{
+	Use:    "bootstrap",
+	Hidden: true,
+	Short:  "Alias for 'mom map' (deprecated)",
+	RunE:   mapCmd.RunE,
+}
+
+func registerMapFlags(cmd *cobra.Command) {
+	cmd.Flags().String("path", "", "Directory to scan (default: current directory)")
+	cmd.Flags().Bool("refresh", false, "Re-scan all files, ignoring the SHA256 cache")
+	cmd.Flags().Bool("dry-run", false, "Show what would be written without persisting")
+	cmd.Flags().Int("commit-depth", 200, "Number of recent commits to scan")
+	cmd.Flags().Int64("max-file-size", 2, "Skip files larger than this many MB")
+	cmd.Flags().String("scope", "", "Target scope label (user/org/repo/workspace/custom)")
+	cmd.Flags().Bool("no-graph", false, "Skip opening the memory graph in the browser after bootstrap")
+}
+
 func init() {
-	bootstrapCmd.Flags().String("path", "", "Directory to scan (default: current directory)")
-	bootstrapCmd.Flags().Bool("refresh", false, "Re-scan all files, ignoring the SHA256 cache")
-	bootstrapCmd.Flags().Bool("dry-run", false, "Show what would be written without persisting")
-	bootstrapCmd.Flags().Int("commit-depth", 200, "Number of recent commits to scan")
-	bootstrapCmd.Flags().Int64("max-file-size", 2, "Skip files larger than this many MB")
-	bootstrapCmd.Flags().String("scope", "", "Target scope label (user/org/repo/workspace/custom)")
-	bootstrapCmd.Flags().Bool("no-graph", false, "Skip opening the memory graph in the browser after bootstrap")
+	registerMapFlags(mapCmd)
+	registerMapFlags(bootstrapAliasCmd)
 }
 
 func runBootstrap(cmd *cobra.Command, _ []string) error {
@@ -139,11 +151,6 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 		}
 		written = w
 
-		// Regenerate index.json so memories are immediately visible to recall.
-		adapter := storage.NewJSONAdapter(targetScope.Path)
-		if err := adapter.Reindex(); err != nil {
-			cmd.Printf("  ⚠ index rebuild error: %v\n", err)
-		}
 	}
 
 	cmd.Println()
@@ -177,7 +184,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 		if !noGraph {
 			data, graphErr := gardener.BuildGraphData(memDir, 50)
 			if graphErr == nil && data.Stats.TotalDocs > 0 {
-				outPath := filepath.Join(os.TempDir(), "leo-memory-graph.html")
+				outPath := filepath.Join(os.TempDir(), "mom-memory-graph.html")
 				if writeErr := gardener.WriteGraphHTML(data, outPath); writeErr == nil {
 					cmd.Printf("Graph written to %s\n", outPath)
 					if openErr := openBrowser(outPath); openErr != nil {
@@ -195,8 +202,8 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	cmd.Println("  · \"What was the last major refactor about?\"")
 
 	// Emit telemetry.
-	emitter := transponder.New(targetScope.Path, true)
-	emitter.EmitCaptureEvent(transponder.CaptureEvent{
+	emitter := herald.New(targetScope.Path, true)
+	emitter.EmitCaptureEvent(herald.CaptureEvent{
 		CaptureID:        fmt.Sprintf("bootstrap-%d", time.Now().UnixMilli()),
 		TS:               time.Now().UTC().Format(time.RFC3339),
 		ExtractorModel:   "cartographer",
@@ -339,18 +346,9 @@ func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 			continue
 		}
 
-		symbol := "✓"
-		if er.Count > 0 && er.Ambiguous == er.Count {
-			symbol = "⚠"
-		}
-
-		cmd.Printf("  %s %-16s — %3d memories  (%d EXTRACTED · %d INFERRED · %d AMBIGUOUS)\n",
-			symbol,
+		cmd.Printf("  ✓ %-16s — %3d memories\n",
 			item.label,
 			er.Count,
-			er.Extracted,
-			er.Inferred,
-			er.Ambiguous,
 		)
 
 		// For AST, print per-language breakdown if we have data.
@@ -436,23 +434,13 @@ func writeDraft(d cartographer.Draft, memDir string) error {
 	}
 	content["summary"] = d.Summary
 
-	lifecycle := "learning"
-	if d.Type == "decision" || d.Type == "fact" || d.Type == "pattern" {
-		lifecycle = "permanent"
-	}
-
 	doc := map[string]any{
 		"id":              id,
-		"type":            mapDraftType(d.Type),
 		"summary":         d.Summary,
-		"lifecycle":       lifecycle,
 		"scope":           "project",
 		"tags":            d.Tags,
 		"created":         now.Format(time.RFC3339),
 		"created_by":      "cartographer",
-		"updated":         now.Format(time.RFC3339),
-		"updated_by":      "cartographer",
-		"confidence":      d.Confidence,
 		"promotion_state": "draft",
 		"classification":  "INTERNAL",
 		"provenance": map[string]any{
@@ -475,43 +463,11 @@ func writeDraft(d cartographer.Draft, memDir string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// mapDraftType converts cartographer draft types to memory schema types.
-func mapDraftType(t string) string {
-	switch t {
-	case "decision":
-		return "decision"
-	case "fact":
-		return "fact"
-	case "pattern":
-		return "pattern"
-	case "learning":
-		return "learning"
-	default:
-		return "fact"
-	}
-}
-
 // draftID generates a short, deterministic ID for a draft memory.
 func draftID(d cartographer.Draft) string {
-	raw := d.Type + ":" + d.Summary + ":" + d.Provenance.SourceFile
+	raw := d.Summary + ":" + d.Provenance.SourceFile
 	h := cartographer.DraftHash(raw)
-	return draftTypePrefix(d.Type) + h[:12]
-}
-
-// draftTypePrefix returns a short prefix for the draft type.
-func draftTypePrefix(t string) string {
-	switch t {
-	case "decision":
-		return "dec-"
-	case "fact":
-		return "fact-"
-	case "pattern":
-		return "pat-"
-	case "learning":
-		return "learn-"
-	default:
-		return "mem-"
-	}
+	return "mem-" + h[:12]
 }
 
 // countMemoryDocs returns the total number of .json files in memDir.

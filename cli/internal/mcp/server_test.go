@@ -182,8 +182,8 @@ func TestToolsList(t *testing.T) {
 	if !ok {
 		t.Fatalf("tools not an array: %v", result["tools"])
 	}
-	if len(tools) != 5 {
-		t.Errorf("expected 5 tools, got %d", len(tools))
+	if len(tools) != 8 {
+		t.Errorf("expected 8 tools, got %d", len(tools))
 	}
 
 	names := make(map[string]bool)
@@ -195,7 +195,7 @@ func TestToolsList(t *testing.T) {
 		name, _ := tool["name"].(string)
 		names[name] = true
 	}
-	expected := []string{"search_memories", "get_memory", "list_scopes", "create_memory_draft", "list_landmarks"}
+	expected := []string{"search_memories", "get_memory", "list_scopes", "create_memory_draft", "list_landmarks", "mom_status", "mom_record_turn", "mom_recall"}
 	for _, n := range expected {
 		if !names[n] {
 			t.Errorf("tool %q missing from tools/list", n)

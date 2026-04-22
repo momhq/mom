@@ -30,14 +30,10 @@ func writeDoc(t *testing.T, leoDir, id string) {
 	t.Helper()
 	doc := &memory.Doc{
 		ID:        id,
-		Type:      "fact",
-		Lifecycle: "permanent",
 		Scope:     "project",
 		Tags:      []string{"test"},
 		Created:   time.Now().UTC(),
 		CreatedBy: "test",
-		Updated:   time.Now().UTC(),
-		UpdatedBy: "test",
 		Content:   map[string]any{"body": "body"},
 	}
 	data, err := json.MarshalIndent(doc, "", "  ")

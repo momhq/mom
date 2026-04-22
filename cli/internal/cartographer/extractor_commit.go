@@ -11,17 +11,17 @@ import (
 // defaultCommitDepth is how many commits to scan when depth is unset.
 const defaultCommitDepth = 200
 
-// conventionalPrefixes maps commit type prefix → memory type.
-var conventionalPrefixes = map[string]string{
-	"feat":     "decision",
-	"refactor": "decision",
-	"fix":      "learning",
-	"chore":    "learning",
-	"docs":     "fact",
-	"perf":     "decision",
-	"build":    "fact",
-	"ci":       "fact",
-	"test":     "fact",
+// conventionalPrefixes is the set of recognised conventional commit prefixes.
+var conventionalPrefixes = map[string]bool{
+	"feat":     true,
+	"refactor": true,
+	"fix":      true,
+	"chore":    true,
+	"docs":     true,
+	"perf":     true,
+	"build":    true,
+	"ci":       true,
+	"test":     true,
 }
 
 var reConventional = regexp.MustCompile(`^([a-z]+)(\(([^)]+)\))?(!)?:\s*(.+)$`)
@@ -98,8 +98,7 @@ func parseCommitLog(output, repoPath string) ([]Draft, error) {
 		prefix := m[1]
 		scope := m[3]
 		summary := m[5]
-		memType, ok := conventionalPrefixes[prefix]
-		if !ok {
+		if !conventionalPrefixes[prefix] {
 			continue
 		}
 
@@ -114,10 +113,8 @@ func parseCommitLog(output, repoPath string) ([]Draft, error) {
 		}
 
 		drafts = append(drafts, Draft{
-			Type:       memType,
-			Summary:    truncate(fullSummary, 200),
-			Tags:       tags,
-			Confidence: ConfidenceInferred,
+			Summary: truncate(fullSummary, 200),
+			Tags:    tags,
 			Content: map[string]any{
 				"commit_sha": sha,
 				"subject":    subject,

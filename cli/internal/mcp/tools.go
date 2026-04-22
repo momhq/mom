@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
-	"github.com/momhq/mom/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/search"
 )
 
 // toolDef describes one MCP tool for the tools/list response.
@@ -38,14 +40,13 @@ func allTools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "search_memories",
-			Description: "Search MOM memories by query text, tags, confidence, or classification. Returns ranked results.",
+			Description: "Search MOM memories by query text, tags, or classification. Returns ranked results.",
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"query":          map[string]any{"type": "string", "description": "Free-text search query"},
 					"scope":          map[string]any{"type": "string", "description": "Restrict to scope label (repo/org/user)"},
 					"tags":           map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (all must match)"},
-					"confidence":     map[string]any{"type": "string", "description": "Filter by confidence (EXTRACTED/INFERRED/AMBIGUOUS)"},
 					"classification": map[string]any{"type": "string", "description": "Filter by classification (PUBLIC/INTERNAL/CONFIDENTIAL)"},
 					"limit":          map[string]any{"type": "integer", "description": "Maximum results (default 10)"},
 				},
@@ -75,9 +76,8 @@ func allTools() []toolDef {
 			Description: "Create a draft memory document in the nearest .mom/memory/ directory.",
 			InputSchema: map[string]any{
 				"type":     "object",
-				"required": []string{"type", "summary", "tags", "content"},
+				"required": []string{"summary", "tags", "content"},
 				"properties": map[string]any{
-					"type":    map[string]any{"type": "string", "description": "Doc type (fact/decision/pattern/learning/…)"},
 					"summary": map[string]any{"type": "string", "description": "One-line summary"},
 					"tags":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Kebab-case tags"},
 					"content": map[string]any{"type": "object", "description": "Freeform content map"},
@@ -92,6 +92,37 @@ func allTools() []toolDef {
 				"properties": map[string]any{
 					"scope": map[string]any{"type": "string", "description": "Restrict to scope label"},
 					"limit": map[string]any{"type": "integer", "description": "Maximum results (default 20)"},
+				},
+			},
+		},
+		{
+			Name:        "mom_status",
+			Description: "Returns MOM's full operating protocol — identity, boundaries, constraints, modes, and memory overview. Call this at the start of every session.",
+			InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			Name:        "mom_record_turn",
+			Description: "Fallback recording for runtimes without hooks. Appends a turn to .mom/raw/.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"text"},
+				"properties": map[string]any{
+					"text":       map[string]any{"type": "string", "description": "The conversation turn text to record"},
+					"session_id": map[string]any{"type": "string", "description": "Optional session ID"},
+				},
+			},
+		},
+		{
+			Name:        "mom_recall",
+			Description: "Search your memory for relevant context. Returns ranked results using BM25 text search.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"query"},
+				"properties": map[string]any{
+					"query":       map[string]any{"type": "string", "description": "Search query (keywords or natural language)"},
+					"max_results": map[string]any{"type": "integer", "description": "Maximum results (default 5)"},
+					"tags":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (AND logic)"},
+					"session_id":  map[string]any{"type": "string", "description": "Filter by source session"},
 				},
 			},
 		},
@@ -135,6 +166,12 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolCreateMemoryDraft(req.Arguments)
 	case "list_landmarks":
 		result, err = s.toolListLandmarks(req.Arguments)
+	case "mom_status":
+		result, err = s.toolMomStatus()
+	case "mom_record_turn":
+		result, err = s.toolRecordTurn(req.Arguments)
+	case "mom_recall":
+		result, err = s.toolMomRecall(req.Arguments)
 	default:
 		return nil, &rpcError{Code: errCodeMethodNotFound, Message: "unknown tool: " + req.Name}
 	}
@@ -156,7 +193,6 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	query := strings.ToLower(stringArg(args, "query"))
 	scopeLabel := stringArg(args, "scope")
 	tags := stringSliceArg(args, "tags")
-	confidence := stringArg(args, "confidence")
 	classification := stringArg(args, "classification")
 	limit := intArg(args, "limit", 10)
 
@@ -203,10 +239,6 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 			if err != nil {
 				continue
 			}
-			// Apply confidence filter.
-			if confidence != "" && !strings.EqualFold(doc.Confidence, confidence) {
-				continue
-			}
 			// Apply classification filter.
 			if classification != "" && !strings.EqualFold(doc.Classification, classification) {
 				continue
@@ -219,8 +251,8 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 
 			// Emit telemetry.
 			if s.momDir != "" {
-				em := transponder.New(s.momDir, true)
-				em.EmitConsumptionEvent(transponder.ConsumptionEvent{
+				em := herald.New(s.momDir, true)
+				em.EmitConsumptionEvent(herald.ConsumptionEvent{
 					MemoryID: doc.ID,
 					TS:       time.Now().UTC().Format(time.RFC3339),
 					ByAgent:  "mcp",
@@ -245,12 +277,11 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	}
 
 	type resultItem struct {
-		ID       string  `json:"id"`
-		Score    float64 `json:"score"`
-		Type     string  `json:"type"`
-		Summary  string  `json:"summary"`
+		ID       string   `json:"id"`
+		Score    float64  `json:"score"`
+		Summary  string   `json:"summary"`
 		Tags     []string `json:"tags"`
-		Landmark bool    `json:"landmark,omitempty"`
+		Landmark bool     `json:"landmark,omitempty"`
 	}
 	items := make([]resultItem, len(results))
 	for i, r := range results {
@@ -263,7 +294,6 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 		items[i] = resultItem{
 			ID:       r.doc.ID,
 			Score:    r.score,
-			Type:     r.doc.Type,
 			Summary:  summary,
 			Tags:     r.doc.Tags,
 			Landmark: r.doc.Landmark,
@@ -292,8 +322,8 @@ func (s *Server) toolGetMemory(args map[string]any) (toolCallResult, error) {
 			continue
 		}
 		// Emit telemetry.
-		em := transponder.New(s.momDir, true)
-		em.EmitConsumptionEvent(transponder.ConsumptionEvent{
+		em := herald.New(s.momDir, true)
+		em.EmitConsumptionEvent(herald.ConsumptionEvent{
 			MemoryID: doc.ID,
 			TS:       time.Now().UTC().Format(time.RFC3339),
 			ByAgent:  "mcp",
@@ -333,13 +363,12 @@ func (s *Server) toolListScopes() (toolCallResult, error) {
 
 // toolCreateMemoryDraft creates a new draft memory document.
 func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, error) {
-	docType := stringArg(args, "type")
 	summary := stringArg(args, "summary")
 	tags := stringSliceArg(args, "tags")
 	content, _ := args["content"].(map[string]any)
 
-	if docType == "" || summary == "" || len(tags) == 0 {
-		return toolCallResult{}, fmt.Errorf("type, summary, and tags are required")
+	if summary == "" || len(tags) == 0 {
+		return toolCallResult{}, fmt.Errorf("summary and tags are required")
 	}
 	if content == nil {
 		content = map[string]any{}
@@ -357,16 +386,11 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 
 	doc := &memory.Doc{
 		ID:             id,
-		Type:           docType,
-		Lifecycle:      "learning",
 		Scope:          "project",
 		Tags:           tags,
 		Summary:        summary,
 		Created:        now,
 		CreatedBy:      "mcp",
-		Updated:        now,
-		UpdatedBy:      "mcp",
-		Confidence:     "INFERRED",
 		PromotionState: "draft",
 		Classification: "INTERNAL",
 		Compartments:   map[string][]string{},
@@ -420,7 +444,6 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 
 	type landmarkItem struct {
 		ID              string   `json:"id"`
-		Type            string   `json:"type"`
 		Summary         string   `json:"summary"`
 		Tags            []string `json:"tags"`
 		CentralityScore float64  `json:"centrality_score"`
@@ -456,7 +479,6 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 			}
 			items = append(items, landmarkItem{
 				ID:              doc.ID,
-				Type:            doc.Type,
 				Summary:         summary,
 				Tags:            doc.Tags,
 				CentralityScore: score,
@@ -476,6 +498,102 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 	}
 
 	text, _ := json.MarshalIndent(items, "", "  ")
+	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
+}
+
+// toolRecordTurn is the MCP fallback for runtimes that don't support hooks.
+// It appends a turn to .mom/raw/<YYYY-MM-DD>.jsonl.
+func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
+	text := stringArg(args, "text")
+	if text == "" {
+		return toolCallResult{}, fmt.Errorf("text is required")
+	}
+	sessionID := stringArg(args, "session_id")
+
+	targetDir := s.momDir
+	if sc, ok := scope.NearestWritable(s.momDir); ok {
+		targetDir = sc.Path
+	}
+
+	input := recorder.HookInput{
+		SessionID:     sessionID,
+		HookEventName: "mcp",
+		Cwd:           s.momDir,
+	}
+
+	// Write directly without a transcript path — build entry manually.
+	rawDir := filepath.Join(targetDir, "raw")
+	if err := os.MkdirAll(rawDir, 0755); err != nil {
+		return toolCallResult{}, fmt.Errorf("creating raw dir: %w", err)
+	}
+
+	now := time.Now().UTC()
+	dailyFile := filepath.Join(rawDir, now.Format("2006-01-02")+".jsonl")
+
+	type rawEntry struct {
+		Timestamp string `json:"timestamp"`
+		Event     string `json:"event"`
+		Text      string `json:"text"`
+		SessionID string `json:"session_id"`
+	}
+	entry := rawEntry{
+		Timestamp: now.Format(time.RFC3339),
+		Event:     input.HookEventName,
+		Text:      text,
+		SessionID: sessionID,
+	}
+
+	line, err := json.Marshal(entry)
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("marshaling entry: %w", err)
+	}
+
+	f, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("opening raw file: %w", err)
+	}
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		f.Close()
+		return toolCallResult{}, fmt.Errorf("writing entry: %w", err)
+	}
+	f.Close()
+
+	result := map[string]any{
+		"status":   "recorded",
+		"raw_file": dailyFile,
+	}
+	text2, _ := json.MarshalIndent(result, "", "  ")
+	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text2)}}}, nil
+}
+
+// toolMomRecall performs BM25 search over memory docs and returns ranked results.
+func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
+	query := stringArg(args, "query")
+	maxResults := intArg(args, "max_results", 5)
+	tags := stringSliceArg(args, "tags")
+	sessionID := stringArg(args, "session_id")
+
+	// Resolve memory directory from nearest scope or fall back to momDir.
+	memDir := filepath.Join(s.momDir, "memory")
+	if sc, ok := scope.NearestWritable(s.momDir); ok {
+		memDir = filepath.Join(sc.Path, "memory")
+	}
+
+	results, err := search.Search(memDir, search.SearchOptions{
+		Query:      query,
+		MaxResults: maxResults,
+		Tags:       tags,
+		SessionID:  sessionID,
+	})
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("mom_recall search failed: %w", err)
+	}
+
+	if len(results) == 0 {
+		return toolCallResult{Content: []toolContent{{Type: "text", Text: "No memories matched."}}}, nil
+	}
+
+	text, _ := json.MarshalIndent(results, "", "  ")
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
 }
 

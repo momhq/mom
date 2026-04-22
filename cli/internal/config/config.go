@@ -23,6 +23,11 @@ type Config struct {
 	Memory        MemoryConfig             `yaml:"memory"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
 	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
+	// Delivery controls how the behavioral protocol is delivered to the runtime.
+	// Valid values: "mcp" (default) or "context-file".
+	// "mcp" generates a slim boot file; the protocol is fetched via mom_status.
+	// "context-file" generates the full legacy boot file inline.
+	Delivery string `yaml:"delivery,omitempty"`
 }
 
 // BootstrapConfig holds settings for the cartographer bootstrap pass.
@@ -97,7 +102,8 @@ func Default() Config {
 		Communication: CommunicationConfig{
 			Mode: "concise",
 		},
-		Memory: MemoryConfig{},
+		Memory:   MemoryConfig{},
+		Delivery: "mcp",
 	}
 }
 

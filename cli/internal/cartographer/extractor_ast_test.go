@@ -59,16 +59,6 @@ func TestASTExtractor_GoFile(t *testing.T) {
 		t.Fatal("expected at least one AST draft from sample.go")
 	}
 
-	// All drafts should be EXTRACTED.
-	for _, d := range drafts {
-		if d.Confidence != ConfidenceExtracted {
-			t.Errorf("AST draft %q has confidence %q, want EXTRACTED", d.Summary, d.Confidence)
-		}
-		if d.Type != "pattern" {
-			t.Errorf("AST draft %q has type %q, want pattern", d.Summary, d.Type)
-		}
-	}
-
 	// Count types and functions.
 	typeCount := 0
 	funcCount := 0
@@ -188,14 +178,8 @@ func assertLanguageFixture(t *testing.T, fixture, ext, lang, wantSymbol string) 
 		t.Fatalf("Extract(%s): expected ≥1 draft, got 0", fixture)
 	}
 
-	// All drafts must be pattern/EXTRACTED and carry the language tag.
+	// All drafts must carry the language tag.
 	for _, d := range drafts {
-		if d.Type != "pattern" {
-			t.Errorf("%s: draft %q type = %q, want pattern", fixture, d.Summary, d.Type)
-		}
-		if d.Confidence != ConfidenceExtracted {
-			t.Errorf("%s: draft %q confidence = %q, want EXTRACTED", fixture, d.Summary, d.Confidence)
-		}
 		hasLang := false
 		for _, tag := range d.Tags {
 			if tag == lang {

@@ -2,59 +2,51 @@ package memory
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
-// legacyDocJSON is a memory JSON without any of the new v0.8 fields.
-const legacyDocJSON = `{
-	"id": "legacy-doc",
-	"type": "fact",
-	"lifecycle": "state",
+// minimalDocJSON is a memory JSON with only required fields.
+const minimalDocJSON = `{
+	"id": "minimal-doc",
 	"scope": "project",
 	"tags": ["test"],
 	"created": "2026-04-13T00:00:00Z",
 	"created_by": "owner",
-	"updated": "2026-04-13T00:00:00Z",
-	"updated_by": "leo",
-	"content": {"fact": "legacy memory without new fields"}
+	"content": {"fact": "minimal memory without optional fields"}
 }`
 
-// newShapeDocJSON is a memory JSON with all v0.8 fields populated.
-const newShapeDocJSON = `{
-	"id": "new-shape-doc",
-	"type": "fact",
-	"lifecycle": "state",
+// fullDocJSON is a memory JSON with all optional fields populated.
+const fullDocJSON = `{
+	"id": "full-doc",
 	"scope": "project",
 	"tags": ["test"],
 	"created": "2026-04-13T00:00:00Z",
 	"created_by": "owner",
-	"updated": "2026-04-13T00:00:00Z",
-	"updated_by": "leo",
-	"confidence": "EXTRACTED",
+	"valid_to": "2027-04-13T00:00:00Z",
 	"promotion_state": "curated",
 	"classification": "INTERNAL",
 	"compartments": {"project": ["alpha", "beta"], "department": ["engineering"]},
 	"provenance": {
 		"runtime": "claude-code",
-		"session_id": "sess-abc123",
 		"trigger_event": "session.end",
 		"commit_sha": "deadbeef",
-		"raw_exhaust_ref": ".mom/cache/exhaust-abc123.json"
+		"raw_exhaust_ref": ".mom/raw/2026-04-13.jsonl"
 	},
 	"landmark": true,
 	"centrality_score": 0.85,
-	"content": {"fact": "new memory with all fields"}
+	"content": {"fact": "full memory with all fields"}
 }`
 
-// TestLegacyDoc_LoadFillsDefaults verifies that a legacy memory file (no new fields)
+// TestMinimalDoc_LoadFillsDefaults verifies that a minimal memory file
 // loads without error and gets safe defaults applied.
-func TestLegacyDoc_LoadFillsDefaults(t *testing.T) {
+func TestMinimalDoc_LoadFillsDefaults(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "legacy-doc.json")
-	if err := os.WriteFile(path, []byte(legacyDocJSON), 0644); err != nil {
+	path := filepath.Join(dir, "minimal-doc.json")
+	if err := os.WriteFile(path, []byte(minimalDocJSON), 0644); err != nil {
 		t.Fatalf("writing test file: %v", err)
 	}
 
@@ -63,9 +55,6 @@ func TestLegacyDoc_LoadFillsDefaults(t *testing.T) {
 		t.Fatalf("LoadDoc failed: %v", err)
 	}
 
-	if doc.Confidence != "INFERRED" {
-		t.Errorf("expected default confidence INFERRED, got %q", doc.Confidence)
-	}
 	if doc.PromotionState != "draft" {
 		t.Errorf("expected default promotion_state draft, got %q", doc.PromotionState)
 	}
@@ -87,14 +76,17 @@ func TestLegacyDoc_LoadFillsDefaults(t *testing.T) {
 	if doc.CentralityScore != nil {
 		t.Errorf("expected centrality_score nil by default, got %v", doc.CentralityScore)
 	}
+	if doc.ValidTo != nil {
+		t.Errorf("expected valid_to nil by default, got %v", doc.ValidTo)
+	}
 }
 
-// TestLegacyDoc_ValidatesCleanly confirms validation passes for legacy-shape docs
+// TestMinimalDoc_ValidatesCleanly confirms validation passes for minimal docs
 // after defaults are applied.
-func TestLegacyDoc_ValidatesCleanly(t *testing.T) {
+func TestMinimalDoc_ValidatesCleanly(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "legacy-doc.json")
-	if err := os.WriteFile(path, []byte(legacyDocJSON), 0644); err != nil {
+	path := filepath.Join(dir, "minimal-doc.json")
+	if err := os.WriteFile(path, []byte(minimalDocJSON), 0644); err != nil {
 		t.Fatalf("writing test file: %v", err)
 	}
 
@@ -103,16 +95,16 @@ func TestLegacyDoc_ValidatesCleanly(t *testing.T) {
 		t.Fatalf("LoadDoc failed: %v", err)
 	}
 	if err := doc.Validate(); err != nil {
-		t.Errorf("legacy doc validation failed: %v", err)
+		t.Errorf("minimal doc validation failed: %v", err)
 	}
 }
 
-// TestNewShapeDoc_RoundTrip verifies that a fully-populated new-shape doc
+// TestFullDoc_RoundTrip verifies that a fully-populated doc
 // survives save → load → save without field mutation.
-func TestNewShapeDoc_RoundTrip(t *testing.T) {
+func TestFullDoc_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "new-shape-doc.json")
-	if err := os.WriteFile(path, []byte(newShapeDocJSON), 0644); err != nil {
+	path := filepath.Join(dir, "full-doc.json")
+	if err := os.WriteFile(path, []byte(fullDocJSON), 0644); err != nil {
 		t.Fatalf("writing test file: %v", err)
 	}
 
@@ -134,9 +126,6 @@ func TestNewShapeDoc_RoundTrip(t *testing.T) {
 		t.Fatalf("second LoadDoc failed: %v", err)
 	}
 
-	if doc2.Confidence != "EXTRACTED" {
-		t.Errorf("confidence mismatch: got %q", doc2.Confidence)
-	}
 	if doc2.PromotionState != "curated" {
 		t.Errorf("promotion_state mismatch: got %q", doc2.PromotionState)
 	}
@@ -149,7 +138,7 @@ func TestNewShapeDoc_RoundTrip(t *testing.T) {
 	if doc2.Provenance == nil || doc2.Provenance.Runtime != "claude-code" {
 		t.Errorf("provenance.runtime mismatch: got %v", doc2.Provenance)
 	}
-	if doc2.Provenance.RawExhaustRef != ".mom/cache/exhaust-abc123.json" {
+	if doc2.Provenance.RawExhaustRef != ".mom/raw/2026-04-13.jsonl" {
 		t.Errorf("provenance.raw_exhaust_ref mismatch: got %q", doc2.Provenance.RawExhaustRef)
 	}
 	if !doc2.Landmark {
@@ -158,27 +147,8 @@ func TestNewShapeDoc_RoundTrip(t *testing.T) {
 	if doc2.CentralityScore == nil || *doc2.CentralityScore != 0.85 {
 		t.Errorf("centrality_score mismatch: got %v", doc2.CentralityScore)
 	}
-}
-
-// TestValidate_InvalidConfidence rejects unknown confidence values.
-func TestValidate_InvalidConfidence(t *testing.T) {
-	doc := docWithDefaults()
-	doc.Confidence = "RANDOM"
-	if err := doc.Validate(); err == nil {
-		t.Fatal("expected error for invalid confidence, got nil")
-	}
-}
-
-// TestValidate_ValidConfidenceValues accepts all three valid confidence values.
-func TestValidate_ValidConfidenceValues(t *testing.T) {
-	for _, c := range []string{"EXTRACTED", "INFERRED", "AMBIGUOUS"} {
-		t.Run(c, func(t *testing.T) {
-			doc := docWithDefaults()
-			doc.Confidence = c
-			if err := doc.Validate(); err != nil {
-				t.Errorf("expected valid for confidence %q, got: %v", c, err)
-			}
-		})
+	if doc2.ValidTo == nil {
+		t.Error("valid_to should not be nil")
 	}
 }
 
@@ -217,9 +187,9 @@ func TestValidate_InvalidPromotionState(t *testing.T) {
 	}
 }
 
-// TestValidate_ValidPromotionStates accepts all four valid states.
+// TestValidate_ValidPromotionStates accepts all valid states.
 func TestValidate_ValidPromotionStates(t *testing.T) {
-	for _, s := range []string{"draft", "curated", "validated", "deprecated"} {
+	for _, s := range []string{"draft", "curated"} {
 		t.Run(s, func(t *testing.T) {
 			doc := docWithDefaults()
 			doc.PromotionState = s
@@ -274,17 +244,13 @@ func TestValidate_Compartments_CustomerDimensions(t *testing.T) {
 // TestApplyDefaults_Idempotent verifies calling ApplyDefaults twice doesn't change values.
 func TestApplyDefaults_Idempotent(t *testing.T) {
 	doc := docWithDefaults()
-	doc.Confidence = "EXTRACTED"
-	doc.PromotionState = "validated"
+	doc.PromotionState = "curated"
 	doc.Classification = "CONFIDENTIAL"
 
 	doc.ApplyDefaults()
 	doc.ApplyDefaults()
 
-	if doc.Confidence != "EXTRACTED" {
-		t.Errorf("ApplyDefaults overwrote existing confidence: got %q", doc.Confidence)
-	}
-	if doc.PromotionState != "validated" {
+	if doc.PromotionState != "curated" {
 		t.Errorf("ApplyDefaults overwrote existing promotion_state: got %q", doc.PromotionState)
 	}
 	if doc.Classification != "CONFIDENTIAL" {
@@ -296,7 +262,7 @@ func TestApplyDefaults_Idempotent(t *testing.T) {
 func TestProvenanceRawExhaustRef(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prov-doc.json")
-	if err := os.WriteFile(path, []byte(newShapeDocJSON), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(fullDocJSON), 0644); err != nil {
 		t.Fatalf("writing test file: %v", err)
 	}
 
@@ -361,26 +327,20 @@ func TestLiveMemoryFiles(t *testing.T) {
 	}
 }
 
-// TestNewDoc_WriteEmitsNewFields ensures new captures emit all applicable fields.
-func TestNewDoc_WriteEmitsNewFields(t *testing.T) {
+// TestNewDoc_WriteEmitsFields ensures new docs emit all applicable fields.
+func TestNewDoc_WriteEmitsFields(t *testing.T) {
 	score := 0.72
 	doc := &Doc{
 		ID:             "capture-test",
-		Type:           "fact",
-		Lifecycle:      "state",
 		Scope:          "project",
 		Tags:           []string{"capture"},
 		Created:        time.Now().UTC(),
 		CreatedBy:      "claude-code",
-		Updated:        time.Now().UTC(),
-		UpdatedBy:      "claude-code",
-		Confidence:     "INFERRED",
 		PromotionState: "draft",
 		Classification: "INTERNAL",
 		Compartments:   map[string][]string{},
 		Provenance: &Provenance{
 			Runtime:      "claude-code",
-			SessionID:    "sess-xyz",
 			TriggerEvent: "session.end",
 		},
 		Landmark:        false,
@@ -402,7 +362,7 @@ func TestNewDoc_WriteEmitsNewFields(t *testing.T) {
 		t.Fatalf("parsing saved JSON: %v", err)
 	}
 
-	for _, key := range []string{"confidence", "promotion_state", "classification", "provenance", "centrality_score"} {
+	for _, key := range []string{"promotion_state", "classification", "provenance", "centrality_score"} {
 		if _, ok := raw[key]; !ok {
 			t.Errorf("expected key %q in saved JSON, not found", key)
 		}
@@ -417,47 +377,20 @@ func TestNewDoc_WriteEmitsNewFields(t *testing.T) {
 	}
 }
 
-// TestValidate_PatternType accepts "pattern" as a valid type.
-func TestValidate_PatternType(t *testing.T) {
-	doc := docWithDefaults()
-	doc.Type = "pattern"
-	doc.Content = map[string]any{"pattern": "structural pattern observed"}
-	if err := doc.Validate(); err != nil {
-		t.Errorf("expected valid for type pattern, got: %v", err)
+// TestValidate_FreeFormContent ensures content accepts any shape.
+func TestValidate_FreeFormContent(t *testing.T) {
+	contents := []map[string]any{
+		{"pattern": "structural pattern observed"},
+		{"learning": "something learned"},
+		{"fact": "a fact", "source": "test"},
+		{"text": "raw draft content", "source_lines": []int{0, 5}},
 	}
-}
-
-// TestValidate_LearningType accepts "learning" as a valid type.
-func TestValidate_LearningType(t *testing.T) {
-	doc := docWithDefaults()
-	doc.Type = "learning"
-	doc.Content = map[string]any{"learning": "something learned"}
-	if err := doc.Validate(); err != nil {
-		t.Errorf("expected valid for type learning, got: %v", err)
-	}
-}
-
-// TestValidate_AllKnownTypes ensures all documented types pass validation.
-func TestValidate_AllKnownTypes(t *testing.T) {
-	validTypeContents := map[string]map[string]any{
-		"constraint":  {"constraint": "a constraint"},
-		"skill":       {"description": "a skill"},
-		"identity":    {"what": "identity"},
-		"decision":    {"decision": "a decision"},
-		"fact":        {"fact": "a fact"},
-		"feedback":    {"feedback": "feedback text"},
-		"reference":   {"description": "a reference"},
-		"session-log": {"session_id": "sess-1"},
-		"pattern":     {"pattern": "a pattern"},
-		"learning":    {"learning": "a learning"},
-	}
-	for typ, content := range validTypeContents {
-		t.Run(typ, func(t *testing.T) {
+	for i, content := range contents {
+		t.Run(fmt.Sprintf("content-%d", i), func(t *testing.T) {
 			doc := docWithDefaults()
-			doc.Type = typ
 			doc.Content = content
 			if err := doc.Validate(); err != nil {
-				t.Errorf("expected valid for type %q, got: %v", typ, err)
+				t.Errorf("expected valid content, got: %v", err)
 			}
 		})
 	}
@@ -467,14 +400,10 @@ func TestValidate_AllKnownTypes(t *testing.T) {
 func docWithDefaults() *Doc {
 	doc := &Doc{
 		ID:        "test-doc",
-		Type:      "fact",
-		Lifecycle: "state",
 		Scope:     "project",
 		Tags:      []string{"test"},
 		Created:   time.Now().UTC(),
 		CreatedBy: "owner",
-		Updated:   time.Now().UTC(),
-		UpdatedBy: "leo",
 		Content:   map[string]any{"fact": "a fact"},
 	}
 	doc.ApplyDefaults()

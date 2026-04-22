@@ -19,13 +19,6 @@ import (
 	"time"
 )
 
-// Confidence constants mirror the memory schema values.
-const (
-	ConfidenceExtracted = "EXTRACTED"
-	ConfidenceInferred  = "INFERRED"
-	ConfidenceAmbiguous = "AMBIGUOUS"
-)
-
 // TriggerEvent is written into every draft's provenance.
 const TriggerEvent = "bootstrap.scan"
 
@@ -50,10 +43,8 @@ type Source struct {
 
 // Draft is a proposed memory before it gets schema-validated and written.
 type Draft struct {
-	Type       string // decision | fact | pattern | learning
 	Summary    string
 	Tags       []string
-	Confidence string // EXTRACTED | INFERRED | AMBIGUOUS
 	Content    map[string]any
 	Provenance ProvenanceMeta
 }
@@ -100,6 +91,7 @@ func DefaultConfig() Config {
 			"dist/**",
 			"build/**",
 			".mom/**",
+			"**/testdata/**",
 		},
 		Extensions: []string{
 			".md", ".mdx", ".txt", ".rst",
@@ -128,11 +120,8 @@ type Result struct {
 
 // ExtractorResult holds per-extractor counts.
 type ExtractorResult struct {
-	Name      string
-	Count     int
-	Extracted int
-	Inferred  int
-	Ambiguous int
+	Name  string
+	Count int
 }
 
 // Duration returns the wall-clock time taken.
@@ -396,17 +385,7 @@ func (c *Cartographer) readFile(path string) ([]byte, error) {
 func addToResult(result *Result, extName string, drafts []Draft) {
 	er := result.ByExtractor[extName]
 	er.Name = extName
-	for _, d := range drafts {
-		er.Count++
-		switch d.Confidence {
-		case ConfidenceExtracted:
-			er.Extracted++
-		case ConfidenceInferred:
-			er.Inferred++
-		case ConfidenceAmbiguous:
-			er.Ambiguous++
-		}
-	}
+	er.Count += len(drafts)
 	result.ByExtractor[extName] = er
 }
 

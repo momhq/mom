@@ -75,10 +75,8 @@ func (e *TodoFixmeExtractor) Extract(_ context.Context, src Source) ([]Draft, er
 		}
 
 		drafts = append(drafts, Draft{
-			Type:       "learning",
-			Summary:    fmt.Sprintf("%s: %s", marker, truncate(body, 120)),
-			Tags:       tags,
-			Confidence: ConfidenceAmbiguous,
+			Summary: fmt.Sprintf("%s: %s", marker, truncate(body, 120)),
+			Tags:    tags,
 			Content: map[string]any{
 				"marker": marker,
 				"text":   body,

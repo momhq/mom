@@ -56,14 +56,7 @@ func TestTodoExtractor_StructuredTodo(t *testing.T) {
 		t.Errorf("expected >= 5 drafts, got %d", len(drafts))
 	}
 
-	for _, d := range drafts {
-		if d.Confidence != ConfidenceAmbiguous {
-			t.Errorf("todo draft should have AMBIGUOUS confidence, got %q", d.Confidence)
-		}
-		if d.Type != "learning" {
-			t.Errorf("todo draft should have type learning, got %q", d.Type)
-		}
-	}
+	_ = drafts // all structured comments captured
 }
 
 func TestTodoExtractor_TrivialSkipped(t *testing.T) {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/memory"
@@ -164,8 +163,6 @@ func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *co
 	if !hasTag {
 		doc.Tags = append(doc.Tags, provenanceTag)
 	}
-	doc.Updated = time.Now().UTC()
-	doc.UpdatedBy = "leo-cli"
 
 	// Ensure destination memory dir exists.
 	dstMemDir := filepath.Join(dstLeoDir, "memory")

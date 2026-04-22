@@ -16,7 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
-	"github.com/momhq/mom/cli/internal/transponder"
+	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 //go:embed schema.json
@@ -85,18 +86,27 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Non-interactive path: use flags/defaults. Always installs at cwd with repo scope.
+	// Non-interactive path: use flags/defaults.
+	// When --force, look for an existing .mom/ up the directory tree so we
+	// regenerate context files in the right place instead of the cwd.
+	installDir := cwd
+	if force {
+		if sc, ok := scope.NearestWritable(cwd); ok {
+			installDir = filepath.Dir(sc.Path)
+		}
+	}
+
 	runtimes, _ := cmd.Flags().GetStringSlice("runtimes")
 	if len(runtimes) == 0 {
 		runtimes = []string{"claude"}
 	}
 
 	defaults := config.Default()
-	return runInitWithConfig(cmd, cwd, force, OnboardingResult{
+	return runInitWithConfig(cmd, installDir, force, OnboardingResult{
 		Runtimes:   runtimes,
 		Language:   defaults.User.Language,
 		Mode:       defaults.Communication.Mode,
-		InstallDir: cwd,
+		InstallDir: installDir,
 		ScopeLabel: "repo",
 	})
 }
@@ -137,6 +147,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			filepath.Join(leoDir, "logs"),
 			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
+			filepath.Join(leoDir, "raw"),
 		}
 		for _, d := range dirs {
 			if err := os.MkdirAll(d, 0755); err != nil {
@@ -244,18 +255,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			}
 		}
 
-		// Write index.json with entries for all core docs.
-		indexPath := filepath.Join(leoDir, "index.json")
-		indexData, err := buildCoreIndex()
-		if err != nil {
-			kbErr = fmt.Errorf("building index: %w", err)
-			return
-		}
-		if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
-			kbErr = fmt.Errorf("writing index: %w", err)
-			return
-		}
-
 		if showSpinner {
 			time.Sleep(800 * time.Millisecond)
 		}
@@ -321,15 +320,15 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 
 	// ── Telemetry: emit smoke events ────────────────────────────────────────
 	startedAt := time.Now().UTC().Format(time.RFC3339)
-	emitter := transponder.New(leoDir, cfg.Telemetry.TelemetryEnabled())
-	emitter.EmitSessionEvent(transponder.SessionEvent{
+	emitter := herald.New(leoDir, cfg.Telemetry.TelemetryEnabled())
+	emitter.EmitSessionEvent(herald.SessionEvent{
 		SessionID: "s-init",
 		RepoID:    filepath.Base(cwd),
 		Runtime:   cfg.PrimaryRuntime(),
 		StartedAt: startedAt,
 		Trigger:   "normal",
 	})
-	emitter.EmitRuntimeHealth(transponder.RuntimeHealth{
+	emitter.EmitRuntimeHealth(herald.RuntimeHealth{
 		Runtime:       cfg.PrimaryRuntime(),
 		TS:            time.Now().UTC().Format(time.RFC3339),
 		WrapUpSuccess: true,
@@ -492,6 +491,10 @@ func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 	if commMode == "" {
 		commMode = "concise"
 	}
+	delivery := cfg.Delivery
+	if delivery == "" {
+		delivery = "mcp"
+	}
 	return runtime.Config{
 		Version: cfg.Version,
 		User: runtime.UserConfig{
@@ -499,6 +502,7 @@ func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 			Autonomy:          "balanced",
 			CommunicationMode: commMode,
 		},
+		Delivery: delivery,
 	}
 }
 
@@ -553,122 +557,4 @@ func buildRuntimeIdentity() *runtime.Identity {
 		Philosophy:  identityData.Philosophy,
 		Constraints: identityData.Constraints,
 	}
-}
-
-// buildCoreIndex builds an index.json that includes all core constraint and skill docs.
-func buildCoreIndex() ([]byte, error) {
-	type IndexEntry struct {
-		ID        string   `json:"id"`
-		Type      string   `json:"type"`
-		Boot      bool     `json:"boot"`
-		Summary   string   `json:"summary"`
-		Lifecycle string   `json:"lifecycle"`
-		Scope     string   `json:"scope"`
-		Tags      []string `json:"tags"`
-		Path      string   `json:"path"`
-	}
-
-	type IndexStats struct {
-		TotalDocs        int            `json:"total_docs"`
-		TotalTags        int            `json:"total_tags"`
-		DocsByType       map[string]int `json:"docs_by_type"`
-		StaleCount       int            `json:"stale_count"`
-		MostConnectedTag string         `json:"most_connected_tag"`
-	}
-
-	type Index struct {
-		Version     string                `json:"version"`
-		LastRebuilt string                `json:"last_rebuilt"`
-		Stats       IndexStats            `json:"stats"`
-		ByTag       map[string][]string   `json:"by_tag"`
-		ByType      map[string][]string   `json:"by_type"`
-		ByScope     map[string][]string   `json:"by_scope"`
-		ByLifecycle map[string][]string   `json:"by_lifecycle"`
-		Docs        map[string]IndexEntry `json:"docs"`
-	}
-
-	idx := Index{
-		Version:     "1",
-		LastRebuilt: "",
-		Stats: IndexStats{
-			TotalDocs:        0,
-			TotalTags:        0,
-			DocsByType:       map[string]int{},
-			StaleCount:       0,
-			MostConnectedTag: "",
-		},
-		ByTag:       map[string][]string{},
-		ByType:      map[string][]string{},
-		ByScope:     map[string][]string{},
-		ByLifecycle: map[string][]string{},
-		Docs:        map[string]IndexEntry{},
-	}
-
-	addDoc := func(rawJSON string, pathPrefix string) error {
-		var doc struct {
-			ID        string   `json:"id"`
-			Type      string   `json:"type"`
-			Boot      bool     `json:"boot"`
-			Summary   string   `json:"summary"`
-			Lifecycle string   `json:"lifecycle"`
-			Scope     string   `json:"scope"`
-			Tags      []string `json:"tags"`
-		}
-		if err := json.Unmarshal([]byte(rawJSON), &doc); err != nil {
-			return err
-		}
-
-		entry := IndexEntry{
-			ID:        doc.ID,
-			Type:      doc.Type,
-			Boot:      doc.Boot,
-			Summary:   doc.Summary,
-			Lifecycle: doc.Lifecycle,
-			Scope:     doc.Scope,
-			Tags:      doc.Tags,
-			Path:      pathPrefix + doc.ID + ".json",
-		}
-
-		idx.Docs[doc.ID] = entry
-		idx.Stats.TotalDocs++
-		idx.Stats.DocsByType[doc.Type]++
-		idx.ByType[doc.Type] = append(idx.ByType[doc.Type], doc.ID)
-		idx.ByScope[doc.Scope] = append(idx.ByScope[doc.Scope], doc.ID)
-		idx.ByLifecycle[doc.Lifecycle] = append(idx.ByLifecycle[doc.Lifecycle], doc.ID)
-
-		for _, tag := range doc.Tags {
-			idx.ByTag[tag] = append(idx.ByTag[tag], doc.ID)
-		}
-		return nil
-	}
-
-	for _, content := range coreConstraints() {
-		if err := addDoc(content, "constraints/"); err != nil {
-			return nil, fmt.Errorf("indexing constraint: %w", err)
-		}
-	}
-
-	for _, content := range coreSkills() {
-		if err := addDoc(content, "skills/"); err != nil {
-			return nil, fmt.Errorf("indexing skill: %w", err)
-		}
-	}
-
-	// Count unique tags.
-	idx.Stats.TotalTags = len(idx.ByTag)
-
-	// Find most connected tag.
-	maxCount := 0
-	for tag, ids := range idx.ByTag {
-		if len(ids) > maxCount {
-			maxCount = len(ids)
-			idx.Stats.MostConnectedTag = tag
-		}
-	}
-
-	data, err := json.MarshalIndent(idx, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return append(data, '\n'), nil
 }

@@ -5,6 +5,20 @@ import (
 	"strings"
 )
 
+// BuildMinimalContextContent generates a slim boot file for MCP-first delivery.
+// The behavioral protocol is delivered on-demand via mom_status.
+func BuildMinimalContextContent() string {
+	return `# MOM — Memory-Oriented Manager
+
+You have MOM tools via MCP. Call ` + "`mom_status`" + ` at the start of every session.
+
+For memory operations: search_memories, get_memory, create_memory_draft,
+list_landmarks, list_scopes.
+
+Do NOT skip mom_status — it contains your operating instructions.
+`
+}
+
 // BuildContextContent generates the shared Markdown content used by all adapters.
 // Each adapter calls this and writes the result to its specific output file.
 func BuildContextContent(config Config, constraints []Constraint, skills []Skill, identity *Identity) string {
@@ -32,13 +46,13 @@ func BuildContextContent(config Config, constraints []Constraint, skills []Skill
 	if config.HasMCP {
 		b.WriteString("You have MOM tools via MCP — prefer them over raw file reads where available.\n")
 	}
-	b.WriteString("Consult `.mom/index.json` by tags. Read only what you need. Never load everything upfront — that's hoarding, not remembering.\n\n")
+	b.WriteString("Read only what you need. Never load everything upfront — that's hoarding, not remembering.\n\n")
 
 	// During work
 	b.WriteString("## During work\n\n")
 	b.WriteString("- Need context? Check the index by tags, read only the relevant docs\n")
 	b.WriteString("- New knowledge goes to `.mom/memory/` as structured JSON\n")
-	b.WriteString("- Follow `.mom/schema.json` — every doc needs: id, type, lifecycle, scope, tags, created, created_by, updated, updated_by, content\n\n")
+	b.WriteString("- Follow `.mom/schema.json` — every doc needs: id, scope, tags, created, created_by, content\n\n")
 
 	// Constraints
 	if len(constraints) > 0 {

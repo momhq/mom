@@ -171,10 +171,8 @@ func extractViaQuery(h *languageHandler, root *sitter.Node, src Source, srcHash 
 			}
 
 			drafts = append(drafts, Draft{
-				Type:       "pattern",
 				Summary:    summary,
 				Tags:       buildTags(h.name, kind, src.Path, name),
-				Confidence: ConfidenceExtracted,
 				Content:    content,
 				Provenance: ProvenanceMeta{
 					SourceFile:   src.Path,
@@ -386,10 +384,8 @@ func goTypeDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	}
 
 	return []Draft{{
-		Type:       "pattern",
 		Summary:    summary,
 		Tags:       buildTags("go", "type", src.Path, name),
-		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
 			SourceFile:   src.Path,
@@ -438,10 +434,8 @@ func goFuncDraft(node *sitter.Node, src Source, srcHash string, lines []string) 
 	}
 
 	return &Draft{
-		Type:       "pattern",
 		Summary:    summary,
 		Tags:       buildTags("go", "function", src.Path, name),
-		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
 			SourceFile:   src.Path,
@@ -509,10 +503,8 @@ func goMethodDraft(node *sitter.Node, src Source, srcHash string, lines []string
 	}
 
 	return &Draft{
-		Type:       "pattern",
 		Summary:    summary,
 		Tags:       buildTags("go", "method", src.Path, name, extras...),
-		Confidence: ConfidenceExtracted,
 		Content:    content,
 		Provenance: ProvenanceMeta{
 			SourceFile:   src.Path,
