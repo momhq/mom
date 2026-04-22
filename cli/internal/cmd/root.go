@@ -42,4 +42,5 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(recordCmd)
 	rootCmd.AddCommand(logCmd)
+	rootCmd.AddCommand(diagnoseCmd)
 }
