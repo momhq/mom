@@ -95,6 +95,11 @@ func allTools() []toolDef {
 				},
 			},
 		},
+		{
+			Name:        "mom_status",
+			Description: "Returns MOM's full operating protocol — identity, boundaries, constraints, modes, and memory overview. Call this at the start of every session.",
+			InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+		},
 	}
 }
 
@@ -135,6 +140,8 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolCreateMemoryDraft(req.Arguments)
 	case "list_landmarks":
 		result, err = s.toolListLandmarks(req.Arguments)
+	case "mom_status":
+		result, err = s.toolMomStatus()
 	default:
 		return nil, &rpcError{Code: errCodeMethodNotFound, Message: "unknown tool: " + req.Name}
 	}
