@@ -1,4 +1,4 @@
-package transponder
+package herald
 
 import (
 	"bufio"
@@ -42,9 +42,9 @@ func readLines(t *testing.T, path string) []map[string]any {
 // newTmpEmitter creates an Emitter backed by a temp dir.
 func newTmpEmitter(t *testing.T) (*Emitter, string) {
 	t.Helper()
-	leoDir := t.TempDir()
-	e := New(leoDir, true)
-	return e, filepath.Join(leoDir, "telemetry")
+	momDir := t.TempDir()
+	e := New(momDir, true)
+	return e, filepath.Join(momDir, "telemetry")
 }
 
 // ── Round-trip tests (all 5 kinds) ─────────────────────────────────────────
@@ -213,14 +213,14 @@ func TestDayRotation(t *testing.T) {
 // ── Disabled emitter ────────────────────────────────────────────────────────
 
 func TestDisabledEmitter(t *testing.T) {
-	leoDir := t.TempDir()
-	e := New(leoDir, false)
+	momDir := t.TempDir()
+	e := New(momDir, false)
 	day := time.Date(2026, 4, 18, 12, 0, 0, 0, time.UTC)
 	setNow(t, day)
 
 	e.EmitRuntimeHealth(RuntimeHealth{Runtime: "claude-code", TS: "2026-04-18T12:00:00Z", WrapUpSuccess: true})
 
-	telDir := filepath.Join(leoDir, "telemetry")
+	telDir := filepath.Join(momDir, "telemetry")
 	entries, _ := os.ReadDir(telDir)
 	if len(entries) != 0 {
 		t.Fatalf("disabled emitter wrote %d file(s); expected 0", len(entries))
@@ -230,8 +230,8 @@ func TestDisabledEmitter(t *testing.T) {
 // ── Error path: read-only directory ─────────────────────────────────────────
 
 func TestReadOnlyDirNoPanic(t *testing.T) {
-	leoDir := t.TempDir()
-	telDir := filepath.Join(leoDir, "telemetry")
+	momDir := t.TempDir()
+	telDir := filepath.Join(momDir, "telemetry")
 	if err := os.MkdirAll(telDir, 0755); err != nil {
 		t.Fatal(err)
 	}

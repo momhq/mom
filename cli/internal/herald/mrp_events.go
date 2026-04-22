@@ -1,4 +1,4 @@
-package transponder
+package herald
 
 // MRP v0 event structs — wire protocol between a runtime adapter and MOM.
 // Field names match JSON schema definitions in .github/mrp/schemas/.
@@ -30,14 +30,14 @@ type MRPSessionEnd struct {
 
 // MRPTurnComplete is the turn.complete MRP event (opt-in).
 type MRPTurnComplete struct {
-	MRPVersion        string `json:"mrp_version"`
-	Event             string `json:"event"`
-	SessionID         string `json:"session_id"`
-	Runtime           string `json:"runtime"`
-	Timestamp         string `json:"timestamp"`
-	TurnIndex         int    `json:"turn_index"`
-	PromptTokens      *int   `json:"prompt_tokens,omitempty"`
-	CompletionTokens  *int   `json:"completion_tokens,omitempty"`
+	MRPVersion       string `json:"mrp_version"`
+	Event            string `json:"event"`
+	SessionID        string `json:"session_id"`
+	Runtime          string `json:"runtime"`
+	Timestamp        string `json:"timestamp"`
+	TurnIndex        int    `json:"turn_index"`
+	PromptTokens     *int   `json:"prompt_tokens,omitempty"`
+	CompletionTokens *int   `json:"completion_tokens,omitempty"`
 }
 
 // MRPCompactTriggered is the compact.triggered MRP event.
