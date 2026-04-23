@@ -84,7 +84,7 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		"End-of-session knowledge propagation.",
 		"must be written in English",
 		"## Communication mode: Concise",
-		"no filler",
+		"Every word earns its place",
 		"Balanced",
 		"Propose before",
 		"## Voice",
@@ -163,9 +163,7 @@ func TestClaudeAdapter_GenerateContextFile_CommunicationModes(t *testing.T) {
 		want string
 	}{
 		{"concise", "## Communication mode: Concise"},
-		{"normal", "## Communication mode: Normal"},
-		{"verbose", "## Communication mode: Verbose"},
-		{"caveman", "## Communication mode: Caveman"},
+		{"efficient", "## Communication mode: Efficient"},
 	}
 
 	for _, tc := range modes {
@@ -186,6 +184,24 @@ func TestClaudeAdapter_GenerateContextFile_CommunicationModes(t *testing.T) {
 			}
 		})
 	}
+
+	// "default" mode returns empty instructions — no communication header in output.
+	t.Run("default", func(t *testing.T) {
+		dir := t.TempDir()
+		a := NewClaudeAdapter(dir)
+		cfg := Config{
+			Version:  "1",
+			Delivery: "context-file",
+			User:     UserConfig{Language: "en", Autonomy: "balanced", CommunicationMode: "default"},
+		}
+		if err := a.GenerateContextFile(cfg, nil, nil, nil); err != nil {
+			t.Fatalf("GenerateContextFile failed: %v", err)
+		}
+		content, _ := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+		if strings.Contains(string(content), "## Communication mode") {
+			t.Error("CLAUDE.md should not contain communication mode header for default mode")
+		}
+	})
 }
 
 func TestClaudeAdapter_RegisterHooks(t *testing.T) {

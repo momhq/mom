@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -162,8 +163,8 @@ kb:
 	}
 }
 
-// TestLegacyConfigCavemanModePreserved verifies caveman mode is preserved through migration.
-func TestLegacyConfigCavemanModePreserved(t *testing.T) {
+// TestLegacyConfigCavemanModeMappedToEfficient verifies caveman mode is mapped to efficient through migration.
+func TestLegacyConfigCavemanModeMappedToEfficient(t *testing.T) {
 	dir := t.TempDir()
 	legacyCfg := `version: "1"
 runtime: claude
@@ -184,8 +185,43 @@ kb:
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if cfg.Communication.Mode != "caveman" {
-		t.Errorf("expected caveman mode to be preserved, got %q", cfg.Communication.Mode)
+	if cfg.Communication.Mode != "efficient" {
+		t.Errorf("expected caveman mode to be mapped to efficient, got %q", cfg.Communication.Mode)
+	}
+}
+
+// TestLegacyModeNormalization verifies old mode names are mapped to new ones in new-format configs.
+func TestLegacyModeNormalization(t *testing.T) {
+	tests := []struct {
+		oldMode string
+		want    string
+	}{
+		{"normal", "default"},
+		{"verbose", "default"},
+		{"caveman", "efficient"},
+		{"concise", "concise"},
+		{"efficient", "efficient"},
+		{"default", "default"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.oldMode, func(t *testing.T) {
+			dir := t.TempDir()
+			cfgYaml := fmt.Sprintf(`version: "1"
+runtimes:
+  claude:
+    enabled: true
+communication:
+  mode: %s
+`, tc.oldMode)
+			os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(cfgYaml), 0644)
+			cfg, err := Load(dir)
+			if err != nil {
+				t.Fatalf("Load failed: %v", err)
+			}
+			if cfg.Communication.Mode != tc.want {
+				t.Errorf("mode %q: expected %q, got %q", tc.oldMode, tc.want, cfg.Communication.Mode)
+			}
+		})
 	}
 }
 
