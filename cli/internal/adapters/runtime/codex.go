@@ -2,6 +2,7 @@ package runtime
 
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,10 +46,102 @@ func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constrai
 }
 
 func (a *CodexAdapter) SupportsHooks() bool {
-	return false
+	return true
 }
 
 func (a *CodexAdapter) RegisterHooks(hooks []HookDef) error {
+	codexDir := filepath.Join(a.projectRoot, ".codex")
+	hooksPath := filepath.Join(codexDir, "hooks.json")
+
+	// Ensure .codex/ exists.
+	if err := os.MkdirAll(codexDir, 0755); err != nil {
+		return fmt.Errorf("creating .codex dir: %w", err)
+	}
+
+	// Build Codex hooks structure — the entire file IS the hooks map:
+	//   { "EventName": [ { "matcher": "...", "hooks": [ {...} ] } ] }
+	hooksMap := make(map[string]any)
+
+	// Group HookDefs by event.
+	byEvent := make(map[string][]HookDef)
+	for _, h := range hooks {
+		byEvent[h.Event] = append(byEvent[h.Event], h)
+	}
+
+	for event, defs := range byEvent {
+		var matcherGroups []map[string]any
+		for _, d := range defs {
+			entry := map[string]any{
+				"type":    "command",
+				"command": d.Command,
+				"timeout": 10,
+			}
+			group := map[string]any{
+				"hooks": []map[string]any{entry},
+			}
+			if d.Matcher != "" {
+				group["matcher"] = d.Matcher
+			}
+			matcherGroups = append(matcherGroups, group)
+		}
+		hooksMap[event] = matcherGroups
+	}
+
+	data, err := json.MarshalIndent(hooksMap, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling hooks: %w", err)
+	}
+
+	data = append(data, '\n')
+	if err := os.WriteFile(hooksPath, data, 0644); err != nil {
+		return fmt.Errorf("writing hooks.json: %w", err)
+	}
+
+	return nil
+}
+
+// CodexHooks returns the standard MOM hooks for Codex.
+// Stop covers both Claude's Stop and SessionEnd — so both record and draft go on Stop.
+func CodexHooks() []HookDef {
+	return []HookDef{
+		{Event: "Stop", Command: "mom record"},
+		{Event: "Stop", Command: "mom draft"},
+	}
+}
+
+// RegisterMCP writes or updates .mcp.json at the project root, injecting the
+// MOM MCP server entry. Existing entries for other servers are preserved.
+func (a *CodexAdapter) RegisterMCP() error {
+	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
+
+	// Load existing .mcp.json or start fresh.
+	root := make(map[string]any)
+	if data, err := os.ReadFile(mcpPath); err == nil {
+		if err := json.Unmarshal(data, &root); err != nil {
+			return fmt.Errorf("parsing .mcp.json: %w", err)
+		}
+	}
+
+	servers, _ := root["mcpServers"].(map[string]any)
+	if servers == nil {
+		servers = make(map[string]any)
+	}
+
+	servers["mom"] = map[string]any{
+		"command": "mom",
+		"args":    []string{"serve", "mcp"},
+	}
+	root["mcpServers"] = servers
+
+	data, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling .mcp.json: %w", err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(mcpPath, data, 0644); err != nil {
+		return fmt.Errorf("writing .mcp.json: %w", err)
+	}
+
 	return nil
 }
 
@@ -58,11 +151,15 @@ func (a *CodexAdapter) DetectRuntime() bool {
 }
 
 func (a *CodexAdapter) GeneratedFiles() []string {
-	return []string{"AGENTS.md"}
+	return []string{
+		"AGENTS.md",
+		filepath.Join(".codex", "hooks.json"),
+		".mcp.json",
+	}
 }
 
 func (a *CodexAdapter) GeneratedDirs() []string {
-	return nil
+	return []string{".codex"}
 }
 
 func (a *CodexAdapter) Watermark() string {
@@ -70,7 +167,7 @@ func (a *CodexAdapter) Watermark() string {
 }
 
 func (a *CodexAdapter) GitIgnorePaths() []string {
-	return []string{"AGENTS.md"}
+	return []string{"AGENTS.md", ".codex/"}
 }
 
 func (a *CodexAdapter) Capabilities() AdapterCapability {
