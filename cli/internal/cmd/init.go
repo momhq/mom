@@ -235,23 +235,27 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			return
 		}
 
-		// Write core constraints.
-		constraintsDir := filepath.Join(leoDir, "constraints")
-		for name, content := range coreConstraints() {
-			path := filepath.Join(constraintsDir, name+".json")
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-				kbErr = fmt.Errorf("writing constraint %s: %w", name, err)
-				return
+		// Write core constraints — skip if a parent scope already provides them.
+		if !parentScopeHasDir(cwd, "constraints") {
+			constraintsDir := filepath.Join(leoDir, "constraints")
+			for name, content := range coreConstraints() {
+				path := filepath.Join(constraintsDir, name+".json")
+				if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+					kbErr = fmt.Errorf("writing constraint %s: %w", name, err)
+					return
+				}
 			}
 		}
 
-		// Write core skills.
-		skillsDir := filepath.Join(leoDir, "skills")
-		for name, content := range coreSkills() {
-			path := filepath.Join(skillsDir, name+".json")
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-				kbErr = fmt.Errorf("writing skill %s: %w", name, err)
-				return
+		// Write core skills — skip if a parent scope already provides them.
+		if !parentScopeHasDir(cwd, "skills") {
+			skillsDir := filepath.Join(leoDir, "skills")
+			for name, content := range coreSkills() {
+				path := filepath.Join(skillsDir, name+".json")
+				if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+					kbErr = fmt.Errorf("writing skill %s: %w", name, err)
+					return
+				}
 			}
 		}
 
@@ -569,4 +573,51 @@ func buildRuntimeIdentity() *runtime.Identity {
 		Philosophy:  identityData.Philosophy,
 		Constraints: identityData.Constraints,
 	}
+}
+
+// parentScopeHasDir walks up from dir looking for a parent .mom/ directory that
+// contains the given subdirectory (e.g. "constraints" or "skills") with at least
+// one .json file. This allows child scopes to inherit from a parent scope
+// instead of duplicating files. Only real parent directories are checked — dir
+// itself is skipped.
+func parentScopeHasDir(dir, subdir string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = string(filepath.Separator)
+	}
+
+	current := dir
+	for {
+		parent := filepath.Dir(current)
+		if parent == current {
+			// Reached filesystem root.
+			break
+		}
+		current = parent
+
+		candidate := filepath.Join(current, ".mom", subdir)
+		if hasJSONFiles(candidate) {
+			return true
+		}
+
+		// Stop after processing $HOME (same boundary as scope.Walk).
+		if current == home {
+			break
+		}
+	}
+	return false
+}
+
+// hasJSONFiles returns true if dir exists and contains at least one .json file.
+func hasJSONFiles(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() && filepath.Ext(e.Name()) == ".json" {
+			return true
+		}
+	}
+	return false
 }
