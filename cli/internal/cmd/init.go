@@ -354,6 +354,18 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 					return
 				}
 			}
+
+			// Register MCP server config and hooks for Windsurf.
+			if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+				if err := ca.RegisterHooks(runtime.WindsurfHooks()); err != nil {
+					genErr = err
+					return
+				}
+			}
 		}
 
 		if showSpinner {
