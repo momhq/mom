@@ -318,6 +318,18 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 					return
 				}
 			}
+
+			// Register MCP server config and hooks for Codex.
+			if ca, ok := adapter.(*runtime.CodexAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+				if err := ca.RegisterHooks(runtime.CodexHooks()); err != nil {
+					genErr = err
+					return
+				}
+			}
 		}
 
 		if showSpinner {
