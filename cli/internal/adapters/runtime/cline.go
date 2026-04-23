@@ -2,9 +2,11 @@ package runtime
 
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -50,11 +52,60 @@ func (a *ClineAdapter) GenerateContextFile(config Config, constraints []Constrai
 }
 
 func (a *ClineAdapter) SupportsHooks() bool {
-	return false
+	return true
 }
 
 func (a *ClineAdapter) RegisterHooks(hooks []HookDef) error {
+	hooksDir := filepath.Join(a.projectRoot, ".clinerules", "hooks")
+	if err := os.MkdirAll(hooksDir, 0755); err != nil {
+		return fmt.Errorf("creating hooks dir: %w", err)
+	}
+
+	// Group commands by event so multiple commands go into one script.
+	byEvent := make(map[string][]string)
+	for _, h := range hooks {
+		byEvent[h.Event] = append(byEvent[h.Event], h.Command)
+	}
+
+	for event, commands := range byEvent {
+		scriptName := clineEventToFilename(event)
+		scriptPath := filepath.Join(hooksDir, scriptName)
+
+		var sb strings.Builder
+		sb.WriteString("#!/bin/sh\n")
+		for _, cmd := range commands {
+			sb.WriteString(cmd + " < /dev/null\n")
+		}
+		sb.WriteString("echo '{\"cancel\": false}'\n")
+
+		if err := os.WriteFile(scriptPath, []byte(sb.String()), 0755); err != nil {
+			return fmt.Errorf("writing hook script %s: %w", scriptName, err)
+		}
+	}
 	return nil
+}
+
+// clineEventToFilename converts "TaskComplete" to "task-complete.sh".
+func clineEventToFilename(event string) string {
+	var result []byte
+	for i, r := range event {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result = append(result, '-')
+		}
+		result = append(result, byte(r|0x20)) // toLower
+	}
+	return string(result) + ".sh"
+}
+
+// ClineHooks returns the standard MOM hooks for Cline.
+// TaskComplete → mom record + mom draft: captures and processes transcript.
+// TaskCancel → mom record: captures raw transcript on cancellation.
+func ClineHooks() []HookDef {
+	return []HookDef{
+		{Event: "TaskComplete", Command: "mom record"},
+		{Event: "TaskComplete", Command: "mom draft"},
+		{Event: "TaskCancel", Command: "mom record"},
+	}
 }
 
 func (a *ClineAdapter) DetectRuntime() bool {
@@ -62,8 +113,49 @@ func (a *ClineAdapter) DetectRuntime() bool {
 	return err == nil && info.IsDir()
 }
 
+// RegisterMCP writes or updates .mcp.json at the project root, injecting the
+// MOM MCP server entry. Existing entries for other servers are preserved.
+func (a *ClineAdapter) RegisterMCP() error {
+	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
+
+	// Load existing .mcp.json or start fresh.
+	root := make(map[string]any)
+	if data, err := os.ReadFile(mcpPath); err == nil {
+		if err := json.Unmarshal(data, &root); err != nil {
+			return fmt.Errorf("parsing .mcp.json: %w", err)
+		}
+	}
+
+	servers, _ := root["mcpServers"].(map[string]any)
+	if servers == nil {
+		servers = make(map[string]any)
+	}
+
+	servers["mom"] = map[string]any{
+		"command": "mom",
+		"args":    []string{"serve", "mcp"},
+	}
+	root["mcpServers"] = servers
+
+	data, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling .mcp.json: %w", err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(mcpPath, data, 0644); err != nil {
+		return fmt.Errorf("writing .mcp.json: %w", err)
+	}
+
+	return nil
+}
+
 func (a *ClineAdapter) GeneratedFiles() []string {
-	return []string{filepath.Join(".clinerules", "mom-context.md")}
+	return []string{
+		filepath.Join(".clinerules", "mom-context.md"),
+		filepath.Join(".clinerules", "hooks", "task-complete.sh"),
+		filepath.Join(".clinerules", "hooks", "task-cancel.sh"),
+		".mcp.json",
+	}
 }
 
 // GeneratedDirs returns nil — .clinerules/ may contain user's workflows, hooks,

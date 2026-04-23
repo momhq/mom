@@ -342,6 +342,18 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 					return
 				}
 			}
+
+			// Register MCP server config and hooks for Cline.
+			if ca, ok := adapter.(*runtime.ClineAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+				if err := ca.RegisterHooks(runtime.ClineHooks()); err != nil {
+					genErr = err
+					return
+				}
+			}
 		}
 
 		if showSpinner {

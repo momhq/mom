@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,8 +113,22 @@ func TestClineAdapter_GenerateContextFilePreservesDir(t *testing.T) {
 func TestClineAdapter_GeneratedFiles(t *testing.T) {
 	a := NewClineAdapter("/tmp/test")
 	files := a.GeneratedFiles()
-	if len(files) != 1 || files[0] != filepath.Join(".clinerules", "mom-context.md") {
-		t.Errorf("expected [.clinerules/mom-context.md], got %v", files)
+
+	want := []string{
+		filepath.Join(".clinerules", "mom-context.md"),
+		filepath.Join(".clinerules", "hooks", "task-complete.sh"),
+		filepath.Join(".clinerules", "hooks", "task-cancel.sh"),
+		".mcp.json",
+	}
+
+	if len(files) != len(want) {
+		t.Fatalf("GeneratedFiles() returned %d files, want %d", len(files), len(want))
+	}
+
+	for i, f := range files {
+		if f != want[i] {
+			t.Errorf("GeneratedFiles()[%d] = %q, want %q", i, f, want[i])
+		}
 	}
 }
 
@@ -126,8 +141,8 @@ func TestClineAdapter_GeneratedDirs(t *testing.T) {
 
 func TestClineAdapter_SupportsHooks(t *testing.T) {
 	a := NewClineAdapter("/tmp/test")
-	if a.SupportsHooks() {
-		t.Error("expected SupportsHooks to be false")
+	if !a.SupportsHooks() {
+		t.Error("expected SupportsHooks to be true")
 	}
 }
 
@@ -144,6 +159,120 @@ func TestClineAdapter_NoIdentity(t *testing.T) {
 	content, _ := os.ReadFile(filepath.Join(dir, ".clinerules", "mom-context.md"))
 	if !strings.Contains(string(content), "She remembers, so you don't have to") {
 		t.Error("should have fallback identity")
+	}
+}
+
+func TestClineAdapter_RegisterHooks(t *testing.T) {
+	dir := t.TempDir()
+	adapter := NewClineAdapter(dir)
+
+	if err := adapter.RegisterHooks(ClineHooks()); err != nil {
+		t.Fatalf("RegisterHooks() error: %v", err)
+	}
+
+	for _, name := range []string{"task-complete.sh", "task-cancel.sh"} {
+		path := filepath.Join(dir, ".clinerules", "hooks", name)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected hook script %s to exist, got: %v", name, err)
+		}
+	}
+}
+
+func TestClineAdapter_HookScriptContent(t *testing.T) {
+	dir := t.TempDir()
+	adapter := NewClineAdapter(dir)
+
+	if err := adapter.RegisterHooks(ClineHooks()); err != nil {
+		t.Fatalf("RegisterHooks() error: %v", err)
+	}
+
+	scriptPath := filepath.Join(dir, ".clinerules", "hooks", "task-complete.sh")
+	data, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatalf("reading task-complete.sh: %v", err)
+	}
+	content := string(data)
+
+	for _, want := range []string{"mom record", "mom draft", `{"cancel": false}`} {
+		if !strings.Contains(content, want) {
+			t.Errorf("task-complete.sh should contain %q, got:\n%s", want, content)
+		}
+	}
+
+	if !strings.HasPrefix(content, "#!/bin/sh\n") {
+		t.Errorf("task-complete.sh should start with shebang, got:\n%s", content)
+	}
+}
+
+func TestClineAdapter_HookScriptPermissions(t *testing.T) {
+	dir := t.TempDir()
+	adapter := NewClineAdapter(dir)
+
+	if err := adapter.RegisterHooks(ClineHooks()); err != nil {
+		t.Fatalf("RegisterHooks() error: %v", err)
+	}
+
+	for _, name := range []string{"task-complete.sh", "task-cancel.sh"} {
+		path := filepath.Join(dir, ".clinerules", "hooks", name)
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat %s: %v", name, err)
+		}
+		perm := info.Mode().Perm()
+		if perm&0111 == 0 {
+			t.Errorf("%s should be executable, got permissions %o", name, perm)
+		}
+	}
+}
+
+func TestClineAdapter_RegisterMCP(t *testing.T) {
+	dir := t.TempDir()
+	adapter := NewClineAdapter(dir)
+
+	if err := adapter.RegisterMCP(); err != nil {
+		t.Fatalf("RegisterMCP() error: %v", err)
+	}
+
+	mcpPath := filepath.Join(dir, ".mcp.json")
+	data, err := os.ReadFile(mcpPath)
+	if err != nil {
+		t.Fatalf("reading .mcp.json: %v", err)
+	}
+
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil {
+		t.Fatalf("parsing .mcp.json: %v", err)
+	}
+
+	servers, ok := root["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcpServers key in .mcp.json")
+	}
+
+	mom, ok := servers["mom"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mom entry in mcpServers")
+	}
+
+	if mom["command"] != "mom" {
+		t.Errorf("expected command=mom, got %v", mom["command"])
+	}
+}
+
+func TestClineEventToFilename(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"TaskComplete", "task-complete.sh"},
+		{"TaskCancel", "task-cancel.sh"},
+	}
+
+	for _, tt := range tests {
+		got := clineEventToFilename(tt.input)
+		if got != tt.want {
+			t.Errorf("clineEventToFilename(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }
 
