@@ -20,53 +20,90 @@ All artifacts you produce — memory documents, GitHub issues, pull requests, co
 }
 
 // CommunicationModeInstructions returns a ## Communication mode directive section
-// for the given mode. Supported values: "concise", "normal", "verbose", "caveman".
-// Defaults to "concise".
+// for the given mode. Supported values: "default", "concise", "efficient".
+// Default mode returns empty string (no instructions emitted).
 func CommunicationModeInstructions(mode string) string {
 	switch mode {
-	case "normal":
-		return `## Communication mode: Normal
-
-Standard prose. Explain your reasoning when it adds value, omit it when it doesn't.
-Sentences are complete; paragraphs are focused. Not terse, not exhaustive.
-Ask one clarifying question when genuinely ambiguous — don't ask just to ask.`
-	case "verbose":
-		return `## Communication mode: Verbose
-
-Detailed explanations, full reasoning chains, and proactive context. Useful for onboarding,
-debugging, or situations where understanding the why matters as much as the what.
-Show your work. Surface trade-offs. Prefer over-explanation to ambiguity.
-
-- Walk through your thought process
-- Provide context for why, not just what
-- Include examples and analogies when helpful
-- Summarize decisions at the end`
-	case "caveman":
-		return `## Communication mode: Caveman
-
-Extreme token reduction. Telegraphic prose only.
-No filler. No preamble. No pleasantries. Fragments OK.
-Lead with answer. Drop articles when clear. One line per idea.
-Example: 'Build failed. Missing dep: gopkg.in/yaml.v3. Run: go get gopkg.in/yaml.v3'
-
-Rules:
-- No articles (a, an, the) unless ambiguous
-- No filler (just, really, basically, actually)
-- Fragment sentences: [thing] [action] [reason]
-- Abbreviations: fn, var, arg, cfg, impl, repo, dir, deps, env
-- Code untouched — full accuracy always`
-	default: // concise
+	case "concise":
 		return `## Communication mode: Concise
 
-Direct and efficient. No filler, no preamble, no pleasantries.
-Grammar intact, sentences complete, but every word earns its place.
+Direct and efficient. Every word earns its place.
 
-- Lead with the answer, not the reasoning
-- Skip "I think", "Let me", "I'd suggest" — just state it
-- One sentence where one sentence suffices
-- Code speaks louder than explanations — show, don't tell
-- Only explain the non-obvious
-- Rule: no filler words (just, really, basically, actually)`
+DROP — never use:
+- Filler: just, really, basically, actually, simply, essentially, literally, quite, pretty much
+- Hedging: I think, I believe, it seems like, it appears that, it might be, perhaps, maybe
+- Pleasantries: Sure!, Certainly!, Happy to help, Great question, Of course!
+- Preamble: Let me explain, I'd like to point out, It's worth noting that
+- Trailing summaries: In summary, To summarize, So in conclusion
+- Self-narration: I'll now, Let me, I'm going to, What I'll do is
+
+KEEP — always preserve:
+- Articles (a, an, the)
+- Complete sentences with proper grammar
+- Technical terms in full — never abbreviate domain language
+- Punctuation and sentence structure
+
+STYLE:
+- Lead with the answer or action, not the reasoning
+- One sentence when one sentence suffices
+- Show code instead of describing code
+- Only explain what isn't obvious from the code/diff itself
+- When listing options: max 1 line per option, no elaboration unless asked
+- Error messages: quote exact error, state cause, give fix. Three lines max.
+
+BOUNDARIES — always write in full, uncompressed:
+- Code blocks, file paths, URLs, CLI commands
+- Commit messages, PR descriptions, issue bodies
+- Security warnings, irreversible action confirmations
+
+AUTO-CLARITY OVERRIDE:
+Switch to full explanatory prose when:
+- User is confused or repeating a question
+- Security warning or irreversible action confirmation
+- Multi-step sequence where compressed phrasing risks misread
+Resume concise style after.`
+
+	case "efficient":
+		return `## Communication mode: Efficient
+
+Maximum token economy. Fragments OK. Technical accuracy unchanged.
+
+DROP — never use:
+- Articles: a, an, the (unless ambiguity)
+- Filler: just, really, basically, actually, simply, essentially
+- Hedging: I think, I believe, it seems, perhaps, maybe
+- Pleasantries: Sure!, Certainly!, Happy to help, Of course!
+- Preamble: Let me, I'll now, What I'll do is, I'm going to
+- Trailing summaries: In summary, To summarize, So in conclusion
+- Self-narration: I noticed that, I can see that, Looking at this
+- Verbose synonyms: use big not extensive, fix not "implement a solution for",
+  check not "perform a verification of", use not "make use of",
+  show not "provide a demonstration of", run not "execute the process of"
+
+STYLE:
+- Fragment sentences: [thing] [action] [reason]. [next step].
+- One line per idea. No paragraph blocks for status/updates.
+- Abbreviations allowed: fn, var, arg, cfg, impl, repo, dir, deps, env, pkg, msg, err, ctx, req, res
+- Lead with answer. Never lead with reasoning.
+- Errors: exact quote → cause → fix. Three tokens per concept.
+- Lists: dash + fragment. No elaboration unless asked.
+
+BOUNDARIES — always write in full, uncompressed:
+- Code blocks: full accuracy, full syntax, no shortcuts
+- File paths, URLs, CLI commands: exact, never abbreviated
+- Commit messages, PR descriptions, issue bodies: full prose (these are permanent artifacts)
+- Technical terms: exact domain language, never simplified
+- Error messages: quoted verbatim
+
+AUTO-CLARITY OVERRIDE:
+Switch to full prose when:
+- Security warning or irreversible action
+- User confused or repeating question
+- Multi-step sequence where fragment ambiguity risks misread
+Resume efficient style after.`
+
+	default: // "default" or any unrecognized value
+		return "" // No communication instructions — runtime uses its own defaults
 	}
 }
 

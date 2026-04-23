@@ -37,50 +37,53 @@ func TestLanguageInstructions_UnknownFallsBackToEnglish(t *testing.T) {
 
 // CommunicationModeInstructions tests
 
-func TestCommunicationModeInstructions_Normal(t *testing.T) {
-	result := CommunicationModeInstructions("normal")
-	if !strings.Contains(result, "Normal") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "Normal", result)
-	}
-	if !strings.Contains(result, "Standard prose") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "Standard prose", result)
-	}
-}
-
-func TestCommunicationModeInstructions_Verbose(t *testing.T) {
-	result := CommunicationModeInstructions("verbose")
-	if !strings.Contains(result, "Verbose") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "Verbose", result)
-	}
-	if !strings.Contains(result, "Detailed explanations") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "Detailed explanations", result)
-	}
-}
-
-func TestCommunicationModeInstructions_Concise(t *testing.T) {
+func TestCommunicationMode_Concise(t *testing.T) {
 	result := CommunicationModeInstructions("concise")
-	if !strings.Contains(result, "Concise") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "Concise", result)
+	if result == "" {
+		t.Fatal("expected non-empty result for concise mode")
 	}
-	if !strings.Contains(result, "no filler") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "no filler", result)
-	}
-}
-
-func TestCommunicationModeInstructions_Caveman(t *testing.T) {
-	result := CommunicationModeInstructions("caveman")
-	if !strings.Contains(result, "Caveman") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "Caveman", result)
-	}
-	if !strings.Contains(result, "No articles") {
-		t.Errorf("expected instructions to contain %q, got:\n%s", "No articles", result)
+	for _, want := range []string{"Communication mode: Concise", "DROP", "KEEP", "BOUNDARIES"} {
+		if !strings.Contains(result, want) {
+			t.Errorf("concise mode missing %q", want)
+		}
 	}
 }
 
-func TestCommunicationModeInstructions_UnknownFallsBackToConcise(t *testing.T) {
-	result := CommunicationModeInstructions("unknown")
-	if !strings.Contains(result, "Concise") {
-		t.Errorf("expected unknown mode to fall back to Concise, got:\n%s", result)
+func TestCommunicationMode_Efficient(t *testing.T) {
+	result := CommunicationModeInstructions("efficient")
+	if result == "" {
+		t.Fatal("expected non-empty result for efficient mode")
+	}
+	for _, want := range []string{"Communication mode: Efficient", "Fragment sentences", "Abbreviations allowed"} {
+		if !strings.Contains(result, want) {
+			t.Errorf("efficient mode missing %q", want)
+		}
+	}
+}
+
+func TestCommunicationMode_Default(t *testing.T) {
+	result := CommunicationModeInstructions("default")
+	if result != "" {
+		t.Errorf("expected empty string for default mode, got:\n%s", result)
+	}
+}
+
+func TestCommunicationMode_UnknownFallsToDefault(t *testing.T) {
+	result := CommunicationModeInstructions("foobar")
+	if result != "" {
+		t.Errorf("expected empty string for unknown mode, got:\n%s", result)
+	}
+}
+
+func TestCommunicationMode_BackwardCompat(t *testing.T) {
+	// Old mode names "normal" and "verbose" fall through to the default case
+	// (empty string). Backward compatibility is handled at the config loading
+	// layer (normalizeCommunicationMode), not at instruction generation.
+	for _, oldMode := range []string{"normal", "verbose", "caveman"} {
+		result := CommunicationModeInstructions(oldMode)
+		if result != "" {
+			t.Errorf("old mode %q should return empty (mapped at config layer), got non-empty", oldMode)
+		}
 	}
 }
 

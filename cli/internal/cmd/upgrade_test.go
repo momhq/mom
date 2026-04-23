@@ -142,9 +142,9 @@ func TestUpgradeCmd_MigratesConfig(t *testing.T) {
 		t.Errorf("expected language=pt preserved, got %q", cfg.User.Language)
 	}
 
-	// communication.mode must be inferred (caveman → caveman).
-	if cfg.Communication.Mode != "caveman" {
-		t.Errorf("expected communication.mode=caveman, got %q", cfg.Communication.Mode)
+	// communication.mode must be inferred (caveman → efficient).
+	if cfg.Communication.Mode != "efficient" {
+		t.Errorf("expected communication.mode=efficient, got %q", cfg.Communication.Mode)
 	}
 }
 
