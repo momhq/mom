@@ -249,9 +249,10 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 
 	// Map old mode names to new ones.
 	commMode := "concise"
-	if legacyUser.Mode == "caveman" {
+	switch legacyUser.Mode {
+	case "caveman":
 		commMode = "efficient"
-	} else if legacyUser.Mode == "normal" || legacyUser.Mode == "verbose" {
+	case "normal", "verbose":
 		commMode = "default"
 	}
 

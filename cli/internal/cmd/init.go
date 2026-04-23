@@ -515,31 +515,6 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 	}
 }
 
-// printExperimentalWarnings prints a warning for each adapter that carries
-// experimental MRP v0 events — informing the user that capture may be less reliable.
-func printExperimentalWarnings(cmd *cobra.Command, reg *runtime.Registry, runtimes []string) {
-	for _, name := range runtimes {
-		adapter, ok := reg.Get(name)
-		if !ok {
-			continue
-		}
-		cap := adapter.Capabilities()
-		if len(cap.Experimental) == 0 {
-			continue
-		}
-		adapterLabel := cap.Name
-		if adapterLabel == "" {
-			adapterLabel = name
-		}
-		version := cap.Version
-		if version == "" {
-			version = "unknown"
-		}
-		cmd.Printf("  ⚠ %s adapter installed (v%s)\n", adapterLabel, version)
-		cmd.Printf("    Experimental: %s\n", strings.Join(cap.Experimental, ", "))
-		cmd.Printf("    These events are emitted best-effort; capture may fire less reliably.\n")
-	}
-}
 
 // isTerminalWriter returns true if w is connected to a terminal.
 func isTerminalWriter(w io.Writer) bool {
