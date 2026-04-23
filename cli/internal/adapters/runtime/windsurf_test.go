@@ -93,39 +93,41 @@ func TestWindsurfAdapter_RegisterHooks(t *testing.T) {
 		t.Fatalf("reading hooks.json: %v", err)
 	}
 
-	var hooksMap map[string]any
-	if err := json.Unmarshal(content, &hooksMap); err != nil {
+	var root map[string]any
+	if err := json.Unmarshal(content, &root); err != nil {
 		t.Fatalf("parsing hooks.json: %v", err)
 	}
 
-	// Windsurf hooks use post_cascade_response_with_transcript event.
-	event, ok := hooksMap["post_cascade_response_with_transcript"].([]any)
+	// Windsurf format requires top-level "hooks" key.
+	hooksObj, ok := root["hooks"].(map[string]any)
+	if !ok {
+		t.Fatal("hooks.json missing top-level 'hooks' key")
+	}
+
+	event, ok := hooksObj["post_cascade_response_with_transcript"].([]any)
 	if !ok {
 		t.Fatal("hooks.json missing post_cascade_response_with_transcript event")
 	}
 	if len(event) != 2 {
-		t.Fatalf("expected 2 matcher groups, got %d", len(event))
+		t.Fatalf("expected 2 hook entries, got %d", len(event))
 	}
 
-	// Verify first hook command is "mom record".
-	group0 := event[0].(map[string]any)
-	innerHooks0 := group0["hooks"].([]any)
-	entry0 := innerHooks0[0].(map[string]any)
+	// Verify first hook command is "mom record" with working_directory.
+	entry0 := event[0].(map[string]any)
 	if entry0["command"] != "mom record" {
 		t.Errorf("expected command 'mom record', got %v", entry0["command"])
 	}
+	if entry0["working_directory"] != dir {
+		t.Errorf("expected working_directory %q, got %v", dir, entry0["working_directory"])
+	}
 
-	// Verify second hook command is "mom draft".
-	group1 := event[1].(map[string]any)
-	innerHooks1 := group1["hooks"].([]any)
-	entry1 := innerHooks1[0].(map[string]any)
+	// Verify second hook command is "mom draft" with working_directory.
+	entry1 := event[1].(map[string]any)
 	if entry1["command"] != "mom draft" {
 		t.Errorf("expected command 'mom draft', got %v", entry1["command"])
 	}
-
-	// Verify top-level format (no nested "hooks" key wrapping the event map).
-	if _, hasNestedHooks := hooksMap["hooks"]; hasNestedHooks {
-		t.Error("hooks.json should NOT have a nested 'hooks' key — events should be top-level")
+	if entry1["working_directory"] != dir {
+		t.Errorf("expected working_directory %q, got %v", dir, entry1["working_directory"])
 	}
 }
 

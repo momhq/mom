@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
+
 	"github.com/momhq/mom/cli/internal/config"
 )
 
@@ -61,7 +61,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	}
 
 	// Verify directories.
-	dirs := []string{".mom/memory", ".mom/skills", ".mom/constraints", ".mom/logs", ".mom/telemetry", ".mom/cache"}
+	dirs := []string{".mom/memory", ".mom/skills", ".mom/constraints", ".mom/logs", ".mom/cache"}
 	for _, d := range dirs {
 		full := filepath.Join(dir, d)
 		info, err := os.Stat(full)
@@ -158,49 +158,7 @@ func TestInitCmd_MultiRuntime(t *testing.T) {
 	}
 }
 
-// TestInitCmd_ExperimentalWarning verifies that installing an adapter with
-// experimental MRP events prints a user-visible warning.
-func TestInitCmd_ExperimentalWarning(t *testing.T) {
-	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
-
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"init", "--runtimes", "codex"})
-
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("init failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "⚠") {
-		t.Errorf("expected experimental warning symbol in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "Experimental") {
-		t.Errorf("expected 'Experimental' in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "best-effort") {
-		t.Errorf("expected 'best-effort' message in output, got:\n%s", out)
-	}
-}
-
-// TestInitCmd_NoWarningForClaudeOnly verifies that printExperimentalWarnings
-// emits nothing when all selected adapters have no experimental events.
-func TestInitCmd_NoWarningForClaudeOnly(t *testing.T) {
-	buf := new(bytes.Buffer)
-	cmd := &cobra.Command{}
-	cmd.SetOut(buf)
-	registry := runtime.NewRegistry(t.TempDir())
-	printExperimentalWarnings(cmd, registry, []string{"claude"})
-
-	out := buf.String()
-	if strings.Contains(out, "best-effort") {
-		t.Errorf("did not expect 'best-effort' warning for claude adapter, got:\n%s", out)
-	}
-}
+// Experimental warnings were removed from init output in v0.12 — too noisy for onboarding.
 
 // TestInitCmd_DefaultDeliversMinimalContent verifies that init with default config
 // generates minimal MCP-first boot content (not the legacy full content).

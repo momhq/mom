@@ -44,7 +44,7 @@ func newTmpEmitter(t *testing.T) (*Emitter, string) {
 	t.Helper()
 	momDir := t.TempDir()
 	e := New(momDir, true)
-	return e, filepath.Join(momDir, "telemetry")
+	return e, filepath.Join(momDir, "logs")
 }
 
 // ── Round-trip tests (all 5 kinds) ─────────────────────────────────────────
@@ -217,7 +217,7 @@ func TestDisabledEmitter(t *testing.T) {
 
 	e.EmitRuntimeHealth(RuntimeHealth{Runtime: "claude-code", TS: "2026-04-18T12:00:00Z", WrapUpSuccess: true})
 
-	telDir := filepath.Join(momDir, "telemetry")
+	telDir := filepath.Join(momDir, "logs")
 	entries, _ := os.ReadDir(telDir)
 	if len(entries) != 0 {
 		t.Fatalf("disabled emitter wrote %d file(s); expected 0", len(entries))
@@ -228,7 +228,7 @@ func TestDisabledEmitter(t *testing.T) {
 
 func TestReadOnlyDirNoPanic(t *testing.T) {
 	momDir := t.TempDir()
-	telDir := filepath.Join(momDir, "telemetry")
+	telDir := filepath.Join(momDir, "logs")
 	if err := os.MkdirAll(telDir, 0755); err != nil {
 		t.Fatal(err)
 	}

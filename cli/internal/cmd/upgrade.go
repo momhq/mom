@@ -133,7 +133,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			filepath.Join(leoDir, "constraints"),
 			filepath.Join(leoDir, "skills"),
 			filepath.Join(leoDir, "logs"),
-			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
 			filepath.Join(leoDir, "raw"),
 		}

@@ -117,13 +117,19 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 }
 
 // DefaultHooks returns the standard MOM hooks for Claude Code.
-// Stop → mom record: captures raw transcript after each response.
-// SessionEnd → mom draft: processes raw into draft memories at session close.
+// Stop → mom record + mom draft: captures transcript and processes drafts
+// after each response (continuous mode, 1-response lag).
+// SessionEnd → mom draft: fallback to draft the last response when the
+// session closes — covers abrupt exits and final decisions.
 func DefaultHooks() []HookDef {
 	return []HookDef{
 		{
 			Event:   "Stop",
 			Command: "mom record",
+		},
+		{
+			Event:   "Stop",
+			Command: "mom draft",
 		},
 		{
 			Event:   "SessionEnd",

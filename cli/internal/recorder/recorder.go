@@ -129,6 +129,44 @@ func Record(momDir string, input HookInput) error {
 	return nil
 }
 
+// RecordText writes plain text directly to .mom/raw/ as a JSONL entry.
+// Used by runtimes that don't provide transcript_path (Cline, Windsurf, etc.).
+func RecordText(momDir string, text string) error {
+	rawDir := filepath.Join(momDir, "raw")
+	if err := os.MkdirAll(rawDir, 0755); err != nil {
+		logError(momDir, fmt.Errorf("creating raw dir: %w", err))
+		return nil
+	}
+
+	now := time.Now().UTC()
+	dailyFile := filepath.Join(rawDir, now.Format("2006-01-02")+".jsonl")
+
+	entry := RawEntry{
+		Timestamp: now.Format(time.RFC3339),
+		Event:     "hook-raw",
+		Text:      text,
+	}
+
+	line, err := json.Marshal(entry)
+	if err != nil {
+		logError(momDir, fmt.Errorf("marshaling entry: %w", err))
+		return nil
+	}
+
+	f, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logError(momDir, fmt.Errorf("opening daily file: %w", err))
+		return nil
+	}
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		_ = f.Close()
+		logError(momDir, fmt.Errorf("writing entry: %w", err))
+		return nil
+	}
+	_ = f.Close()
+	return nil
+}
+
 // readCursor reads the cursor file for the given session, or returns a zero cursor.
 func readCursor(cursorFile, sessionID string) Cursor {
 	data, err := os.ReadFile(cursorFile)

@@ -97,6 +97,145 @@ func TestSanitizeTurns_MultipleContentItems(t *testing.T) {
 	}
 }
 
+func TestSanitizeTurns_WindsurfUserInput(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"status":"done","type":"user_input","user_input":{"rules_applied":{"always_on":["mom.md"]},"user_response":"the API deadline is May 15th"}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(result))
+	}
+	if result[0].Text != "the API deadline is May 15th" {
+		t.Errorf("expected user response, got: %s", result[0].Text)
+	}
+}
+
+func TestSanitizeTurns_WindsurfPlannerResponse(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"planner_response":{"response":"API deadline of May 15th has been recorded."},"status":"done","type":"planner_response"}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(result))
+	}
+	if result[0].Text != "API deadline of May 15th has been recorded." {
+		t.Errorf("expected planner response, got: %s", result[0].Text)
+	}
+}
+
+func TestSanitizeTurns_WindsurfMCPToolDropped(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"mcp_tool":{"tool_name":"mom_status","arguments":"{}","result":"..."},"status":"done","type":"mcp_tool"}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 0 {
+		t.Errorf("expected 0 turns (mcp_tool should be dropped), got %d", len(result))
+	}
+}
+
+func TestSanitizeTurns_WindsurfMixedSession(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"status":"done","type":"user_input","user_input":{"user_response":"fix the auth bug"}}
+{"mcp_tool":{"tool_name":"mom_recall","arguments":"{}","result":"..."},"status":"done","type":"mcp_tool"}
+{"planner_response":{"response":"I found and fixed the auth bug in middleware.go"},"status":"done","type":"planner_response"}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(result))
+	}
+	if result[0].Text != "fix the auth bug\nI found and fixed the auth bug in middleware.go" {
+		t.Errorf("expected user+planner text, got: %s", result[0].Text)
+	}
+}
+
+func TestSanitizeTurns_CodexUserMessage(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"timestamp":"2026-04-23T17:16:58Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"What is MOM about?"}]}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(result))
+	}
+	if result[0].Text != "What is MOM about?" {
+		t.Errorf("expected user text, got: %s", result[0].Text)
+	}
+}
+
+func TestSanitizeTurns_CodexAssistantMessage(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"timestamp":"2026-04-23T17:17:00Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"MOM is a persistent memory layer for AI agents."}]}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(result))
+	}
+	if result[0].Text != "MOM is a persistent memory layer for AI agents." {
+		t.Errorf("expected assistant text, got: %s", result[0].Text)
+	}
+}
+
+func TestSanitizeTurns_CodexReasoningDropped(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"timestamp":"2026-04-23T17:17:00Z","type":"response_item","payload":{"type":"reasoning","content":[]}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 0 {
+		t.Errorf("expected 0 turns (reasoning should be dropped), got %d", len(result))
+	}
+}
+
+func TestSanitizeTurns_CodexFunctionCallDropped(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"timestamp":"2026-04-23T17:17:00Z","type":"response_item","payload":{"type":"function_call","call_id":"call1","name":"shell","arguments":"{}"}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 0 {
+		t.Errorf("expected 0 turns (function_call should be dropped), got %d", len(result))
+	}
+}
+
+func TestSanitizeTurns_CodexDeveloperDropped(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"timestamp":"2026-04-23T17:16:58Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"system instructions"}]}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 0 {
+		t.Errorf("expected 0 turns (developer role should be dropped), got %d", len(result))
+	}
+}
+
+func TestSanitizeTurns_CodexMetadataDropped(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"timestamp":"2026-04-23T17:16:58Z","type":"session_meta","payload":{"id":"abc","cwd":"/tmp"}}
+{"timestamp":"2026-04-23T17:16:58Z","type":"event_msg","payload":{"type":"turn_started"}}
+{"timestamp":"2026-04-23T17:16:58Z","type":"turn_context","payload":{}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 0 {
+		t.Errorf("expected 0 turns (metadata should be dropped), got %d", len(result))
+	}
+}
+
+func TestSanitizeTurns_CodexMixedSession(t *testing.T) {
+	turn := rawTurn{
+		Text: `{"type":"session_meta","payload":{"id":"abc"}}
+{"type":"event_msg","payload":{"type":"turn_started"}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"What is MOM?"}]}}
+{"type":"response_item","payload":{"type":"reasoning","content":[]}}
+{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"MOM is a memory layer."}]}}
+{"type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{}"}}
+{"type":"event_msg","payload":{"type":"turn_completed"}}`,
+	}
+	result := sanitizeTurns([]rawTurn{turn})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 turn, got %d", len(result))
+	}
+	expected := "What is MOM?\nMOM is a memory layer."
+	if result[0].Text != expected {
+		t.Errorf("expected %q, got: %s", expected, result[0].Text)
+	}
+}
+
 func TestSanitizeTurns_PreservesMetadata(t *testing.T) {
 	// Verify that non-Text fields (Timestamp, SessionID, etc.) are preserved
 	turn := rawTurn{

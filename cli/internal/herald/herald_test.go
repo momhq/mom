@@ -224,7 +224,7 @@ func TestTelemetrySubscriber_WritesJSONLOnEvent(t *testing.T) {
 	})
 
 	// Read back — there should be at least one JSONL file.
-	telPath := momDir + "/telemetry"
+	telPath := momDir + "/logs"
 	entries, err := readDir(telPath)
 	if err != nil {
 		t.Fatalf("cannot read telemetry dir: %v", err)

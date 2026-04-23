@@ -20,7 +20,7 @@ type Emitter struct {
 // If enabled is false a no-op emitter is returned.
 // If the telemetry directory does not exist it is created with mode 0755.
 func New(momDir string, enabled bool) *Emitter {
-	dir := filepath.Join(momDir, "telemetry")
+	dir := filepath.Join(momDir, "logs")
 	e := &Emitter{dir: dir, enabled: enabled}
 	if !enabled {
 		return e

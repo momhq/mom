@@ -658,7 +658,7 @@ func TestInitCmd_NewLayout_NoKBDir(t *testing.T) {
 	}
 
 	// New flat layout must be created.
-	for _, d := range []string{"memory", "constraints", "skills", "logs", "telemetry", "cache"} {
+	for _, d := range []string{"memory", "constraints", "skills", "logs", "cache"} {
 		if info, err := os.Stat(filepath.Join(leoDir, d)); err != nil || !info.IsDir() {
 			t.Errorf("init must create directory: %s", d)
 		}

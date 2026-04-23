@@ -317,14 +317,26 @@ func TestMomStatusModes(t *testing.T) {
 	if !ok {
 		t.Fatalf("modes is not a map: %T", payload["modes"])
 	}
-	if lang, _ := modes["language"].(string); lang == "" {
+	lang, _ := modes["language"].(string)
+	if lang == "" {
 		t.Error("modes.language missing or empty")
 	}
-	if comm, _ := modes["communication"].(string); comm == "" {
+	if !strings.Contains(lang, "## Language:") {
+		t.Errorf("modes.language should contain full rules, got: %s", lang[:min(len(lang), 80)])
+	}
+	comm, _ := modes["communication"].(string)
+	if comm == "" {
 		t.Error("modes.communication missing or empty")
 	}
-	if auto, _ := modes["autonomy"].(string); auto == "" {
+	if !strings.Contains(comm, "## Communication mode:") {
+		t.Errorf("modes.communication should contain full rules, got: %s", comm[:min(len(comm), 80)])
+	}
+	auto, _ := modes["autonomy"].(string)
+	if auto == "" {
 		t.Error("modes.autonomy missing or empty")
+	}
+	if !strings.Contains(auto, "## Autonomy level:") {
+		t.Errorf("modes.autonomy should contain full rules, got: %s", auto[:min(len(auto), 80)])
 	}
 }
 

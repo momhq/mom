@@ -60,6 +60,12 @@ func runServeMCP(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("getting working directory: %w", err)
 	}
 
+	// Allow runtimes that don't set cwd (Windsurf, Cline VS Code) to specify
+	// the project directory via environment variable.
+	if envDir := os.Getenv("MOM_PROJECT_DIR"); envDir != "" {
+		cwd = envDir
+	}
+
 	sc, ok := scope.NearestWritable(cwd)
 	if !ok {
 		return fmt.Errorf("no .mom/ directory found. Run 'mom init' first")

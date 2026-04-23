@@ -193,7 +193,7 @@ func TestClineAdapter_HookScriptContent(t *testing.T) {
 	}
 	content := string(data)
 
-	for _, want := range []string{"mom record", "mom draft", `{"cancel": false}`} {
+	for _, want := range []string{"mom record --raw", "mom draft", `{"cancel": false}`} {
 		if !strings.Contains(content, want) {
 			t.Errorf("task-complete.sh should contain %q, got:\n%s", want, content)
 		}
@@ -256,6 +256,52 @@ func TestClineAdapter_RegisterMCP(t *testing.T) {
 
 	if mom["command"] != "mom" {
 		t.Errorf("expected command=mom, got %v", mom["command"])
+	}
+}
+
+func TestUpsertMCPEntry_CreatesAndUpdates(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cline_mcp_settings.json")
+
+	// First call: creates the file.
+	if err := upsertMCPEntry(path); err != nil {
+		t.Fatalf("first upsertMCPEntry: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var root map[string]any
+	json.Unmarshal(data, &root)
+	servers := root["mcpServers"].(map[string]any)
+	if _, ok := servers["mom"]; !ok {
+		t.Fatal("expected mom entry after create")
+	}
+
+	// Add another server, then upsert again — should preserve it.
+	servers["other"] = map[string]any{"command": "other-server"}
+	data, _ = json.MarshalIndent(root, "", "  ")
+	os.WriteFile(path, data, 0644)
+
+	if err := upsertMCPEntry(path); err != nil {
+		t.Fatalf("second upsertMCPEntry: %v", err)
+	}
+
+	data, _ = os.ReadFile(path)
+	json.Unmarshal(data, &root)
+	servers = root["mcpServers"].(map[string]any)
+	if _, ok := servers["other"]; !ok {
+		t.Error("upsert should preserve existing server entries")
+	}
+}
+
+func TestClineSettingsPaths_ReturnsNonEmpty(t *testing.T) {
+	paths := clineSettingsPaths()
+	if len(paths) == 0 {
+		t.Error("expected at least one candidate path")
+	}
+	for _, p := range paths {
+		if !strings.Contains(p, "cline_mcp_settings.json") {
+			t.Errorf("unexpected path: %s", p)
+		}
 	}
 }
 

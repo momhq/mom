@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -58,36 +59,28 @@ func (a *CodexAdapter) RegisterHooks(hooks []HookDef) error {
 		return fmt.Errorf("creating .codex dir: %w", err)
 	}
 
-	// Build Codex hooks structure — the entire file IS the hooks map:
-	//   { "EventName": [ { "matcher": "...", "hooks": [ {...} ] } ] }
-	hooksMap := make(map[string]any)
-
-	// Group HookDefs by event.
-	byEvent := make(map[string][]HookDef)
+	// Codex hooks.json format: { "hooks": { "Event": [ { "hooks": [ {...} ] } ] } }
+	byEvent := make(map[string][]map[string]any)
 	for _, h := range hooks {
-		byEvent[h.Event] = append(byEvent[h.Event], h)
-	}
-
-	for event, defs := range byEvent {
-		var matcherGroups []map[string]any
-		for _, d := range defs {
-			entry := map[string]any{
-				"type":    "command",
-				"command": d.Command,
-				"timeout": 10,
-			}
-			group := map[string]any{
-				"hooks": []map[string]any{entry},
-			}
-			if d.Matcher != "" {
-				group["matcher"] = d.Matcher
-			}
-			matcherGroups = append(matcherGroups, group)
+		entry := map[string]any{
+			"type":    "command",
+			"command": h.Command,
+			"timeout": 10,
 		}
-		hooksMap[event] = matcherGroups
+		group := map[string]any{
+			"hooks": []map[string]any{entry},
+		}
+		if h.Matcher != "" {
+			group["matcher"] = h.Matcher
+		}
+		byEvent[h.Event] = append(byEvent[h.Event], group)
 	}
 
-	data, err := json.MarshalIndent(hooksMap, "", "  ")
+	root := map[string]any{
+		"hooks": byEvent,
+	}
+
+	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling hooks: %w", err)
 	}
@@ -101,7 +94,7 @@ func (a *CodexAdapter) RegisterHooks(hooks []HookDef) error {
 }
 
 // CodexHooks returns the standard MOM hooks for Codex.
-// Stop covers both Claude's Stop and SessionEnd — so both record and draft go on Stop.
+// Stop → mom record + mom draft: continuous mode (1-response lag).
 func CodexHooks() []HookDef {
 	return []HookDef{
 		{Event: "Stop", Command: "mom record"},
@@ -109,39 +102,78 @@ func CodexHooks() []HookDef {
 	}
 }
 
-// RegisterMCP writes or updates .mcp.json at the project root, injecting the
-// MOM MCP server entry. Existing entries for other servers are preserved.
+// RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
+// (shared with other runtimes) and Codex's config.toml files (project-level and
+// global ~/.codex/config.toml), which is where Codex actually reads MCP config.
 func (a *CodexAdapter) RegisterMCP() error {
+	// 1. Project-level .mcp.json (shared with other runtimes).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
+	if err := upsertMCPEntry(mcpPath); err != nil {
+		return err
+	}
 
-	// Load existing .mcp.json or start fresh.
-	root := make(map[string]any)
-	if data, err := os.ReadFile(mcpPath); err == nil {
-		if err := json.Unmarshal(data, &root); err != nil {
-			return fmt.Errorf("parsing .mcp.json: %w", err)
+	// 2. Project-level .codex/config.toml — Codex reads MCP from here.
+	projectConfig := filepath.Join(a.projectRoot, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(projectConfig), 0755); err != nil {
+		return fmt.Errorf("creating .codex dir: %w", err)
+	}
+	if err := upsertCodexMCPEntry(projectConfig); err != nil {
+		return err
+	}
+
+	// 3. Global ~/.codex/config.toml — best-effort (non-fatal).
+	home, err := os.UserHomeDir()
+	if err == nil {
+		globalConfig := filepath.Join(home, ".codex", "config.toml")
+		if _, err := os.Stat(filepath.Dir(globalConfig)); err == nil {
+			_ = upsertCodexMCPEntry(globalConfig)
 		}
 	}
 
-	servers, _ := root["mcpServers"].(map[string]any)
-	if servers == nil {
-		servers = make(map[string]any)
+	return nil
+}
+
+// codexMCPBlock is the TOML section for the MOM MCP server.
+const codexMCPBlock = `
+[mcp_servers.mom]
+command = "mom"
+args = ["serve", "mcp"]
+`
+
+// codexFeaturesBlock enables the hooks feature flag required by Codex.
+const codexFeaturesBlock = `
+[features]
+codex_hooks = true
+`
+
+// upsertCodexMCPEntry ensures [mcp_servers.mom] and [features] codex_hooks
+// exist in a Codex config.toml. Idempotent — skips sections that already exist.
+func upsertCodexMCPEntry(path string) error {
+	existing, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("reading %s: %w", filepath.Base(path), err)
 	}
 
-	servers["mom"] = map[string]any{
-		"command": "mom",
-		"args":    []string{"serve", "mcp"},
-	}
-	root["mcpServers"] = servers
+	content := string(existing)
+	changed := false
 
-	data, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling .mcp.json: %w", err)
-	}
-	data = append(data, '\n')
-	if err := os.WriteFile(mcpPath, data, 0644); err != nil {
-		return fmt.Errorf("writing .mcp.json: %w", err)
+	if !strings.Contains(content, "[mcp_servers.mom]") {
+		content = strings.TrimRight(content, "\n") + "\n" + codexMCPBlock
+		changed = true
 	}
 
+	if !strings.Contains(content, "codex_hooks") {
+		content = strings.TrimRight(content, "\n") + "\n" + codexFeaturesBlock
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", filepath.Base(path), err)
+	}
 	return nil
 }
 
@@ -154,6 +186,7 @@ func (a *CodexAdapter) GeneratedFiles() []string {
 	return []string{
 		"AGENTS.md",
 		filepath.Join(".codex", "hooks.json"),
+		filepath.Join(".codex", "config.toml"),
 		".mcp.json",
 	}
 }

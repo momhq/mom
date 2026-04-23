@@ -64,6 +64,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	} else {
 		cmd.Printf("Runtimes:     (none)\n")
 	}
+	commMode := cfg.Communication.Mode
+	if commMode == "" {
+		commMode = "concise"
+	}
+	cmd.Printf("Mode:         %s\n", commMode)
 	cmd.Printf("Storage:      json\n")
 	cmd.Printf("Total docs:   %d\n", totalDocs)
 	cmd.Printf("Tags:         %d unique\n", totalTags)

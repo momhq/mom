@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/drafter"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
@@ -97,6 +98,17 @@ func runDraft(cmd *cobra.Command, _ []string) error {
 	updateDraftMarker(momDir)
 
 	fmt.Fprintf(os.Stderr, "draft: wrote %d/%d drafts to %s\n", written, len(drafts), memDir)
+
+	// Auto-clean old raw files if enabled.
+	cfg, cfgErr := config.Load(momDir)
+	if cfgErr == nil && cfg.RawMemories.AutoClean {
+		result := sweep(momDir, cfg.RawMemories)
+		if result.Deleted > 0 {
+			fmt.Fprintf(os.Stderr, "sweep: deleted %d files, freed %.1f MB\n",
+				result.Deleted, float64(result.BytesFreed)/(1024*1024))
+		}
+	}
+
 	return nil
 }
 

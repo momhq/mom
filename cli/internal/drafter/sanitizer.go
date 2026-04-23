@@ -2,6 +2,7 @@ package drafter
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 )
 
@@ -53,6 +54,57 @@ func sanitizeText(text string) string {
 
 		// Check top-level type
 		msgType, _ := obj["type"].(string)
+
+		// Windsurf format: user_input, planner_response, mcp_tool
+		switch msgType {
+		case "user_input":
+			if ui, ok := obj["user_input"].(map[string]any); ok {
+				if resp, ok := ui["user_response"].(string); ok && resp != "" {
+					extracted = append(extracted, resp)
+				}
+			}
+			continue
+		case "planner_response":
+			if pr, ok := obj["planner_response"].(map[string]any); ok {
+				if resp, ok := pr["response"].(string); ok && resp != "" {
+					extracted = append(extracted, resp)
+				}
+			}
+			continue
+		case "mcp_tool":
+			// Drop MCP tool calls/results (internal machinery)
+			continue
+		case "response_item":
+			// Codex format: payload.type == "message" with role and content[]
+			payload, _ := obj["payload"].(map[string]any)
+			if payload == nil {
+				continue
+			}
+			pType, _ := payload["type"].(string)
+			role, _ := payload["role"].(string)
+			if pType != "message" || (role != "user" && role != "assistant") {
+				// Drop reasoning, function_call, function_call_output, developer
+				continue
+			}
+			if content, ok := payload["content"].([]any); ok {
+				for _, item := range content {
+					if m, ok := item.(map[string]any); ok {
+						ct, _ := m["type"].(string)
+						if ct == "output_text" || ct == "input_text" {
+							if text, _ := m["text"].(string); text != "" {
+								extracted = append(extracted, text)
+							}
+						}
+					}
+				}
+			}
+			continue
+		case "event_msg", "session_meta", "turn_context":
+			// Codex metadata — drop
+			continue
+		}
+
+		// Claude Code format: assistant, user
 		if msgType != "assistant" && msgType != "user" {
 			// Drop progress, result, system, etc.
 			continue
@@ -71,6 +123,81 @@ func sanitizeText(text string) string {
 	}
 
 	return strings.Join(extracted, "\n")
+}
+
+// sanitizeForTags applies a stricter cleaning pass on text before tag extraction.
+// Removes XML tags, code blocks, file paths, URLs, and other noise that would
+// pollute RAKE/BM25 tag generation while being fine in content.
+func sanitizeForTags(text string) string {
+	var lines []string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Drop XML-style tags (system prompts, env context)
+		if strings.HasPrefix(line, "<") && strings.HasSuffix(line, ">") {
+			continue
+		}
+		// Drop lines that are mostly a file path
+		if looksLikePath(line) {
+			continue
+		}
+		// Drop lines that are code (indented or common code patterns)
+		if looksLikeCode(line) {
+			continue
+		}
+		// Drop URLs
+		if strings.HasPrefix(line, "http://") || strings.HasPrefix(line, "https://") {
+			continue
+		}
+		// Strip inline XML tags
+		line = xmlTagRe.ReplaceAllString(line, " ")
+		// Strip markdown formatting
+		line = strings.ReplaceAll(line, "```", "")
+		line = strings.ReplaceAll(line, "**", "")
+		line = strings.ReplaceAll(line, "##", "")
+		// Collapse whitespace
+		line = strings.Join(strings.Fields(line), " ")
+		if len(line) > 2 {
+			lines = append(lines, line)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+var xmlTagRe = regexp.MustCompile(`<[^>]+>`)
+
+// looksLikePath returns true if the line is dominated by a file path.
+func looksLikePath(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "./") {
+		return true
+	}
+	// Lines with multiple path separators relative to length
+	slashes := strings.Count(trimmed, "/")
+	if slashes >= 3 && float64(slashes)/float64(len(trimmed)) > 0.05 {
+		return true
+	}
+	return false
+}
+
+// looksLikeCode returns true if the line appears to be code rather than prose.
+func looksLikeCode(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	// Common code patterns
+	codeIndicators := []string{
+		"func ", "import ", "package ", "return ", "if err",
+		"var ", "const ", "type ", "fmt.", "os.", "json.",
+		"func(", "map[", "[]", ":=", "!=", "==",
+		"```", "{}", "();",
+	}
+	for _, indicator := range codeIndicators {
+		if strings.Contains(trimmed, indicator) {
+			return true
+		}
+	}
+	return false
 }
 
 // extractTextContent pulls text strings from a transcript message object.

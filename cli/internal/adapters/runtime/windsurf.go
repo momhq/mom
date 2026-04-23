@@ -64,32 +64,22 @@ func (a *WindsurfAdapter) RegisterHooks(hooks []HookDef) error {
 
 	hooksPath := filepath.Join(windsurfDir, "hooks.json")
 
-	hooksMap := make(map[string]any)
-	byEvent := make(map[string][]HookDef)
+	// Windsurf hooks.json format: { "hooks": { "event": [ { "command": "...", "working_directory": "..." }, ... ] } }
+	// working_directory is required because Windsurf may invoke hooks from a different cwd.
+	byEvent := make(map[string][]map[string]any)
 	for _, h := range hooks {
-		byEvent[h.Event] = append(byEvent[h.Event], h)
-	}
-
-	for event, defs := range byEvent {
-		var matcherGroups []map[string]any
-		for _, d := range defs {
-			entry := map[string]any{
-				"type":    "command",
-				"command": d.Command,
-				"timeout": 10,
-			}
-			group := map[string]any{
-				"hooks": []map[string]any{entry},
-			}
-			if d.Matcher != "" {
-				group["matcher"] = d.Matcher
-			}
-			matcherGroups = append(matcherGroups, group)
+		entry := map[string]any{
+			"command":           h.Command,
+			"working_directory": a.projectRoot,
 		}
-		hooksMap[event] = matcherGroups
+		byEvent[h.Event] = append(byEvent[h.Event], entry)
 	}
 
-	data, err := json.MarshalIndent(hooksMap, "", "  ")
+	root := map[string]any{
+		"hooks": byEvent,
+	}
+
+	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling hooks: %w", err)
 	}
@@ -101,8 +91,8 @@ func (a *WindsurfAdapter) RegisterHooks(hooks []HookDef) error {
 }
 
 // WindsurfHooks returns the standard MOM hooks for Windsurf.
-// post_cascade_response_with_transcript → mom record: captures raw transcript after each response.
-// post_cascade_response_with_transcript → mom draft: processes raw into draft memories.
+// post_cascade_response_with_transcript provides transcript_path in the hook
+// JSON input — same format as Claude Code hooks, so we use plain "mom record".
 func WindsurfHooks() []HookDef {
 	return []HookDef{
 		{Event: "post_cascade_response_with_transcript", Command: "mom record"},
@@ -115,16 +105,36 @@ func (a *WindsurfAdapter) DetectRuntime() bool {
 	return err == nil && info.IsDir()
 }
 
-// RegisterMCP writes or updates .mcp.json at the project root, injecting the
-// MOM MCP server entry. Existing entries for other servers are preserved.
+// RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
+// (shared with other runtimes) and Windsurf's global config at
+// ~/.codeium/windsurf/mcp_config.json, which is where Windsurf reads MCP config.
 func (a *WindsurfAdapter) RegisterMCP() error {
+	// 1. Project-level .mcp.json (shared with other runtimes).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
+	if err := upsertMCPEntry(mcpPath); err != nil {
+		return err
+	}
 
-	// Load existing .mcp.json or start fresh.
+	// 2. Windsurf global config — includes MOM_PROJECT_DIR env var because
+	// Windsurf starts MCP subprocesses from a different cwd than the project.
+	home, err := os.UserHomeDir()
+	if err == nil {
+		globalConfig := filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")
+		if _, err := os.Stat(filepath.Dir(globalConfig)); err == nil {
+			_ = upsertMCPEntryWithEnv(globalConfig, a.projectRoot)
+		}
+	}
+
+	return nil
+}
+
+// upsertMCPEntryWithEnv is like upsertMCPEntry but adds MOM_PROJECT_DIR env var.
+// Used by runtimes that start MCP subprocesses from a different cwd (Windsurf, Cline VS Code).
+func upsertMCPEntryWithEnv(path, projectRoot string) error {
 	root := make(map[string]any)
-	if data, err := os.ReadFile(mcpPath); err == nil {
+	if data, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(data, &root); err != nil {
-			return fmt.Errorf("parsing .mcp.json: %w", err)
+			return fmt.Errorf("parsing %s: %w", filepath.Base(path), err)
 		}
 	}
 
@@ -136,18 +146,20 @@ func (a *WindsurfAdapter) RegisterMCP() error {
 	servers["mom"] = map[string]any{
 		"command": "mom",
 		"args":    []string{"serve", "mcp"},
+		"env": map[string]string{
+			"MOM_PROJECT_DIR": projectRoot,
+		},
 	}
 	root["mcpServers"] = servers
 
 	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshaling .mcp.json: %w", err)
+		return fmt.Errorf("marshaling %s: %w", filepath.Base(path), err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(mcpPath, data, 0644); err != nil {
-		return fmt.Errorf("writing .mcp.json: %w", err)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", filepath.Base(path), err)
 	}
-
 	return nil
 }
 

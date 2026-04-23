@@ -145,7 +145,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			filepath.Join(leoDir, "skills"),
 			filepath.Join(leoDir, "constraints"),
 			filepath.Join(leoDir, "logs"),
-			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
 			filepath.Join(leoDir, "raw"),
 		}
@@ -421,9 +420,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			}
 		}
 	}
-	// Warn about adapters with experimental MRP features.
-	printExperimentalWarnings(cmd, registry, result.Runtimes)
-
 	cmd.Println()
 	cmd.Println("MOM is ready. Run 'mom status' to check health.")
 	return nil

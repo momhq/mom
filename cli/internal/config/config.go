@@ -21,6 +21,7 @@ type Config struct {
 	User          UserConfig               `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
 	Memory        MemoryConfig             `yaml:"memory"`
+	RawMemories   RawMemoriesConfig        `yaml:"raw_memories"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
 	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
 	// Delivery controls how the behavioral protocol is delivered to the runtime.
@@ -89,6 +90,12 @@ type CommunicationConfig struct {
 // written to config but never enforced by any code.
 type MemoryConfig struct{}
 
+// RawMemoriesConfig controls automatic cleanup of old raw JSONL recordings.
+type RawMemoriesConfig struct {
+	RetentionDays int  `yaml:"retention_days"` // delete files older than N days (default: 30)
+	AutoClean     bool `yaml:"auto_clean"`     // run sweep automatically after mom draft
+}
+
 // Default returns a Config with sane defaults.
 func Default() Config {
 	return Config{
@@ -102,8 +109,9 @@ func Default() Config {
 		Communication: CommunicationConfig{
 			Mode: "concise",
 		},
-		Memory:   MemoryConfig{},
-		Delivery: "mcp",
+		Memory:      MemoryConfig{},
+		RawMemories: RawMemoriesConfig{RetentionDays: 30, AutoClean: false},
+		Delivery:    "mcp",
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -74,7 +75,13 @@ func (a *ClineAdapter) RegisterHooks(hooks []HookDef) error {
 		var sb strings.Builder
 		sb.WriteString("#!/bin/sh\n")
 		for _, cmd := range commands {
-			sb.WriteString(cmd + " < /dev/null\n")
+			if strings.Contains(cmd, "record") {
+				// Record reads stdin from Cline (conversation data).
+				sb.WriteString(cmd + " || true\n")
+			} else {
+				// Other commands (draft, etc.) don't need stdin.
+				sb.WriteString(cmd + " < /dev/null\n")
+			}
 		}
 		sb.WriteString("echo '{\"cancel\": false}'\n")
 
@@ -98,13 +105,14 @@ func clineEventToFilename(event string) string {
 }
 
 // ClineHooks returns the standard MOM hooks for Cline.
-// TaskComplete → mom record + mom draft: captures and processes transcript.
-// TaskCancel → mom record: captures raw transcript on cancellation.
+// TaskComplete → mom record --raw + mom draft: captures text and processes it.
+// TaskCancel → mom record --raw: captures raw text on cancellation.
+// Cline doesn't provide Claude Code's hook JSON, so --raw reads plain text.
 func ClineHooks() []HookDef {
 	return []HookDef{
-		{Event: "TaskComplete", Command: "mom record"},
+		{Event: "TaskComplete", Command: "mom record --raw"},
 		{Event: "TaskComplete", Command: "mom draft"},
-		{Event: "TaskCancel", Command: "mom record"},
+		{Event: "TaskCancel", Command: "mom record --raw"},
 	}
 }
 
@@ -113,16 +121,36 @@ func (a *ClineAdapter) DetectRuntime() bool {
 	return err == nil && info.IsDir()
 }
 
-// RegisterMCP writes or updates .mcp.json at the project root, injecting the
-// MOM MCP server entry. Existing entries for other servers are preserved.
+// RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
+// and Cline's global settings (cline_mcp_settings.json in VS Code storage).
+// The project-level file is shared with other runtimes; the global file is what
+// Cline actually reads at startup.
 func (a *ClineAdapter) RegisterMCP() error {
+	// 1. Project-level .mcp.json (shared with other runtimes).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
+	if err := upsertMCPEntry(mcpPath); err != nil {
+		return err
+	}
 
-	// Load existing .mcp.json or start fresh.
+	// 2. Cline's global settings — includes MOM_PROJECT_DIR env var because
+	// Cline VS Code starts MCP subprocesses from a different cwd than the project.
+	for _, p := range clineSettingsPaths() {
+		if _, err := os.Stat(filepath.Dir(p)); err != nil {
+			continue // VS Code / Cursor storage dir doesn't exist.
+		}
+		_ = upsertMCPEntryWithEnv(p, a.projectRoot) // Silently ignore write errors.
+	}
+
+	return nil
+}
+
+// upsertMCPEntry reads a JSON file with mcpServers, adds/updates the "mom"
+// entry, and writes it back. Creates the file if it doesn't exist.
+func upsertMCPEntry(path string) error {
 	root := make(map[string]any)
-	if data, err := os.ReadFile(mcpPath); err == nil {
+	if data, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(data, &root); err != nil {
-			return fmt.Errorf("parsing .mcp.json: %w", err)
+			return fmt.Errorf("parsing %s: %w", filepath.Base(path), err)
 		}
 	}
 
@@ -139,14 +167,59 @@ func (a *ClineAdapter) RegisterMCP() error {
 
 	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshaling .mcp.json: %w", err)
+		return fmt.Errorf("marshaling %s: %w", filepath.Base(path), err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(mcpPath, data, 0644); err != nil {
-		return fmt.Errorf("writing .mcp.json: %w", err)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", filepath.Base(path), err)
+	}
+	return nil
+}
+
+// clineSettingsPaths returns candidate paths for Cline's cline_mcp_settings.json.
+// It checks: (1) Cline CLI/TUI at ~/.cline/, (2) VS Code extension storage,
+// and (3) Cursor extension storage.
+func clineSettingsPaths() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
 	}
 
-	return nil
+	const extID = "saoudrizwan.claude-dev"
+	const settingsFile = "settings/cline_mcp_settings.json"
+
+	// Cline CLI/TUI uses ~/.cline/data/settings/cline_mcp_settings.json.
+	paths := []string{
+		filepath.Join(home, ".cline", "data", settingsFile),
+	}
+
+	// VS Code / Cursor extension storage.
+	var bases []string
+	switch goruntime.GOOS {
+	case "darwin":
+		bases = []string{
+			filepath.Join(home, "Library", "Application Support", "Code", "User", "globalStorage"),
+			filepath.Join(home, "Library", "Application Support", "Cursor", "User", "globalStorage"),
+		}
+	case "linux":
+		bases = []string{
+			filepath.Join(home, ".config", "Code", "User", "globalStorage"),
+			filepath.Join(home, ".config", "Cursor", "User", "globalStorage"),
+		}
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData != "" {
+			bases = []string{
+				filepath.Join(appData, "Code", "User", "globalStorage"),
+				filepath.Join(appData, "Cursor", "User", "globalStorage"),
+			}
+		}
+	}
+
+	for _, base := range bases {
+		paths = append(paths, filepath.Join(base, extID, settingsFile))
+	}
+	return paths
 }
 
 func (a *ClineAdapter) GeneratedFiles() []string {

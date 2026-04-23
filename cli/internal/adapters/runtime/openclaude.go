@@ -29,9 +29,10 @@ func (a *OpenClaudeAdapter) Name() string {
 }
 
 func (a *OpenClaudeAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
-	openclaudeDir := filepath.Join(a.projectRoot, ".openclaude")
-	if err := os.MkdirAll(openclaudeDir, 0755); err != nil {
-		return fmt.Errorf("creating .openclaude dir: %w", err)
+	// OpenClaude uses .claude/CLAUDE.md (same as Claude Code).
+	claudeDir := filepath.Join(a.projectRoot, ".claude")
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		return fmt.Errorf("creating .claude dir: %w", err)
 	}
 
 	var body string
@@ -42,7 +43,7 @@ func (a *OpenClaudeAdapter) GenerateContextFile(config Config, constraints []Con
 	}
 	content := a.Watermark() + "\n\n" + body
 
-	contextFile := filepath.Join(openclaudeDir, "CLAUDE.md")
+	contextFile := filepath.Join(claudeDir, "CLAUDE.md")
 	if err := os.WriteFile(contextFile, []byte(content), 0644); err != nil {
 		return fmt.Errorf("writing CLAUDE.md: %w", err)
 	}
@@ -55,12 +56,12 @@ func (a *OpenClaudeAdapter) SupportsHooks() bool {
 }
 
 func (a *OpenClaudeAdapter) RegisterHooks(hooks []HookDef) error {
-	openclaudeDir := filepath.Join(a.projectRoot, ".openclaude")
-	settingsPath := filepath.Join(openclaudeDir, "settings.json")
+	// OpenClaude uses .claude/settings.json (same as Claude Code).
+	claudeDir := filepath.Join(a.projectRoot, ".claude")
+	settingsPath := filepath.Join(claudeDir, "settings.json")
 
-	// Ensure .openclaude/ exists.
-	if err := os.MkdirAll(openclaudeDir, 0755); err != nil {
-		return fmt.Errorf("creating .openclaude dir: %w", err)
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		return fmt.Errorf("creating .claude dir: %w", err)
 	}
 
 	// Load existing settings or start fresh.
@@ -116,8 +117,7 @@ func (a *OpenClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 }
 
 // OpenClaudeHooks returns the standard MOM hooks for OpenClaude.
-// Stop → mom record: captures raw transcript after each response.
-// SessionEnd → mom draft: processes raw into draft memories at session close.
+// Stop → mom record + mom draft: continuous mode (1-response lag).
 func OpenClaudeHooks() []HookDef {
 	return []HookDef{
 		{
@@ -125,15 +125,17 @@ func OpenClaudeHooks() []HookDef {
 			Command: "mom record",
 		},
 		{
-			Event:   "SessionEnd",
+			Event:   "Stop",
 			Command: "mom draft",
 		},
 	}
 }
 
 func (a *OpenClaudeAdapter) DetectRuntime() bool {
-	info, err := os.Stat(filepath.Join(a.projectRoot, ".openclaude"))
-	return err == nil && info.IsDir()
+	// OpenClaude shares .claude/ with Claude Code — detect by checking
+	// if the openclaude binary is available.
+	_, err := os.Stat(filepath.Join(a.projectRoot, ".claude"))
+	return err == nil
 }
 
 // RegisterMCP writes or updates .mcp.json at the project root, injecting the
@@ -174,14 +176,16 @@ func (a *OpenClaudeAdapter) RegisterMCP() error {
 
 func (a *OpenClaudeAdapter) GeneratedFiles() []string {
 	return []string{
-		filepath.Join(".openclaude", "CLAUDE.md"),
-		filepath.Join(".openclaude", "settings.json"),
+		filepath.Join(".claude", "CLAUDE.md"),
+		filepath.Join(".claude", "settings.json"),
 		".mcp.json",
 	}
 }
 
+// GeneratedDirs returns nil — .claude/ may be shared with Claude Code.
+// Uninstall should only remove generated files, not the directory.
 func (a *OpenClaudeAdapter) GeneratedDirs() []string {
-	return []string{".openclaude"}
+	return nil
 }
 
 func (a *OpenClaudeAdapter) Watermark() string {
@@ -189,7 +193,8 @@ func (a *OpenClaudeAdapter) Watermark() string {
 }
 
 func (a *OpenClaudeAdapter) GitIgnorePaths() []string {
-	return []string{".openclaude/", "CLAUDE.md"}
+	// Shares .claude/ with Claude Code — same gitignore paths.
+	return []string{".claude/"}
 }
 
 func (a *OpenClaudeAdapter) Capabilities() AdapterCapability {
