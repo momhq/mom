@@ -334,6 +334,17 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return phase3Err
 	}
 
+	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
+	if !dryRun {
+		registry := runtime.NewRegistry(projectRoot)
+		enabledRTs := cfg.EnabledRuntimes()
+		if added, gitErr := ensureGitIgnore(projectRoot, registry, enabledRTs); gitErr != nil {
+			addAction("⚠", fmt.Sprintf(".gitignore: %v", gitErr))
+		} else if len(added) > 0 {
+			addAction("✔", fmt.Sprintf(".gitignore updated (%d entries added)", len(added)))
+		}
+	}
+
 	// ── Report ──────────────────────────────────────────────────────────────
 	cmd.Println()
 	if dryRun {
