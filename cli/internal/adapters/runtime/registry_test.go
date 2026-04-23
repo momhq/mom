@@ -60,15 +60,15 @@ func TestRegistryAll(t *testing.T) {
 	r := NewRegistry(dir)
 
 	all := r.All()
-	if len(all) != 4 {
-		t.Fatalf("expected 4 adapters, got %d", len(all))
+	if len(all) != 5 {
+		t.Fatalf("expected 5 adapters, got %d", len(all))
 	}
 
 	names := make(map[string]bool)
 	for _, a := range all {
 		names[a.Name()] = true
 	}
-	for _, expected := range []string{"claude", "codex", "cline", "openclaude"} {
+	for _, expected := range []string{"claude", "codex", "cline", "openclaude", "windsurf"} {
 		if !names[expected] {
 			t.Errorf("expected %q in All()", expected)
 		}
