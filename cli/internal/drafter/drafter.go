@@ -58,6 +58,9 @@ func (d *Drafter) Process(since time.Time) ([]Draft, error) {
 		allTurns = append(allTurns, turns...)
 	}
 
+	// Sanitize turns: extract conversational text, drop tool_use/metadata.
+	allTurns = sanitizeTurns(allTurns)
+
 	if len(allTurns) == 0 {
 		return nil, nil
 	}
