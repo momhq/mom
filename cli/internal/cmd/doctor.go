@@ -175,7 +175,7 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 
 	// Check 10: Last session timestamp + recent errors from telemetry.
 	if cfg != nil {
-		telDir := filepath.Join(leoDir, "telemetry")
+		telDir := filepath.Join(leoDir, "logs")
 		printLastSession(cmd, telDir)
 		printRecentErrors(cmd, telDir, 5)
 	}
@@ -241,7 +241,7 @@ func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
 	// Capture pipeline latency from telemetry.
 	leoDir, err := findMomDir()
 	if err == nil {
-		telDir := filepath.Join(leoDir, "telemetry")
+		telDir := filepath.Join(leoDir, "logs")
 		printCapturePipelineLatency(cmd, telDir)
 		printExtractorModelUsage(cmd, telDir)
 	}
@@ -344,7 +344,7 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 		return nil
 	}
 
-	telDir := filepath.Join(leoDir, "telemetry")
+	telDir := filepath.Join(leoDir, "logs")
 	today := time.Now().UTC().Format("2006-01-02")
 	todayFile := filepath.Join(telDir, today+".jsonl")
 
@@ -401,10 +401,10 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 		} else {
 			sizeStr = fmt.Sprintf("%.1f KB", float64(size)/1024)
 		}
-		rel := ".mom/telemetry/" + today + ".jsonl"
+		rel := ".mom/logs/" + today + ".jsonl"
 		cmd.Printf("\nFull file: %s (%s)\n", rel, sizeStr)
 	} else {
-		cmd.Printf("\nFull file: .mom/telemetry/%s.jsonl (not yet created)\n", today)
+		cmd.Printf("\nFull file: .mom/logs/%s.jsonl (not yet created)\n", today)
 	}
 
 	return nil
@@ -587,7 +587,7 @@ func runDoctorBundle(cmd *cobra.Command) error {
 
 	// Recent errors from RuntimeHealth — content stripped.
 	cmd.Printf("--- Recent Errors ---\n")
-	telDir := filepath.Join(leoDir, "telemetry")
+	telDir := filepath.Join(leoDir, "logs")
 	bundleErrors := readRecentErrors(telDir, 10)
 	if len(bundleErrors) == 0 {
 		cmd.Printf("(none)\n")

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
+
 	"github.com/momhq/mom/cli/internal/config"
 )
 
@@ -61,7 +61,7 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	}
 
 	// Verify directories.
-	dirs := []string{".mom/memory", ".mom/skills", ".mom/constraints", ".mom/logs", ".mom/telemetry", ".mom/cache"}
+	dirs := []string{".mom/memory", ".mom/skills", ".mom/constraints", ".mom/logs", ".mom/cache"}
 	for _, d := range dirs {
 		full := filepath.Join(dir, d)
 		info, err := os.Stat(full)
@@ -158,49 +158,7 @@ func TestInitCmd_MultiRuntime(t *testing.T) {
 	}
 }
 
-// TestInitCmd_ExperimentalWarning verifies that installing an adapter with
-// experimental MRP events prints a user-visible warning.
-func TestInitCmd_ExperimentalWarning(t *testing.T) {
-	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
-
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"init", "--runtimes", "codex"})
-
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("init failed: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "⚠") {
-		t.Errorf("expected experimental warning symbol in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "Experimental") {
-		t.Errorf("expected 'Experimental' in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "best-effort") {
-		t.Errorf("expected 'best-effort' message in output, got:\n%s", out)
-	}
-}
-
-// TestInitCmd_NoWarningForClaudeOnly verifies that printExperimentalWarnings
-// emits nothing when all selected adapters have no experimental events.
-func TestInitCmd_NoWarningForClaudeOnly(t *testing.T) {
-	buf := new(bytes.Buffer)
-	cmd := &cobra.Command{}
-	cmd.SetOut(buf)
-	registry := runtime.NewRegistry(t.TempDir())
-	printExperimentalWarnings(cmd, registry, []string{"claude"})
-
-	out := buf.String()
-	if strings.Contains(out, "best-effort") {
-		t.Errorf("did not expect 'best-effort' warning for claude adapter, got:\n%s", out)
-	}
-}
+// Experimental warnings were removed from init output in v0.12 — too noisy for onboarding.
 
 // TestInitCmd_DefaultDeliversMinimalContent verifies that init with default config
 // generates minimal MCP-first boot content (not the legacy full content).
@@ -265,5 +223,133 @@ func TestInitCmd_BackupExistingFile(t *testing.T) {
 	}
 	if string(bkpContent) != "# My custom agents" {
 		t.Error("backup content doesn't match original")
+	}
+}
+
+// TestInitCmd_InheritsConstraintsFromParent verifies that when a parent scope
+// already has constraints/ and skills/, child init skips creating local copies.
+func TestInitCmd_InheritsConstraintsFromParent(t *testing.T) {
+	// Create org/repo directory structure.
+	orgDir := t.TempDir()
+	repoDir := filepath.Join(orgDir, "repo-a")
+	os.MkdirAll(repoDir, 0755)
+
+	// Initialize the org scope using runInitWithConfig directly to avoid
+	// cobra global state issues when tests run in parallel/sequence.
+	cmd := &cobra.Command{}
+	cmd.SetOut(new(bytes.Buffer))
+
+	orgResult := OnboardingResult{
+		Runtimes:   []string{"claude"},
+		Language:   "en",
+		Mode:       "concise",
+		InstallDir: orgDir,
+		ScopeLabel: "org",
+	}
+	if err := runInitWithConfig(cmd, orgDir, false, orgResult); err != nil {
+		t.Fatalf("org init failed: %v", err)
+	}
+
+	// Verify org has constraints.
+	orgConstraints := filepath.Join(orgDir, ".mom", "constraints")
+	entries, err := os.ReadDir(orgConstraints)
+	if err != nil || len(entries) == 0 {
+		t.Fatal("org scope should have constraint files")
+	}
+
+	// Now init the child repo — should inherit constraints from org.
+	repoResult := OnboardingResult{
+		Runtimes:   []string{"claude"},
+		Language:   "en",
+		Mode:       "concise",
+		InstallDir: repoDir,
+		ScopeLabel: "repo",
+	}
+	if err := runInitWithConfig(cmd, repoDir, false, repoResult); err != nil {
+		t.Fatalf("repo init failed: %v", err)
+	}
+
+	// Child constraints dir should exist but be empty (no duplicated files).
+	repoConstraints := filepath.Join(repoDir, ".mom", "constraints")
+	repoEntries, err := os.ReadDir(repoConstraints)
+	if err != nil {
+		t.Fatalf("repo constraints dir should exist: %v", err)
+	}
+	if len(repoEntries) > 0 {
+		t.Errorf("repo constraints should be empty (inherited from org), got %d files", len(repoEntries))
+	}
+
+	// Child skills dir should also be empty.
+	repoSkills := filepath.Join(repoDir, ".mom", "skills")
+	repoSkillEntries, err := os.ReadDir(repoSkills)
+	if err != nil {
+		t.Fatalf("repo skills dir should exist: %v", err)
+	}
+	if len(repoSkillEntries) > 0 {
+		t.Errorf("repo skills should be empty (inherited from org), got %d files", len(repoSkillEntries))
+	}
+}
+
+// TestInitCmd_CreatesConstraintsWhenNoParent verifies that a standalone repo
+// (no parent scope) still gets local constraints and skills.
+func TestInitCmd_CreatesConstraintsWhenNoParent(t *testing.T) {
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"init", "--runtimes", "claude"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	// Standalone repo should have constraints written locally.
+	constraintsDir := filepath.Join(dir, ".mom", "constraints")
+	entries, err := os.ReadDir(constraintsDir)
+	if err != nil {
+		t.Fatalf("constraints dir should exist: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Error("standalone repo should have local constraint files")
+	}
+
+	// And skills too.
+	skillsDir := filepath.Join(dir, ".mom", "skills")
+	skillEntries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		t.Fatalf("skills dir should exist: %v", err)
+	}
+	if len(skillEntries) == 0 {
+		t.Error("standalone repo should have local skill files")
+	}
+}
+
+// TestParentScopeHasDir_Unit tests the parentScopeHasDir helper directly.
+func TestParentScopeHasDir_Unit(t *testing.T) {
+	// Setup: org/.mom/constraints/ with a file, repo under org.
+	orgDir := t.TempDir()
+	constraintsDir := filepath.Join(orgDir, ".mom", "constraints")
+	os.MkdirAll(constraintsDir, 0755)
+	os.WriteFile(filepath.Join(constraintsDir, "test.json"), []byte(`{}`), 0644)
+
+	repoDir := filepath.Join(orgDir, "repo-a")
+	os.MkdirAll(repoDir, 0755)
+
+	// From repo dir, parent should have constraints.
+	if !parentScopeHasDir(repoDir, "constraints") {
+		t.Error("expected parentScopeHasDir to find constraints in parent")
+	}
+
+	// From repo dir, parent should NOT have skills (none created).
+	if parentScopeHasDir(repoDir, "skills") {
+		t.Error("expected parentScopeHasDir to not find skills in parent")
+	}
+
+	// From org dir itself, no parent has constraints.
+	if parentScopeHasDir(orgDir, "constraints") {
+		t.Error("expected parentScopeHasDir to not find constraints above org")
 	}
 }

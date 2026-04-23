@@ -1,30 +1,47 @@
 package drafter
 
-import "strings"
+import (
+	"strings"
+	"sync"
 
-// Stopwords for RAKE (common English, ~200 words).
-var stopwords = map[string]bool{
-	"the": true, "a": true, "an": true, "is": true, "are": true, "was": true, "were": true,
-	"be": true, "been": true, "being": true, "have": true, "has": true, "had": true,
-	"do": true, "does": true, "did": true, "will": true, "would": true, "could": true,
-	"should": true, "may": true, "might": true, "shall": true, "can": true,
-	"this": true, "that": true, "these": true, "those": true,
-	"i": true, "you": true, "he": true, "she": true, "it": true, "we": true, "they": true,
-	"me": true, "him": true, "her": true, "us": true, "them": true,
-	"my": true, "your": true, "his": true, "its": true, "our": true, "their": true,
-	"what": true, "which": true, "who": true, "whom": true, "where": true, "when": true,
-	"how": true, "why": true, "if": true, "then": true, "else": true,
-	"and": true, "or": true, "but": true, "not": true, "so": true, "yet": true,
-	"for": true, "with": true, "from": true, "to": true, "in": true, "on": true,
-	"at": true, "by": true, "of": true, "about": true, "into": true, "through": true,
-	"as": true, "up": true, "out": true, "off": true, "over": true, "under": true,
-	"also": true, "just": true, "very": true, "much": true, "more": true, "most": true,
-	"some": true, "any": true, "no": true, "all": true, "each": true, "every": true,
-	"both": true, "few": true, "many": true, "such": true, "own": true, "same": true,
-	"other": true, "than": true, "too": true, "only": true, "here": true, "there": true,
-	"now": true, "while": true, "after": true,
-	"before": true, "during": true, "since": true, "until": true,
+	stopwordsiso "github.com/toadharvard/stopwords-iso"
+)
+
+// stopwords is a merged set of stop words from all languages (stopwords-iso).
+// Loaded once on first use.
+var (
+	stopwords     map[string]bool
+	stopwordsOnce sync.Once
+)
+
+func loadStopwords() {
+	stopwords = make(map[string]bool)
+	mapping, err := stopwordsiso.NewStopwordsMapping()
+	if err != nil {
+		// Fallback: minimal English set if lib fails.
+		for _, w := range []string{"the", "a", "an", "is", "are", "and", "or", "but", "for", "to", "in", "on", "at", "by", "of"} {
+			stopwords[w] = true
+		}
+		return
+	}
+	for _, words := range mapping {
+		for _, w := range words {
+			// Normalize: lowercase, strip accents.
+			w = strings.ToLower(strings.TrimSpace(w))
+			if w != "" {
+				stopwords[w] = true
+			}
+		}
+	}
 }
+
+func isStopword(w string) bool {
+	stopwordsOnce.Do(loadStopwords)
+	return stopwords[w]
+}
+
+// maxPhraseWords limits RAKE candidate phrases to avoid overly long tags.
+const maxPhraseWords = 4
 
 // RakeCandidate is a keyword candidate with a score.
 type RakeCandidate struct {

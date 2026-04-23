@@ -32,15 +32,16 @@ func TestRegistryGetUnknown(t *testing.T) {
 func TestRegistryDetectAll(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create .claude/ and .clinerules/ but not AGENTS.md
+	// Create .claude/ and .clinerules/ but not AGENTS.md.
+	// Note: .claude/ is shared by both claude and openclaude adapters.
 	os.MkdirAll(filepath.Join(dir, ".claude"), 0755)
 	os.MkdirAll(filepath.Join(dir, ".clinerules"), 0755)
 
 	r := NewRegistry(dir)
 	detected := r.DetectAll()
 
-	if len(detected) != 2 {
-		t.Fatalf("expected 2 detected adapters, got %d", len(detected))
+	if len(detected) != 3 {
+		t.Fatalf("expected 3 detected adapters (claude, openclaude, cline), got %d", len(detected))
 	}
 
 	names := make(map[string]bool)
@@ -49,6 +50,9 @@ func TestRegistryDetectAll(t *testing.T) {
 	}
 	if !names["claude"] {
 		t.Error("expected claude to be detected")
+	}
+	if !names["openclaude"] {
+		t.Error("expected openclaude to be detected")
 	}
 	if !names["cline"] {
 		t.Error("expected cline to be detected")
@@ -60,15 +64,15 @@ func TestRegistryAll(t *testing.T) {
 	r := NewRegistry(dir)
 
 	all := r.All()
-	if len(all) != 3 {
-		t.Fatalf("expected 3 adapters, got %d", len(all))
+	if len(all) != 5 {
+		t.Fatalf("expected 5 adapters, got %d", len(all))
 	}
 
 	names := make(map[string]bool)
 	for _, a := range all {
 		names[a.Name()] = true
 	}
-	for _, expected := range []string{"claude", "codex", "cline"} {
+	for _, expected := range []string{"claude", "codex", "cline", "openclaude", "windsurf"} {
 		if !names[expected] {
 			t.Errorf("expected %q in All()", expected)
 		}

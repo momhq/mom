@@ -44,4 +44,5 @@ func init() {
 	rootCmd.AddCommand(logCmd)
 	rootCmd.AddCommand(draftCmd)
 	rootCmd.AddCommand(diagnoseCmd)
+	rootCmd.AddCommand(sweepCmd)
 }

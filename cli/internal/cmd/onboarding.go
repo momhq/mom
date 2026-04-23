@@ -17,7 +17,7 @@ import (
 type OnboardingResult struct {
 	Runtimes   []string // ["claude", "codex", "cline"]
 	Language   string   // always "en" — language selection removed in v0.9
-	Mode       string   // "verbose", "concise", "normal", "caveman"
+	Mode       string   // "default", "concise", "efficient"
 	CoreSource string   // path to mom clone, or "" if skipped
 	// InstallDir is the directory where .mom/ should be created.
 	// Defaults to cwd (current project). Set to a parent for multi-repo installs.
@@ -111,10 +111,9 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 			huh.NewSelect[string]().
 				Title("Communication mode").
 				Options(
-					huh.NewOption("Concise — short and direct (recommended)", "concise"),
-					huh.NewOption("Normal — standard prose", "normal"),
-					huh.NewOption("Verbose — detailed explanations", "verbose"),
-					huh.NewOption("Caveman — minimal tokens, maximum signal", "caveman"),
+					huh.NewOption("Concise — direct, no filler, grammar intact (recommended)", "concise"),
+					huh.NewOption("Efficient — telegraphic, fragments OK, max token savings", "efficient"),
+					huh.NewOption("Default — no instructions, runtime decides", "default"),
 				).
 				Value(&mode),
 		),
@@ -449,6 +448,8 @@ func runtimeLabel(rt string) string {
 		return "Cursor"
 	case "windsurf":
 		return "Windsurf"
+	case "openclaude":
+		return "OpenClaude"
 	default:
 		return rt
 	}
@@ -468,13 +469,11 @@ func languageLabel(_ string) string {
 
 func modeLabel(mode string) string {
 	switch mode {
-	case "verbose":
-		return "Verbose"
-	case "caveman":
-		return "Caveman"
-	case "normal":
-		return "Normal"
-	default:
+	case "concise":
 		return "Concise"
+	case "efficient":
+		return "Efficient"
+	default:
+		return "Default"
 	}
 }

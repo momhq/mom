@@ -8,12 +8,12 @@ import (
 // BuildMinimalContextContent generates a slim boot file for MCP-first delivery.
 // The behavioral protocol is delivered on-demand via mom_status.
 func BuildMinimalContextContent() string {
-	return `# MOM — Memory-Oriented Manager
+	return `# MOM — Memory Oriented Machine
 
 You have MOM tools via MCP. Call ` + "`mom_status`" + ` at the start of every session.
 
-For memory operations: search_memories, get_memory, create_memory_draft,
-list_landmarks, list_scopes.
+For memory operations: mom_recall, search_memories, get_memory,
+create_memory_draft, list_landmarks, list_scopes.
 
 Do NOT skip mom_status — it contains your operating instructions.
 `

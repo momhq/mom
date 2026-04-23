@@ -66,9 +66,9 @@ func TestOnboarding_DefaultSelections(t *testing.T) {
 
 // TestOnboarding_ExplicitSelections verifies non-default choices.
 func TestOnboarding_ExplicitSelections(t *testing.T) {
-	// MultiSelect: toggle 2 (codex) then 0 (confirm), mode=4 (caveman),
+	// MultiSelect: toggle 2 (codex) then 0 (confirm), mode=2 (efficient),
 	// scope=default (empty), core-source=skip, bootstrap=default (empty), confirm=y
-	input := testReader("2\n0\n4\n\n\n\ny\n")
+	input := testReader("2\n0\n2\n\n\n\ny\n")
 	output := &bytes.Buffer{}
 
 	result, err := runOnboarding(input, output, t.TempDir())
@@ -93,8 +93,8 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 	if result.Language != "en" {
 		t.Errorf("expected language=en (fixed), got %q", result.Language)
 	}
-	if result.Mode != "caveman" {
-		t.Errorf("expected mode=caveman, got %q", result.Mode)
+	if result.Mode != "efficient" {
+		t.Errorf("expected mode=efficient, got %q", result.Mode)
 	}
 }
 

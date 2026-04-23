@@ -61,7 +61,7 @@ func TestDoctorBase_ModernLayout_RunsNormally(t *testing.T) {
 	leoDir := filepath.Join(dir, ".mom")
 
 	// Create flat v0.8.0 layout — no kb/ directory.
-	for _, d := range []string{"memory", "constraints", "skills", "logs", "telemetry", "cache"} {
+	for _, d := range []string{"memory", "constraints", "skills", "logs", "cache"} {
 		os.MkdirAll(filepath.Join(leoDir, d), 0755)
 	}
 

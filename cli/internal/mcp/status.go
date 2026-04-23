@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/scope"
 )
@@ -210,26 +211,28 @@ func (s *Server) statusSkills() []docSummary {
 }
 
 // statusModes returns language/communication/autonomy from config, falling back
-// to sensible defaults when config is unavailable.
+// to sensible defaults when config is unavailable. Each field contains the full
+// behavioral rules, not just the mode label — so the agent receives concrete
+// instructions via MCP without needing a context file.
 func (s *Server) statusModes() statusModesBlock {
-	language := "en"
-	communication := "concise"
-	autonomy := "Balanced — propose before major changes, confirm before external-facing actions"
+	lang := "en"
+	commMode := "concise"
+	autoMode := "balanced"
 
 	cfg, err := config.Load(s.momDir)
 	if err == nil {
 		if cfg.User.Language != "" {
-			language = cfg.User.Language
+			lang = cfg.User.Language
 		}
 		if cfg.Communication.Mode != "" {
-			communication = cfg.Communication.Mode
+			commMode = cfg.Communication.Mode
 		}
 	}
 
 	return statusModesBlock{
-		Language:      language,
-		Communication: communication,
-		Autonomy:      autonomy,
+		Language:      runtime.LanguageInstructions(lang),
+		Communication: runtime.CommunicationModeInstructions(commMode),
+		Autonomy:      runtime.AutonomyInstructions(autoMode),
 	}
 }
 

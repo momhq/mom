@@ -133,7 +133,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			filepath.Join(leoDir, "constraints"),
 			filepath.Join(leoDir, "skills"),
 			filepath.Join(leoDir, "logs"),
-			filepath.Join(leoDir, "telemetry"),
 			filepath.Join(leoDir, "cache"),
 			filepath.Join(leoDir, "raw"),
 		}
@@ -332,6 +331,17 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 	if phase3Err != nil {
 		return phase3Err
+	}
+
+	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
+	if !dryRun {
+		registry := runtime.NewRegistry(projectRoot)
+		enabledRTs := cfg.EnabledRuntimes()
+		if added, gitErr := ensureGitIgnore(projectRoot, registry, enabledRTs); gitErr != nil {
+			addAction("⚠", fmt.Sprintf(".gitignore: %v", gitErr))
+		} else if len(added) > 0 {
+			addAction("✔", fmt.Sprintf(".gitignore updated (%d entries added)", len(added)))
+		}
 	}
 
 	// ── Report ──────────────────────────────────────────────────────────────

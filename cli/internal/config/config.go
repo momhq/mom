@@ -21,6 +21,7 @@ type Config struct {
 	User          UserConfig               `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
 	Memory        MemoryConfig             `yaml:"memory"`
+	RawMemories   RawMemoriesConfig        `yaml:"raw_memories"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
 	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
 	// Delivery controls how the behavioral protocol is delivered to the runtime.
@@ -80,7 +81,7 @@ type UserConfig struct {
 
 // CommunicationConfig holds communication style settings.
 type CommunicationConfig struct {
-	// Mode controls verbosity: concise | normal | verbose | caveman. Default: concise.
+	// Mode controls verbosity: default | concise | efficient. Default: concise.
 	Mode string `yaml:"mode"`
 }
 
@@ -88,6 +89,12 @@ type CommunicationConfig struct {
 // AutoPropagate, WrapUp, and StaleThreshold were retired in v0.10 (#83) —
 // written to config but never enforced by any code.
 type MemoryConfig struct{}
+
+// RawMemoriesConfig controls automatic cleanup of old raw JSONL recordings.
+type RawMemoriesConfig struct {
+	RetentionDays int  `yaml:"retention_days"` // delete files older than N days (default: 30)
+	AutoClean     bool `yaml:"auto_clean"`     // run sweep automatically after mom draft
+}
 
 // Default returns a Config with sane defaults.
 func Default() Config {
@@ -102,8 +109,9 @@ func Default() Config {
 		Communication: CommunicationConfig{
 			Mode: "concise",
 		},
-		Memory:   MemoryConfig{},
-		Delivery: "mcp",
+		Memory:      MemoryConfig{},
+		RawMemories: RawMemoriesConfig{RetentionDays: 30, AutoClean: false},
+		Delivery:    "mcp",
 	}
 }
 
@@ -179,6 +187,8 @@ func Load(momDir string) (*Config, error) {
 		if cfg.Communication.Mode == "" {
 			cfg.Communication.Mode = "concise"
 		}
+		// Normalize legacy mode names to new ones.
+		cfg.Communication.Mode = normalizeCommunicationMode(cfg.Communication.Mode)
 		// Migrate legacy kb: key → memory: if present and memory: is empty.
 		cfg = migrateKBKey(data, cfg)
 		return &cfg, nil
@@ -202,6 +212,20 @@ func Load(momDir string) (*Config, error) {
 	return &cfg, nil
 }
 
+// normalizeCommunicationMode maps retired mode names to current ones.
+// "normal" and "verbose" → "default"; "caveman" → "efficient".
+// Known current values ("default", "concise", "efficient") pass through unchanged.
+func normalizeCommunicationMode(mode string) string {
+	switch mode {
+	case "normal", "verbose":
+		return "default"
+	case "caveman":
+		return "efficient"
+	default:
+		return mode
+	}
+}
+
 // migrateKBKey reads the raw YAML node tree to detect a legacy kb: key and
 // copies its value into cfg.Memory when the memory: key is absent/zero.
 // MemoryConfig fields were retired in v0.10 (#83), so this is now a no-op
@@ -223,11 +247,12 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 		legacyUser = legacy.Owner
 	}
 
-	// Infer communication.mode from legacy user.mode.
-	// Preserve "caveman" if set; default everything else to "concise".
+	// Map old mode names to new ones.
 	commMode := "concise"
 	if legacyUser.Mode == "caveman" {
-		commMode = "caveman"
+		commMode = "efficient"
+	} else if legacyUser.Mode == "normal" || legacyUser.Mode == "verbose" {
+		commMode = "default"
 	}
 
 	// Autonomy and tiers were retired in v0.9.0 (#74) — not propagated.

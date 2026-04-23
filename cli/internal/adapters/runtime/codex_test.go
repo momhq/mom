@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,28 +82,199 @@ func TestCodexAdapter_GenerateContextFileWatermark(t *testing.T) {
 	}
 }
 
+func TestCodexAdapter_SupportsHooks(t *testing.T) {
+	a := NewCodexAdapter("/tmp/test")
+	if !a.SupportsHooks() {
+		t.Error("expected SupportsHooks to be true")
+	}
+}
+
+func TestCodexAdapter_RegisterHooks(t *testing.T) {
+	dir := t.TempDir()
+	a := NewCodexAdapter(dir)
+
+	if err := a.RegisterHooks(CodexHooks()); err != nil {
+		t.Fatalf("RegisterHooks failed: %v", err)
+	}
+
+	hooksPath := filepath.Join(dir, ".codex", "hooks.json")
+	content, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatalf("reading hooks.json: %v", err)
+	}
+
+	// Verify top-level "hooks" key wrapping the event map.
+	var root map[string]any
+	if err := json.Unmarshal(content, &root); err != nil {
+		t.Fatalf("parsing hooks.json: %v", err)
+	}
+
+	hooksMap, ok := root["hooks"].(map[string]any)
+	if !ok {
+		t.Fatal("hooks.json should have top-level 'hooks' key wrapping events")
+	}
+
+	stop, ok := hooksMap["Stop"].([]any)
+	if !ok {
+		t.Fatal("hooks.Stop should be an array")
+	}
+	if len(stop) != 2 {
+		t.Fatalf("expected 2 Stop matcher groups, got %d", len(stop))
+	}
+
+	// Verify both "mom record" and "mom draft" are present.
+	var commands []string
+	for _, entry := range stop {
+		group, ok := entry.(map[string]any)
+		if !ok {
+			t.Fatal("matcher group should be a map")
+		}
+		innerHooks, ok := group["hooks"].([]any)
+		if !ok || len(innerHooks) == 0 {
+			t.Fatal("matcher group should have a hooks array")
+		}
+		hookEntry, ok := innerHooks[0].(map[string]any)
+		if !ok {
+			t.Fatal("hook entry should be a map")
+		}
+		if hookEntry["type"] != "command" {
+			t.Errorf("expected type 'command', got %v", hookEntry["type"])
+		}
+		commands = append(commands, hookEntry["command"].(string))
+	}
+
+	hasRecord := false
+	hasDraft := false
+	for _, cmd := range commands {
+		if cmd == "mom record" {
+			hasRecord = true
+		}
+		if cmd == "mom draft" {
+			hasDraft = true
+		}
+	}
+	if !hasRecord {
+		t.Error("hooks.json missing 'mom record' command")
+	}
+	if !hasDraft {
+		t.Error("hooks.json missing 'mom draft' command")
+	}
+}
+
+func TestCodexAdapter_RegisterMCP(t *testing.T) {
+	dir := t.TempDir()
+	a := NewCodexAdapter(dir)
+
+	if err := a.RegisterMCP(); err != nil {
+		t.Fatalf("RegisterMCP failed: %v", err)
+	}
+
+	// Verify .mcp.json (shared with other runtimes).
+	data, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatalf("reading .mcp.json: %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"mom"`) {
+		t.Error(".mcp.json missing mom server entry")
+	}
+
+	// Verify project-level .codex/config.toml (what Codex actually reads).
+	tomlData, err := os.ReadFile(filepath.Join(dir, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatalf("reading .codex/config.toml: %v", err)
+	}
+	toml := string(tomlData)
+	if !strings.Contains(toml, "[mcp_servers.mom]") {
+		t.Error("config.toml missing [mcp_servers.mom] section")
+	}
+	if !strings.Contains(toml, `command = "mom"`) {
+		t.Error("config.toml missing mom command")
+	}
+	if !strings.Contains(toml, "codex_hooks = true") {
+		t.Error("config.toml missing codex_hooks feature flag")
+	}
+}
+
+func TestCodexAdapter_RegisterMCP_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	a := NewCodexAdapter(dir)
+
+	// Call twice — should not duplicate the section.
+	a.RegisterMCP()
+	a.RegisterMCP()
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".codex", "config.toml"))
+	content := string(data)
+	count := strings.Count(content, "[mcp_servers.mom]")
+	if count != 1 {
+		t.Errorf("expected 1 [mcp_servers.mom] section, got %d", count)
+	}
+	count = strings.Count(content, "codex_hooks")
+	if count != 1 {
+		t.Errorf("expected 1 codex_hooks entry, got %d", count)
+	}
+}
+
+func TestCodexAdapter_RegisterMCP_PreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".codex"), 0755)
+
+	// Pre-existing config with trust level.
+	existing := "[projects.\"/some/path\"]\ntrust_level = \"trusted\"\n"
+	os.WriteFile(filepath.Join(dir, ".codex", "config.toml"), []byte(existing), 0644)
+
+	a := NewCodexAdapter(dir)
+	if err := a.RegisterMCP(); err != nil {
+		t.Fatalf("RegisterMCP failed: %v", err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".codex", "config.toml"))
+	content := string(data)
+
+	if !strings.Contains(content, "trust_level") {
+		t.Error("RegisterMCP should preserve existing config content")
+	}
+	if !strings.Contains(content, "[mcp_servers.mom]") {
+		t.Error("RegisterMCP should add MCP section")
+	}
+}
+
 func TestCodexAdapter_GeneratedFiles(t *testing.T) {
 	a := NewCodexAdapter("/tmp/test")
 	files := a.GeneratedFiles()
-	if len(files) != 1 || files[0] != "AGENTS.md" {
-		t.Errorf("expected [AGENTS.md], got %v", files)
+	expected := []string{"AGENTS.md", filepath.Join(".codex", "hooks.json"), filepath.Join(".codex", "config.toml"), ".mcp.json"}
+	if len(files) != len(expected) {
+		t.Fatalf("expected %d files, got %d: %v", len(expected), len(files), files)
+	}
+	for i, f := range files {
+		if f != expected[i] {
+			t.Errorf("expected files[%d] = %q, got %q", i, expected[i], f)
+		}
+	}
+}
+
+func TestCodexAdapter_GitIgnorePaths(t *testing.T) {
+	a := NewCodexAdapter("/tmp/test")
+	paths := a.GitIgnorePaths()
+	expected := []string{"AGENTS.md", ".codex/"}
+	if len(paths) != len(expected) {
+		t.Fatalf("expected %d paths, got %d: %v", len(expected), len(paths), paths)
+	}
+	for i, p := range paths {
+		if p != expected[i] {
+			t.Errorf("expected paths[%d] = %q, got %q", i, expected[i], p)
+		}
 	}
 }
 
 func TestCodexAdapter_GeneratedDirs(t *testing.T) {
 	a := NewCodexAdapter("/tmp/test")
-	if dirs := a.GeneratedDirs(); dirs != nil {
-		t.Errorf("expected nil dirs, got %v", dirs)
+	dirs := a.GeneratedDirs()
+	if len(dirs) != 1 || dirs[0] != ".codex" {
+		t.Errorf("expected [.codex], got %v", dirs)
 	}
 }
-
-func TestCodexAdapter_SupportsHooks(t *testing.T) {
-	a := NewCodexAdapter("/tmp/test")
-	if a.SupportsHooks() {
-		t.Error("expected SupportsHooks to be false")
-	}
-}
-
 
 func TestCodexAdapter_NoIdentity(t *testing.T) {
 	dir := t.TempDir()

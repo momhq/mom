@@ -84,7 +84,7 @@ func TestClaudeAdapter_GenerateContextFile(t *testing.T) {
 		"End-of-session knowledge propagation.",
 		"must be written in English",
 		"## Communication mode: Concise",
-		"no filler",
+		"Every word earns its place",
 		"Balanced",
 		"Propose before",
 		"## Voice",
@@ -163,9 +163,7 @@ func TestClaudeAdapter_GenerateContextFile_CommunicationModes(t *testing.T) {
 		want string
 	}{
 		{"concise", "## Communication mode: Concise"},
-		{"normal", "## Communication mode: Normal"},
-		{"verbose", "## Communication mode: Verbose"},
-		{"caveman", "## Communication mode: Caveman"},
+		{"efficient", "## Communication mode: Efficient"},
 	}
 
 	for _, tc := range modes {
@@ -186,6 +184,24 @@ func TestClaudeAdapter_GenerateContextFile_CommunicationModes(t *testing.T) {
 			}
 		})
 	}
+
+	// "default" mode returns empty instructions — no communication header in output.
+	t.Run("default", func(t *testing.T) {
+		dir := t.TempDir()
+		a := NewClaudeAdapter(dir)
+		cfg := Config{
+			Version:  "1",
+			Delivery: "context-file",
+			User:     UserConfig{Language: "en", Autonomy: "balanced", CommunicationMode: "default"},
+		}
+		if err := a.GenerateContextFile(cfg, nil, nil, nil); err != nil {
+			t.Fatalf("GenerateContextFile failed: %v", err)
+		}
+		content, _ := os.ReadFile(filepath.Join(dir, ".claude", "CLAUDE.md"))
+		if strings.Contains(string(content), "## Communication mode") {
+			t.Error("CLAUDE.md should not contain communication mode header for default mode")
+		}
+	})
 }
 
 func TestClaudeAdapter_RegisterHooks(t *testing.T) {
@@ -276,30 +292,37 @@ func TestClaudeAdapter_RegisterHooks_DefaultHooks(t *testing.T) {
 	if !ok {
 		t.Fatal("hooks.Stop should be an array")
 	}
-	if len(stop) != 1 {
-		t.Fatalf("expected 1 Stop matcher group, got %d", len(stop))
+	if len(stop) != 2 {
+		t.Fatalf("expected 2 Stop matcher groups (record + draft), got %d", len(stop))
 	}
 
-	group := stop[0].(map[string]any)
-	innerHooks := group["hooks"].([]any)
-	hookEntry := innerHooks[0].(map[string]any)
-	if hookEntry["command"] != "mom record" {
-		t.Errorf("expected command 'mom record', got %v", hookEntry["command"])
+	group0 := stop[0].(map[string]any)
+	innerHooks0 := group0["hooks"].([]any)
+	hookEntry0 := innerHooks0[0].(map[string]any)
+	if hookEntry0["command"] != "mom record" {
+		t.Errorf("expected command 'mom record', got %v", hookEntry0["command"])
 	}
 
+	group1 := stop[1].(map[string]any)
+	innerHooks1 := group1["hooks"].([]any)
+	hookEntry1 := innerHooks1[0].(map[string]any)
+	if hookEntry1["command"] != "mom draft" {
+		t.Errorf("expected command 'mom draft', got %v", hookEntry1["command"])
+	}
+
+	// SessionEnd should have a fallback "mom draft" to catch the last response.
 	sessionEnd, ok := hooksMap["SessionEnd"].([]any)
 	if !ok {
 		t.Fatal("hooks.SessionEnd should be an array")
 	}
 	if len(sessionEnd) != 1 {
-		t.Fatalf("expected 1 SessionEnd matcher group, got %d", len(sessionEnd))
+		t.Fatalf("expected 1 SessionEnd matcher group (draft), got %d", len(sessionEnd))
 	}
-
 	seGroup := sessionEnd[0].(map[string]any)
 	seHooks := seGroup["hooks"].([]any)
 	seEntry := seHooks[0].(map[string]any)
 	if seEntry["command"] != "mom draft" {
-		t.Errorf("expected command 'mom draft', got %v", seEntry["command"])
+		t.Errorf("expected SessionEnd command 'mom draft', got %v", seEntry["command"])
 	}
 }
 

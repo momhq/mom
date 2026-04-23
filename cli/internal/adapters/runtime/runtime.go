@@ -93,4 +93,9 @@ type Adapter interface {
 	// Capabilities returns the MRP v0 capability declaration for this adapter.
 	// Loaded from the embedded YAML file in capabilities/.
 	Capabilities() AdapterCapability
+
+	// GitIgnorePaths returns the paths (relative to project root) that should
+	// be added to .gitignore when this adapter is enabled. Includes both
+	// directories (with trailing /) and files.
+	GitIgnorePaths() []string
 }

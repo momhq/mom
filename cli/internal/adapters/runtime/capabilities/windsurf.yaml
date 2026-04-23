@@ -1,8 +1,9 @@
-adapter: codex
+adapter: windsurf
 version: "1.0"
 supports:
   - session.start
   - session.end
 experimental:
+  - turn.complete
   - compact.triggered
   - clear.triggered

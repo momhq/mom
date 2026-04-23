@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/momhq/mom/cli/internal/recorder"
@@ -13,16 +14,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var recordRaw bool
+
 var recordCmd = &cobra.Command{
 	Use:   "record",
 	Short: "Record raw conversation data from hook stdin",
 	Long: `Reads hook JSON from stdin, extracts transcript_path, and appends
 new turns to .mom/raw/ as JSONL. Idempotent — safe to call multiple times.
 
-Used as a Claude Code hook command. Not typically called directly.`,
+With --raw, reads plain text from stdin instead of Claude Code hook JSON.
+This mode is used by runtimes that don't provide transcript_path (e.g. Cline).
+
+Used as a hook command. Not typically called directly.`,
 	RunE:          runRecord,
 	SilenceUsage:  true,
 	SilenceErrors: true,
+}
+
+func init() {
+	recordCmd.Flags().BoolVar(&recordRaw, "raw", false, "Read plain text from stdin instead of Claude Code hook JSON")
 }
 
 func runRecord(cmd *cobra.Command, _ []string) error {
@@ -33,16 +43,40 @@ func runRecord(cmd *cobra.Command, _ []string) error {
 		return nil // never fail the hook
 	}
 
+	// Find nearest .mom/
+	cwd, _ := os.Getwd()
+	if envDir := os.Getenv("MOM_PROJECT_DIR"); envDir != "" {
+		cwd = envDir
+	}
+
+	if recordRaw {
+		return runRecordRaw(data, cwd)
+	}
+
 	var input recorder.HookInput
 	if err := json.Unmarshal(data, &input); err != nil {
 		logRecordError(err)
 		return nil
 	}
 
-	// Find nearest .mom/
-	cwd := input.Cwd
-	if cwd == "" {
-		cwd, _ = os.Getwd()
+	// Windsurf puts transcript_path inside tool_info, not at the root.
+	if input.TranscriptPath == "" {
+		var wrapper struct {
+			ToolInfo struct {
+				TranscriptPath string `json:"transcript_path"`
+			} `json:"tool_info"`
+			TrajectoryID string `json:"trajectory_id"`
+		}
+		if json.Unmarshal(data, &wrapper) == nil && wrapper.ToolInfo.TranscriptPath != "" {
+			input.TranscriptPath = wrapper.ToolInfo.TranscriptPath
+			if input.SessionID == "" {
+				input.SessionID = wrapper.TrajectoryID
+			}
+		}
+	}
+
+	if input.Cwd != "" {
+		cwd = input.Cwd
 	}
 	sc, ok := scope.NearestWritable(cwd)
 	if !ok {
@@ -54,6 +88,27 @@ func runRecord(cmd *cobra.Command, _ []string) error {
 		logRecordError(err)
 	}
 	return nil // always exit 0
+}
+
+// runRecordRaw handles --raw mode: plain text from stdin written directly to
+// .mom/raw/ as a JSONL entry. Used by runtimes that don't provide
+// transcript_path (Cline, Windsurf, etc.).
+func runRecordRaw(data []byte, cwd string) error {
+	text := strings.TrimSpace(string(data))
+	if text == "" {
+		return nil // nothing to record
+	}
+
+	sc, ok := scope.NearestWritable(cwd)
+	if !ok {
+		logRecordError(fmt.Errorf("no .mom/ found from %q", cwd))
+		return nil
+	}
+
+	if err := recorder.RecordText(sc.Path, text); err != nil {
+		logRecordError(err)
+	}
+	return nil
 }
 
 // logRecordError appends an error to .mom/logs/record.log, best-effort.

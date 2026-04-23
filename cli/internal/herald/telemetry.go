@@ -23,7 +23,7 @@ type TelemetrySubscriber struct {
 // NewTelemetrySubscriber returns a TelemetrySubscriber that writes to
 // <momDir>/telemetry/. If enabled is false no files are written.
 func NewTelemetrySubscriber(momDir string, enabled bool) *TelemetrySubscriber {
-	dir := filepath.Join(momDir, "telemetry")
+	dir := filepath.Join(momDir, "logs")
 	ts := &TelemetrySubscriber{dir: dir, enabled: enabled}
 	if !enabled {
 		return ts

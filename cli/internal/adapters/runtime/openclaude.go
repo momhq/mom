@@ -6,30 +6,30 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed capabilities/claude.yaml
-var claudeCapabilitiesYAML []byte
+//go:embed capabilities/openclaude.yaml
+var openclaudeCapabilitiesYAML []byte
 
-// ClaudeAdapter implements the Adapter interface for Claude Code.
-// It reads from .mom/ and generates .claude/CLAUDE.md + settings.json.
-type ClaudeAdapter struct {
+// OpenClaudeAdapter implements the Adapter interface for OpenClaude.
+// It reads from .mom/ and generates .openclaude/CLAUDE.md + settings.json.
+type OpenClaudeAdapter struct {
 	projectRoot string
 }
 
-// NewClaudeAdapter creates a ClaudeAdapter for the given project root.
-func NewClaudeAdapter(projectRoot string) *ClaudeAdapter {
-	return &ClaudeAdapter{projectRoot: projectRoot}
+// NewOpenClaudeAdapter creates an OpenClaudeAdapter for the given project root.
+func NewOpenClaudeAdapter(projectRoot string) *OpenClaudeAdapter {
+	return &OpenClaudeAdapter{projectRoot: projectRoot}
 }
 
-func (a *ClaudeAdapter) Name() string {
-	return "claude"
+func (a *OpenClaudeAdapter) Name() string {
+	return "openclaude"
 }
 
-func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
+func (a *OpenClaudeAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
+	// OpenClaude uses .claude/CLAUDE.md (same as Claude Code).
 	claudeDir := filepath.Join(a.projectRoot, ".claude")
 	if err := os.MkdirAll(claudeDir, 0755); err != nil {
 		return fmt.Errorf("creating .claude dir: %w", err)
@@ -51,15 +51,15 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constra
 	return nil
 }
 
-func (a *ClaudeAdapter) SupportsHooks() bool {
+func (a *OpenClaudeAdapter) SupportsHooks() bool {
 	return true
 }
 
-func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
+func (a *OpenClaudeAdapter) RegisterHooks(hooks []HookDef) error {
+	// OpenClaude uses .claude/settings.json (same as Claude Code).
 	claudeDir := filepath.Join(a.projectRoot, ".claude")
 	settingsPath := filepath.Join(claudeDir, "settings.json")
 
-	// Ensure .claude/ exists.
 	if err := os.MkdirAll(claudeDir, 0755); err != nil {
 		return fmt.Errorf("creating .claude dir: %w", err)
 	}
@@ -72,7 +72,7 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 		}
 	}
 
-	// Build Claude Code hooks structure:
+	// Build hooks structure (same format as Claude Code):
 	//   "hooks": { "EventName": [ { "matcher": "...", "hooks": [ {...} ] } ] }
 	hooksMap := make(map[string]any)
 
@@ -116,12 +116,9 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 	return nil
 }
 
-// DefaultHooks returns the standard MOM hooks for Claude Code.
-// Stop → mom record + mom draft: captures transcript and processes drafts
-// after each response (continuous mode, 1-response lag).
-// SessionEnd → mom draft: fallback to draft the last response when the
-// session closes — covers abrupt exits and final decisions.
-func DefaultHooks() []HookDef {
+// OpenClaudeHooks returns the standard MOM hooks for OpenClaude.
+// Stop → mom record + mom draft: continuous mode (1-response lag).
+func OpenClaudeHooks() []HookDef {
 	return []HookDef{
 		{
 			Event:   "Stop",
@@ -131,21 +128,19 @@ func DefaultHooks() []HookDef {
 			Event:   "Stop",
 			Command: "mom draft",
 		},
-		{
-			Event:   "SessionEnd",
-			Command: "mom draft",
-		},
 	}
 }
 
-func (a *ClaudeAdapter) DetectRuntime() bool {
-	info, err := os.Stat(filepath.Join(a.projectRoot, ".claude"))
-	return err == nil && info.IsDir()
+func (a *OpenClaudeAdapter) DetectRuntime() bool {
+	// OpenClaude shares .claude/ with Claude Code — detect by checking
+	// if the openclaude binary is available.
+	_, err := os.Stat(filepath.Join(a.projectRoot, ".claude"))
+	return err == nil
 }
 
 // RegisterMCP writes or updates .mcp.json at the project root, injecting the
 // MOM MCP server entry. Existing entries for other servers are preserved.
-func (a *ClaudeAdapter) RegisterMCP() error {
+func (a *OpenClaudeAdapter) RegisterMCP() error {
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
 
 	// Load existing .mcp.json or start fresh.
@@ -179,7 +174,7 @@ func (a *ClaudeAdapter) RegisterMCP() error {
 	return nil
 }
 
-func (a *ClaudeAdapter) GeneratedFiles() []string {
+func (a *OpenClaudeAdapter) GeneratedFiles() []string {
 	return []string{
 		filepath.Join(".claude", "CLAUDE.md"),
 		filepath.Join(".claude", "settings.json"),
@@ -187,58 +182,26 @@ func (a *ClaudeAdapter) GeneratedFiles() []string {
 	}
 }
 
-func (a *ClaudeAdapter) GeneratedDirs() []string {
-	return []string{".claude"}
+// GeneratedDirs returns nil — .claude/ may be shared with Claude Code.
+// Uninstall should only remove generated files, not the directory.
+func (a *OpenClaudeAdapter) GeneratedDirs() []string {
+	return nil
 }
 
-func (a *ClaudeAdapter) Watermark() string {
+func (a *OpenClaudeAdapter) Watermark() string {
 	return "<!-- Generated by MOM — do not edit manually -->"
 }
 
-func (a *ClaudeAdapter) GitIgnorePaths() []string {
-	return []string{".claude/", "CLAUDE.md"}
+func (a *OpenClaudeAdapter) GitIgnorePaths() []string {
+	// Shares .claude/ with Claude Code — same gitignore paths.
+	return []string{".claude/"}
 }
 
-func (a *ClaudeAdapter) Capabilities() AdapterCapability {
+func (a *OpenClaudeAdapter) Capabilities() AdapterCapability {
 	var cap AdapterCapability
-	if err := yaml.Unmarshal(claudeCapabilitiesYAML, &cap); err != nil {
+	if err := yaml.Unmarshal(openclaudeCapabilitiesYAML, &cap); err != nil {
 		// Fallback: return minimal capability if YAML is malformed.
-		return AdapterCapability{Name: "claude-code", Version: "1.0"}
+		return AdapterCapability{Name: "openclaude", Version: "1.0"}
 	}
 	return cap
-}
-
-// HasWatermark checks if a file contains the MOM watermark (or the legacy L.E.O. watermark).
-func HasWatermark(path string) bool {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	s := string(data)
-	return strings.Contains(s, "Generated by MOM") || strings.Contains(s, "Generated by L.E.O.")
-}
-
-// BackupIfNeeded creates a .bkp copy of a file if it exists and was NOT
-// generated by MOM (i.e., it's a user file). Returns true if a backup
-// was created.
-func BackupIfNeeded(path string) (bool, error) {
-	if _, err := os.Stat(path); err != nil {
-		return false, nil // file doesn't exist, no backup needed
-	}
-
-	if HasWatermark(path) {
-		return false, nil // it's ours, overwrite freely
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false, fmt.Errorf("reading file for backup: %w", err)
-	}
-
-	bkpPath := path + ".bkp"
-	if err := os.WriteFile(bkpPath, data, 0644); err != nil {
-		return false, fmt.Errorf("writing backup: %w", err)
-	}
-
-	return true, nil
 }

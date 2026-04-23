@@ -13,6 +13,10 @@ func TestBuildMinimalContextContent(t *testing.T) {
 		t.Error("minimal content must mention mom_status")
 	}
 
+	if !strings.Contains(content, "mom_recall") {
+		t.Error("minimal content must mention mom_recall")
+	}
+
 	// Under 100 words.
 	words := strings.Fields(content)
 	if len(words) >= 100 {
