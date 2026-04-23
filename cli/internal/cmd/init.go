@@ -330,6 +330,13 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return genErr
 	}
 
+	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
+	if added, gitErr := ensureGitIgnore(cwd, registry, result.Runtimes); gitErr != nil {
+		cmd.Printf("  ⚠ .gitignore: %v\n", gitErr)
+	} else if len(added) > 0 {
+		cmd.Printf("  ✔ .gitignore updated (%d entries added)\n", len(added))
+	}
+
 	// ── Telemetry: emit smoke events ────────────────────────────────────────
 	startedAt := time.Now().UTC().Format(time.RFC3339)
 	emitter := herald.New(leoDir, cfg.Telemetry.TelemetryEnabled())
