@@ -449,6 +449,8 @@ func runtimeLabel(rt string) string {
 		return "Cursor"
 	case "windsurf":
 		return "Windsurf"
+	case "openclaude":
+		return "OpenClaude"
 	default:
 		return rt
 	}

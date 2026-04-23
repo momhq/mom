@@ -330,6 +330,18 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 					return
 				}
 			}
+
+			// Register MCP server config and hooks for OpenClaude.
+			if ca, ok := adapter.(*runtime.OpenClaudeAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+				if err := ca.RegisterHooks(runtime.OpenClaudeHooks()); err != nil {
+					genErr = err
+					return
+				}
+			}
 		}
 
 		if showSpinner {
