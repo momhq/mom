@@ -19,12 +19,16 @@ var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Upgrade .mom/ to the latest version (preserves your memory docs)",
 	Long: `Upgrades core infrastructure (schema, constraints, skills, runtime files)
-to match the installed leo binary. Your documents in .mom/memory/ are never touched.`,
+to match the installed mom binary. Your documents in .mom/memory/ are never touched.
+
+Use --all to propagate the upgrade to all child scopes in the hierarchy
+(org folders and repos beneath the current scope).`,
 	RunE: runUpgrade,
 }
 
 func init() {
 	upgradeCmd.Flags().Bool("dry-run", false, "Show what would change without modifying anything")
+	upgradeCmd.Flags().Bool("all", false, "Upgrade all child scopes in the hierarchy")
 }
 
 // upgradeAction tracks a single change for reporting.
@@ -35,6 +39,7 @@ type upgradeAction struct {
 
 func runUpgrade(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	all, _ := cmd.Flags().GetBool("all")
 
 	momDir, err := findMomDir()
 	if err != nil {
@@ -42,7 +47,38 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	projectRoot := filepath.Dir(momDir)
+
+	// Upgrade the root scope.
+	if err := upgradeSingleDir(cmd, projectRoot, dryRun); err != nil {
+		return err
+	}
+
+	// Propagate to child scopes if --all.
+	if all {
+		propagateUpgrade(cmd, projectRoot, dryRun)
+	}
+
+	return nil
+}
+
+// upgradeSingleDir runs the full upgrade pipeline on a single .mom/ directory.
+func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error {
+	momDir := filepath.Join(projectRoot, ".mom")
 	showSpinner := isTerminalWriter(cmd.OutOrStdout())
+
+	// Check if this dir has a .mom/ at all.
+	if _, err := os.Stat(momDir); os.IsNotExist(err) {
+		// Try .leo/ fallback.
+		leoDir := filepath.Join(projectRoot, ".leo")
+		if _, err := os.Stat(leoDir); os.IsNotExist(err) {
+			return nil // not a MOM project, skip silently
+		}
+		momDir = leoDir
+	}
+
+	if !isMomProject(momDir) {
+		return nil
+	}
 
 	var actions []upgradeAction
 	addAction := func(symbol, desc string) {
@@ -50,7 +86,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Phase -1: Migrate .leo/ → .mom/ (v0.10 path migration) ─────────────
-	// When findMomDir() fell back to .leo/ (no .mom/ found), migrate now.
 	isLegacyLeoDir := filepath.Base(momDir) == ".leo"
 	if isLegacyLeoDir {
 		if dryRun {
@@ -63,12 +98,10 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			for _, a := range pathActions {
 				addAction(a.symbol, a.desc)
 			}
-			// Switch to .mom/ for the rest of the upgrade.
 			momDir = filepath.Join(projectRoot, ".mom")
 		}
 	}
 
-	// leoDir is the resolved .mom/ or .leo/ directory (used throughout upgrade).
 	leoDir := momDir
 
 	// ── Phase 0: Migrate legacy kb/ layout to flat layout ───────────────────
@@ -94,24 +127,17 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	var phase1Err error
 	doPhase1 := func() {
-		// Back-fill communication.mode if absent (pre-v0.8 installs).
 		if cfg.Communication.Mode == "" {
 			cfg.Communication.Mode = "concise"
 			addAction("✔", "communication.mode set to concise (default)")
 		}
 
-		// Persist migrated config (Load auto-migrates v0.6.0/v0.7.0 formats,
-		// dropping default_profile and back-filling communication.mode).
 		if err := config.Save(leoDir, cfg); err != nil {
 			phase1Err = fmt.Errorf("saving config: %w", err)
 			return
 		}
 		addAction("✔", "config.yaml migrated to latest format")
 
-		// Scrub retired fields from config.yaml on disk. Even after config.Save
-		// (which omits Tiers and Autonomy from the struct), YAML round-trips may
-		// leave residual keys if the file was hand-edited. Read raw bytes, remove
-		// the keys, and write back only when a change is needed.
 		if scrubbed, changed, err := scrubDeadConfigFields(leoDir); err != nil {
 			phase1Err = fmt.Errorf("scrubbing dead config fields: %w", err)
 			return
@@ -126,8 +152,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			addAction("✔", "removed retired fields (tiers, autonomy) from config.yaml")
 		}
 
-		// Create missing directories. All canonical v0.8 dirs must exist before
-		// Phase 2 writes core constraints/skills and the layout migration.
 		newDirs := []string{
 			filepath.Join(leoDir, "memory"),
 			filepath.Join(leoDir, "constraints"),
@@ -149,7 +173,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Remove retired .mom/profiles/ directory (v0.8.0 migration).
 		profilesDir := filepath.Join(leoDir, "profiles")
 		if _, statErr := os.Stat(profilesDir); statErr == nil {
 			if !dryRun {
@@ -161,7 +184,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			addAction("✔", "profiles/ directory removed (retired in v0.8.0)")
 		}
 
-		// Remove retired constraint JSON files (idempotent).
 		retiredConstraints := []string{
 			"delegation-mandatory",
 			"think-before-execute",
@@ -184,7 +206,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Remove retired skill JSON files (idempotent).
 		retiredSkills := []string{"task-intake"}
 		skillsDir := filepath.Join(leoDir, "skills")
 		for _, name := range retiredSkills {
@@ -217,7 +238,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	// ── Phase 2: Update core memory docs ──────────────────────────────────────
 	var phase2Err error
 	doPhase2 := func() {
-		// Update schema.json.
 		schemaData, err := embeddedSchema.ReadFile("schema.json")
 		if err != nil {
 			phase2Err = fmt.Errorf("reading embedded schema: %w", err)
@@ -234,7 +254,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			addAction("✔", "schema.json updated")
 		}
 
-		// Update identity.json.
 		identityPath := filepath.Join(leoDir, "identity.json")
 		identityBytes := []byte(defaultIdentity())
 		if changed := fileChanged(identityPath, identityBytes); changed {
@@ -247,7 +266,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			addAction("✔", "identity.json updated")
 		}
 
-		// Update core constraints.
 		constraintsDir := filepath.Join(leoDir, "constraints")
 		for name, content := range coreConstraints() {
 			path := filepath.Join(constraintsDir, name+".json")
@@ -262,7 +280,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Update core skills.
 		skillsDir := filepath.Join(leoDir, "skills")
 		for name, content := range coreSkills() {
 			path := filepath.Join(skillsDir, name+".json")
@@ -277,14 +294,12 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Migrate metric → session-log docs.
 		docsDir := filepath.Join(leoDir, "memory")
 		migrated := migrateMetricDocs(docsDir, dryRun)
 		for _, docID := range migrated {
 			addAction("✔", fmt.Sprintf("doc %s migrated metric → session-log", docID))
 		}
 
-		// Migrate fact+ast/bootstrap → pattern docs.
 		migratedPatterns := migrateFactASTDocs(docsDir, dryRun)
 		for _, docID := range migratedPatterns {
 			addAction("✔", fmt.Sprintf("doc %s migrated fact → pattern", docID))
@@ -307,8 +322,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	// ── Phase 3: Rebuild index and regenerate runtime files ─────────────────
 	var phase3Err error
 	doPhase3 := func() {
-
-		// Regenerate runtime context files.
 		if !dryRun {
 			if err := regenerateRuntimeFiles(projectRoot, leoDir, cfg); err != nil {
 				phase3Err = err
@@ -345,11 +358,17 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	// ── Report ──────────────────────────────────────────────────────────────
+	home, _ := os.UserHomeDir()
+	display := projectRoot
+	if strings.HasPrefix(display, home) {
+		display = "~" + display[len(home):]
+	}
+
 	cmd.Println()
 	if dryRun {
-		cmd.Println("  Dry run — no changes made. Would apply:")
+		cmd.Printf("  [%s] Dry run — no changes made. Would apply:\n", display)
 	} else {
-		cmd.Println("  Upgrade complete:")
+		cmd.Printf("  [%s] Upgrade complete:\n", display)
 	}
 	cmd.Println()
 	for _, a := range actions {
@@ -359,10 +378,49 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		cmd.Println("  Everything is already up to date.")
 	}
 	cmd.Println()
-	if !dryRun {
-		cmd.Println("MOM is up to date. Run 'mom doctor' to verify health.")
-	}
+
 	return nil
+}
+
+// propagateUpgrade walks child directories and upgrades each .mom/ found.
+// Follows the same pattern as propagateInit: org folders (containing repos)
+// are upgraded and recursed into; repos (with .git/) are upgraded.
+func propagateUpgrade(cmd *cobra.Command, rootDir string, dryRun bool) {
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		return
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		childPath := filepath.Join(rootDir, e.Name())
+		childMom := filepath.Join(childPath, ".mom")
+
+		// Only upgrade dirs that have .mom/.
+		if _, statErr := os.Stat(childMom); statErr != nil {
+			continue
+		}
+		if !isMomProject(childMom) {
+			continue
+		}
+
+		if err := upgradeSingleDir(cmd, childPath, dryRun); err != nil {
+			home, _ := os.UserHomeDir()
+			display := childPath
+			if strings.HasPrefix(display, home) {
+				display = "~" + display[len(home):]
+			}
+			cmd.Printf("  ⚠ failed to upgrade %s: %v\n", display, err)
+			continue
+		}
+
+		// Recurse into org folders (dirs that contain repos).
+		if containsGitRepos(childPath) {
+			propagateUpgrade(cmd, childPath, dryRun)
+		}
+	}
 }
 
 // fileChanged returns true if the file at path doesn't exist or differs from data.
@@ -380,7 +438,6 @@ func fileChanged(path string, data []byte) bool {
 func migrateKBLayout(leoDir string) ([]upgradeAction, error) {
 	kbDir := filepath.Join(leoDir, "kb")
 	if _, err := os.Stat(kbDir); os.IsNotExist(err) {
-		// Already on new layout — nothing to do.
 		return nil, nil
 	}
 
@@ -401,11 +458,9 @@ func migrateKBLayout(leoDir string) ([]upgradeAction, error) {
 
 	for _, m := range moves {
 		if _, err := os.Stat(m.src); os.IsNotExist(err) {
-			// Source doesn't exist — skip silently.
 			continue
 		}
 		if _, err := os.Stat(m.dst); err == nil {
-			// Destination already exists — partial migration; skip to avoid data loss.
 			actions = append(actions, upgradeAction{"⚠", fmt.Sprintf("skipped %s — destination already exists", m.desc)})
 			continue
 		}
@@ -415,7 +470,6 @@ func migrateKBLayout(leoDir string) ([]upgradeAction, error) {
 		actions = append(actions, upgradeAction{"✔", fmt.Sprintf("migrated %s", m.desc)})
 	}
 
-	// Move flat files.
 	fileMovs := []migration{
 		{filepath.Join(kbDir, "index.json"), filepath.Join(leoDir, "index.json"), "kb/index.json → index.json"},
 		{filepath.Join(kbDir, "schema.json"), filepath.Join(leoDir, "schema.json"), "kb/schema.json → schema.json"},
@@ -434,7 +488,6 @@ func migrateKBLayout(leoDir string) ([]upgradeAction, error) {
 		actions = append(actions, upgradeAction{"✔", fmt.Sprintf("migrated %s", m.desc)})
 	}
 
-	// Remove kb/ if it is now empty (ignoring hidden files like .gitkeep).
 	remaining, _ := os.ReadDir(kbDir)
 	hasVisible := false
 	for _, e := range remaining {
@@ -535,7 +588,6 @@ func migrateFactASTDocs(docsDir string, dryRun bool) []string {
 			continue
 		}
 
-		// Only convert if the doc carries an "ast" or "bootstrap" tag.
 		tags, _ := doc["tags"].([]interface{})
 		hasASTTag := false
 		for _, tag := range tags {
@@ -581,13 +633,13 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
 
-		// Ensure MCP server config and hooks are registered for Claude.
-		if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
-			if err := ca.RegisterMCP(); err != nil {
-				return fmt.Errorf("registering MCP config: %w", err)
-			}
-			if err := ca.RegisterHooks(runtime.DefaultHooks()); err != nil {
-				return fmt.Errorf("registering hooks: %w", err)
+		// Register MCP server config and hooks for all adapters.
+		if err := adapter.RegisterMCP(); err != nil {
+			return fmt.Errorf("registering %s MCP config: %w", rt, err)
+		}
+		if adapter.SupportsHooks() {
+			if err := adapter.RegisterHooks(runtime.HooksForRuntime(rt)); err != nil {
+				return fmt.Errorf("registering %s hooks: %w", rt, err)
 			}
 		}
 	}
@@ -626,7 +678,6 @@ func scrubDeadConfigFields(leoDir string) (scrubbed []byte, changed bool, err er
 		if runtimesNode.Kind != yaml.MappingNode {
 			return
 		}
-		// Iterate over each runtime value node and strip "tiers".
 		for i := 1; i < len(runtimesNode.Content); i += 2 {
 			rtVal := runtimesNode.Content[i]
 			if rtVal.Kind == yaml.MappingNode {
@@ -701,7 +752,6 @@ func migrateLeoToMom(leoDir string) ([]upgradeAction, error) {
 	parent := filepath.Dir(leoDir)
 	momDir := filepath.Join(parent, ".mom")
 
-	// If .mom/ already exists, nothing to do.
 	if _, err := os.Stat(momDir); err == nil {
 		return nil, nil
 	}

@@ -133,6 +133,8 @@ func TestWindsurfAdapter_RegisterHooks(t *testing.T) {
 
 func TestWindsurfAdapter_RegisterMCP(t *testing.T) {
 	dir := t.TempDir()
+	// Isolate HOME so the test never touches the real ~/.codeium/windsurf/mcp_config.json.
+	t.Setenv("HOME", dir)
 	a := NewWindsurfAdapter(dir)
 
 	if err := a.RegisterMCP(); err != nil {

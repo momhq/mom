@@ -106,17 +106,20 @@ func (a *WindsurfAdapter) DetectRuntime() bool {
 }
 
 // RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
-// (shared with other runtimes) and Windsurf's global config at
-// ~/.codeium/windsurf/mcp_config.json, which is where Windsurf reads MCP config.
+// and Windsurf's global config at ~/.codeium/windsurf/mcp_config.json.
+//
+// Windsurf only reads the global config for MCP servers. The global entry includes
+// MOM_PROJECT_DIR so the MCP server resolves the correct scope. In multi-project
+// setups the last project to call RegisterMCP wins — run `mom upgrade` in the
+// active project to point the global config at it.
 func (a *WindsurfAdapter) RegisterMCP() error {
 	// 1. Project-level .mcp.json (shared with other runtimes).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
-	if err := upsertMCPEntry(mcpPath); err != nil {
+	if err := upsertMCPEntryWithEnv(mcpPath, a.projectRoot); err != nil {
 		return err
 	}
 
-	// 2. Windsurf global config — includes MOM_PROJECT_DIR env var because
-	// Windsurf starts MCP subprocesses from a different cwd than the project.
+	// 2. Windsurf global config.
 	home, err := os.UserHomeDir()
 	if err == nil {
 		globalConfig := filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")

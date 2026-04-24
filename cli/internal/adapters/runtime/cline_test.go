@@ -227,6 +227,8 @@ func TestClineAdapter_HookScriptPermissions(t *testing.T) {
 
 func TestClineAdapter_RegisterMCP(t *testing.T) {
 	dir := t.TempDir()
+	// Isolate HOME so the test never touches real Cline global settings.
+	t.Setenv("HOME", dir)
 	adapter := NewClineAdapter(dir)
 
 	if err := adapter.RegisterMCP(); err != nil {

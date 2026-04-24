@@ -98,4 +98,25 @@ type Adapter interface {
 	// be added to .gitignore when this adapter is enabled. Includes both
 	// directories (with trailing /) and files.
 	GitIgnorePaths() []string
+
+	// RegisterMCP registers the MOM MCP server config for this runtime.
+	RegisterMCP() error
+}
+
+// HooksForRuntime returns the standard MOM hooks for the given runtime name.
+func HooksForRuntime(name string) []HookDef {
+	switch name {
+	case "claude":
+		return DefaultHooks()
+	case "codex":
+		return CodexHooks()
+	case "openclaude":
+		return OpenClaudeHooks()
+	case "cline":
+		return ClineHooks()
+	case "windsurf":
+		return WindsurfHooks()
+	default:
+		return DefaultHooks()
+	}
 }
