@@ -1,9 +1,0 @@
-adapter: openclaude
-version: "1.0"
-supports:
-  - session.start
-  - session.end
-  - turn.complete
-  - compact.triggered
-  - clear.triggered
-experimental: []

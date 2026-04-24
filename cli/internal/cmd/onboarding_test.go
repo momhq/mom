@@ -155,7 +155,7 @@ func TestOnboarding_OutputContainsSummary(t *testing.T) {
 
 // TestOnboarding_MultipleRuntimesSelected verifies toggling multiple runtimes.
 func TestOnboarding_MultipleRuntimesSelected(t *testing.T) {
-	// Toggle codex (2) and cline (3), confirm (0), then defaults for
+	// Toggle codex (2) and windsurf (3), confirm (0), then defaults for
 	// mode, scope, coreSource, bootstrap, confirm.
 	input := testReader("2\n3\n0\n\n\n\n\n\n")
 	output := &bytes.Buffer{}

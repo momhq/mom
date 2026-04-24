@@ -133,13 +133,6 @@ func (a *CodexAdapter) RegisterMCP() error {
 	return nil
 }
 
-// codexMCPBlock is the TOML section for the MOM MCP server.
-const codexMCPBlock = `
-[mcp_servers.mom]
-command = "mom"
-args = ["serve", "mcp"]
-`
-
 // codexFeaturesBlock enables the hooks feature flag required by Codex.
 const codexFeaturesBlock = `
 [features]
@@ -153,6 +146,9 @@ func upsertCodexMCPEntry(path string) error {
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("reading %s: %w", filepath.Base(path), err)
 	}
+
+	// Build the MCP block with the resolved absolute path to the mom binary.
+	codexMCPBlock := fmt.Sprintf("\n[mcp_servers.mom]\ncommand = %q\nargs = [\"serve\", \"mcp\"]\n", resolveCommand())
 
 	content := string(existing)
 	changed := false

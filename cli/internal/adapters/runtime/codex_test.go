@@ -188,8 +188,8 @@ func TestCodexAdapter_RegisterMCP(t *testing.T) {
 	if !strings.Contains(toml, "[mcp_servers.mom]") {
 		t.Error("config.toml missing [mcp_servers.mom] section")
 	}
-	if !strings.Contains(toml, `command = "mom"`) {
-		t.Error("config.toml missing mom command")
+	if !strings.Contains(toml, "command = ") {
+		t.Error("config.toml missing command entry for mom")
 	}
 	if !strings.Contains(toml, "codex_hooks = true") {
 		t.Error("config.toml missing codex_hooks feature flag")

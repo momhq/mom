@@ -30,7 +30,7 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, cline)")
+	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, windsurf)")
 	initCmd.Flags().Bool("force", false, "Overwrite existing .mom/ directory")
 	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }
@@ -325,30 +325,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 					return
 				}
 				if err := ca.RegisterHooks(runtime.CodexHooks()); err != nil {
-					genErr = err
-					return
-				}
-			}
-
-			// Register MCP server config and hooks for OpenClaude.
-			if ca, ok := adapter.(*runtime.OpenClaudeAdapter); ok {
-				if err := ca.RegisterMCP(); err != nil {
-					genErr = err
-					return
-				}
-				if err := ca.RegisterHooks(runtime.OpenClaudeHooks()); err != nil {
-					genErr = err
-					return
-				}
-			}
-
-			// Register MCP server config and hooks for Cline.
-			if ca, ok := adapter.(*runtime.ClineAdapter); ok {
-				if err := ca.RegisterMCP(); err != nil {
-					genErr = err
-					return
-				}
-				if err := ca.RegisterHooks(runtime.ClineHooks()); err != nil {
 					genErr = err
 					return
 				}

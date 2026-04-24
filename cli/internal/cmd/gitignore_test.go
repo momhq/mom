@@ -139,7 +139,7 @@ func TestEnsureGitIgnore_MultiRuntime(t *testing.T) {
 	dir := t.TempDir()
 	registry := runtime.NewRegistry(dir)
 
-	added, err := ensureGitIgnore(dir, registry, []string{"claude", "codex", "cline"})
+	added, err := ensureGitIgnore(dir, registry, []string{"claude", "codex", "windsurf"})
 	if err != nil {
 		t.Fatalf("ensureGitIgnore failed: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestEnsureGitIgnore_MultiRuntime(t *testing.T) {
 	content, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
 	s := string(content)
 
-	expected := []string{".mom/", ".mcp.json", ".claude/", "CLAUDE.md", "AGENTS.md", ".clinerules/"}
+	expected := []string{".mom/", ".mcp.json", ".claude/", "CLAUDE.md", "AGENTS.md"}
 	for _, entry := range expected {
 		if !strings.Contains(s, entry) {
 			t.Errorf("missing %s in .gitignore", entry)

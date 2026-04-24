@@ -119,12 +119,14 @@ func (a *WindsurfAdapter) RegisterMCP() error {
 		return err
 	}
 
-	// 2. Windsurf global config.
+	// 2. Windsurf global config — best-effort (non-fatal if dir absent).
 	home, err := os.UserHomeDir()
 	if err == nil {
 		globalConfig := filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")
 		if _, err := os.Stat(filepath.Dir(globalConfig)); err == nil {
-			_ = upsertMCPEntryWithEnv(globalConfig, a.projectRoot)
+			if err := upsertMCPEntryWithEnv(globalConfig, a.projectRoot); err != nil {
+				return fmt.Errorf("updating windsurf global mcp config: %w", err)
+			}
 		}
 	}
 
@@ -147,7 +149,7 @@ func upsertMCPEntryWithEnv(path, projectRoot string) error {
 	}
 
 	servers["mom"] = map[string]any{
-		"command": "mom",
+		"command": resolveCommand(),
 		"args":    []string{"serve", "mcp"},
 		"env": map[string]string{
 			"MOM_PROJECT_DIR": projectRoot,

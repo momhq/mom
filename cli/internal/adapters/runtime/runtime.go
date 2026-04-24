@@ -1,6 +1,24 @@
 // Package runtime defines the RuntimeAdapter interface for AI runtime integrations.
 package runtime
 
+import (
+	"os/exec"
+	"path/filepath"
+)
+
+// resolveCommand returns the absolute path to the mom binary.
+// Falls back to "mom" if resolution fails (e.g. in test environments where
+// mom is not installed).
+func resolveCommand() string {
+	if path, err := exec.LookPath("mom"); err == nil {
+		if abs, err := filepath.Abs(path); err == nil {
+			return abs
+		}
+		return path
+	}
+	return "mom"
+}
+
 // Config represents the user's .mom/config.yaml configuration.
 type Config struct {
 	Version  string
@@ -58,14 +76,14 @@ type HookDef struct {
 }
 
 // Adapter is the interface that runtime integrations must implement.
-// Each runtime (Claude, Codex, Cline, etc.) provides an adapter
+// Each runtime (Claude, Codex, Windsurf, etc.) provides an adapter
 // that reads from .mom/ and generates runtime-specific files.
 type Adapter interface {
-	// Name returns the runtime identifier (e.g. "claude", "codex", "cline").
+	// Name returns the runtime identifier (e.g. "claude", "codex", "windsurf").
 	Name() string
 
 	// GenerateContextFile generates the runtime's boot file
-	// (e.g. CLAUDE.md, AGENTS.md, .clinerules/mom-context.md) from MOM's config,
+	// (e.g. CLAUDE.md, AGENTS.md) from MOM's config,
 	// constraints, skills, and identity.
 	GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
 
@@ -110,10 +128,6 @@ func HooksForRuntime(name string) []HookDef {
 		return DefaultHooks()
 	case "codex":
 		return CodexHooks()
-	case "openclaude":
-		return OpenClaudeHooks()
-	case "cline":
-		return ClineHooks()
 	case "windsurf":
 		return WindsurfHooks()
 	default:

@@ -65,38 +65,13 @@ func TestCodexAdapter_Capabilities(t *testing.T) {
 	}
 }
 
-// TestClineAdapter_Capabilities verifies the cline adapter loads its YAML
-// and marks turn.complete, compact.triggered, clear.triggered as experimental.
-func TestClineAdapter_Capabilities(t *testing.T) {
-	a := NewClineAdapter("/tmp/test")
-	cap := a.Capabilities()
-
-	if cap.Name != "cline" {
-		t.Errorf("expected adapter name %q, got %q", "cline", cap.Name)
-	}
-
-	wantSupports := []string{"session.start", "session.end"}
-	for _, event := range wantSupports {
-		if !containsString(cap.Supports, event) {
-			t.Errorf("cline Supports missing %q", event)
-		}
-	}
-
-	wantExperimental := []string{"turn.complete", "compact.triggered", "clear.triggered"}
-	for _, event := range wantExperimental {
-		if !containsString(cap.Experimental, event) {
-			t.Errorf("cline Experimental missing %q", event)
-		}
-	}
-}
-
 // TestAdapterCapability_NoOverlap verifies that no event appears in both
 // Supports and Experimental for any adapter.
 func TestAdapterCapability_NoOverlap(t *testing.T) {
 	adapters := []Adapter{
 		NewClaudeAdapter("/tmp/test"),
 		NewCodexAdapter("/tmp/test"),
-		NewClineAdapter("/tmp/test"),
+		NewWindsurfAdapter("/tmp/test"),
 	}
 	for _, a := range adapters {
 		cap := a.Capabilities()

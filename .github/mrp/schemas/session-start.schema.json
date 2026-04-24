@@ -24,7 +24,7 @@
     "runtime": {
       "type": "string",
       "minLength": 1,
-      "description": "Adapter name (e.g. claude-code, codex, cline)"
+      "description": "Adapter name (e.g. claude-code, codex, windsurf)"
     },
     "timestamp": {
       "type": "string",

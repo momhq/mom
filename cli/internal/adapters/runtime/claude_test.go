@@ -338,13 +338,23 @@ func TestClaudeAdapter_RegisterMCP_Fresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading .mcp.json: %v", err)
 	}
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil {
+		t.Fatalf("parsing .mcp.json: %v", err)
+	}
+	servers, ok := root["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatal(".mcp.json missing mcpServers")
+	}
+	mom, ok := servers["mom"].(map[string]any)
+	if !ok {
+		t.Fatal(".mcp.json missing mom server entry")
+	}
+	cmd, _ := mom["command"].(string)
+	if cmd == "" {
+		t.Error(".mcp.json mom command must not be empty")
+	}
 	s := string(data)
-	if !strings.Contains(s, `"mom"`) {
-		t.Error(".mcp.json missing mom server entry")
-	}
-	if !strings.Contains(s, `"command": "mom"`) {
-		t.Error(".mcp.json missing mom command")
-	}
 	if !strings.Contains(s, `"serve"`) {
 		t.Error(".mcp.json missing serve arg")
 	}

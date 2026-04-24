@@ -15,7 +15,7 @@ import (
 // OnboardingResult holds the choices the user made during the interactive
 // onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
-	Runtimes   []string // ["claude", "codex", "cline"]
+	Runtimes   []string // ["claude", "codex", "windsurf"]
 	Language   string   // always "en" — language selection removed in v0.9
 	Mode       string   // "default", "concise", "efficient"
 	CoreSource string   // path to mom clone, or "" if skipped
@@ -442,14 +442,10 @@ func runtimeLabel(rt string) string {
 		return "Claude Code"
 	case "codex":
 		return "Codex"
-	case "cline":
-		return "Cline"
 	case "cursor":
 		return "Cursor"
 	case "windsurf":
 		return "Windsurf"
-	case "openclaude":
-		return "OpenClaude"
 	default:
 		return rt
 	}
