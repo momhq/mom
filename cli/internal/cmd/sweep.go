@@ -82,7 +82,8 @@ func sweep(momDir string, cfg config.RawMemoriesConfig) SweepResult {
 
 	var deleted []string
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+		isCursor := strings.HasPrefix(e.Name(), ".cursor-")
+		if e.IsDir() || (!strings.HasSuffix(e.Name(), ".jsonl") && !isCursor) {
 			continue
 		}
 
