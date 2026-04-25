@@ -14,6 +14,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 )
 
 const (
@@ -54,11 +56,15 @@ type rpcError struct {
 // Server is the MCP server instance.
 type Server struct {
 	momDir string
+	idx    *storage.IndexedAdapter
 }
 
 // New creates a new Server rooted at the given .mom/ directory.
 func New(momDir string) *Server {
-	return &Server{momDir: momDir}
+	return &Server{
+		momDir: momDir,
+		idx:    storage.NewIndexedAdapter(momDir),
+	}
 }
 
 // Serve runs the JSON-RPC 2.0 stdio loop. It reads newline-delimited requests

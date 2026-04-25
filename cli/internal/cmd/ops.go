@@ -40,8 +40,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	// Load index.
-	adapter := storage.NewJSONAdapter(leoDir)
+	// Load index via IndexedAdapter (write-through + FTS5).
+	adapter := storage.NewIndexedAdapter(leoDir)
+	defer adapter.Close()
 	idx, err := adapter.List()
 	if err != nil {
 		return fmt.Errorf("loading index: %w", err)
@@ -169,7 +170,8 @@ func validateAllDocs(cmd *cobra.Command, dir string, label string) (int, map[str
 // checkIndexConsistency compares the index to the docs actually on disk.
 // Returns true if there are hard failures.
 func checkIndexConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[string]bool) bool {
-	adapter := storage.NewJSONAdapter(leoDir)
+	adapter := storage.NewIndexedAdapter(leoDir)
+	defer adapter.Close()
 	idx, err := adapter.List()
 	if err != nil {
 		cmd.Printf("⚠ index: could not read — %v\n", err)
