@@ -580,10 +580,11 @@ func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
 	}
 
 	results, err := search.Search(memDir, search.SearchOptions{
-		Query:      query,
-		MaxResults: maxResults,
-		Tags:       tags,
-		SessionID:  sessionID,
+		Query:         query,
+		MaxResults:    maxResults,
+		Tags:          tags,
+		SessionID:     sessionID,
+		ExcludeDrafts: true, // #147: exclude raw drafter output from recall results
 	})
 	if err != nil {
 		return toolCallResult{}, fmt.Errorf("mom_recall search failed: %w", err)

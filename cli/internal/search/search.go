@@ -20,21 +20,25 @@ type Result struct {
 
 // SearchOptions controls a Search call.
 type SearchOptions struct {
-	Query      string
-	MaxResults int
-	Tags       []string
-	SessionID  string
+	Query         string
+	MaxResults    int
+	Tags          []string
+	SessionID     string
+	// ExcludeDrafts filters out docs with promotion_state == "draft".
+	// Enabled by default in mom_recall to avoid raw drafter output (#147).
+	ExcludeDrafts bool
 }
 
 // memDoc is the minimal shape of a memory JSON document.
 type memDoc struct {
-	ID            string         `json:"id"`
-	Content       map[string]any `json:"content"`
-	Tags          []string       `json:"tags"`
-	Summary       string         `json:"summary"`
-	Lifecycle     string         `json:"lifecycle"`
-	SourceSession string         `json:"source_session"`
-	Created       string         `json:"created"`
+	ID             string         `json:"id"`
+	Content        map[string]any `json:"content"`
+	Tags           []string       `json:"tags"`
+	Summary        string         `json:"summary"`
+	Lifecycle      string         `json:"lifecycle"`
+	SourceSession  string         `json:"source_session"`
+	Created        string         `json:"created"`
+	PromotionState string         `json:"promotion_state"`
 }
 
 // Search performs BM25 search over all memory JSON documents in memoryDir.
@@ -63,6 +67,11 @@ func Search(memoryDir string, opts SearchOptions) ([]Result, error) {
 		}
 		var d memDoc
 		if err := json.Unmarshal(data, &d); err != nil {
+			continue
+		}
+
+		// Apply promotion_state filter (#147 — exclude raw drafts from recall).
+		if opts.ExcludeDrafts && d.PromotionState == "draft" {
 			continue
 		}
 
