@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+
+	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +17,11 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the MOM CLI version",
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Printf("mom %s (%s)\n", Version, Commit)
+		p := ux.NewPrinter(cmd.OutOrStdout())
+		short := Commit
+		if len(short) > 7 {
+			short = short[:7]
+		}
+		p.Text(fmt.Sprintf("mom %s (%s)", p.HighlightValue(Version), p.MutedText(short)))
 	},
 }

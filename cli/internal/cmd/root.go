@@ -20,6 +20,8 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() error {
+	// Hide cobra's auto-generated completion command.
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 	return rootCmd.Execute()
 }
 

@@ -54,7 +54,7 @@ func TestValidateCmd_AllValid(t *testing.T) {
 		t.Fatalf("validate --all failed: %v", err)
 	}
 
-	if !strings.Contains(buf.String(), "All documents valid") {
+	if !strings.Contains(buf.String(), "valid") {
 		t.Errorf("expected success message, got: %s", buf.String())
 	}
 }

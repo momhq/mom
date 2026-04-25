@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 var validateCmd = &cobra.Command{
@@ -25,6 +26,7 @@ var validateCmd = &cobra.Command{
 			return fmt.Errorf("provide a file path or use --all")
 		}
 
+		p := ux.NewPrinter(cmd.OutOrStdout())
 		data, err := os.ReadFile(args[0])
 		if err != nil {
 			return fmt.Errorf("reading file: %w", err)
@@ -36,11 +38,11 @@ var validateCmd = &cobra.Command{
 		}
 
 		if err := doc.Validate(); err != nil {
-			cmd.Printf("✗ %s: %v\n", args[0], err)
+			p.Failf("%s: %v", args[0], err)
 			return err
 		}
 
-		cmd.Printf("✔ %s: valid\n", args[0])
+		p.Checkf("%s: valid", args[0])
 		return nil
 	},
 }
@@ -74,13 +76,17 @@ func validateAll(cmd *cobra.Command) error {
 		return err
 	}
 
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	p.Diamond("validate")
+	p.Blank()
+
 	docsDir := filepath.Join(leoDir, "memory")
 	entries, err := os.ReadDir(docsDir)
 	if err != nil {
 		return fmt.Errorf("reading docs dir: %w", err)
 	}
 
-	var errors int
+	var valid, errors int
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
 			continue
@@ -89,24 +95,27 @@ func validateAll(cmd *cobra.Command) error {
 		path := filepath.Join(docsDir, e.Name())
 		doc, err := memory.LoadDoc(path)
 		if err != nil {
-			cmd.Printf("✗ %s: %v\n", e.Name(), err)
+			p.Failf("%s: %v", e.Name(), err)
 			errors++
 			continue
 		}
 
 		if err := doc.Validate(); err != nil {
-			cmd.Printf("✗ %s: %v\n", e.Name(), err)
+			p.Failf("%s: %v", e.Name(), err)
 			errors++
 			continue
 		}
 
-		cmd.Printf("✔ %s\n", e.Name())
+		p.Checkf("%s", e.Name())
+		valid++
 	}
 
+	p.Blank()
 	if errors > 0 {
+		p.Warnf("%d valid, %d failed", valid, errors)
 		return fmt.Errorf("%d document(s) failed validation", errors)
 	}
 
-	cmd.Println("\nAll documents valid.")
+	p.Checkf("all %d documents valid", valid)
 	return nil
 }

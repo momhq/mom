@@ -33,7 +33,7 @@ func init() {
 	importCmd.Flags().Bool("replace", false, "Replace: back up current memory, then replace entirely")
 }
 
-// runExport implements the leo export command.
+// runExport implements the mom export command.
 func runExport(cmd *cobra.Command, args []string) error {
 	leoDir, err := findMomDir()
 	if err != nil {
@@ -56,17 +56,22 @@ func runExport(cmd *cobra.Command, args []string) error {
 		outputDir = filepath.Join(cwd, "mom-export")
 	}
 
-	docsOutputDir := filepath.Join(outputDir, "docs")
-	if err := os.MkdirAll(docsOutputDir, 0755); err != nil {
-		return fmt.Errorf("creating output docs dir: %w", err)
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	p.Diamond("export")
+	p.Blank()
+
+	// Memory docs — written directly to output dir (no /docs/ subfolder).
+	memoryOutputDir := filepath.Join(outputDir, "memory")
+	if err := os.MkdirAll(memoryOutputDir, 0755); err != nil {
+		return fmt.Errorf("creating output memory dir: %w", err)
 	}
 
-	// Copy all docs.
 	srcDocsDir := filepath.Join(leoDir, "memory")
-	docCount, err := copyJSONDir(srcDocsDir, docsOutputDir)
+	docCount, err := copyJSONDir(srcDocsDir, memoryOutputDir)
 	if err != nil {
-		return fmt.Errorf("copying docs: %w", err)
+		return fmt.Errorf("copying memory docs: %w", err)
 	}
+	p.Chevron(fmt.Sprintf("memory: %d docs", docCount))
 
 	// Copy constraints.
 	constraintsCount := 0
@@ -79,6 +84,9 @@ func runExport(cmd *cobra.Command, args []string) error {
 		constraintsCount, err = copyJSONDir(srcConstraints, dstConstraints)
 		if err != nil {
 			return fmt.Errorf("copying constraints: %w", err)
+		}
+		if constraintsCount > 0 {
+			p.Chevron(fmt.Sprintf("constraints: %d", constraintsCount))
 		}
 	}
 
@@ -93,6 +101,9 @@ func runExport(cmd *cobra.Command, args []string) error {
 		skillsCount, err = copyJSONDir(srcSkills, dstSkills)
 		if err != nil {
 			return fmt.Errorf("copying skills: %w", err)
+		}
+		if skillsCount > 0 {
+			p.Chevron(fmt.Sprintf("skills: %d", skillsCount))
 		}
 	}
 
@@ -123,13 +134,12 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	p := ux.NewPrinter(cmd.OutOrStdout())
-	p.Checkf("Exported to %s: %d docs, %d constraints, %d skills",
-		outputDir, docCount, constraintsCount, skillsCount)
+	p.Blank()
+	p.Checkf("exported to %s", p.HighlightValue(outputDir))
 	return nil
 }
 
-// runImport implements the leo import command.
+// runImport implements the mom import command.
 func runImport(cmd *cobra.Command, args []string) error {
 	importPath := args[0]
 
@@ -140,9 +150,13 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	srcDocsDir := filepath.Join(importPath, "docs")
+	// Accept both memory/ (new) and docs/ (legacy) subdirectories.
+	srcDocsDir := filepath.Join(importPath, "memory")
 	if _, err := os.Stat(srcDocsDir); err != nil {
-		return fmt.Errorf("import path must contain a docs/ directory: %w", err)
+		srcDocsDir = filepath.Join(importPath, "docs")
+		if _, err := os.Stat(srcDocsDir); err != nil {
+			return fmt.Errorf("import path must contain a memory/ directory")
+		}
 	}
 
 	destDocsDir := filepath.Join(leoDir, "memory")
@@ -201,15 +215,13 @@ func runImport(cmd *cobra.Command, args []string) error {
 		srcPath := filepath.Join(srcDocsDir, e.Name())
 
 		// Validate the doc.
-		ip := ux.NewPrinter(cmd.OutOrStdout())
 		kbDoc, err := memory.LoadDoc(srcPath)
 		if err != nil {
-			ip.Failf("%s: cannot parse: %v", e.Name(), err)
+			errCount++
 			errCount++
 			continue
 		}
 		if err := kbDoc.Validate(); err != nil {
-			ip.Failf("%s: invalid: %v", e.Name(), err)
 			errCount++
 			continue
 		}
@@ -225,7 +237,6 @@ func runImport(cmd *cobra.Command, args []string) error {
 		}
 
 		if err := copyFileContents(srcPath, dstPath); err != nil {
-			ip.Failf("copying %s: %v", e.Name(), err)
 			errCount++
 			continue
 		}
@@ -266,9 +277,19 @@ func runImport(cmd *cobra.Command, args []string) error {
 		copyFileContents(srcConfig, dstConfig) //nolint:errcheck
 	}
 
-	ip := ux.NewPrinter(cmd.OutOrStdout())
-	ip.Checkf("Import complete: %d imported, %d skipped, %d error(s)",
-		imported, skipped, errCount)
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	p.Diamond("import")
+	p.Blank()
+	if imported > 0 {
+		p.Checkf("%d memories imported", imported)
+	}
+	if skipped > 0 {
+		p.Muted(fmt.Sprintf("  %d skipped (already exist)", skipped))
+	}
+	if errCount > 0 {
+		p.Failf("%d failed validation", errCount)
+	}
+	p.Blank()
 	return nil
 }
 

@@ -43,16 +43,34 @@ func runSweep(cmd *cobra.Command, _ []string) error {
 	}
 
 	p := ux.NewPrinter(os.Stderr)
-	result := sweep(sc.Path, cfg.RawMemories)
+	p.Diamond("sweep")
+	p.Blank()
+
+	showSpinner := ux.IsTTY(os.Stderr)
+	var result SweepResult
+	doSweep := func() {
+		result = sweep(sc.Path, cfg.RawMemories)
+	}
+
+	if showSpinner {
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Scanning raw files")
+		doSweep()
+		sp.Stop()
+	} else {
+		doSweep()
+	}
+
 	if result.Errors > 0 {
-		p.Warnf("sweep: deleted %d files, freed %.1f MB (%d errors)",
+		p.Warnf("deleted %d files, freed %.1f MB (%d errors)",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024), result.Errors)
 	} else if result.Deleted > 0 {
-		p.Checkf("sweep: deleted %d files, freed %.1f MB",
+		p.Checkf("deleted %d files, freed %.1f MB",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024))
 	} else {
-		p.Muted("sweep: nothing to clean")
+		p.Muted("nothing to clean")
 	}
+	p.Blank()
 	return nil
 }
 

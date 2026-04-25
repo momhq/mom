@@ -13,8 +13,9 @@ import (
 )
 
 var promoteCmd = &cobra.Command{
-	Use:   "promote <memory-id>",
-	Short: "Move a memory doc up to a broader scope",
+	Use:    "promote <memory-id>",
+	Short:  "Move a memory doc up to a broader scope",
+	Hidden: true,
 	Long: `Moves a memory document from the nearest .mom/ to the nearest
 ancestor .mom/ that has the specified scope label.
 
@@ -27,8 +28,9 @@ Symlinks are not followed during walk-up discovery.`,
 }
 
 var demoteCmd = &cobra.Command{
-	Use:   "demote <memory-id>",
-	Short: "Move a memory doc down to the nearest (repo) scope",
+	Use:    "demote <memory-id>",
+	Short:  "Move a memory doc down to the nearest (repo) scope",
+	Hidden: true,
 	Long: `Moves a memory document from an ancestor scope down to the
 nearest .mom/ (most specific scope).
 
