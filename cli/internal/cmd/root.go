@@ -46,4 +46,5 @@ func init() {
 	rootCmd.AddCommand(diagnoseCmd)
 	rootCmd.AddCommand(sweepCmd)
 	rootCmd.AddCommand(reindexCmd)
+	rootCmd.AddCommand(watchCmd)
 }
