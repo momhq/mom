@@ -15,16 +15,26 @@ var (
 	watchTranscriptDir string
 	watchDebounceMs    int
 	watchStatus        bool
+	watchRuntime       string
 )
+
+// defaultTranscriptDirs maps runtime name to its default transcript directory.
+var defaultTranscriptDirs = map[string]string{
+	"claude":   "~/.claude/projects/",
+	"windsurf": "~/.windsurf/transcripts/",
+}
 
 var watchCmd = &cobra.Command{
 	Use:   "watch",
-	Short: "Watch Claude Code transcripts and ingest turns automatically",
-	Long: `Starts a filesystem watcher on the Claude Code transcript directory
-(default: ~/.claude/projects/) and ingests new conversation turns into
-.mom/raw/ without MCP calls or hook overhead.
+	Short: "Watch runtime transcripts and ingest turns automatically",
+	Long: `Starts a filesystem watcher on a runtime transcript directory and
+ingests new conversation turns into .mom/raw/ without MCP calls or hook overhead.
 
-Each Claude Code session's JSONL transcript is tailed incrementally.
+Supported runtimes:
+  claude    — ~/.claude/projects/ (default)
+  windsurf  — ~/.windsurf/transcripts/
+
+Each session's JSONL transcript is tailed incrementally.
 Cursor files in .mom/raw/ track the last ingested byte offset per session,
 so restarts are safe and idempotent.
 
@@ -35,8 +45,10 @@ The watcher runs in the foreground. Use Ctrl-C to stop.`,
 }
 
 func init() {
-	watchCmd.Flags().StringVar(&watchTranscriptDir, "dir", "~/.claude/projects/",
-		"Transcript directory to watch (Claude Code: ~/.claude/projects/)")
+	watchCmd.Flags().StringVar(&watchRuntime, "runtime", "claude",
+		`Runtime to watch: "claude" (default) or "windsurf"`)
+	watchCmd.Flags().StringVar(&watchTranscriptDir, "dir", "",
+		"Transcript directory to watch (overrides the runtime default)")
 	watchCmd.Flags().IntVar(&watchDebounceMs, "debounce", 300,
 		"Milliseconds to wait after a write event before reading (debounce)")
 	watchCmd.Flags().BoolVar(&watchStatus, "status", false,
@@ -58,10 +70,29 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return runWatchStatus(momDir)
 	}
 
+	// Resolve adapter and transcript directory from --runtime flag.
+	var adapter watcher.Adapter
+	transcriptDir := watchTranscriptDir
+
+	switch watchRuntime {
+	case "windsurf":
+		adapter = watcher.NewWindsurfAdapter()
+		if transcriptDir == "" {
+			transcriptDir = defaultTranscriptDirs["windsurf"]
+		}
+	case "claude", "":
+		adapter = watcher.NewClaudeAdapter()
+		if transcriptDir == "" {
+			transcriptDir = defaultTranscriptDirs["claude"]
+		}
+	default:
+		return fmt.Errorf("unknown runtime %q — supported: claude, windsurf", watchRuntime)
+	}
+
 	cfg := watcher.Config{
-		TranscriptDir: watchTranscriptDir,
+		TranscriptDir: transcriptDir,
 		MomDir:        momDir,
-		Adapter:       watcher.NewClaudeAdapter(),
+		Adapter:       adapter,
 		DebounceMs:    watchDebounceMs,
 	}
 
@@ -70,7 +101,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("creating watcher: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "watching %s → %s/raw/\n", watchTranscriptDir, momDir)
+	fmt.Fprintf(os.Stderr, "watching %s [%s] → %s/raw/\n", transcriptDir, watchRuntime, momDir)
 	fmt.Fprintf(os.Stderr, "press Ctrl-C to stop\n")
 
 	if err := w.Run(); err != nil {

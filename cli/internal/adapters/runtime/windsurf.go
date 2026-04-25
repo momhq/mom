@@ -91,11 +91,14 @@ func (a *WindsurfAdapter) RegisterHooks(hooks []HookDef) error {
 }
 
 // WindsurfHooks returns the standard MOM hooks for Windsurf.
-// post_cascade_response_with_transcript provides transcript_path in the hook
-// JSON input — same format as Claude Code hooks, so we use plain "mom record".
+//
+// Recording is handled by the filesystem watcher (mom watch --runtime windsurf),
+// which reads ~/.windsurf/transcripts/ directly. The mom record hook is intentionally
+// omitted to avoid the 25-fires-per-turn problem and explosive raw data growth (#145).
+//
+// Only mom draft is retained so the drafter pipeline runs after each turn.
 func WindsurfHooks() []HookDef {
 	return []HookDef{
-		{Event: "post_cascade_response_with_transcript", Command: "mom record"},
 		{Event: "post_cascade_response_with_transcript", Command: "mom draft"},
 	}
 }
