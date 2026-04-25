@@ -84,6 +84,11 @@ func (p *Printer) WarningText(s string) string {
 	return p.style(s, WarningStyle.Render)
 }
 
+// MutedText returns a string rendered in Muted color (for inline dim text).
+func (p *Printer) MutedText(s string) string {
+	return p.style(s, MutedStyle.Render)
+}
+
 // --- bullets and indicators ---
 
 // Diamond prints a filled diamond (◆) in Signal + bold text.

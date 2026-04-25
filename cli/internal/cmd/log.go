@@ -14,7 +14,8 @@ import (
 
 var logCmd = &cobra.Command{
 	Use:   "log",
-	Short: "Generate session-level observability data from transcript",
+	Short:  "Generate session-level observability data from transcript",
+	Hidden: true,
 	Long: `Reads hook JSON from stdin, parses the transcript file, and writes
 session-level metrics to .mom/logs/session-<id>.json.
 

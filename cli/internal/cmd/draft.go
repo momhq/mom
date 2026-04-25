@@ -19,7 +19,8 @@ import (
 
 var draftCmd = &cobra.Command{
 	Use:   "draft",
-	Short: "Extract draft memories from raw recordings",
+	Short:  "Extract draft memories from raw recordings",
+	Hidden: true,
 	Long: `Reads raw JSONL from .mom/raw/ and extracts structured draft memories
 into .mom/memory/ using RAKE keyword extraction and BM25 ranking.
 

@@ -64,7 +64,10 @@ func packageTag(srcPath string) string {
 	if base == "." || base == "/" {
 		return ""
 	}
-	return "pkg-" + strings.ToLower(base)
+	// Sanitize: replace dots/underscores with hyphens for kebab-case.
+	base = strings.ToLower(base)
+	base = strings.NewReplacer(".", "-", "_", "-").Replace(base)
+	return "pkg-" + base
 }
 
 // buildTags constructs the tag list for an AST draft, adding semantic tags

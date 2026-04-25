@@ -54,9 +54,50 @@ func runDiagnose(cmd *cobra.Command, _ []string) error {
 	if jsonOut {
 		data, _ := json.MarshalIndent(report, "", "  ")
 		cmd.Println(string(data))
-	} else {
-		p.Text(diagnose.FormatReport(report))
+		return nil
 	}
 
+	p.Diamond("diagnose")
+	p.Blank()
+
+	w := 22
+	p.KeyValue("Sessions analyzed", fmt.Sprintf("%d", report.SessionsAnalyzed), w)
+	p.KeyValue("Total interactions", fmt.Sprintf("%d", report.TotalInteractions), w)
+	p.Blank()
+
+	// Metrics with pass/fail indicators.
+	metricLine := func(name string, value float64, target string, good bool) {
+		val := fmt.Sprintf("%.2f  %s", value, p.MutedText("(target: "+target+")"))
+		if good {
+			p.Checkf("%-20s %s", name, val)
+		} else {
+			p.Failf("%-20s %s", name, val)
+		}
+	}
+
+	metricLine("Memory-first ratio", report.MemoryFirstRatio, "> 0.5", report.MemoryFirstRatio >= 0.5)
+	metricLine("Recall efficiency", report.RecallEfficiency, "> 0.3", report.RecallEfficiency >= 0.3)
+	metricLine("Context rediscovery", report.ContextRediscovery, "< 0.2", report.ContextRediscovery <= 0.2)
+	metricLine("Write-back rate", report.WriteBackRate, "> 0.1", report.WriteBackRate >= 0.1)
+
+	compliance := int(report.ProtocolCompliance * float64(report.SessionsAnalyzed))
+	compliancePct := int(report.ProtocolCompliance * 100)
+	complianceVal := fmt.Sprintf("%d/%d sessions (%d%%)", compliance, report.SessionsAnalyzed, compliancePct)
+	if report.ProtocolCompliance >= 0.8 {
+		p.Checkf("%-20s %s", "Protocol compliance", complianceVal)
+	} else {
+		p.Failf("%-20s %s", "Protocol compliance", complianceVal)
+	}
+
+	// Warnings.
+	if report.ContextRediscovery > 0.2 {
+		p.Blank()
+		p.Warnf("Context rediscovery is high — memory coverage gap detected")
+	}
+	if report.MemoryFirstRatio < 0.5 && report.SessionsAnalyzed > 0 {
+		p.Warnf("Memory-first ratio below target — agent may be bypassing memory")
+	}
+
+	p.Blank()
 	return nil
 }

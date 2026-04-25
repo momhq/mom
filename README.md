@@ -104,9 +104,13 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 | `mom validate` | Validate documents against schema |
 | `mom export` | Export memory to portable directory |
 | `mom import` | Import memory (merge or replace) |
+| `mom reindex` | Rebuild the SQLite search index from JSON memory files |
+| `mom watch` | Watch runtime transcripts and ingest turns automatically |
+| `mom sweep` | Delete old raw JSONL recordings based on retention policy |
+| `mom serve mcp` | Start MCP stdio server |
+| `mom serve status` | Show MCP server activity |
 | `mom upgrade` | Upgrade `.mom/` to the latest version (preserves memory) |
 | `mom uninstall` | Remove all MOM files from this project |
-| `mom serve --mcp` | Start MCP stdio server |
 | `mom version` | Print version |
 
 ## Supported Runtimes
@@ -116,7 +120,6 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 | Claude Code | Yes | Stop + SessionEnd | CLAUDE.md | Full support |
 | OpenAI Codex | Yes | — | AGENTS.md | Boot file + MCP |
 | Windsurf | Yes | — | .windsurf/rules/ | Boot file + MCP |
-| Cursor | Yes | — | .cursor/rules/ | Boot file + MCP |
 
 ## Current Status
 
@@ -129,7 +132,7 @@ What's in v0.11:
 - **Cartographer** — AST-based repo scanning for initial memory bootstrap
 - **Simplified schema (v2)** — free-form content, promotion-based lifecycle (`draft`/`curated`)
 - **Herald event bus** — internal telemetry and event emission
-- Four runtime adapters (Claude Code, Codex, Windsurf, Cursor)
+- Three runtime adapters (Claude Code, Codex, Windsurf)
 - Communication modes (verbose, concise, normal, caveman)
 - Multi-repo support with scope-based memory
 - Homebrew installation with automated tap updates

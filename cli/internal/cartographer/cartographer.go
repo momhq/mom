@@ -85,12 +85,12 @@ func DefaultConfig() Config {
 		CommitDepth:   200,
 		MaxFileSizeMB: 2,
 		SkipPatterns: []string{
-			"node_modules/**",
-			"vendor/**",
+			"**/node_modules/**",
+			"**/vendor/**",
 			"**/.git/**",
-			"dist/**",
-			"build/**",
-			".mom/**",
+			"**/dist/**",
+			"**/build/**",
+			"**/.mom/**",
 			"**/testdata/**",
 		},
 		Extensions: []string{
