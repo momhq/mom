@@ -127,23 +127,18 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		diskDocIDs[id] = true
 	}
 
-	constraintErrors, constraintIDs := validateAllDocs(p, constraintsDir, "constraint")
+	constraintErrors, _ := validateAllDocs(p, constraintsDir, "constraint")
 	totalErrors += constraintErrors
-	for id := range constraintIDs {
-		diskDocIDs[id] = true
-	}
 
-	skillErrors, skillIDs := validateAllDocs(p, skillsDir, "skill")
+	skillErrors, _ := validateAllDocs(p, skillsDir, "skill")
 	totalErrors += skillErrors
-	for id := range skillIDs {
-		diskDocIDs[id] = true
-	}
 
 	if totalErrors > 0 {
 		failed = true
 	}
 
 	// Check 5: Index consistency (JSON index).
+	// Only memory docs are indexed — constraints and skills are static config.
 	if orphanFail := checkIndexConsistency(p, leoDir, diskDocIDs); orphanFail {
 		failed = true
 	}
@@ -186,11 +181,6 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		telDir := filepath.Join(leoDir, "logs")
 		printLastSession(p, telDir)
 		printRecentErrors(p, telDir, 5)
-	}
-
-	// Check 11: Adapter capabilities.
-	if cfg != nil {
-		printAdapterCapabilities(p, cwd, cfg)
 	}
 
 	if failed {

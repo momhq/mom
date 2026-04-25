@@ -73,14 +73,29 @@ func runRecall(cmd *cobra.Command, args []string) error {
 	idx := storage.NewIndexedAdapter(momDir)
 	defer idx.Close()
 
-	results, err := idx.Search(storage.SearchOptions{
-		Query:      query,
-		ScopePaths: scopePaths,
-		Tags:       filterTags,
-		Limit:      limit,
-	})
-	if err != nil {
-		return fmt.Errorf("search failed: %w", err)
+	showSpinner := ux.IsTTY(cmd.OutOrStdout())
+
+	var results []storage.SearchResult
+	var searchErr error
+	doSearch := func() {
+		results, searchErr = idx.Search(storage.SearchOptions{
+			Query:      query,
+			ScopePaths: scopePaths,
+			Tags:       filterTags,
+			Limit:      limit,
+		})
+	}
+
+	if showSpinner {
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Searching")
+		doSearch()
+		sp.Stop()
+	} else {
+		doSearch()
+	}
+	if searchErr != nil {
+		return fmt.Errorf("search failed: %w", searchErr)
 	}
 
 	if len(results) == 0 {
@@ -92,8 +107,15 @@ func runRecall(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	title := "recall"
+	if query != "" {
+		title = fmt.Sprintf("recall %q", query)
+	}
+	p.Diamond(fmt.Sprintf("%s — %d results", title, len(results)))
+	p.Blank()
+
 	p.Bold(fmt.Sprintf("%-36s  %-10s  %s", "ID", "Score", "Summary"))
-	p.Text(strings.Repeat("-", 80))
+	p.Muted(strings.Repeat("─", 80))
 	for _, r := range results {
 		landmark := ""
 		if r.Landmark {

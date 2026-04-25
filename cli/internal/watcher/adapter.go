@@ -18,3 +18,12 @@ type Adapter interface {
 	// (zero, false) if the line should be skipped (tool_use, metadata, etc.).
 	ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool)
 }
+
+// ProjectFilter is optionally implemented by adapters that need to
+// filter transcripts by project (e.g. Windsurf, which uses a flat
+// transcript directory with no per-project subdirectories).
+type ProjectFilter interface {
+	// BelongsToProject reads a transcript file and returns true if it
+	// belongs to the adapter's configured project directory.
+	BelongsToProject(path string) bool
+}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/momhq/mom/cli/internal/recorder"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 // Config holds watcher configuration (mirrors .mom/config.yaml watcher block).
@@ -20,6 +21,10 @@ type Config struct {
 	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
 	// Tilde expansion is performed automatically.
 	TranscriptDir string
+	// ProjectDir is the absolute path of the project being watched.
+	// Used to scope ingestion to the matching transcript subdirectory.
+	// If empty, all transcripts are ingested (legacy behavior).
+	ProjectDir string
 	// MomDir is the path to .mom/ where raw/ and cursor files are written.
 	MomDir string
 	// Adapter parses runtime-specific JSONL lines.
@@ -32,12 +37,14 @@ type Config struct {
 // Watcher watches a Claude Code transcript directory and ingests new entries
 // into .mom/raw/ using cursor-based incremental reads.
 type Watcher struct {
-	cfg     Config
-	fw      *fsnotify.Watcher
-	mu      sync.Mutex
-	timers  map[string]*time.Timer // debounce timers keyed by file path
-	rawDir  string
-	logFile string
+	cfg        Config
+	fw         *fsnotify.Watcher
+	mu         sync.Mutex
+	timers     map[string]*time.Timer // debounce timers keyed by file path
+	rawDir     string
+	logFile    string
+	p          *ux.Printer
+	catchingUp bool // true during catchUp phase — suppresses per-file output
 }
 
 // New creates a Watcher. Call Run to start watching.
@@ -50,6 +57,17 @@ func New(cfg Config) (*Watcher, error) {
 	if err != nil {
 		return nil, fmt.Errorf("expanding transcript dir: %w", err)
 	}
+
+	// Scope to project-specific subdirectory when ProjectDir is set.
+	if cfg.ProjectDir != "" {
+		slug := projectSlug(cfg.ProjectDir)
+		scoped := filepath.Join(dir, slug)
+		// Only narrow if the subdirectory exists.
+		if info, serr := os.Stat(scoped); serr == nil && info.IsDir() {
+			dir = scoped
+		}
+	}
+
 	cfg.TranscriptDir = dir
 
 	rawDir := filepath.Join(cfg.MomDir, "raw")
@@ -71,6 +89,7 @@ func New(cfg Config) (*Watcher, error) {
 		timers:  make(map[string]*time.Timer),
 		rawDir:  rawDir,
 		logFile: filepath.Join(logsDir, "watch.log"),
+		p:       ux.NewPrinter(os.Stderr),
 	}, nil
 }
 
@@ -85,7 +104,16 @@ func (w *Watcher) Run() error {
 	}
 
 	// Process any existing files on startup (catch up on offline turns).
-	w.catchUp()
+	w.catchingUp = true
+	sessions, turns := w.catchUp()
+	w.catchingUp = false
+
+	if w.p != nil && sessions > 0 {
+		w.p.Checkf("caught up: %s sessions, %s turns",
+			w.p.HighlightValue(fmt.Sprintf("%d", sessions)),
+			w.p.HighlightValue(fmt.Sprintf("%d", turns)))
+		w.p.Blank()
+	}
 
 	w.logf("watcher started on %s", w.cfg.TranscriptDir)
 
@@ -109,6 +137,11 @@ func (w *Watcher) Run() error {
 // Stop shuts down the underlying fsnotify watcher.
 func (w *Watcher) Stop() error {
 	return w.fw.Close()
+}
+
+// TranscriptDir returns the resolved (scoped, tilde-expanded) transcript directory.
+func (w *Watcher) TranscriptDir() string {
+	return w.cfg.TranscriptDir
 }
 
 // handleEvent dispatches fsnotify events.
@@ -135,6 +168,12 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 	}
 
 	if event.Has(fsnotify.Create) || event.Has(fsnotify.Write) {
+		// Check project filter for adapters that need it (e.g. Windsurf).
+		if pf, ok := w.cfg.Adapter.(ProjectFilter); ok {
+			if !pf.BelongsToProject(path) {
+				return
+			}
+		}
 		w.scheduleRead(path)
 	}
 }
@@ -158,21 +197,34 @@ func (w *Watcher) scheduleRead(path string) {
 }
 
 // catchUp processes all existing .jsonl files in the transcript dir on startup.
-func (w *Watcher) catchUp() {
+// Returns the number of sessions and total turns ingested.
+func (w *Watcher) catchUp() (sessions int, turns int) {
 	_ = filepath.WalkDir(w.cfg.TranscriptDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".jsonl") && !strings.Contains(path, "subagents") {
-			w.ingestFile(path)
+			// Check project filter for adapters that need it (e.g. Windsurf).
+			if pf, ok := w.cfg.Adapter.(ProjectFilter); ok {
+				if !pf.BelongsToProject(path) {
+					return nil
+				}
+			}
+			n := w.ingestFile(path)
+			if n > 0 {
+				sessions++
+				turns += n
+			}
 		}
 		return nil
 	})
+	return
 }
 
 // ingestFile reads new lines from the transcript file since the last cursor,
 // normalizes them via the adapter, and appends to .mom/raw/.
-func (w *Watcher) ingestFile(path string) {
+// Returns the number of entries ingested.
+func (w *Watcher) ingestFile(path string) int {
 	sessionID := sessionIDFromPath(path)
 	cursorFile := filepath.Join(w.rawDir, ".watch-cursor-"+sessionID)
 
@@ -183,14 +235,14 @@ func (w *Watcher) ingestFile(path string) {
 	f, err := os.Open(path)
 	if err != nil {
 		w.logf("opening %s: %v", path, err)
-		return
+		return 0
 	}
 	defer f.Close()
 
 	if offset > 0 {
 		if _, err := f.Seek(offset, io.SeekStart); err != nil {
 			w.logf("seeking %s to %d: %v", path, offset, err)
-			return
+			return 0
 		}
 	}
 
@@ -216,19 +268,28 @@ func (w *Watcher) ingestFile(path string) {
 	}
 
 	if bytesRead == 0 {
-		return
+		return 0
 	}
 
 	// Write entries to .mom/raw/<YYYY-MM-DD>.jsonl.
 	if len(entries) > 0 {
 		if err := w.writeEntries(entries); err != nil {
 			w.logf("writing entries from %s: %v", path, err)
-			return
+			return 0
+		}
+		if w.p != nil && !w.catchingUp {
+			sid := sessionIDFromPath(path)
+			short := sid
+			if len(short) > 8 {
+				short = short[:8]
+			}
+			w.p.Checkf("ingested %d turns from %s", len(entries), w.p.HighlightValue(short))
 		}
 	}
 
 	// Advance cursor.
 	writeWatchCursor(cursorFile, offset+bytesRead)
+	return len(entries)
 }
 
 // writeEntries appends normalized entries to today's raw JSONL file.
@@ -294,6 +355,13 @@ func readWatchCursor(cursorFile string) int64 {
 // writeWatchCursor persists a byte offset to the cursor file.
 func writeWatchCursor(cursorFile string, offset int64) {
 	_ = os.WriteFile(cursorFile, []byte(fmt.Sprintf("%d", offset)), 0644)
+}
+
+// projectSlug converts an absolute project path to the Claude Code project
+// directory slug format: replace "/" with "-".
+// e.g. "/Users/vmarino/Github/discovery" → "-Users-vmarino-Github-discovery"
+func projectSlug(projectDir string) string {
+	return strings.ReplaceAll(projectDir, "/", "-")
 }
 
 // expandTilde replaces a leading "~" with the user's home directory.

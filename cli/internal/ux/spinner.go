@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Spinner is a TTY-aware braille spinner with Archive-colored frames.
+// Spinner is a TTY-aware braille spinner with Signal-colored frames.
 // On non-TTY writers it prints the label once and "done" on finish.
 type Spinner struct {
 	w      io.Writer
@@ -44,7 +44,7 @@ func (s *Spinner) Start(label string) {
 				return
 			case <-ticker.C:
 				i := int(s.idx.Add(1)) % len(s.frames)
-				frame := ArchiveStyle.Render(s.frames[i])
+				frame := SignalStyle.Render(s.frames[i])
 				txt := TextStyle.Render(s.text.Load().(string) + "...")
 				fmt.Fprintf(s.w, "\r%s %s   ", frame, txt)
 			}
@@ -65,7 +65,7 @@ func (s *Spinner) Stop() {
 		return
 	}
 	close(s.done)
-	diamond := ArchiveStyle.Render(DiamondFilled)
+	diamond := SignalStyle.Render(DiamondFilled)
 	txt := TextStyle.Render(label + "...")
 	done := SuccessStyle.Render("done")
 	fmt.Fprintf(s.w, "\r\033[K%s %s %s\n", diamond, txt, done)

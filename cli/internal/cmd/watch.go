@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/momhq/mom/cli/internal/watcher"
 	"github.com/spf13/cobra"
 )
@@ -74,9 +75,13 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	var adapter watcher.Adapter
 	transcriptDir := watchTranscriptDir
 
+	// ProjectDir is the directory containing .mom/ — used to scope
+	// transcript ingestion to the matching project subdirectory.
+	projectDir := filepath.Dir(momDir)
+
 	switch watchRuntime {
 	case "windsurf":
-		adapter = watcher.NewWindsurfAdapter()
+		adapter = &watcher.WindsurfAdapter{ProjectDir: projectDir}
 		if transcriptDir == "" {
 			transcriptDir = defaultTranscriptDirs["windsurf"]
 		}
@@ -91,6 +96,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	cfg := watcher.Config{
 		TranscriptDir: transcriptDir,
+		ProjectDir:    projectDir,
 		MomDir:        momDir,
 		Adapter:       adapter,
 		DebounceMs:    watchDebounceMs,
@@ -101,8 +107,12 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("creating watcher: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "watching %s [%s] → %s/raw/\n", transcriptDir, watchRuntime, momDir)
-	fmt.Fprintf(os.Stderr, "press Ctrl-C to stop\n")
+	p := ux.NewPrinter(os.Stderr)
+	p.Diamond(fmt.Sprintf("watch [%s]", watchRuntime))
+	p.Chevron(fmt.Sprintf("source: %s", w.TranscriptDir()))
+	p.Chevron(fmt.Sprintf("target: %s/raw/", momDir))
+	p.Muted("press Ctrl-C to stop")
+	p.Blank()
 
 	if err := w.Run(); err != nil {
 		return fmt.Errorf("watcher stopped: %w", err)

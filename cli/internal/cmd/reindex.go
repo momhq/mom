@@ -7,6 +7,7 @@ import (
 
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/spf13/cobra"
 )
 
@@ -47,19 +48,40 @@ func runReindex(cmd *cobra.Command, args []string) error {
 
 	targetScopes := scopes
 	if !all {
-		// Default: reindex only the nearest (writable) scope.
 		targetScopes = scopes[:1]
 	}
 
-	for _, sc := range targetScopes {
-		fmt.Fprintf(cmd.OutOrStdout(), "Reindexing %s (%s)...\n", sc.Label, sc.Path)
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	showSpinner := ux.IsTTY(cmd.OutOrStdout())
 
+	p.Diamond("reindex")
+	p.Blank()
+
+	for _, sc := range targetScopes {
 		momDir := sc.Path
 		adapter := storage.NewIndexedAdapter(momDir)
 		defer adapter.Close() //nolint:errcheck
 
-		if err := adapter.Reindex(); err != nil {
-			fmt.Fprintf(cmd.OutOrStdout(), "! Failed to reindex %s: %v\n", sc.Label, err)
+		var reindexErr error
+		doReindex := func() {
+			reindexErr = adapter.Reindex()
+		}
+
+		if showSpinner {
+			sp := ux.NewSpinner(os.Stderr)
+			sp.Start(fmt.Sprintf("Reindexing %s", sc.Label))
+			doReindex()
+			if reindexErr != nil {
+				sp.StopFail()
+			} else {
+				sp.Stop()
+			}
+		} else {
+			doReindex()
+		}
+
+		if reindexErr != nil {
+			p.Failf("%s: %v", sc.Label, reindexErr)
 			continue
 		}
 
@@ -73,10 +95,11 @@ func runReindex(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "✓ Reindexed %s: %d documents\n", sc.Label, count)
+		p.Checkf("%s: %s documents indexed", sc.Label, p.HighlightValue(fmt.Sprintf("%d", count)))
+		p.Chevron(shortenPath(momDir))
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout())
-	fmt.Fprintln(cmd.OutOrStdout(), "SQLite index rebuilt. Search results will now reflect all memory files.")
+	p.Blank()
+	p.Muted("SQLite index rebuilt. Search results now reflect all memory files.")
 	return nil
 }

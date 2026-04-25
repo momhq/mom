@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/memory"
@@ -79,39 +78,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	p.KeyValue("Stale docs", fmt.Sprintf("%d", staleCount), w)
 
 	return nil
-}
-
-// printAdapterCapabilities prints the MRP v0 capability summary for each enabled adapter.
-func printAdapterCapabilities(p *ux.Printer, projectRoot string, cfg *config.Config) {
-	enabled := cfg.EnabledRuntimes()
-	if len(enabled) == 0 {
-		return
-	}
-	registry := runtime.NewRegistry(projectRoot)
-	p.Blank()
-	p.Bold("Adapter capabilities (MRP v0)")
-	for _, name := range enabled {
-		adapter, ok := registry.Get(name)
-		if !ok {
-			continue
-		}
-		cap := adapter.Capabilities()
-		adapterName := cap.Name
-		if adapterName == "" {
-			adapterName = name
-		}
-		version := cap.Version
-		if version == "" {
-			version = "unknown"
-		}
-		p.KeyValue("  Adapter", fmt.Sprintf("%s (v%s)", adapterName, version), 12)
-		if len(cap.Supports) > 0 {
-			p.KeyValue("    Supported", strings.Join(cap.Supports, ", "), 16)
-		}
-		if len(cap.Experimental) > 0 {
-			p.KeyValue("    Experimental", strings.Join(cap.Experimental, ", "), 16)
-		}
-	}
 }
 
 // printScopesSection prints the active scopes discovered by walk-up from cwd.

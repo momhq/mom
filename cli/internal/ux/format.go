@@ -86,10 +86,10 @@ func (p *Printer) WarningText(s string) string {
 
 // --- bullets and indicators ---
 
-// Diamond prints a filled diamond (◆) in Archive + bold text.
+// Diamond prints a filled diamond (◆) in Signal + bold text.
 // Used for section headings / step phases.
 func (p *Printer) Diamond(s string) {
-	bullet := p.style(DiamondFilled, ArchiveStyle.Render)
+	bullet := p.style(DiamondFilled, SignalStyle.Render)
 	label := p.style(s, BoldStyle.Render)
 	fmt.Fprintf(p.W, "%s %s\n", bullet, label)
 }
@@ -130,11 +130,12 @@ func (p *Printer) Warnf(format string, a ...any) {
 	p.Warn(fmt.Sprintf(format, a...))
 }
 
-// Chevron prints a chevron (›) in Paper + Paper text.
+// Chevron prints a chevron (›) in Archive + Paper text.
 // Used for list items under a Diamond section.
 func (p *Printer) Chevron(s string) {
+	bullet := p.style(Chevron, ArchiveStyle.Render)
 	label := p.style(s, TextStyle.Render)
-	fmt.Fprintf(p.W, "  %s %s\n", Chevron, label)
+	fmt.Fprintf(p.W, "  %s %s\n", bullet, label)
 }
 
 // Selected prints a filled bullet (●) in Archive + Paper text.
@@ -160,7 +161,7 @@ func (p *Printer) Indent(s string) {
 
 // StepDone prints a diamond step that completed: ◆ label... done
 func (p *Printer) StepDone(label string) {
-	bullet := p.style(DiamondFilled, ArchiveStyle.Render)
+	bullet := p.style(DiamondFilled, SignalStyle.Render)
 	text := p.style(label+"...", TextStyle.Render)
 	done := p.style("done", SuccessStyle.Render)
 	fmt.Fprintf(p.W, "%s %s %s\n", bullet, text, done)
@@ -185,9 +186,10 @@ func (p *Printer) KeyValue(label string, value string, width int) {
 // Banner prints the MOM ASCII art banner in Archive color.
 func (p *Printer) Banner() {
 	art := []string{
-		`█▄ ▄█  ▄▀▀▄  █▄ ▄█`,
-		`█ █ █  █  █  █ █ █`,
-		`█   █  ▀▄▄▀  █   █`,
+		`██ ██       ██ ██   ██ ██ ██ ██ ██ ██   ██ ██       ██ ██`,
+		`██ ██ ██ ██ ██ ██   ██ ██       ██ ██   ██ ██ ██ ██ ██ ██`,
+		`██    ██ ██    ██   ██ ██       ██ ██   ██    ██ ██    ██`,
+		`██             ██   ██ ██ ██ ██ ██ ██   ██             ██`,
 	}
 	for _, line := range art {
 		fmt.Fprintln(p.W, p.style(line, ArchiveStyle.Render))

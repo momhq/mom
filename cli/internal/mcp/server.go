@@ -16,11 +16,13 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
+// Version is set by the caller (cmd package) to match the CLI version.
+var Version = "dev"
+
 const (
-	// Version of the MOM MCP server.
-	Version = "0.11.2"
 	// MCPProtocolVersion is the MCP spec version this server implements.
 	MCPProtocolVersion = "2024-11-05"
 
@@ -74,8 +76,11 @@ func New(momDir string) *Server {
 // stdout (out) is reserved for JSON-RPC only. Human-readable output goes to
 // stderr.
 func (s *Server) Serve(in io.Reader, out io.Writer) {
-	fmt.Fprintf(os.Stderr, "MOM MCP server v%s | scope: %s | listening on stdio\n",
-		Version, s.momDir)
+	p := ux.NewPrinter(os.Stderr)
+	p.Diamond("MCP server")
+	p.Chevron(fmt.Sprintf("scope: %s", s.momDir))
+	p.Muted("listening on stdio — stdout reserved for JSON-RPC")
+	p.Blank()
 
 	// Open log file in append mode.
 	logFile := s.openLog()
@@ -115,6 +120,7 @@ func (s *Server) Serve(in io.Reader, out io.Writer) {
 		result, rpcErr := s.dispatch(req.Method, req.Params)
 		if rpcErr != nil {
 			s.logEntry(logFile, "error", req.Method, rpcErr.Message)
+			p.Failf("%s — %s", req.Method, rpcErr.Message)
 			_ = enc.Encode(jsonRPCResponse{
 				JSONRPC: "2.0",
 				ID:      req.ID,
@@ -122,6 +128,7 @@ func (s *Server) Serve(in io.Reader, out io.Writer) {
 			})
 		} else {
 			s.logEntry(logFile, "ok", req.Method, "")
+			p.Checkf("%s", req.Method)
 			_ = enc.Encode(jsonRPCResponse{
 				JSONRPC: "2.0",
 				ID:      req.ID,
