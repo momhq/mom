@@ -9,6 +9,7 @@ import (
 
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/spf13/cobra"
 )
 
@@ -41,15 +42,16 @@ func runSweep(cmd *cobra.Command, _ []string) error {
 		cfg = &def
 	}
 
+	p := ux.NewPrinter(os.Stderr)
 	result := sweep(sc.Path, cfg.RawMemories)
 	if result.Errors > 0 {
-		fmt.Fprintf(os.Stderr, "sweep: deleted %d files, freed %.1f MB (%d errors)\n",
+		p.Warnf("sweep: deleted %d files, freed %.1f MB (%d errors)",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024), result.Errors)
 	} else if result.Deleted > 0 {
-		fmt.Fprintf(os.Stderr, "sweep: deleted %d files, freed %.1f MB\n",
+		p.Checkf("sweep: deleted %d files, freed %.1f MB",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024))
 	} else {
-		fmt.Fprintf(os.Stderr, "sweep: nothing to clean\n")
+		p.Muted("sweep: nothing to clean")
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 const (
@@ -61,9 +62,11 @@ func runRecall(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("getting working directory: %w", err)
 	}
 
+	p := ux.NewPrinter(cmd.OutOrStdout())
+
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .mom/ directory found. Run 'mom init' first.\n")
+		p.Muted("No .mom/ directory found. Run 'mom init' first.")
 		return nil
 	}
 
@@ -118,9 +121,9 @@ func runRecall(cmd *cobra.Command, args []string) error {
 
 	if len(results) == 0 {
 		if query == "" && len(filterTags) == 0 {
-			cmd.Printf("No memories found.\n")
+			p.Muted("No memories found.")
 		} else {
-			cmd.Printf("No memories matched your query.\n")
+			p.Muted("No memories matched your query.")
 		}
 		return nil
 	}
@@ -137,12 +140,12 @@ func runRecall(cmd *cobra.Command, args []string) error {
 		results = results[:limit]
 	}
 
-	cmd.Printf("%-36s  %-10s  %s\n", "ID", "Score", "Summary")
-	cmd.Printf("%s\n", strings.Repeat("-", 80))
+	p.Bold(fmt.Sprintf("%-36s  %-10s  %s", "ID", "Score", "Summary"))
+	p.Text(strings.Repeat("-", 80))
 	for _, r := range results {
 		landmark := ""
 		if r.doc.Landmark {
-			landmark = " ★"
+			landmark = p.HighlightValue(" ★")
 		}
 		summary := r.doc.Summary
 		if summary == "" {
@@ -150,9 +153,9 @@ func runRecall(cmd *cobra.Command, args []string) error {
 				summary = s
 			}
 		}
-		cmd.Printf("%-36s  %-10.3f  %s%s\n",
+		p.Textf("%-36s  %s  %s%s",
 			truncate(r.doc.ID, 36),
-			r.score,
+			p.HighlightValue(fmt.Sprintf("%-10.3f", r.score)),
 			truncate(summary, 40),
 			landmark,
 		)

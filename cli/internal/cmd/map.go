@@ -3,18 +3,17 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"sync/atomic"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/cartographer"
 	"github.com/momhq/mom/cli/internal/gardener"
-	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 var mapCmd = &cobra.Command{
@@ -102,37 +101,36 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 
 	cfg.ScopeDir = targetScope.Path
 
-	isTTY := isTerminalWriter(cmd.OutOrStdout())
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	isTTY := ux.IsTTY(cmd.OutOrStdout())
 
 	// Wire up spinner and progress callback when running interactively.
-	var spinner *bootstrapSpinner
+	var sp *ux.Spinner
 	if isTTY {
-		spinner = newBootstrapSpinner(os.Stderr)
-		spinner.start("Scanning...")
+		sp = ux.NewSpinner(os.Stderr)
+		sp.Start("Scanning")
 		cfg.OnProgress = func(processed, total int) {
-			spinner.update(fmt.Sprintf("Scanning... (%d / %d files)", processed, total))
+			sp.Update(fmt.Sprintf("Scanning (%d / %d files)", processed, total))
 		}
 	}
 
 	cart := cartographer.New(cfg)
 
 	if !isTTY {
-		cmd.Printf("Scanning %s\n", scanPath)
+		p.Textf("Scanning %s", scanPath)
 	}
 	if dryRun {
-		cmd.Println("  (dry-run: no memories will be written)")
+		p.Muted("  (dry-run: no memories will be written)")
 	}
 
 	result, err := cart.Scan(cmd.Context(), scanPath)
 
-	if spinner != nil {
-		spinner.stop()
+	if sp != nil {
+		sp.Stop()
 	}
 
-	if !isTTY {
-		// Already printed above; nothing extra needed.
-	} else {
-		cmd.Printf("Scanning %s\n", scanPath)
+	if isTTY {
+		p.Textf("Scanning %s", scanPath)
 	}
 
 	if err != nil {
@@ -140,25 +138,25 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Print per-extractor results.
-	printBootstrapProgress(cmd, result)
+	printBootstrapProgress(p, result)
 
 	// Write memories unless dry-run.
 	written := 0
 	if !dryRun && len(result.Drafts) > 0 {
 		w, writeErr := writeDrafts(result.Drafts, targetScope.Path)
 		if writeErr != nil {
-			cmd.Printf("  ⚠ write error: %v\n", writeErr)
+			p.Warnf("write error: %v", writeErr)
 		}
 		written = w
 
 	}
 
-	cmd.Println()
+	p.Blank()
 	if dryRun {
-		cmd.Printf("Total: %d memories would be seeded in %.1fs.\n",
+		p.Textf("Total: %d memories would be seeded in %.1fs.",
 			len(result.Drafts), result.Duration().Seconds())
 	} else {
-		cmd.Printf("Total: %d memories seeded in %.1fs.\n",
+		p.Textf("Total: %d memories seeded in %.1fs.",
 			written, result.Duration().Seconds())
 	}
 
@@ -176,7 +174,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 			if err == nil {
 				_ = n
 				landmarkCount := countLandmarks(memDir)
-				cmd.Printf("✓ %d landmarks identified\n", landmarkCount)
+				p.Checkf("%d landmarks identified", landmarkCount)
 			}
 		}
 
@@ -186,20 +184,20 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 			if graphErr == nil && data.Stats.TotalDocs > 0 {
 				outPath := filepath.Join(os.TempDir(), "mom-memory-graph.html")
 				if writeErr := gardener.WriteGraphHTML(data, outPath); writeErr == nil {
-					cmd.Printf("Graph written to %s\n", outPath)
+					p.Checkf("Graph written to %s", outPath)
 					if openErr := openBrowser(outPath); openErr != nil {
-						cmd.Printf("  Open the file in your browser to view the graph.\n")
+						p.Muted("  Open the file in your browser to view the graph.")
 					}
 				}
 			}
 		}
 	}
 
-	cmd.Println()
-	cmd.Println("Suggested first questions:")
-	cmd.Println("  · \"What does this project do?\"")
-	cmd.Println("  · \"Which dependencies drive the core behavior?\"")
-	cmd.Println("  · \"What was the last major refactor about?\"")
+	p.Blank()
+	p.Bold("Suggested first questions")
+	p.Chevron("\"What does this project do?\"")
+	p.Chevron("\"Which dependencies drive the core behavior?\"")
+	p.Chevron("\"What was the last major refactor about?\"")
 
 	// Emit telemetry.
 	emitter := herald.New(targetScope.Path, true)
@@ -251,41 +249,44 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 
 		momInfo, momErr := os.Stat(momPath)
 		if momErr != nil || !momInfo.IsDir() {
-			cmd.Printf("  ⚠ %s — no .mom/ found, skipping (run 'mom init' in this repo first)\n", child)
+			mp := ux.NewPrinter(cmd.OutOrStdout())
+			mp.Warnf("%s — no .mom/ found, skipping (run 'mom init' in this repo first)", child)
 			continue
 		}
 
 		repos = append(repos, repoEntry{root: child, momDir: momPath})
 	}
 
+	mp := ux.NewPrinter(cmd.OutOrStdout())
 	if len(repos) == 0 {
-		cmd.Println("No initialized child repos found. Run 'mom init' in each repo first.")
+		mp.Muted("No initialized child repos found. Run 'mom init' in each repo first.")
 		return nil
 	}
 
-	cmd.Printf("Multi-repo bootstrap: %d repos under %s\n", len(repos), parentDir)
+	mp.Textf("Multi-repo bootstrap: %d repos under %s", len(repos), parentDir)
 	if dryRun {
-		cmd.Println("  (dry-run: no memories will be written)")
+		mp.Muted("  (dry-run: no memories will be written)")
 	}
 
 	totalProposed := 0
 	totalWritten := 0
 
-	isTTY := isTerminalWriter(cmd.OutOrStdout())
+	isTTY := ux.IsTTY(cmd.OutOrStdout())
 
 	for _, repo := range repos {
 		repoName := filepath.Base(repo.root)
-		cmd.Printf("\n  [%s]\n", repoName)
+		mp.Blank()
+		mp.Bold(fmt.Sprintf("  [%s]", repoName))
 
 		repoCfg := cfg
 		repoCfg.ScopeDir = repo.momDir
 
-		var repoSpinner *bootstrapSpinner
+		var repoSp *ux.Spinner
 		if isTTY {
-			repoSpinner = newBootstrapSpinner(os.Stderr)
-			repoSpinner.start(fmt.Sprintf("Scanning %s...", repoName))
+			repoSp = ux.NewSpinner(os.Stderr)
+			repoSp.Start(fmt.Sprintf("Scanning %s", repoName))
 			repoCfg.OnProgress = func(processed, total int) {
-				repoSpinner.update(fmt.Sprintf("Scanning %s... (%d / %d files)", repoName, processed, total))
+				repoSp.Update(fmt.Sprintf("Scanning %s (%d / %d files)", repoName, processed, total))
 			}
 		}
 
@@ -293,42 +294,42 @@ func runMultiRepoBootstrap(cmd *cobra.Command, scanPath string, targetScope scop
 
 		result, err := cart.Scan(cmd.Context(), repo.root)
 
-		if repoSpinner != nil {
-			repoSpinner.stop()
+		if repoSp != nil {
+			repoSp.Stop()
 		}
 
 		if err != nil {
-			cmd.Printf("    ⚠ scan error: %v\n", err)
+			mp.Warnf("scan error: %v", err)
 			continue
 		}
 
-		printBootstrapProgress(cmd, result)
+		printBootstrapProgress(mp, result)
 		totalProposed += len(result.Drafts)
 
 		if !dryRun && len(result.Drafts) > 0 {
 			w, writeErr := writeDrafts(result.Drafts, repo.momDir)
 			if writeErr != nil {
-				cmd.Printf("    ⚠ write error: %v\n", writeErr)
+				mp.Warnf("write error: %v", writeErr)
 			}
 			totalWritten += w
-			cmd.Printf("    %d memories seeded in %.1fs.\n", w, result.Duration().Seconds())
+			mp.Textf("    %d memories seeded in %.1fs.", w, result.Duration().Seconds())
 		} else if dryRun {
-			cmd.Printf("    %d memories would be seeded.\n", len(result.Drafts))
+			mp.Textf("    %d memories would be seeded.", len(result.Drafts))
 		}
 	}
 
-	cmd.Println()
+	mp.Blank()
 	if dryRun {
-		cmd.Printf("Total: %d memories would be seeded across %d repos.\n", totalProposed, len(repos))
+		mp.Textf("Total: %d memories would be seeded across %d repos.", totalProposed, len(repos))
 	} else {
-		cmd.Printf("Total: %d memories seeded across %d repos.\n", totalWritten, len(repos))
+		mp.Textf("Total: %d memories seeded across %d repos.", totalWritten, len(repos))
 	}
 
 	return nil
 }
 
 // printBootstrapProgress prints the per-extractor breakdown and cache summary.
-func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
+func printBootstrapProgress(p *ux.Printer, result *cartographer.Result) {
 	order := []struct {
 		key   string
 		label string
@@ -346,14 +347,10 @@ func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 			continue
 		}
 
-		cmd.Printf("  ✓ %-16s — %3d memories\n",
-			item.label,
-			er.Count,
-		)
+		p.Checkf("%-16s — %3d memories", item.label, er.Count)
 
 		// For AST, print per-language breakdown if we have data.
 		if item.key == "ast" && len(result.ByLanguage) > 0 {
-			// Sort language names for deterministic output.
 			langs := make([]string, 0, len(result.ByLanguage))
 			for lang := range result.ByLanguage {
 				langs = append(langs, lang)
@@ -362,7 +359,7 @@ func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 			for _, lang := range langs {
 				count := result.ByLanguage[lang]
 				displayLang := canonicalLanguageLabel(lang)
-				cmd.Printf("    %-14s %d memories\n", displayLang, count)
+				p.Muted(fmt.Sprintf("    %-14s %d memories", displayLang, count))
 			}
 		}
 	}
@@ -370,7 +367,7 @@ func printBootstrapProgress(cmd *cobra.Command, result *cartographer.Result) {
 	// Cache summary line.
 	total := result.CacheHits + result.CacheMisses
 	if total > 0 {
-		cmd.Printf("  ✓ %d cached · processing %d new\n", result.CacheHits, result.CacheMisses)
+		p.Checkf("%d cached · processing %d new", result.CacheHits, result.CacheMisses)
 	}
 }
 
@@ -491,102 +488,50 @@ func runBootstrapInline(cmd *cobra.Command, scanDir, momDir string) error {
 	cfg := cartographer.DefaultConfig()
 	cfg.ScopeDir = momDir
 
-	isTTY := isTerminalWriter(cmd.OutOrStdout())
+	bp := ux.NewPrinter(cmd.OutOrStdout())
+	isTTY := ux.IsTTY(cmd.OutOrStdout())
 
-	var spinner *bootstrapSpinner
+	var sp *ux.Spinner
 	if isTTY {
-		spinner = newBootstrapSpinner(os.Stderr)
-		spinner.start("Scanning...")
+		sp = ux.NewSpinner(os.Stderr)
+		sp.Start("Scanning")
 		cfg.OnProgress = func(processed, total int) {
-			spinner.update(fmt.Sprintf("Scanning... (%d / %d files)", processed, total))
+			sp.Update(fmt.Sprintf("Scanning (%d / %d files)", processed, total))
 		}
 	}
 
 	cart := cartographer.New(cfg)
 
 	if !isTTY {
-		cmd.Printf("Scanning %s for initial memories...\n", scanDir)
+		bp.Textf("Scanning %s for initial memories...", scanDir)
 	}
 
 	result, err := cart.Scan(cmd.Context(), scanDir)
 
-	if spinner != nil {
-		spinner.stop()
+	if sp != nil {
+		sp.Stop()
 	}
 
 	if isTTY {
-		cmd.Printf("Scanning %s for initial memories...\n", scanDir)
+		bp.Textf("Scanning %s for initial memories...", scanDir)
 	}
 
 	if err != nil {
 		return fmt.Errorf("scan failed: %w", err)
 	}
 
-	printBootstrapProgress(cmd, result)
+	printBootstrapProgress(bp, result)
 
 	written := 0
 	if len(result.Drafts) > 0 {
 		w, writeErr := writeDrafts(result.Drafts, momDir)
 		if writeErr != nil {
-			cmd.Printf("  ⚠ write error: %v\n", writeErr)
+			bp.Warnf("write error: %v", writeErr)
 		}
 		written = w
 	}
 
-	cmd.Printf("  %d memories seeded in %.1fs.\n", written, result.Duration().Seconds())
+	bp.Textf("  %d memories seeded in %.1fs.", written, result.Duration().Seconds())
 	return nil
 }
 
-// bootstrapSpinner is a simple TTY spinner that writes to an io.Writer (stderr).
-// It uses a goroutine + ticker to update the spinner frame periodically.
-type bootstrapSpinner struct {
-	w       io.Writer
-	frames  []string
-	current atomic.Int32 // current frame index
-	text    atomic.Value // current label string
-	done    chan struct{}
-}
-
-// newBootstrapSpinner creates a spinner that writes to w.
-func newBootstrapSpinner(w io.Writer) *bootstrapSpinner {
-	s := &bootstrapSpinner{
-		w:      w,
-		frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
-		done:   make(chan struct{}),
-	}
-	s.text.Store("")
-	return s
-}
-
-// start begins displaying the spinner with an initial label.
-func (s *bootstrapSpinner) start(label string) {
-	s.text.Store(label)
-	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-s.done:
-				return
-			case <-ticker.C:
-				idx := int(s.current.Add(1)) % len(s.frames)
-				frame := s.frames[idx]
-				txt := s.text.Load().(string)
-				// \r returns to column 0; clear to end of line with spaces then re-print.
-				fmt.Fprintf(s.w, "\r%s %s        \r%s %s", frame, txt, frame, txt)
-			}
-		}
-	}()
-}
-
-// update sets a new spinner label; safe to call from any goroutine.
-func (s *bootstrapSpinner) update(label string) {
-	s.text.Store(label)
-}
-
-// stop halts the spinner and erases the spinner line.
-func (s *bootstrapSpinner) stop() {
-	close(s.done)
-	// Erase the spinner line.
-	fmt.Fprintf(s.w, "\r\033[K")
-}

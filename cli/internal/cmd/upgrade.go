@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	huhspinner "charm.land/huh/v2/spinner"
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/ux"
 	"gopkg.in/yaml.v3"
 )
 
@@ -64,7 +64,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 // upgradeSingleDir runs the full upgrade pipeline on a single .mom/ directory.
 func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error {
 	momDir := filepath.Join(projectRoot, ".mom")
-	showSpinner := isTerminalWriter(cmd.OutOrStdout())
+	showSpinner := ux.IsTTY(cmd.OutOrStdout())
 
 	// Check if this dir has a .mom/ at all.
 	if _, err := os.Stat(momDir); os.IsNotExist(err) {
@@ -227,7 +227,10 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Checking configuration...").Action(doPhase1).Run()
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Checking configuration")
+		doPhase1()
+		sp.Stop()
 	} else {
 		doPhase1()
 	}
@@ -311,7 +314,10 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Updating memory structure...").Action(doPhase2).Run()
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Updating memory structure")
+		doPhase2()
+		sp.Stop()
 	} else {
 		doPhase2()
 	}
@@ -338,7 +344,10 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Regenerating runtime files...").Action(doPhase3).Run()
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Regenerating runtime files")
+		doPhase3()
+		sp.Stop()
 	} else {
 		doPhase3()
 	}
@@ -364,20 +373,30 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 		display = "~" + display[len(home):]
 	}
 
-	cmd.Println()
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	p.Blank()
 	if dryRun {
-		cmd.Printf("  [%s] Dry run — no changes made. Would apply:\n", display)
+		p.Bold(fmt.Sprintf("[%s] Dry run — no changes made. Would apply:", display))
 	} else {
-		cmd.Printf("  [%s] Upgrade complete:\n", display)
+		p.Bold(fmt.Sprintf("[%s] Upgrade complete:", display))
 	}
-	cmd.Println()
+	p.Blank()
 	for _, a := range actions {
-		cmd.Printf("  %s %s\n", a.symbol, a.desc)
+		switch a.symbol {
+		case "✔":
+			p.Check(a.desc)
+		case "⚠":
+			p.Warn(a.desc)
+		case "+":
+			p.Check(a.desc)
+		default:
+			p.Check(a.desc)
+		}
 	}
 	if len(actions) == 0 {
-		cmd.Println("  Everything is already up to date.")
+		p.Muted("Everything is already up to date.")
 	}
-	cmd.Println()
+	p.Blank()
 
 	return nil
 }
@@ -412,7 +431,8 @@ func propagateUpgrade(cmd *cobra.Command, rootDir string, dryRun bool) {
 			if strings.HasPrefix(display, home) {
 				display = "~" + display[len(home):]
 			}
-			cmd.Printf("  ⚠ failed to upgrade %s: %v\n", display, err)
+			up := ux.NewPrinter(cmd.OutOrStdout())
+			up.Warnf("failed to upgrade %s: %v", display, err)
 			continue
 		}
 

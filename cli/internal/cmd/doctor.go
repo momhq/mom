@@ -16,6 +16,7 @@ import (
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 func init() {
@@ -58,15 +59,18 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 // ─── base doctor ──────────────────────────────────────────────────────────────
 
 func runDoctorBase(cmd *cobra.Command, verbose bool) error {
+	p := ux.NewPrinter(cmd.OutOrStdout())
+
 	leoDir, err := findMomDir()
 	if err != nil {
-		cmd.Printf("✗ .mom/ directory: not found — run 'mom init' first\n")
+		p.Fail(".mom/ directory: not found — run 'mom init' first")
 		return err
 	}
 
 	// Detect legacy layout (.mom/kb/ present = pre-v0.8.0 install).
 	if _, statErr := os.Stat(filepath.Join(leoDir, "kb")); statErr == nil {
-		cmd.Printf("⚠ Legacy layout detected (.mom/kb/ present)\n  Run 'mom upgrade' to migrate to the v0.8.0 flat layout.\n")
+		p.Warn("Legacy layout detected (.mom/kb/ present)")
+		p.Textf("  Run %s to migrate to the v0.8.0 flat layout.", p.HighlightCmd("mom upgrade"))
 		return nil
 	}
 
@@ -74,61 +78,61 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 
 	// Check 1: .mom/ exists and is writable.
 	if err := checkDirWritable(leoDir); err != nil {
-		cmd.Printf("✗ .mom/ directory: %v\n", err)
+		p.Failf(".mom/ directory: %v", err)
 		failed = true
 	} else {
-		cmd.Printf("✔ .mom/ directory: exists and writable\n")
+		p.Check(".mom/ directory: exists and writable")
 	}
 
 	// Check 2: config.yaml is valid.
 	cfg, cfgErr := config.Load(leoDir)
 	if cfgErr != nil {
-		cmd.Printf("✗ config.yaml: %v\n", cfgErr)
+		p.Failf("config.yaml: %v", cfgErr)
 		failed = true
 	} else {
-		cmd.Printf("✔ config.yaml: valid (runtimes: %s)\n", strings.Join(cfg.EnabledRuntimes(), ", "))
+		p.Checkf("config.yaml: valid (runtimes: %s)", strings.Join(cfg.EnabledRuntimes(), ", "))
 	}
 
 	// Check 3: memory and core dirs exist.
 	docsDir := filepath.Join(leoDir, "memory")
 	if _, statErr := os.Stat(docsDir); statErr != nil {
-		cmd.Printf("✗ memory/: %v\n", statErr)
+		p.Failf("memory/: %v", statErr)
 		failed = true
 	} else {
-		cmd.Printf("✔ memory/: exists\n")
+		p.Check("memory/: exists")
 	}
 
 	constraintsDir := filepath.Join(leoDir, "constraints")
 	if _, statErr := os.Stat(constraintsDir); statErr != nil {
-		cmd.Printf("⚠ constraints/: not found\n")
+		p.Warn("constraints/: not found")
 	} else {
-		cmd.Printf("✔ constraints/: exists\n")
+		p.Check("constraints/: exists")
 	}
 
 	skillsDir := filepath.Join(leoDir, "skills")
 	if _, statErr := os.Stat(skillsDir); statErr != nil {
-		cmd.Printf("⚠ skills/: not found\n")
+		p.Warn("skills/: not found")
 	} else {
-		cmd.Printf("✔ skills/: exists\n")
+		p.Check("skills/: exists")
 	}
 
 	// Check 4: All docs pass schema validation.
 	diskDocIDs := make(map[string]bool)
 	totalErrors := 0
 
-	docErrors, docIDs := validateAllDocs(cmd, docsDir, "doc")
+	docErrors, docIDs := validateAllDocs(p, docsDir, "doc")
 	totalErrors += docErrors
 	for id := range docIDs {
 		diskDocIDs[id] = true
 	}
 
-	constraintErrors, constraintIDs := validateAllDocs(cmd, constraintsDir, "constraint")
+	constraintErrors, constraintIDs := validateAllDocs(p, constraintsDir, "constraint")
 	totalErrors += constraintErrors
 	for id := range constraintIDs {
 		diskDocIDs[id] = true
 	}
 
-	skillErrors, skillIDs := validateAllDocs(cmd, skillsDir, "skill")
+	skillErrors, skillIDs := validateAllDocs(p, skillsDir, "skill")
 	totalErrors += skillErrors
 	for id := range skillIDs {
 		diskDocIDs[id] = true
@@ -139,7 +143,7 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 	}
 
 	// Check 5: Index consistency.
-	if orphanFail := checkIndexConsistency(cmd, leoDir, diskDocIDs); orphanFail {
+	if orphanFail := checkIndexConsistency(p, leoDir, diskDocIDs); orphanFail {
 		failed = true
 	}
 
@@ -149,40 +153,40 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		if commMode == "" {
 			commMode = "concise"
 		}
-		cmd.Printf("✔ communication mode: %s\n", commMode)
+		p.Checkf("communication mode: %s", commMode)
 	}
 
 	// Check 7: Version.
-	cmd.Printf("✔ mom version: %s (%s)\n", Version, Commit)
+	p.Checkf("mom version: %s (%s)", Version, Commit)
 
 	// Check 8: Telemetry status.
 	if cfg != nil {
 		if cfg.Telemetry.TelemetryEnabled() {
-			cmd.Printf("✔ telemetry: enabled (local-only)\n")
+			p.Check("telemetry: enabled (local-only)")
 		} else {
-			cmd.Printf("⚠ telemetry: disabled\n")
+			p.Warn("telemetry: disabled")
 		}
 	}
 
 	// Check 9: Active scopes + memory counts.
 	cwd, cwdErr := os.Getwd()
 	if cwdErr == nil {
-		printScopesSection(cmd, cwd)
+		printScopesSection(p, cwd)
 		if verbose {
-			printVerboseMemoryBreakdown(cmd, cwd)
+			printVerboseMemoryBreakdown(p, cwd)
 		}
 	}
 
 	// Check 10: Last session timestamp + recent errors from telemetry.
 	if cfg != nil {
 		telDir := filepath.Join(leoDir, "logs")
-		printLastSession(cmd, telDir)
-		printRecentErrors(cmd, telDir, 5)
+		printLastSession(p, telDir)
+		printRecentErrors(p, telDir, 5)
 	}
 
 	// Check 11: Adapter capabilities.
 	if cfg != nil {
-		printAdapterCapabilities(cmd, cwd, cfg)
+		printAdapterCapabilities(p, cwd, cfg)
 	}
 
 	if failed {
@@ -196,13 +200,14 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 
 // printVerboseMemoryBreakdown reads all memory docs in scope and prints
 // breakdowns by confidence, promotion_state, and classification.
-func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
+func printVerboseMemoryBreakdown(p *ux.Printer, cwd string) {
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
 		return
 	}
 
-	cmd.Printf("\nMemory breakdown (verbose):\n")
+	p.Blank()
+	p.Bold("Memory breakdown (verbose)")
 
 	for _, s := range scopes {
 		memDir := filepath.Join(s.Path, "memory")
@@ -230,26 +235,26 @@ func printVerboseMemoryBreakdown(cmd *cobra.Command, cwd string) {
 			}
 		}
 
-		cmd.Printf("  Scope: %s (%s)\n", s.Label, shortenPath(s.Path))
-		cmd.Printf("    Promotion state:  draft=%d  curated=%d\n",
-			promotion["draft"], promotion["curated"])
-		cmd.Printf("    Classification:   PUBLIC=%d  INTERNAL=%d  CONFIDENTIAL=%d\n",
-			classification["PUBLIC"], classification["INTERNAL"], classification["CONFIDENTIAL"])
-		cmd.Printf("    Landmarks:        %d\n", landmarks)
+		p.KeyValue("  Scope", fmt.Sprintf("%s (%s)", s.Label, shortenPath(s.Path)), 10)
+		p.KeyValue("    Promotion", fmt.Sprintf("draft=%d  curated=%d",
+			promotion["draft"], promotion["curated"]), 16)
+		p.KeyValue("    Classification", fmt.Sprintf("PUBLIC=%d  INTERNAL=%d  CONFIDENTIAL=%d",
+			classification["PUBLIC"], classification["INTERNAL"], classification["CONFIDENTIAL"]), 20)
+		p.KeyValue("    Landmarks", fmt.Sprintf("%d", landmarks), 16)
 	}
 
 	// Capture pipeline latency from telemetry.
 	leoDir, err := findMomDir()
 	if err == nil {
 		telDir := filepath.Join(leoDir, "logs")
-		printCapturePipelineLatency(cmd, telDir)
-		printExtractorModelUsage(cmd, telDir)
+		printCapturePipelineLatency(p, telDir)
+		printExtractorModelUsage(p, telDir)
 	}
 }
 
 // printCapturePipelineLatency computes p50/p95 of CaptureEvent latency from
 // the last 7 days of telemetry. Latency is inferred from CaptureEvent.
-func printCapturePipelineLatency(cmd *cobra.Command, telDir string) {
+func printCapturePipelineLatency(p *ux.Printer, telDir string) {
 	events := readTelemetryWindow(telDir, 7)
 	var latencies []int64
 
@@ -257,7 +262,6 @@ func printCapturePipelineLatency(cmd *cobra.Command, telDir string) {
 		if raw["kind"] != "CaptureEvent" {
 			continue
 		}
-		// CaptureEvent doesn't have explicit latency_ms; skip if not present.
 		if v, ok := raw["latency_ms"]; ok {
 			switch n := v.(type) {
 			case float64:
@@ -267,18 +271,20 @@ func printCapturePipelineLatency(cmd *cobra.Command, telDir string) {
 	}
 
 	if len(latencies) == 0 {
-		cmd.Printf("\n  Capture latency: no data\n")
+		p.Blank()
+		p.Muted("  Capture latency: no data")
 		return
 	}
 
 	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 	p50 := latencies[len(latencies)*50/100]
 	p95 := latencies[len(latencies)*95/100]
-	cmd.Printf("\n  Capture latency (last 7d): p50=%dms  p95=%dms\n", p50, p95)
+	p.Blank()
+	p.KeyValue("  Capture latency (last 7d)", fmt.Sprintf("p50=%dms  p95=%dms", p50, p95), 30)
 }
 
 // printExtractorModelUsage prints the top 5 extractor models used in last 7 days.
-func printExtractorModelUsage(cmd *cobra.Command, telDir string) {
+func printExtractorModelUsage(p *ux.Printer, telDir string) {
 	events := readTelemetryWindow(telDir, 7)
 	counts := map[string]int{}
 
@@ -292,7 +298,7 @@ func printExtractorModelUsage(cmd *cobra.Command, telDir string) {
 	}
 
 	if len(counts) == 0 {
-		cmd.Printf("  Extractor model usage (last 7d): no data\n")
+		p.Muted("  Extractor model usage (last 7d): no data")
 		return
 	}
 
@@ -306,12 +312,12 @@ func printExtractorModelUsage(cmd *cobra.Command, telDir string) {
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].count > pairs[j].count })
 
-	cmd.Printf("  Extractor model usage (last 7d):\n")
-	for i, p := range pairs {
+	p.Bold("  Extractor model usage (last 7d)")
+	for i, pr := range pairs {
 		if i >= 5 {
 			break
 		}
-		cmd.Printf("    %-40s %d captures\n", p.model, p.count)
+		p.KeyValue(fmt.Sprintf("    %s", pr.model), fmt.Sprintf("%d captures", pr.count), 44)
 	}
 }
 
@@ -712,7 +718,7 @@ func readTelemetryWindow(telDir string, days int) []map[string]any {
 }
 
 // printLastSession finds and prints the timestamp of the most recent SessionEvent.
-func printLastSession(cmd *cobra.Command, telDir string) {
+func printLastSession(p *ux.Printer, telDir string) {
 	events := readTelemetryWindow(telDir, 7)
 	var lastTS string
 
@@ -730,26 +736,26 @@ func printLastSession(cmd *cobra.Command, telDir string) {
 	}
 
 	if lastTS == "" {
-		cmd.Printf("⚠ last session: no session events found\n")
+		p.Warn("last session: no session events found")
 	} else {
-		cmd.Printf("✔ last session: %s\n", lastTS)
+		p.Checkf("last session: %s", lastTS)
 	}
 }
 
 // printRecentErrors reads the last N RuntimeHealth events with errors.
-func printRecentErrors(cmd *cobra.Command, telDir string, limit int) {
+func printRecentErrors(p *ux.Printer, telDir string, limit int) {
 	errors := readRecentErrors(telDir, limit)
 	if len(errors) == 0 {
 		return
 	}
 
-	cmd.Printf("⚠ recent runtime errors (%d):\n", len(errors))
+	p.Warnf("recent runtime errors (%d):", len(errors))
 	for _, e := range errors {
 		errType := "(unknown)"
 		if e.ErrorType != nil {
 			errType = *e.ErrorType
 		}
-		cmd.Printf("  ts=%s  runtime=%s  error_type=%s\n", e.TS, e.Runtime, errType)
+		p.Muted(fmt.Sprintf("  ts=%s  runtime=%s  error_type=%s", e.TS, e.Runtime, errType))
 	}
 }
 
