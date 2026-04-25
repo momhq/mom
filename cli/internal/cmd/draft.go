@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/drafter"
 	"github.com/momhq/mom/cli/internal/memory"
@@ -84,10 +85,13 @@ func runDraft(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Write each draft as a memory doc.
+	// Write each draft as a memory doc via IndexedAdapter (syncs to SQLite index).
+	idx := storage.NewIndexedAdapter(momDir)
+	defer idx.Close()
+
 	written := 0
 	for _, dr := range drafts {
-		if writeErr := writeDraftDoc(memDir, dr); writeErr != nil {
+		if writeErr := writeDraftDoc(idx, memDir, dr); writeErr != nil {
 			logDraftError(fmt.Errorf("writing draft %s: %w", dr.ID, writeErr))
 			continue
 		}
@@ -112,10 +116,11 @@ func runDraft(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// writeDraftDoc writes a Draft as a memory.Doc JSON file.
-func writeDraftDoc(memDir string, dr drafter.Draft) error {
+// writeDraftDoc writes a Draft as a memory.Doc via the IndexedAdapter
+// (JSON file + SQLite index sync).
+func writeDraftDoc(idx *storage.IndexedAdapter, memDir string, dr drafter.Draft) error {
 	now := time.Now().UTC()
-	doc := &memory.Doc{
+	doc := &storage.Doc{
 		ID:             dr.ID,
 		Scope:          "project",
 		Tags:           dr.Tags,
@@ -124,19 +129,13 @@ func writeDraftDoc(memDir string, dr drafter.Draft) error {
 		SessionID:      dr.SourceSession,
 		PromotionState: "draft",
 		Classification: "INTERNAL",
-		Provenance: &memory.Provenance{
-			Runtime:       "mom-draft",
-			TriggerEvent:  "draft",
-			RawExhaustRef: dr.SourceFile,
-		},
 		Content: map[string]any{
 			"text":         dr.Content,
 			"source_lines": dr.SourceLines,
 		},
 	}
 
-	path := filepath.Join(memDir, dr.ID+".json")
-	return memory.SaveDoc(path, doc)
+	return idx.Write(doc)
 }
 
 // lastDraftTime reads the last-draft timestamp marker, defaulting to 24h ago.

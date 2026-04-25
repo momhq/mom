@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
+	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
-	"github.com/momhq/mom/cli/internal/herald"
-	"github.com/momhq/mom/cli/internal/search"
 )
 
 // toolDef describes one MCP tool for the tools/list response.
@@ -187,89 +186,48 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 
 // --- Tool implementations ---
 
-// toolSearchMemories searches memories across scopes using the same scoring
-// logic as the recall command.
+// toolSearchMemories searches memories across scopes using FTS5.
 func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error) {
-	query := strings.ToLower(stringArg(args, "query"))
+	query := stringArg(args, "query")
 	scopeLabel := stringArg(args, "scope")
 	tags := stringSliceArg(args, "tags")
-	classification := stringArg(args, "classification")
 	limit := intArg(args, "limit", 10)
 
 	scopes := scope.Walk(s.momDir)
-	// Also include the momDir itself as a scope if Walk doesn't find it.
 	if len(scopes) == 0 {
 		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
 	}
 
-	// Filter by scope label if specified.
-	targetScopes := scopes
-	if scopeLabel != "" {
-		targetScopes = nil
-		for _, sc := range scopes {
-			if sc.Label == scopeLabel {
-				targetScopes = append(targetScopes, sc)
-				break
-			}
+	// Collect scope paths, filtering by label if specified.
+	var scopePaths []string
+	for _, sc := range scopes {
+		if scopeLabel == "" || sc.Label == scopeLabel {
+			scopePaths = append(scopePaths, sc.Path)
 		}
 	}
 
-	filterTagSet := make(map[string]bool, len(tags))
-	for _, t := range tags {
-		filterTagSet[strings.TrimSpace(t)] = true
-	}
-
-	type scored struct {
-		doc   *memory.Doc
-		score float64
-	}
-	var results []scored
-
-	for _, sc := range targetScopes {
-		memDir := filepath.Join(sc.Path, "memory")
-		entries, err := os.ReadDir(memDir)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
-				continue
-			}
-			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
-			if err != nil {
-				continue
-			}
-			// Apply classification filter.
-			if classification != "" && !strings.EqualFold(doc.Classification, classification) {
-				continue
-			}
-			score := scoreMemory(doc, query, filterTagSet)
-			if score <= 0 {
-				continue
-			}
-			results = append(results, scored{doc: doc, score: score})
-
-			// Emit telemetry.
-			if s.momDir != "" {
-				em := herald.New(s.momDir, true)
-				em.EmitConsumptionEvent(herald.ConsumptionEvent{
-					MemoryID: doc.ID,
-					TS:       time.Now().UTC().Format(time.RFC3339),
-					ByAgent:  "mcp",
-					Context:  "search_memories",
-				})
-			}
-		}
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		if results[i].score != results[j].score {
-			return results[i].score > results[j].score
-		}
-		return results[i].doc.ID < results[j].doc.ID
+	results, err := s.idx.Search(storage.SearchOptions{
+		Query:         query,
+		ScopePaths:    scopePaths,
+		Tags:          tags,
+		ExcludeDrafts: true,
+		Limit:         limit,
 	})
-	if limit > 0 && len(results) > limit {
-		results = results[:limit]
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("search_memories failed: %w", err)
+	}
+
+	// Emit telemetry for consumed memories.
+	if s.momDir != "" {
+		em := herald.New(s.momDir, true)
+		for _, r := range results {
+			em.EmitConsumptionEvent(herald.ConsumptionEvent{
+				MemoryID: r.ID,
+				TS:       time.Now().UTC().Format(time.RFC3339),
+				ByAgent:  "mcp",
+				Context:  "search_memories",
+			})
+		}
 	}
 
 	if len(results) == 0 {
@@ -285,18 +243,12 @@ func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error)
 	}
 	items := make([]resultItem, len(results))
 	for i, r := range results {
-		summary := r.doc.Summary
-		if summary == "" {
-			if s2, ok := r.doc.Content["summary"].(string); ok {
-				summary = s2
-			}
-		}
 		items[i] = resultItem{
-			ID:       r.doc.ID,
-			Score:    r.score,
-			Summary:  summary,
-			Tags:     r.doc.Tags,
-			Landmark: r.doc.Landmark,
+			ID:       r.ID,
+			Score:    r.Score,
+			Summary:  r.Summary,
+			Tags:     r.Tags,
+			Landmark: r.Landmark,
 		}
 	}
 	text, _ := json.MarshalIndent(items, "", "  ")
@@ -384,11 +336,16 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 	id := slugify(summary)
 	now := time.Now().UTC()
 
-	doc := &memory.Doc{
+	memDir := filepath.Join(targetDir, "memory")
+	if err := os.MkdirAll(memDir, 0755); err != nil {
+		return toolCallResult{}, fmt.Errorf("creating memory dir: %w", err)
+	}
+
+	// Write through IndexedAdapter for SQLite index sync.
+	storageDoc := &storage.Doc{
 		ID:             id,
 		Scope:          "project",
 		Tags:           tags,
-		Summary:        summary,
 		Created:        now,
 		CreatedBy:      "mcp",
 		PromotionState: "draft",
@@ -400,17 +357,11 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 		},
 		Content: content,
 	}
-
-	memDir := filepath.Join(targetDir, "memory")
-	if err := os.MkdirAll(memDir, 0755); err != nil {
-		return toolCallResult{}, fmt.Errorf("creating memory dir: %w", err)
-	}
-
-	path := filepath.Join(memDir, id+".json")
-	if err := memory.SaveDoc(path, doc); err != nil {
+	if err := s.idx.Write(storageDoc); err != nil {
 		return toolCallResult{}, fmt.Errorf("saving draft: %w", err)
 	}
 
+	path := filepath.Join(memDir, id+".json")
 	result := map[string]any{
 		"id":              id,
 		"promotion_state": "draft",
@@ -431,15 +382,20 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
 	}
 
-	targetScopes := scopes
-	if scopeLabel != "" {
-		targetScopes = nil
-		for _, sc := range scopes {
-			if sc.Label == scopeLabel {
-				targetScopes = append(targetScopes, sc)
-				break
-			}
+	var scopePaths []string
+	for _, sc := range scopes {
+		if scopeLabel == "" || sc.Label == scopeLabel {
+			scopePaths = append(scopePaths, sc.Path)
 		}
+	}
+
+	results, err := s.idx.ListLandmarks(scopePaths, limit)
+	if err != nil {
+		return toolCallResult{}, fmt.Errorf("list_landmarks failed: %w", err)
+	}
+
+	if len(results) == 0 {
+		return toolCallResult{Content: []toolContent{{Type: "text", Text: "No landmarks found."}}}, nil
 	}
 
 	type landmarkItem struct {
@@ -448,53 +404,18 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 		Tags            []string `json:"tags"`
 		CentralityScore float64  `json:"centrality_score"`
 	}
-	var items []landmarkItem
-
-	for _, sc := range targetScopes {
-		memDir := filepath.Join(sc.Path, "memory")
-		entries, err := os.ReadDir(memDir)
-		if err != nil {
-			continue
+	items := make([]landmarkItem, len(results))
+	for i, r := range results {
+		cs := 0.0
+		if r.CentralityScore != nil {
+			cs = *r.CentralityScore
 		}
-		for _, e := range entries {
-			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
-				continue
-			}
-			doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
-			if err != nil {
-				continue
-			}
-			if !doc.Landmark {
-				continue
-			}
-			score := 0.0
-			if doc.CentralityScore != nil {
-				score = *doc.CentralityScore
-			}
-			summary := doc.Summary
-			if summary == "" {
-				if s2, ok := doc.Content["summary"].(string); ok {
-					summary = s2
-				}
-			}
-			items = append(items, landmarkItem{
-				ID:              doc.ID,
-				Summary:         summary,
-				Tags:            doc.Tags,
-				CentralityScore: score,
-			})
+		items[i] = landmarkItem{
+			ID:              r.ID,
+			Summary:         r.Summary,
+			Tags:            r.Tags,
+			CentralityScore: cs,
 		}
-	}
-
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].CentralityScore > items[j].CentralityScore
-	})
-	if limit > 0 && len(items) > limit {
-		items = items[:limit]
-	}
-
-	if len(items) == 0 {
-		return toolCallResult{Content: []toolContent{{Type: "text", Text: "No landmarks found."}}}, nil
 	}
 
 	text, _ := json.MarshalIndent(items, "", "  ")
@@ -566,22 +487,16 @@ func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text2)}}}, nil
 }
 
-// toolMomRecall performs BM25 search over memory docs and returns ranked results.
+// toolMomRecall performs FTS5 search over memory docs and returns ranked results.
 func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
 	query := stringArg(args, "query")
 	maxResults := intArg(args, "max_results", 5)
 	tags := stringSliceArg(args, "tags")
 	sessionID := stringArg(args, "session_id")
 
-	// Resolve memory directory from nearest scope or fall back to momDir.
-	memDir := filepath.Join(s.momDir, "memory")
-	if sc, ok := scope.NearestWritable(s.momDir); ok {
-		memDir = filepath.Join(sc.Path, "memory")
-	}
-
-	results, err := search.Search(memDir, search.SearchOptions{
+	results, err := s.idx.Search(storage.SearchOptions{
 		Query:         query,
-		MaxResults:    maxResults,
+		Limit:         maxResults,
 		Tags:          tags,
 		SessionID:     sessionID,
 		ExcludeDrafts: true, // #147: exclude raw drafter output from recall results
@@ -598,68 +513,7 @@ func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
 }
 
-// --- Scoring (mirrors recall.go) ---
 
-const landmarkBoost = 0.3
-
-func scoreMemory(doc *memory.Doc, query string, filterTags map[string]bool) float64 {
-	// If tag filter specified, doc must match ALL filter tags.
-	if len(filterTags) > 0 {
-		docTagSet := make(map[string]bool, len(doc.Tags))
-		for _, t := range doc.Tags {
-			docTagSet[t] = true
-		}
-		for tag := range filterTags {
-			if !docTagSet[tag] {
-				return 0
-			}
-		}
-	}
-
-	var score float64
-
-	if query != "" {
-		for _, tag := range doc.Tags {
-			if strings.Contains(strings.ToLower(tag), query) {
-				score += 1.0
-			}
-		}
-		summary := strings.ToLower(doc.Summary)
-		if summary == "" {
-			if s, ok := doc.Content["summary"].(string); ok {
-				summary = strings.ToLower(s)
-			}
-		}
-		if strings.Contains(summary, query) {
-			score += 1.5
-		}
-		for _, v := range doc.Content {
-			if s, ok := v.(string); ok {
-				if strings.Contains(strings.ToLower(s), query) {
-					score += 0.5
-					break
-				}
-			}
-		}
-	}
-
-	if query == "" && len(filterTags) == 0 {
-		score = 0.1
-	}
-	if doc.Landmark {
-		score += landmarkBoost
-	}
-	if query == "" && len(filterTags) > 0 && score == landmarkBoost {
-		score = 1.0 + landmarkBoost
-	} else if query == "" && len(filterTags) > 0 {
-		score = 1.0
-	}
-	if score == 0 && query != "" {
-		return 0
-	}
-
-	return score
-}
 
 // --- Argument helpers ---
 

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -11,10 +10,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/cartographer"
 	"github.com/momhq/mom/cli/internal/gardener"
-	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/scope"
 )
 
 var mapCmd = &cobra.Command{
@@ -177,6 +177,11 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 				_ = n
 				landmarkCount := countLandmarks(memDir)
 				cmd.Printf("✓ %d landmarks identified\n", landmarkCount)
+
+				// Gardener writes directly to JSON; reindex to sync SQLite.
+				reIdx := storage.NewIndexedAdapter(targetScope.Path)
+				_ = reIdx.Reindex()
+				reIdx.Close()
 			}
 		}
 
@@ -404,7 +409,7 @@ func canonicalLanguageLabel(lang string) string {
 	}
 }
 
-// writeDrafts persists draft memories to .mom/memory/ as JSON files.
+// writeDrafts persists draft memories via IndexedAdapter (JSON + SQLite index).
 // Returns the count of successfully written memories.
 func writeDrafts(drafts []cartographer.Draft, momDir string) (int, error) {
 	memDir := filepath.Join(momDir, "memory")
@@ -412,55 +417,35 @@ func writeDrafts(drafts []cartographer.Draft, momDir string) (int, error) {
 		return 0, fmt.Errorf("creating memory dir: %w", err)
 	}
 
-	written := 0
-	for _, d := range drafts {
-		if err := writeDraft(d, memDir); err != nil {
-			// One bad draft should not stop the rest.
-			continue
-		}
-		written++
-	}
-	return written, nil
-}
-
-// writeDraft writes a single draft as a JSON memory file.
-func writeDraft(d cartographer.Draft, memDir string) error {
 	now := time.Now().UTC()
-	id := draftID(d)
+	var docs []*storage.Doc
+	for _, d := range drafts {
+		id := draftID(d)
+		content := d.Content
+		if content == nil {
+			content = make(map[string]any)
+		}
+		content["summary"] = d.Summary
 
-	content := d.Content
-	if content == nil {
-		content = make(map[string]any)
-	}
-	content["summary"] = d.Summary
-
-	doc := map[string]any{
-		"id":              id,
-		"summary":         d.Summary,
-		"scope":           "project",
-		"tags":            d.Tags,
-		"created":         now.Format(time.RFC3339),
-		"created_by":      "cartographer",
-		"promotion_state": "draft",
-		"classification":  "INTERNAL",
-		"provenance": map[string]any{
-			"source_file":   d.Provenance.SourceFile,
-			"source_lines":  d.Provenance.SourceLines,
-			"source_hash":   d.Provenance.SourceHash,
-			"trigger_event": d.Provenance.TriggerEvent,
-			"commit_sha":    d.Provenance.CommitSHA,
-		},
-		"content": content,
+		docs = append(docs, &storage.Doc{
+			ID:             id,
+			Scope:          "project",
+			Tags:           d.Tags,
+			Created:        now,
+			CreatedBy:      "cartographer",
+			PromotionState: "draft",
+			Classification: "INTERNAL",
+			Content:        content,
+		})
 	}
 
-	data, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return err
-	}
-	data = append(data, '\n')
+	idx := storage.NewIndexedAdapter(momDir)
+	defer idx.Close()
 
-	path := filepath.Join(memDir, id+".json")
-	return os.WriteFile(path, data, 0644)
+	if err := idx.BulkWrite(docs); err != nil {
+		return 0, fmt.Errorf("bulk write: %w", err)
+	}
+	return len(docs), nil
 }
 
 // draftID generates a short, deterministic ID for a draft memory.

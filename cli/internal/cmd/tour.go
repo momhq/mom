@@ -6,12 +6,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/gardener"
-	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
 )
 
@@ -69,71 +68,37 @@ func runTour(cmd *cobra.Command, _ []string) error {
 		return runTourGraph(cmd, targetScope)
 	}
 
-	memDir := filepath.Join(targetScope.Path, "memory")
-	entries, err := os.ReadDir(memDir)
+	// Use IndexedAdapter.ListLandmarks() for fast SQLite-backed landmark listing.
+	idx := storage.NewIndexedAdapter(targetScope.Path)
+	defer idx.Close()
+
+	results, err := idx.ListLandmarks([]string{targetScope.Path}, limit)
 	if err != nil {
 		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' first.\n")
 		return nil
 	}
 
-	type landmarkEntry struct {
-		doc   *memory.Doc
-		score float64
-	}
-
-	var landmarks []landmarkEntry
-	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
-			continue
-		}
-		doc, err := memory.LoadDoc(filepath.Join(memDir, e.Name()))
-		if err != nil {
-			continue
-		}
-		if !doc.Landmark {
-			continue
-		}
-		score := 0.0
-		if doc.CentralityScore != nil {
-			score = *doc.CentralityScore
-		}
-		landmarks = append(landmarks, landmarkEntry{doc: doc, score: score})
-	}
-
-	if len(landmarks) == 0 {
+	if len(results) == 0 {
 		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' first.\n")
 		return nil
 	}
 
-	sort.Slice(landmarks, func(i, j int) bool {
-		if landmarks[i].score != landmarks[j].score {
-			return landmarks[i].score > landmarks[j].score
-		}
-		return landmarks[i].doc.ID < landmarks[j].doc.ID
-	})
-
-	if limit > 0 && len(landmarks) > limit {
-		landmarks = landmarks[:limit]
-	}
-
 	cmd.Printf("Landmarks for %s (%s)\n\n", targetScope.Label, shortenPath(targetScope.Path))
-	for i, lm := range landmarks {
-		doc := lm.doc
-		summary := doc.Summary
-		if summary == "" {
-			if s, ok := doc.Content["summary"].(string); ok {
-				summary = s
-			}
+	for i, r := range results {
+		score := 0.0
+		if r.CentralityScore != nil {
+			score = *r.CentralityScore
 		}
+		summary := r.Summary
 		if summary == "" {
-			summary = doc.ID
+			summary = r.ID
 		}
 
-		cmd.Printf("%2d. %s\n", i+1, doc.ID)
-		cmd.Printf("    Scope:      %s\n", doc.Scope)
-		cmd.Printf("    Centrality: %.4f\n", lm.score)
-		cmd.Printf("    Tags:       %s\n", strings.Join(doc.Tags, ", "))
-		if summary != doc.ID {
+		cmd.Printf("%2d. %s\n", i+1, r.ID)
+		cmd.Printf("    Scope:      %s\n", r.ScopePath)
+		cmd.Printf("    Centrality: %.4f\n", score)
+		cmd.Printf("    Tags:       %s\n", strings.Join(r.Tags, ", "))
+		if summary != r.ID {
 			cmd.Printf("    Summary:    %s\n", truncate(summary, 72))
 		}
 		cmd.Println()

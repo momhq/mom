@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 	leort "github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
@@ -138,10 +139,13 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		failed = true
 	}
 
-	// Check 5: Index consistency.
+	// Check 5: Index consistency (JSON index).
 	if orphanFail := checkIndexConsistency(cmd, leoDir, diskDocIDs); orphanFail {
 		failed = true
 	}
+
+	// Check 5b: SQLite index consistency.
+	checkSQLiteConsistency(cmd, leoDir, diskDocIDs)
 
 	// Check 6: Communication mode.
 	if cfg != nil {
@@ -190,6 +194,36 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 	}
 
 	return nil
+}
+
+// checkSQLiteConsistency verifies the SQLite search index is present and
+// its document count matches the JSON files on disk.
+func checkSQLiteConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[string]bool) {
+	// Check if the cache/index.db file exists.
+	dbPath := filepath.Join(leoDir, "cache", "index.db")
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		cmd.Printf("⚠ SQLite index: not found — run 'mom reindex' to create\n")
+		return
+	}
+
+	idx := storage.NewIndexedAdapter(leoDir)
+	defer idx.Close()
+
+	// Compare counts via a search-all query.
+	results, err := idx.Search(storage.SearchOptions{Limit: 100000})
+	if err != nil {
+		cmd.Printf("⚠ SQLite index: query error — %v\n", err)
+		return
+	}
+
+	dbCount := len(results)
+	diskCount := len(diskDocIDs)
+
+	if dbCount == diskCount {
+		cmd.Printf("✔ SQLite index: %d docs indexed (consistent)\n", dbCount)
+	} else {
+		cmd.Printf("⚠ SQLite index: %d indexed vs %d on disk — run 'mom reindex'\n", dbCount, diskCount)
+	}
 }
 
 // ─── --verbose additions ──────────────────────────────────────────────────────

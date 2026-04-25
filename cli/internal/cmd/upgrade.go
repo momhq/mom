@@ -11,6 +11,7 @@ import (
 	huhspinner "charm.land/huh/v2/spinner"
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"gopkg.in/yaml.v3"
 )
@@ -317,6 +318,17 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 		for _, rt := range cfg.EnabledRuntimes() {
 			addAction("✔", fmt.Sprintf("runtime %s context file regenerated", rt))
+		}
+
+		// Rebuild SQLite search index from JSON files.
+		if !dryRun {
+			idx := storage.NewIndexedAdapter(leoDir)
+			if err := idx.Reindex(); err != nil {
+				addAction("⚠", fmt.Sprintf("reindex: %v", err))
+			} else {
+				addAction("✔", "SQLite search index rebuilt")
+			}
+			idx.Close()
 		}
 
 		if showSpinner {

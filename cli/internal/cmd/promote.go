@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
 )
@@ -88,7 +89,7 @@ func runPromote(cmd *cobra.Command, args []string) error {
 			toLabel, scopeList(scopes[1:]))
 	}
 
-	return moveDoc(srcDocPath, src.Path, dst.Path, id, "promoted_from:"+src.Label, cmd)
+	return moveDoc(srcDocPath, src.Path, dst.Path, id, "promoted-from-"+src.Label, cmd)
 }
 
 // runDemote implements `leo demote <id> --to <scope>`.
@@ -141,11 +142,12 @@ func runDemote(cmd *cobra.Command, args []string) error {
 	}
 
 	srcDocPath := filepath.Join(src.Path, "memory", id+".json")
-	return moveDoc(srcDocPath, src.Path, dst.Path, id, "demoted_from:"+src.Label, cmd)
+	return moveDoc(srcDocPath, src.Path, dst.Path, id, "demoted-from-"+src.Label, cmd)
 }
 
-// moveDoc reads a doc from srcPath, rewrites provenance, writes to dstLeoDir,
-// then removes the original. The provenanceTag is added to the doc's tags.
+// moveDoc reads a doc from srcPath, rewrites provenance, writes to dstLeoDir
+// via IndexedAdapter (write-through to SQLite index), then removes the original.
+// The provenanceTag is added to the doc's tags.
 func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *cobra.Command) error {
 	doc, err := memory.LoadDoc(srcDocPath)
 	if err != nil {
@@ -170,13 +172,33 @@ func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *co
 		return fmt.Errorf("creating destination memory dir: %w", err)
 	}
 
-	dstDocPath := filepath.Join(dstMemDir, id+".json")
-	if err := memory.SaveDoc(dstDocPath, doc); err != nil {
+	// Write to destination via IndexedAdapter (syncs JSON + SQLite).
+	dstIdx := storage.NewIndexedAdapter(dstLeoDir)
+	defer dstIdx.Close()
+
+	storageDoc := &storage.Doc{
+		ID:             doc.ID,
+		Scope:          doc.Scope,
+		Tags:           doc.Tags,
+		Created:        doc.Created,
+		CreatedBy:      doc.CreatedBy,
+		SessionID:      doc.SessionID,
+		PromotionState: doc.PromotionState,
+		Classification: doc.Classification,
+		Compartments:   doc.Compartments,
+		Provenance:     doc.Provenance,
+		Landmark:       doc.Landmark,
+		CentralityScore: doc.CentralityScore,
+		Content:        doc.Content,
+	}
+	if err := dstIdx.Write(storageDoc); err != nil {
 		return fmt.Errorf("writing doc to destination: %w", err)
 	}
 
-	// Remove from source.
-	if err := os.Remove(srcDocPath); err != nil {
+	// Remove from source (JSON + SQLite index).
+	srcIdx := storage.NewIndexedAdapter(srcLeoDir)
+	defer srcIdx.Close()
+	if err := srcIdx.Delete(id); err != nil {
 		return fmt.Errorf("removing source doc: %w", err)
 	}
 
