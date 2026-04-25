@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/ux"
 )
@@ -32,6 +33,10 @@ type Config struct {
 	// DebounceMs is how long to wait after a Write event before reading.
 	// Defaults to 300ms if zero.
 	DebounceMs int
+	// Bus is the Herald event bus. When set, the watcher publishes
+	// RecordAppended events after each ingestion so Herald can trigger
+	// downstream processors (Logbook, Drafter). May be nil.
+	Bus *herald.Bus
 }
 
 // Watcher watches a Claude Code transcript directory and ingests new entries
@@ -289,6 +294,17 @@ func (w *Watcher) ingestFile(path string) int {
 
 	// Advance cursor.
 	writeWatchCursor(cursorFile, offset+bytesRead)
+
+	// Publish to Herald so downstream processors (Logbook, Drafter) run.
+	if len(entries) > 0 && w.cfg.Bus != nil {
+		w.cfg.Bus.Publish(herald.RecordAppended, map[string]any{
+			"transcript_path": path,
+			"session_id":      sessionID,
+			"count":           len(entries),
+			"mom_dir":         w.cfg.MomDir,
+		})
+	}
+
 	return len(entries)
 }
 

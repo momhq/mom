@@ -1,11 +1,16 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/drafter"
+	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/logbook"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/momhq/mom/cli/internal/watcher"
@@ -94,12 +99,65 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("unknown runtime %q — supported: claude, windsurf", watchRuntime)
 	}
 
+	// Herald event bus: watcher publishes RecordAppended events,
+	// Logbook and Drafter subscribe as downstream processors.
+	bus := herald.NewBus()
+
+	// Logbook: parse transcript → write session metrics to .mom/logs/.
+	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
+		tp, _ := e.Payload["transcript_path"].(string)
+		sid, _ := e.Payload["session_id"].(string)
+		md, _ := e.Payload["mom_dir"].(string)
+		if tp == "" || sid == "" || md == "" {
+			return
+		}
+		logsDir := filepath.Join(md, "logs")
+		_ = os.MkdirAll(logsDir, 0755)
+
+		sessionLog, err := logbook.ParseTranscript(tp, sid)
+		if err != nil {
+			return
+		}
+		outPath := filepath.Join(logsDir, fmt.Sprintf("session-%s.json", sid))
+		data, _ := json.MarshalIndent(sessionLog, "", "  ")
+		_ = os.WriteFile(outPath, append(data, '\n'), 0644)
+	})
+
+	// Drafter: process raw → write draft memories to .mom/memory/.
+	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
+		md, _ := e.Payload["mom_dir"].(string)
+		if md == "" {
+			return
+		}
+		rawDir := filepath.Join(md, "raw")
+		memDir := filepath.Join(md, "memory")
+		_ = os.MkdirAll(memDir, 0755)
+
+		since := lastDraftTime(md)
+		vocabFn := func() []string { return collectVocab(memDir) }
+
+		d := drafter.New(rawDir, memDir, vocabFn)
+		drafts, err := d.Process(since)
+		if err != nil || len(drafts) == 0 {
+			return
+		}
+
+		idx := storage.NewIndexedAdapter(md)
+		defer idx.Close()
+
+		for _, dr := range drafts {
+			_ = writeDraftDoc(idx, memDir, dr)
+		}
+		updateDraftMarker(md)
+	})
+
 	cfg := watcher.Config{
 		TranscriptDir: transcriptDir,
 		ProjectDir:    projectDir,
 		MomDir:        momDir,
 		Adapter:       adapter,
 		DebounceMs:    watchDebounceMs,
+		Bus:           bus,
 	}
 
 	w, err := watcher.New(cfg)
