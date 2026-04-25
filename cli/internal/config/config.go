@@ -29,6 +29,19 @@ type Config struct {
 	// "mcp" generates a slim boot file; the protocol is fetched via mom_status.
 	// "context-file" generates the full legacy boot file inline.
 	Delivery string `yaml:"delivery,omitempty"`
+	// Watcher controls the filesystem transcript watcher (mom watch).
+	Watcher WatcherConfig `yaml:"watcher,omitempty"`
+}
+
+// WatcherConfig controls the filesystem transcript watcher (mom watch).
+type WatcherConfig struct {
+	// Enabled controls whether mom watch is active. Default: false.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// TranscriptDir overrides the default Claude Code transcript directory.
+	// Defaults to ~/.claude/projects/ when empty.
+	TranscriptDir string `yaml:"transcript_dir,omitempty"`
+	// DebounceMs is the debounce delay in milliseconds. Default: 300.
+	DebounceMs int `yaml:"debounce_ms,omitempty"`
 }
 
 // BootstrapConfig holds settings for the cartographer bootstrap pass.
