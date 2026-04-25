@@ -183,6 +183,11 @@ func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25In
 		if len(tagSlice) > 15 {
 			tagSlice = tagSlice[:15]
 		}
+		// Guarantee at least one tag — fall back to "untagged" if POS
+		// filtering removed everything.
+		if len(tagSlice) == 0 {
+			tagSlice = []string{"untagged"}
+		}
 
 		// Use the source file from the first turn in the chunk.
 		sourceFile := ""

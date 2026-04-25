@@ -120,13 +120,15 @@ func validateAllDocs(p *ux.Printer, dir string, label string) (int, map[string]b
 			continue
 		}
 
+		// Always register the doc ID for index consistency checks,
+		// even if validation fails — the file exists on disk.
+		diskDocIDs[doc.ID] = true
+
 		if valErr := doc.Validate(); valErr != nil {
 			p.Failf("%s %s: %v", label, e.Name(), valErr)
 			errors++
 			continue
 		}
-
-		diskDocIDs[doc.ID] = true
 	}
 
 	if errors == 0 && len(diskDocIDs) > 0 {

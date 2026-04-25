@@ -326,6 +326,11 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 		content = map[string]any{}
 	}
 
+	// Sanitize tags: convert underscores to hyphens for kebab-case compliance.
+	for i, t := range tags {
+		tags[i] = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(t)), "_", "-")
+	}
+
 	// Use nearest writable scope or fall back to leoDir.
 	targetDir := s.momDir
 	if sc, ok := scope.NearestWritable(s.momDir); ok {

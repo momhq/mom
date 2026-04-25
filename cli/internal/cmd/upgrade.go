@@ -309,6 +309,12 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 			addAction("✔", fmt.Sprintf("doc %s migrated fact → pattern", docID))
 		}
 
+		// Sanitize tags: convert underscores to hyphens, ensure non-empty.
+		sanitizedTags := sanitizeDocTags(docsDir, dryRun)
+		for _, docID := range sanitizedTags {
+			addAction("✔", fmt.Sprintf("doc %s tags sanitized to kebab-case", docID))
+		}
+
 		if showSpinner {
 			time.Sleep(700 * time.Millisecond)
 		}
@@ -645,6 +651,105 @@ func migrateFactASTDocs(docsDir string, dryRun bool) []string {
 	}
 
 	return migrated
+}
+
+// sanitizeDocTags scans memory docs and fixes tags that don't pass kebab-case
+// validation: underscores → hyphens, empty tags removed, empty arrays get "untagged".
+func sanitizeDocTags(docsDir string, dryRun bool) []string {
+	var fixed []string
+
+	entries, err := os.ReadDir(docsDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+
+		path := filepath.Join(docsDir, entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+
+		var doc map[string]interface{}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			continue
+		}
+
+		rawTags, _ := doc["tags"].([]interface{})
+		changed := false
+		var newTags []string
+
+		for _, raw := range rawTags {
+			tag, ok := raw.(string)
+			if !ok || tag == "" {
+				changed = true
+				continue
+			}
+			sanitized := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(tag)), "_", "-")
+			// Remove colons and other non-kebab characters.
+			sanitized = kebabOnly(sanitized)
+			if sanitized == "" {
+				changed = true
+				continue
+			}
+			if sanitized != tag {
+				changed = true
+			}
+			newTags = append(newTags, sanitized)
+		}
+
+		if len(newTags) == 0 && len(rawTags) > 0 {
+			newTags = []string{"untagged"}
+			changed = true
+		}
+		if len(rawTags) == 0 {
+			newTags = []string{"untagged"}
+			changed = true
+		}
+
+		if !changed {
+			continue
+		}
+
+		docID, _ := doc["id"].(string)
+		if !dryRun {
+			// Convert back to []interface{} for JSON.
+			tagIface := make([]interface{}, len(newTags))
+			for i, t := range newTags {
+				tagIface[i] = t
+			}
+			doc["tags"] = tagIface
+			updated, err := json.MarshalIndent(doc, "", "  ")
+			if err != nil {
+				continue
+			}
+			os.WriteFile(path, append(updated, '\n'), 0644) //nolint:errcheck
+		}
+		fixed = append(fixed, docID)
+	}
+
+	return fixed
+}
+
+// kebabOnly strips any characters that aren't lowercase alphanumeric or hyphens.
+func kebabOnly(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	// Trim leading/trailing hyphens and collapse runs.
+	result := b.String()
+	for strings.Contains(result, "--") {
+		result = strings.ReplaceAll(result, "--", "-")
+	}
+	result = strings.Trim(result, "-")
+	return result
 }
 
 // regenerateRuntimeFiles rebuilds all runtime context files from the current config.

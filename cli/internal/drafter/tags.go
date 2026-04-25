@@ -38,9 +38,11 @@ func ExtractIdentifiers(text string) []string {
 		}
 	}
 	for _, m := range snakeCaseRe.FindAllString(text, -1) {
-		if !seen[m] {
-			seen[m] = true
-			ids = append(ids, m)
+		// Convert snake_case to kebab-case for valid tags.
+		kebab := strings.ReplaceAll(m, "_", "-")
+		if !seen[kebab] {
+			seen[kebab] = true
+			ids = append(ids, kebab)
 		}
 	}
 	return ids

@@ -116,8 +116,8 @@ func TestExtractIdentifiers(t *testing.T) {
 		found[id] = true
 	}
 
-	// CamelCase hits (lowercased).
-	for _, expected := range []string{"rank_candidates", "extract_file_tags"} {
+	// snake_case identifiers are converted to kebab-case.
+	for _, expected := range []string{"rank-candidates", "extract-file-tags"} {
 		if !found[expected] {
 			t.Errorf("expected identifier %q not found", expected)
 		}
