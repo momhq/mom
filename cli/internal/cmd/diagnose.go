@@ -8,6 +8,7 @@ import (
 
 	"github.com/momhq/mom/cli/internal/diagnose"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/spf13/cobra"
 )
 
@@ -42,8 +43,9 @@ func runDiagnose(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("loading session logs: %w", err)
 	}
 
+	p := ux.NewPrinter(cmd.OutOrStdout())
 	if len(sessions) == 0 {
-		cmd.Println("No session logs found. Run some sessions with Logbook active first.")
+		p.Muted("No session logs found. Run some sessions with Logbook active first.")
 		return nil
 	}
 
@@ -53,7 +55,7 @@ func runDiagnose(cmd *cobra.Command, _ []string) error {
 		data, _ := json.MarshalIndent(report, "", "  ")
 		cmd.Println(string(data))
 	} else {
-		cmd.Print(diagnose.FormatReport(report))
+		p.Text(diagnose.FormatReport(report))
 	}
 
 	return nil

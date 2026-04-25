@@ -13,6 +13,7 @@ import (
 	"github.com/momhq/mom/cli/internal/drafter"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/spf13/cobra"
 )
 
@@ -101,14 +102,15 @@ func runDraft(cmd *cobra.Command, _ []string) error {
 	// Update last-draft marker.
 	updateDraftMarker(momDir)
 
-	fmt.Fprintf(os.Stderr, "draft: wrote %d/%d drafts to %s\n", written, len(drafts), memDir)
+	p := ux.NewPrinter(os.Stderr)
+	p.Checkf("draft: wrote %d/%d drafts to %s", written, len(drafts), memDir)
 
 	// Auto-clean old raw files if enabled.
 	cfg, cfgErr := config.Load(momDir)
 	if cfgErr == nil && cfg.RawMemories.AutoClean {
 		result := sweep(momDir, cfg.RawMemories)
 		if result.Deleted > 0 {
-			fmt.Fprintf(os.Stderr, "sweep: deleted %d files, freed %.1f MB\n",
+			p.Checkf("sweep: deleted %d files, freed %.1f MB",
 				result.Deleted, float64(result.BytesFreed)/(1024*1024))
 		}
 	}

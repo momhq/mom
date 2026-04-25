@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 var exportCmd = &cobra.Command{
@@ -122,7 +123,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	cmd.Printf("Exported to %s: %d docs, %d constraints, %d skills\n",
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	p.Checkf("Exported to %s: %d docs, %d constraints, %d skills",
 		outputDir, docCount, constraintsCount, skillsCount)
 	return nil
 }
@@ -199,14 +201,15 @@ func runImport(cmd *cobra.Command, args []string) error {
 		srcPath := filepath.Join(srcDocsDir, e.Name())
 
 		// Validate the doc.
+		ip := ux.NewPrinter(cmd.OutOrStdout())
 		kbDoc, err := memory.LoadDoc(srcPath)
 		if err != nil {
-			cmd.Printf("  error: %s: cannot parse: %v\n", e.Name(), err)
+			ip.Failf("%s: cannot parse: %v", e.Name(), err)
 			errCount++
 			continue
 		}
 		if err := kbDoc.Validate(); err != nil {
-			cmd.Printf("  invalid: %s: %v\n", e.Name(), err)
+			ip.Failf("%s: invalid: %v", e.Name(), err)
 			errCount++
 			continue
 		}
@@ -222,7 +225,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		}
 
 		if err := copyFileContents(srcPath, dstPath); err != nil {
-			cmd.Printf("  error: copying %s: %v\n", e.Name(), err)
+			ip.Failf("copying %s: %v", e.Name(), err)
 			errCount++
 			continue
 		}
@@ -263,7 +266,8 @@ func runImport(cmd *cobra.Command, args []string) error {
 		copyFileContents(srcConfig, dstConfig) //nolint:errcheck
 	}
 
-		cmd.Printf("Import complete: %d imported, %d skipped, %d error(s)\n",
+	ip := ux.NewPrinter(cmd.OutOrStdout())
+	ip.Checkf("Import complete: %d imported, %d skipped, %d error(s)",
 		imported, skipped, errCount)
 	return nil
 }

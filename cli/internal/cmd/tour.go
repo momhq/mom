@@ -12,6 +12,7 @@ import (
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/gardener"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 var tourCmd = &cobra.Command{
@@ -40,9 +41,11 @@ func runTour(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("getting working directory: %w", err)
 	}
 
+	p := ux.NewPrinter(cmd.OutOrStdout())
+
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .mom/ directory found. Run 'mom init' first.\n")
+		p.Muted("No .mom/ directory found. Run 'mom init' first.")
 		return nil
 	}
 
@@ -74,16 +77,17 @@ func runTour(cmd *cobra.Command, _ []string) error {
 
 	results, err := idx.ListLandmarks([]string{targetScope.Path}, limit)
 	if err != nil {
-		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' first.\n")
+		p.Muted("No landmarks found. Run 'mom bootstrap --path .' first.")
 		return nil
 	}
 
 	if len(results) == 0 {
-		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' first.\n")
+		p.Muted("No landmarks found. Run 'mom bootstrap --path .' first.")
 		return nil
 	}
 
-	cmd.Printf("Landmarks for %s (%s)\n\n", targetScope.Label, shortenPath(targetScope.Path))
+	p.Bold(fmt.Sprintf("Landmarks for %s (%s)", targetScope.Label, shortenPath(targetScope.Path)))
+	p.Blank()
 	for i, r := range results {
 		score := 0.0
 		if r.CentralityScore != nil {
@@ -94,20 +98,22 @@ func runTour(cmd *cobra.Command, _ []string) error {
 			summary = r.ID
 		}
 
-		cmd.Printf("%2d. %s\n", i+1, r.ID)
-		cmd.Printf("    Scope:      %s\n", r.ScopePath)
-		cmd.Printf("    Centrality: %.4f\n", score)
-		cmd.Printf("    Tags:       %s\n", strings.Join(r.Tags, ", "))
+		p.Diamond(fmt.Sprintf("%2d. %s", i+1, r.ID))
+		w := 14
+		p.KeyValue("    Scope", r.ScopePath, w)
+		p.KeyValue("    Centrality", fmt.Sprintf("%.4f", score), w)
+		p.KeyValue("    Tags", strings.Join(r.Tags, ", "), w)
 		if summary != r.ID {
-			cmd.Printf("    Summary:    %s\n", truncate(summary, 72))
+			p.KeyValue("    Summary", truncate(summary, 72), w)
 		}
-		cmd.Println()
+		p.Blank()
 	}
 
 	return nil
 }
 
 func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
+	gp := ux.NewPrinter(cmd.OutOrStdout())
 	memDir := filepath.Join(targetScope.Path, "memory")
 
 	// Build graph data (max tag group size 50 to keep graph readable).
@@ -117,7 +123,7 @@ func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
 	}
 
 	if data.Stats.TotalDocs == 0 {
-		cmd.Println("No memories found. Run 'mom bootstrap' first.")
+		gp.Muted("No memories found. Run 'mom bootstrap' first.")
 		return nil
 	}
 
@@ -127,12 +133,12 @@ func runTourGraph(cmd *cobra.Command, targetScope scope.Scope) error {
 		return fmt.Errorf("writing graph HTML: %w", err)
 	}
 
-	cmd.Printf("Graph written to %s\n", outPath)
-	cmd.Printf("  %d nodes, %d edges, %d landmarks\n", data.Stats.TotalDocs, data.Stats.TotalEdges, data.Stats.LandmarkCount)
+	gp.Checkf("Graph written to %s", outPath)
+	gp.Muted(fmt.Sprintf("  %d nodes, %d edges, %d landmarks", data.Stats.TotalDocs, data.Stats.TotalEdges, data.Stats.LandmarkCount))
 
 	// Try to open in browser.
 	if err := openBrowser(outPath); err != nil {
-		cmd.Printf("  Open the file in your browser to view the graph.\n")
+		gp.Muted("  Open the file in your browser to view the graph.")
 	}
 
 	return nil

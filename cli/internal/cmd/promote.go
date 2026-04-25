@@ -9,6 +9,7 @@ import (
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 var promoteCmd = &cobra.Command{
@@ -202,7 +203,8 @@ func moveDoc(srcDocPath, srcLeoDir, dstLeoDir, id, provenanceTag string, cmd *co
 		return fmt.Errorf("removing source doc: %w", err)
 	}
 
-	cmd.Printf("✔ %s moved: %s → %s\n", id,
+	mp := ux.NewPrinter(cmd.OutOrStdout())
+	mp.Checkf("%s moved: %s → %s", id,
 		shortenPath(srcLeoDir), shortenPath(dstLeoDir))
 	return nil
 }
