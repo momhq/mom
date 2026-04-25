@@ -515,48 +515,14 @@ func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
 		targetDir = sc.Path
 	}
 
-	input := recorder.HookInput{
-		SessionID:     sessionID,
-		HookEventName: "mcp",
-		Cwd:           s.momDir,
-	}
-
-	// Write directly without a transcript path — build entry manually.
+	// Write directly without a transcript path using RecordText (handles locking).
 	rawDir := filepath.Join(targetDir, "raw")
-	if err := os.MkdirAll(rawDir, 0755); err != nil {
-		return toolCallResult{}, fmt.Errorf("creating raw dir: %w", err)
-	}
-
 	now := time.Now().UTC()
 	dailyFile := filepath.Join(rawDir, now.Format("2006-01-02")+".jsonl")
 
-	type rawEntry struct {
-		Timestamp string `json:"timestamp"`
-		Event     string `json:"event"`
-		Text      string `json:"text"`
-		SessionID string `json:"session_id"`
+	if err := recorder.RecordText(targetDir, text, sessionID); err != nil {
+		return toolCallResult{}, fmt.Errorf("recording text: %w", err)
 	}
-	entry := rawEntry{
-		Timestamp: now.Format(time.RFC3339),
-		Event:     input.HookEventName,
-		Text:      text,
-		SessionID: sessionID,
-	}
-
-	line, err := json.Marshal(entry)
-	if err != nil {
-		return toolCallResult{}, fmt.Errorf("marshaling entry: %w", err)
-	}
-
-	f, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return toolCallResult{}, fmt.Errorf("opening raw file: %w", err)
-	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		_ = f.Close()
-		return toolCallResult{}, fmt.Errorf("writing entry: %w", err)
-	}
-	_ = f.Close()
 
 	result := map[string]any{
 		"status":   "recorded",

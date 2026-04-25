@@ -105,7 +105,7 @@ func runRecordRaw(data []byte, cwd string) error {
 		return nil
 	}
 
-	if err := recorder.RecordText(sc.Path, text); err != nil {
+	if err := recorder.RecordText(sc.Path, text, ""); err != nil {
 		logRecordError(err)
 	}
 	return nil
