@@ -108,26 +108,19 @@ func TestWindsurfAdapter_RegisterHooks(t *testing.T) {
 	if !ok {
 		t.Fatal("hooks.json missing post_cascade_response_with_transcript event")
 	}
-	if len(event) != 2 {
-		t.Fatalf("expected 2 hook entries, got %d", len(event))
+	// Recording is done by the filesystem watcher (mom watch --runtime windsurf).
+	// Only mom draft should remain — mom record is intentionally absent (#145).
+	if len(event) != 1 {
+		t.Fatalf("expected 1 hook entry (mom draft only), got %d", len(event))
 	}
 
-	// Verify first hook command is "mom record" with working_directory.
+	// Verify the sole hook command is "mom draft" with working_directory.
 	entry0 := event[0].(map[string]any)
-	if entry0["command"] != "mom record" {
-		t.Errorf("expected command 'mom record', got %v", entry0["command"])
+	if entry0["command"] != "mom draft" {
+		t.Errorf("expected command 'mom draft', got %v", entry0["command"])
 	}
 	if entry0["working_directory"] != dir {
 		t.Errorf("expected working_directory %q, got %v", dir, entry0["working_directory"])
-	}
-
-	// Verify second hook command is "mom draft" with working_directory.
-	entry1 := event[1].(map[string]any)
-	if entry1["command"] != "mom draft" {
-		t.Errorf("expected command 'mom draft', got %v", entry1["command"])
-	}
-	if entry1["working_directory"] != dir {
-		t.Errorf("expected working_directory %q, got %v", dir, entry1["working_directory"])
 	}
 }
 
