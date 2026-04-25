@@ -14,6 +14,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if warning := checkVersionCache(); warning != "" {
 			fmt.Fprintln(os.Stderr, warning)
+			fmt.Fprintln(os.Stderr)
 		}
 		refreshVersionCacheAsync()
 	},

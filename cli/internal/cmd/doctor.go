@@ -348,6 +348,7 @@ func printExtractorModelUsage(p *ux.Printer, telDir string) {
 // ─── --telemetry-preview ──────────────────────────────────────────────────────
 
 func runDoctorTelemetryPreview(cmd *cobra.Command) error {
+	p := ux.NewPrinter(cmd.OutOrStdout())
 	leoDir, leoDirErr := findMomDir()
 
 	// Config for telemetry enabled status.
@@ -361,16 +362,21 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 		}
 	}
 
-	cmd.Printf("Telemetry mode: LOCAL-ONLY (no network calls)\n")
+	w := 20
+	p.Bold("Telemetry Preview")
+	p.Blank()
+	p.KeyValue("Mode", "LOCAL-ONLY (no network calls)", w)
 	if !telEnabled {
-		cmd.Printf("Status: disabled\n")
-		cmd.Printf("\nTo enable: set telemetry.enabled: true in .mom/config.yaml\n")
+		p.KeyValue("Status", "disabled", w)
+		p.Blank()
+		p.Textf("To enable: set telemetry.enabled: true in %s", p.HighlightCmd(".mom/config.yaml"))
 		return nil
 	}
-	cmd.Printf("Status: enabled\n")
+	p.KeyValue("Status", "enabled", w)
 
 	if leoDirErr != nil {
-		cmd.Printf("\n(no .mom/ directory found)\n")
+		p.Blank()
+		p.Warn("no .mom/ directory found")
 		return nil
 	}
 
@@ -388,41 +394,41 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 		}
 	}
 
-	cmd.Printf("Events written today: %d\n", totalToday)
+	p.Blank()
+	p.KeyValue("Events today", fmt.Sprintf("%d", totalToday), w)
 	if totalToday > 0 {
-		// Print counts in a stable order.
 		for _, kind := range []string{"SessionEvent", "CaptureEvent", "MemoryMutation", "ConsumptionEvent", "RuntimeHealth"} {
 			if c := kindCounts[kind]; c > 0 {
-				cmd.Printf("  %s: %d\n", kind, c)
+				p.KeyValue(fmt.Sprintf("  %s", kind), fmt.Sprintf("%d", c), w)
 			}
 		}
-		// Any unexpected kinds.
 		for k, c := range kindCounts {
 			switch k {
 			case "SessionEvent", "CaptureEvent", "MemoryMutation", "ConsumptionEvent", "RuntimeHealth":
-				// already printed
 			default:
-				cmd.Printf("  %s: %d\n", k, c)
+				p.KeyValue(fmt.Sprintf("  %s", k), fmt.Sprintf("%d", c), w)
 			}
 		}
 	}
 
 	// Sample event: most recent (last line).
+	p.Blank()
 	if len(todayRaw) > 0 {
 		lastLine := todayRaw[len(todayRaw)-1]
-		// Pretty-print with indent.
+		p.Bold("Sample event (most recent)")
 		var pretty map[string]any
 		if err := json.Unmarshal([]byte(lastLine), &pretty); err == nil {
 			out, _ := json.MarshalIndent(pretty, "", "  ")
-			cmd.Printf("\nSample event (most recent):\n%s\n", string(out))
+			p.Muted(string(out))
 		} else {
-			cmd.Printf("\nSample event (most recent):\n%s\n", lastLine)
+			p.Muted(lastLine)
 		}
 	} else {
-		cmd.Printf("\n(no events yet today)\n")
+		p.Muted("no events yet today")
 	}
 
 	// File info.
+	p.Blank()
 	if info, err := os.Stat(todayFile); err == nil {
 		size := info.Size()
 		var sizeStr string
@@ -432,9 +438,9 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 			sizeStr = fmt.Sprintf("%.1f KB", float64(size)/1024)
 		}
 		rel := ".mom/logs/" + today + ".jsonl"
-		cmd.Printf("\nFull file: %s (%s)\n", rel, sizeStr)
+		p.Muted(fmt.Sprintf("Full file: %s (%s)", rel, sizeStr))
 	} else {
-		cmd.Printf("\nFull file: .mom/logs/%s.jsonl (not yet created)\n", today)
+		p.Muted(fmt.Sprintf("Full file: .mom/logs/%s.jsonl (not yet created)", today))
 	}
 
 	return nil
@@ -445,6 +451,7 @@ func runDoctorTelemetryPreview(cmd *cobra.Command) error {
 const landmarkComputationThreshold = 100
 
 func runDoctorLandmarks(cmd *cobra.Command) error {
+	p := ux.NewPrinter(cmd.OutOrStdout())
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -452,7 +459,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
-		cmd.Printf("No .mom/ directory found. Run 'mom init' first.\n")
+		p.Warn("no .mom/ directory found — run 'mom init' first")
 		return nil
 	}
 
@@ -461,7 +468,7 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	memDir := filepath.Join(s.Path, "memory")
 	entries, err := os.ReadDir(memDir)
 	if err != nil {
-		cmd.Printf("No landmark memories found (memory/ unreadable).\n")
+		p.Warn("no landmark memories found (memory/ unreadable)")
 		return nil
 	}
 
@@ -474,8 +481,9 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(jsonFiles) < landmarkComputationThreshold {
-		cmd.Printf("No landmarks computed yet. Run 'mom bootstrap --path .' to compute.\n")
-		cmd.Printf("(Graph below computation threshold: %d/%d memories)\n", len(jsonFiles), landmarkComputationThreshold)
+		p.Warn("no landmarks computed yet")
+		p.Textf("Run %s to compute.", p.HighlightCmd("mom bootstrap --path ."))
+		p.Muted(fmt.Sprintf("graph below threshold: %d/%d memories", len(jsonFiles), landmarkComputationThreshold))
 		return nil
 	}
 
@@ -496,7 +504,8 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 	}
 
 	if len(landmarks) == 0 {
-		cmd.Printf("No landmarks found. Run 'mom bootstrap --path .' to compute.\n")
+		p.Warn("no landmarks found")
+		p.Textf("Run %s to compute.", p.HighlightCmd("mom bootstrap --path ."))
 		return nil
 	}
 
@@ -512,10 +521,11 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 		return si > sj
 	})
 
-	cmd.Printf("Top landmarks at scope: %s (%s)\n\n", s.Label, shortenPath(s.Path))
-	cmd.Printf("  %-30s  %-8s  %-12s  Tags\n", "Memory ID", "Centrality", "Created")
-	cmd.Printf("  %s\n", strings.Repeat("-", 80))
+	p.Bold("Top Landmarks")
+	p.Muted(fmt.Sprintf("scope: %s (%s)", s.Label, shortenPath(s.Path)))
+	p.Blank()
 
+	w := 16
 	shown := 0
 	for _, lm := range landmarks {
 		if shown >= 10 {
@@ -527,7 +537,6 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 			centrality = *doc.CentralityScore
 		}
 		created := doc.Created.Format("2006-01-02")
-		tagCount := len(doc.Tags)
 		tagStr := strings.Join(doc.Tags, ", ")
 		if len(tagStr) > 40 {
 			tagStr = tagStr[:37] + "..."
@@ -536,11 +545,15 @@ func runDoctorLandmarks(cmd *cobra.Command) error {
 		if summary == "" {
 			summary = doc.ID
 		}
-		cmd.Printf("  %-30s  %.4f      %-12s  [%d] %s\n",
-			truncate(doc.ID, 30), centrality, created, tagCount, tagStr)
+
+		p.Diamond(truncate(doc.ID, 50))
+		p.KeyValue("  Centrality", fmt.Sprintf("%.4f", centrality), w)
+		p.KeyValue("  Created", created, w)
+		p.KeyValue("  Tags", fmt.Sprintf("[%d] %s", len(doc.Tags), tagStr), w)
 		if summary != doc.ID {
-			cmd.Printf("    %s\n", truncate(summary, 76))
+			p.Muted(fmt.Sprintf("  %s", truncate(summary, 76)))
 		}
+		p.Blank()
 		shown++
 	}
 

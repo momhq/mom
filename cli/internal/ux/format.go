@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"charm.land/lipgloss/v2"
 )
 
 // Printer handles styled output with TTY awareness.
@@ -188,16 +190,101 @@ func (p *Printer) KeyValue(label string, value string, width int) {
 
 // --- banner ---
 
+// --- color swatches ---
+
+// KeyValuePair holds a label-value pair for Panel rendering.
+type KeyValuePair struct {
+	Label string
+	Value string
+}
+
+// ColorSwatch prints a colored block swatch with name and hex value.
+// Renders: "  ██    Name         #hex"
+func (p *Printer) ColorSwatch(name, hex string, swatchStyle lipgloss.Style, nameWidth int) {
+	swatch := "██"
+	if p.tty {
+		swatch = swatchStyle.Render(swatch)
+	} else {
+		swatch = "##"
+	}
+	n := p.style(name, TextStyle.Render)
+	h := p.style(hex, TextStyle.Render)
+	pad := ""
+	if nameWidth > len(name) {
+		pad = strings.Repeat(" ", nameWidth-len(name))
+	}
+	fmt.Fprintf(p.W, "  %s    %s%s  %s\n", swatch, n, pad, h)
+}
+
+// --- additional indicators ---
+
+// StepInProgress prints an empty diamond (◇) in Signal + regular text.
+func (p *Printer) StepInProgress(s string) {
+	bullet := p.style(DiamondEmpty, SignalStyle.Render)
+	label := p.style(s, TextStyle.Render)
+	fmt.Fprintf(p.W, "%s %s\n", bullet, label)
+}
+
+// StepCompleted prints a filled diamond (◆) in Signal + regular text (not bold).
+func (p *Printer) StepCompleted(s string) {
+	bullet := p.style(DiamondFilled, SignalStyle.Render)
+	label := p.style(s, TextStyle.Render)
+	fmt.Fprintf(p.W, "%s %s\n", bullet, label)
+}
+
+// Info prints an empty bullet (○) in Muted + regular text.
+func (p *Printer) Info(s string) {
+	bullet := p.style(BulletEmpty, MutedStyle.Render)
+	label := p.style(s, TextStyle.Render)
+	fmt.Fprintf(p.W, "%s %s\n", bullet, label)
+}
+
+// --- panels ---
+
+// Panel prints a titled bordered box with key-value pairs inside.
+func (p *Printer) Panel(title string, pairs []KeyValuePair, labelWidth int) {
+	p.Bold(title)
+	if !p.tty {
+		for _, kv := range pairs {
+			pad := ""
+			if labelWidth > len(kv.Label) {
+				pad = strings.Repeat(" ", labelWidth-len(kv.Label))
+			}
+			fmt.Fprintf(p.W, "  %s:%s %s\n", kv.Label, pad, kv.Value)
+		}
+		return
+	}
+	var lines []string
+	for _, kv := range pairs {
+		l := TextStyle.Render(kv.Label + ":")
+		v := ArchiveStyle.Render(kv.Value)
+		pad := ""
+		if labelWidth > len(kv.Label) {
+			pad = strings.Repeat(" ", labelWidth-len(kv.Label))
+		}
+		lines = append(lines, fmt.Sprintf("%s%s %s", l, pad, v))
+	}
+	content := strings.Join(lines, "\n")
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Muted).
+		Padding(0, 1).
+		Render(content)
+	fmt.Fprintln(p.W, box)
+}
+
 // Banner prints the MOM ASCII art banner in Archive color.
 func (p *Printer) Banner() {
 	art := []string{
-		`██ ██       ██ ██   ██ ██ ██ ██ ██ ██   ██ ██       ██ ██`,
-		`██ ██ ██ ██ ██ ██   ██ ██       ██ ██   ██ ██ ██ ██ ██ ██`,
-		`██    ██ ██    ██   ██ ██       ██ ██   ██    ██ ██    ██`,
-		`██             ██   ██ ██ ██ ██ ██ ██   ██             ██`,
+		` ███╗   ███╗  ██████╗  ███╗   ███╗`,
+		` ████╗ ████║ ██╔═══██╗ ████╗ ████║`,
+		` ██╔████╔██║ ██║   ██║ ██╔████╔██║`,
+		` ██║╚██╔╝██║ ██║   ██║ ██║╚██╔╝██║`,
+		` ██║ ╚═╝ ██║ ╚██████╔╝ ██║ ╚═╝ ██║`,
+		` ╚═╝     ╚═╝  ╚═════╝  ╚═╝     ╚═╝`,
 	}
 	for _, line := range art {
 		fmt.Fprintln(p.W, p.style(line, ArchiveStyle.Render))
 	}
-	fmt.Fprintln(p.W, p.style("Memory Oriented Machine", ArchiveStyle.Render))
+	fmt.Fprintln(p.W, p.style(" Memory Oriented Machine", MutedStyle.Render))
 }

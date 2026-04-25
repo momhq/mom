@@ -111,7 +111,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 			}
 		}
 		p.Blank()
-		fmt.Fprint(cmd.OutOrStdout(), "Proceed? [y/N]: ")
+		fmt.Fprintf(p.W, "Proceed? %s ", p.MutedText("[y/N]:"))
 
 		scanner := bufio.NewScanner(cmd.InOrStdin())
 		answer := ""
@@ -129,7 +129,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		if yes {
 			doBackup = true
 		} else {
-			cmd.Print("  Back up memory before removing? [Y/n]: ")
+			fmt.Fprintf(p.W, "  Back up memory before removing? %s ", p.MutedText("[Y/n]:"))
 			scanner := bufio.NewScanner(cmd.InOrStdin())
 			answer := ""
 			if scanner.Scan() {

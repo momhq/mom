@@ -180,17 +180,22 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 // runWatchStatus prints cursor files in .mom/raw/ for inspection.
 func runWatchStatus(momDir string) error {
+	p := ux.NewPrinter(os.Stderr)
 	rawDir := filepath.Join(momDir, "raw")
 	entries, err := os.ReadDir(rawDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "no raw dir at %s — nothing recorded yet\n", rawDir)
+			p.Warn(fmt.Sprintf("no raw dir at %s — nothing recorded yet", rawDir))
 			return nil
 		}
 		return fmt.Errorf("reading raw dir: %w", err)
 	}
 
-	var cursors []string
+	type cursor struct {
+		sid    string
+		offset string
+	}
+	var cursors []cursor
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -202,18 +207,20 @@ func runWatchStatus(momDir string) error {
 			if err != nil {
 				continue
 			}
-			cursors = append(cursors, fmt.Sprintf("  %s: %s bytes", sid, strings.TrimSpace(string(data))))
+			cursors = append(cursors, cursor{sid: sid, offset: strings.TrimSpace(string(data))})
 		}
 	}
 
 	if len(cursors) == 0 {
-		fmt.Fprintf(os.Stderr, "no watch cursors found — watcher has not run yet\n")
+		p.Warn("no watch cursors found — watcher has not run yet")
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "watch cursors (%d sessions):\n", len(cursors))
+	p.Diamond("watch cursors")
+	p.Muted(fmt.Sprintf("%d sessions", len(cursors)))
+	p.Blank()
 	for _, c := range cursors {
-		fmt.Fprintln(os.Stderr, c)
+		p.Chevron(fmt.Sprintf("%s: %s bytes", c.sid, c.offset))
 	}
 	return nil
 }
