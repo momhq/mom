@@ -374,8 +374,8 @@ func TestIntegration_RecordDraftPipeline(t *testing.T) {
 	memDir := filepath.Join(momDir, "memory")
 
 	// Use RecordText to write raw entries directly (avoids transcript file complexity).
-	recorder.RecordText(momDir, "User: How does the auth middleware work?\nAssistant: The auth middleware validates JWT tokens from the Authorization header.")
-	recorder.RecordText(momDir, "User: What about refresh tokens?\nAssistant: Refresh tokens are stored in HTTP-only cookies and rotated on each use.")
+	recorder.RecordText(momDir, "User: How does the auth middleware work?\nAssistant: The auth middleware validates JWT tokens from the Authorization header.", "test-session")
+	recorder.RecordText(momDir, "User: What about refresh tokens?\nAssistant: Refresh tokens are stored in HTTP-only cookies and rotated on each use.", "test-session")
 
 	// Verify raw JSONL was created.
 	rawEntries, err := os.ReadDir(rawDir)
