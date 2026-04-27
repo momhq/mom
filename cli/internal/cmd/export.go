@@ -43,12 +43,12 @@ func runExport(cmd *cobra.Command, args []string) error {
 	// Determine output directory.
 	outputFlag, _ := cmd.Flags().GetString("output")
 	var outputDir string
-	if outputFlag != "" {
+	switch {
+	case outputFlag != "":
 		outputDir = outputFlag
-	} else if len(args) > 0 {
+	case len(args) > 0:
 		outputDir = filepath.Join(args[0], "mom-export")
-	} else {
-		// Default: ./mom-export relative to cwd.
+	default:
 		cwd, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("getting cwd: %w", err)

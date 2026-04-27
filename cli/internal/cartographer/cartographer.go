@@ -461,18 +461,19 @@ func segMatch(pattern, segment string) bool {
 	match := 0
 
 	for si < len(segment) {
-		if pi < len(pattern) && (pattern[pi] == '?' || pattern[pi] == segment[si]) {
+		switch {
+		case pi < len(pattern) && (pattern[pi] == '?' || pattern[pi] == segment[si]):
 			pi++
 			si++
-		} else if pi < len(pattern) && pattern[pi] == '*' {
+		case pi < len(pattern) && pattern[pi] == '*':
 			starIdx = pi
 			match = si
 			pi++
-		} else if starIdx >= 0 {
+		case starIdx >= 0:
 			pi = starIdx + 1
 			match++
 			si = match
-		} else {
+		default:
 			return false
 		}
 	}

@@ -287,8 +287,7 @@ func printCapturePipelineLatency(p *ux.Printer, telDir string) {
 			continue
 		}
 		if v, ok := raw["latency_ms"]; ok {
-			switch n := v.(type) {
-			case float64:
+			if n, isFloat := v.(float64); isFloat {
 				latencies = append(latencies, int64(n))
 			}
 		}
