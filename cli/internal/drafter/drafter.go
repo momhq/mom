@@ -145,8 +145,10 @@ func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25In
 		}
 
 		// Split compound tags on "-" and deduplicate into single words.
+		// Normalize underscores to hyphens first to ensure kebab-case.
 		wordSet := make(map[string]bool)
 		for t := range tags {
+			t = strings.ReplaceAll(t, "_", "-")
 			parts := strings.Split(t, "-")
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
