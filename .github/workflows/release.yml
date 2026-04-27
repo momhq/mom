@@ -104,10 +104,16 @@ jobs:
       - name: Create GitHub Release
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            artifacts/mom-*.gz
+          # If a release already exists (pre-created with curated notes),
+          # just upload the binaries. Otherwise create with auto-generated notes.
+          if gh release view "$TAG" &>/dev/null; then
+            gh release upload "$TAG" artifacts/mom-*.gz --clobber
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              artifacts/mom-*.gz
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
