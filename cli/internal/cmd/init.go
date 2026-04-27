@@ -436,6 +436,10 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 	}
 
 	if !changed {
+		// Still register with global daemon even if runtimes unchanged.
+		if err := ensureGlobalDaemon(cwd, leoDir, cfg.EnabledRuntimes()); err != nil {
+			p.Warnf("watch daemon: %v", err)
+		}
 		p.Muted(".mom/ already configured with selected runtimes — nothing to update.")
 		return nil
 	}
