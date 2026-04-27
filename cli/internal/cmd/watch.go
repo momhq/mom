@@ -296,11 +296,13 @@ func runWatchGlobal(sweepOnly bool) error {
 	}
 
 	if sweepOnly {
+		p := ux.NewPrinter(os.Stderr)
+		totalSessions, totalTurns := 0, 0
 		// Sweep all registered projects and exit.
 		for projDir, entry := range reg {
 			cfg, err := config.Load(entry.MomDir)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "[mom] sweep %s: config: %v\n", projDir, err)
+				p.Warn(fmt.Sprintf("sweep %s: config: %v", projDir, err))
 				continue
 			}
 			sources := buildWatcherSources(cfg, projDir)
@@ -320,10 +322,21 @@ func runWatchGlobal(sweepOnly bool) error {
 				Bus:        bus,
 			})
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "[mom] sweep %s: %v\n", projDir, err)
+				p.Warn(fmt.Sprintf("sweep %s: %v", projDir, err))
 				continue
 			}
-			w.Sweep()
+			sessions, turns := w.Sweep()
+			totalSessions += sessions
+			totalTurns += turns
+			if sessions > 0 {
+				p.Checkf("sweep %s: %s sessions, %s turns",
+					filepath.Base(projDir),
+					p.HighlightValue(fmt.Sprintf("%d", sessions)),
+					p.HighlightValue(fmt.Sprintf("%d", turns)))
+			}
+		}
+		if totalSessions == 0 {
+			p.Muted("sweep: nothing new across all projects")
 		}
 		return nil
 	}
