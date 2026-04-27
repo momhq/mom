@@ -292,22 +292,15 @@ func TestClaudeAdapter_RegisterHooks_DefaultHooks(t *testing.T) {
 	if !ok {
 		t.Fatal("hooks.Stop should be an array")
 	}
-	if len(stop) != 2 {
-		t.Fatalf("expected 2 Stop matcher groups (record + draft), got %d", len(stop))
+	if len(stop) != 1 {
+		t.Fatalf("expected 1 Stop matcher group (draft only, record removed), got %d", len(stop))
 	}
 
 	group0 := stop[0].(map[string]any)
 	innerHooks0 := group0["hooks"].([]any)
 	hookEntry0 := innerHooks0[0].(map[string]any)
-	if hookEntry0["command"] != "mom record" {
-		t.Errorf("expected command 'mom record', got %v", hookEntry0["command"])
-	}
-
-	group1 := stop[1].(map[string]any)
-	innerHooks1 := group1["hooks"].([]any)
-	hookEntry1 := innerHooks1[0].(map[string]any)
-	if hookEntry1["command"] != "mom draft" {
-		t.Errorf("expected command 'mom draft', got %v", hookEntry1["command"])
+	if hookEntry0["command"] != "mom draft" {
+		t.Errorf("expected command 'mom draft', got %v", hookEntry0["command"])
 	}
 
 	// SessionEnd should have a fallback "mom draft" to catch the last response.
@@ -338,13 +331,23 @@ func TestClaudeAdapter_RegisterMCP_Fresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading .mcp.json: %v", err)
 	}
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil {
+		t.Fatalf("parsing .mcp.json: %v", err)
+	}
+	servers, ok := root["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatal(".mcp.json missing mcpServers")
+	}
+	mom, ok := servers["mom"].(map[string]any)
+	if !ok {
+		t.Fatal(".mcp.json missing mom server entry")
+	}
+	cmd, _ := mom["command"].(string)
+	if cmd == "" {
+		t.Error(".mcp.json mom command must not be empty")
+	}
 	s := string(data)
-	if !strings.Contains(s, `"mom"`) {
-		t.Error(".mcp.json missing mom server entry")
-	}
-	if !strings.Contains(s, `"command": "mom"`) {
-		t.Error(".mcp.json missing mom command")
-	}
 	if !strings.Contains(s, `"serve"`) {
 		t.Error(".mcp.json missing serve arg")
 	}

@@ -108,31 +108,26 @@ func TestWindsurfAdapter_RegisterHooks(t *testing.T) {
 	if !ok {
 		t.Fatal("hooks.json missing post_cascade_response_with_transcript event")
 	}
-	if len(event) != 2 {
-		t.Fatalf("expected 2 hook entries, got %d", len(event))
+	// Recording is done by the filesystem watcher (mom watch --runtime windsurf).
+	// Only mom draft should remain — mom record is intentionally absent (#145).
+	if len(event) != 1 {
+		t.Fatalf("expected 1 hook entry (mom draft only), got %d", len(event))
 	}
 
-	// Verify first hook command is "mom record" with working_directory.
+	// Verify the sole hook command is "mom draft" with working_directory.
 	entry0 := event[0].(map[string]any)
-	if entry0["command"] != "mom record" {
-		t.Errorf("expected command 'mom record', got %v", entry0["command"])
+	if entry0["command"] != "mom draft" {
+		t.Errorf("expected command 'mom draft', got %v", entry0["command"])
 	}
 	if entry0["working_directory"] != dir {
 		t.Errorf("expected working_directory %q, got %v", dir, entry0["working_directory"])
-	}
-
-	// Verify second hook command is "mom draft" with working_directory.
-	entry1 := event[1].(map[string]any)
-	if entry1["command"] != "mom draft" {
-		t.Errorf("expected command 'mom draft', got %v", entry1["command"])
-	}
-	if entry1["working_directory"] != dir {
-		t.Errorf("expected working_directory %q, got %v", dir, entry1["working_directory"])
 	}
 }
 
 func TestWindsurfAdapter_RegisterMCP(t *testing.T) {
 	dir := t.TempDir()
+	// Isolate HOME so the test never touches the real ~/.codeium/windsurf/mcp_config.json.
+	t.Setenv("HOME", dir)
 	a := NewWindsurfAdapter(dir)
 
 	if err := a.RegisterMCP(); err != nil {
@@ -143,13 +138,23 @@ func TestWindsurfAdapter_RegisterMCP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading .mcp.json: %v", err)
 	}
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil {
+		t.Fatalf("parsing .mcp.json: %v", err)
+	}
+	servers, ok := root["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatal(".mcp.json missing mcpServers")
+	}
+	mom, ok := servers["mom"].(map[string]any)
+	if !ok {
+		t.Fatal(".mcp.json missing mom server entry")
+	}
+	cmd, _ := mom["command"].(string)
+	if cmd == "" {
+		t.Error(".mcp.json mom command must not be empty")
+	}
 	s := string(data)
-	if !strings.Contains(s, `"mom"`) {
-		t.Error(".mcp.json missing mom server entry")
-	}
-	if !strings.Contains(s, `"command": "mom"`) {
-		t.Error(".mcp.json missing mom command")
-	}
 	if !strings.Contains(s, `"serve"`) {
 		t.Error(".mcp.json missing serve arg")
 	}

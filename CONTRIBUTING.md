@@ -22,7 +22,7 @@ cli/
 ├── cmd/leo/main.go              # deprecated alias (prints warning)
 ├── internal/
 │   ├── cmd/                     # cobra commands (init, upgrade, CRUD, ops, export)
-│   ├── adapters/runtime/        # RuntimeAdapter interface + impls (claude, codex, cline)
+│   ├── adapters/runtime/        # RuntimeAdapter interface + impls (claude, codex, windsurf)
 │   ├── adapters/storage/        # StorageAdapter interface + impls (JSON)
 │   ├── config/                  # .mom/config.yaml handling
 │   ├── memory/                  # memory document types and validation

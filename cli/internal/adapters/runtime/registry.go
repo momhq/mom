@@ -17,8 +17,6 @@ func NewRegistry(projectRoot string) *Registry {
 	}
 	r.Register(NewClaudeAdapter(projectRoot))
 	r.Register(NewCodexAdapter(projectRoot))
-	r.Register(NewClineAdapter(projectRoot))
-	r.Register(NewOpenClaudeAdapter(projectRoot))
 	r.Register(NewWindsurfAdapter(projectRoot))
 	return r
 }

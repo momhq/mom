@@ -2,7 +2,7 @@ package cartographer
 
 import (
 	"context"
-	"regexp"
+
 	"strings"
 )
 
@@ -24,12 +24,6 @@ func (e *MarkdownExtractor) Matches(path string) bool {
 	return markdownExtensions[ext]
 }
 
-// Patterns used for extraction.
-var (
-	reDecisionInline = regexp.MustCompile(`(?i)^Decision:\s*(.+)`)
-	rePatternInline  = regexp.MustCompile(`(?i)^Pattern:\s*(.+)`)
-	reURL = regexp.MustCompile(`https?://[^\s)\]"']+`)
-)
 
 func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, error) {
 	lines := linesOf(src.Content)
@@ -37,10 +31,11 @@ func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, err
 
 	var drafts []Draft
 
-	// Track current heading context to detect section-level decisions/patterns.
+	// Split the document into sections by headings.
+	// Each section becomes one memory draft.
 	type section struct {
 		heading string
-		kind    string // "decision" | "pattern" | ""
+		tags    []string
 		start   int
 		body    strings.Builder
 	}
@@ -52,13 +47,25 @@ func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, err
 			return
 		}
 		body := strings.TrimSpace(cur.body.String())
-		if body == "" || cur.kind == "" {
+		if body == "" {
 			cur = nil
 			return
 		}
+
+		summary := cur.heading
+		if summary == "" {
+			// No heading — use the file name as context.
+			summary = fileBaseName(src.Path)
+		}
+
+		tags := cur.tags
+		if len(tags) == 0 {
+			tags = []string{"markdown", "bootstrap"}
+		}
+
 		d := Draft{
-			Summary: truncate(body, 120),
-			Tags:    []string{cur.kind, "bootstrap"},
+			Summary: truncate(summary+": "+truncate(body, 80), 120),
+			Tags:    tags,
 			Content: map[string]any{
 				"heading": cur.heading,
 				"body":    body,
@@ -82,78 +89,42 @@ func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, err
 			flush(i)
 
 			heading := strings.TrimLeft(trimmed, "# ")
-			var kind string
+			tags := []string{"markdown", "bootstrap"}
+
+			// Add semantic tags for known heading types.
 			lower := strings.ToLower(heading)
 			switch {
 			case strings.Contains(lower, "decision"):
-				kind = "decision"
+				tags = append(tags, "decision")
 			case strings.Contains(lower, "pattern"):
-				kind = "pattern"
+				tags = append(tags, "pattern")
 			case strings.Contains(lower, "architecture"), strings.Contains(lower, "adr"):
-				kind = "decision"
+				tags = append(tags, "decision")
 			}
-			cur = &section{heading: heading, kind: kind, start: i}
+
+			cur = &section{heading: heading, tags: tags, start: i}
 			continue
 		}
 
-		// Detect inline "Decision: ..." and "Pattern: ..." markers.
-		if m := reDecisionInline.FindStringSubmatch(trimmed); m != nil {
-			flush(i)
-			drafts = append(drafts, Draft{
-				Summary: truncate(m[1], 120),
-				Tags:    []string{"decision", "bootstrap"},
-				Content: map[string]any{"text": m[1]},
-				Provenance: ProvenanceMeta{
-					SourceFile:   src.Path,
-					SourceLines:  lineRange(i+1, i+1),
-					SourceHash:   srcHash,
-					TriggerEvent: TriggerEvent,
-				},
-			})
-			continue
-		}
-
-		if m := rePatternInline.FindStringSubmatch(trimmed); m != nil {
-			flush(i)
-			drafts = append(drafts, Draft{
-				Summary: truncate(m[1], 120),
-				Tags:    []string{"pattern", "bootstrap"},
-				Content: map[string]any{"text": m[1]},
-				Provenance: ProvenanceMeta{
-					SourceFile:   src.Path,
-					SourceLines:  lineRange(i+1, i+1),
-					SourceHash:   srcHash,
-					TriggerEvent: TriggerEvent,
-				},
-			})
-			continue
-		}
-
-		// Extract URLs as facts.
-		urls := reURL.FindAllString(trimmed, -1)
-		for _, u := range urls {
-			drafts = append(drafts, Draft{
-				Summary: "URL reference: " + truncate(u, 100),
-				Tags:    []string{"fact", "url", "bootstrap"},
-				Content: map[string]any{"url": u},
-				Provenance: ProvenanceMeta{
-					SourceFile:   src.Path,
-					SourceLines:  lineRange(i+1, i+1),
-					SourceHash:   srcHash,
-					TriggerEvent: TriggerEvent,
-				},
-			})
+		// Start capturing if no heading yet (file without headings).
+		if cur == nil {
+			cur = &section{heading: "", tags: []string{"markdown", "bootstrap"}, start: i}
 		}
 
 		// Accumulate body for current section.
-		if cur != nil {
-			cur.body.WriteString(line)
-			cur.body.WriteByte('\n')
-		}
+		cur.body.WriteString(line)
+		cur.body.WriteByte('\n')
 	}
 	flush(len(lines))
 
 	return drafts, nil
+}
+
+// fileBaseName returns the file name without extension.
+func fileBaseName(path string) string {
+	base := strings.TrimSuffix(path, fileExt(path))
+	parts := strings.Split(base, "/")
+	return parts[len(parts)-1]
 }
 
 // fileExt returns the lowercase extension of a path.

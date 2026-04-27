@@ -10,12 +10,13 @@ import (
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
 	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 // OnboardingResult holds the choices the user made during the interactive
 // onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
-	Runtimes   []string // ["claude", "codex", "cline"]
+	Runtimes   []string // ["claude", "codex", "windsurf"]
 	Language   string   // always "en" — language selection removed in v0.9
 	Mode       string   // "default", "concise", "efficient"
 	CoreSource string   // path to mom clone, or "" if skipped
@@ -52,7 +53,11 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 
 	var runtimeOptions []huh.Option[string]
 	for _, a := range allAdapters {
-		opt := huh.NewOption(runtimeLabel(a.Name()), a.Name())
+		label := runtimeLabel(a.Name())
+		if detectedSet[a.Name()] {
+			label += " (detected)"
+		}
+		opt := huh.NewOption(label, a.Name())
 		if detectedSet[a.Name()] {
 			opt = opt.Selected(true)
 		}
@@ -64,7 +69,6 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	// Language is fixed to "en"; the prompt was removed in v0.9.
 	lang := "en"
 	mode := "concise"
-	coreSource := ""
 	bootstrapChoice := "skip" // default: skip
 
 	// Scope installation choice: "cwd" (repo), a detected parent dir, or "custom".
@@ -82,10 +86,17 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		// Group 1: Welcome
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Welcome to MOM").
+				Title(
+					" ███╗   ███╗  ██████╗  ███╗   ███╗\n"+
+						" ████╗ ████║ ██╔═══██╗ ████╗ ████║\n"+
+						" ██╔████╔██║ ██║   ██║ ██╔████╔██║\n"+
+						" ██║╚██╔╝██║ ██║   ██║ ██║╚██╔╝██║\n"+
+						" ██║ ╚═╝ ██║ ╚██████╔╝ ██║ ╚═╝ ██║\n"+
+						" ╚═╝     ╚═╝  ╚═════╝  ╚═╝     ╚═╝\n"+
+						" Memory Oriented Machine",
+				).
 				Description(
-					"Memory Oriented Machine\n\n"+
-						"MOM gives your AI coding assistant persistent memory\n"+
+					"\nMOM gives your AI coding assistant persistent memory\n"+
 						"and structured knowledge management.\n\n"+
 						"Let's set up your project. This takes about 30 seconds.",
 				),
@@ -127,15 +138,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&scopeChoice),
 		),
 
-		// Group 5: Core Source
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Path to your MOM clone (for updates)").
-				Description("Leave blank to skip — configure later in .mom/config.yaml").
-				Value(&coreSource),
-		),
-
-		// Group 6: Bootstrap
+		// Group 5: Bootstrap
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Scan existing content to seed your memory?").
@@ -152,7 +155,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	).WithAccessible(accessible).
 		WithInput(r).
 		WithOutput(w).
-		WithTheme(huh.ThemeFunc(huh.ThemeDracula))
+		WithTheme(huh.ThemeFunc(ux.ThemeMOM))
 
 	if err := form.Run(); err != nil {
 		return OnboardingResult{}, fmt.Errorf("onboarding aborted: %w", err)
@@ -160,20 +163,6 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 
 	// Resolve scope choice into an install directory and scope label.
 	installDir, scopeLabel := resolveScopeChoice(scopeChoice, customScopePath, cwd, parentSuggestions)
-
-	// Validate and expand core source path — accept both new (memory) and legacy (kb/docs) layouts.
-	if coreSource != "" {
-		expanded := expandTilde(coreSource)
-		memoryDir := filepath.Join(expanded, ".mom", "memory")
-		if _, err := os.Stat(memoryDir); err != nil {
-			// Fall back to legacy layout.
-			legacyDir := filepath.Join(expanded, ".mom", "kb", "docs")
-			if _, err := os.Stat(legacyDir); err != nil {
-				return OnboardingResult{}, fmt.Errorf("not a valid MOM repo: %s not found", memoryDir)
-			}
-		}
-		coreSource = expanded
-	}
 
 	// ── Summary + Confirm ───────────────────────────────────────────────────
 	scopeDisplay := installDir
@@ -204,7 +193,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	).WithAccessible(accessible).
 		WithInput(r).
 		WithOutput(w).
-		WithTheme(huh.ThemeFunc(huh.ThemeDracula))
+		WithTheme(huh.ThemeFunc(ux.ThemeMOM))
 
 	if err := confirmForm.Run(); err != nil {
 		return OnboardingResult{}, fmt.Errorf("onboarding aborted: %w", err)
@@ -218,7 +207,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		Runtimes:        selectedRuntimes,
 		Language:        lang,
 		Mode:            mode,
-		CoreSource:      coreSource,
+		CoreSource:      "",
 		InstallDir:      installDir,
 		ScopeLabel:      scopeLabel,
 		BootstrapChoice: bootstrapChoice,
@@ -442,14 +431,10 @@ func runtimeLabel(rt string) string {
 		return "Claude Code"
 	case "codex":
 		return "Codex"
-	case "cline":
-		return "Cline"
 	case "cursor":
 		return "Cursor"
 	case "windsurf":
 		return "Windsurf"
-	case "openclaude":
-		return "OpenClaude"
 	default:
 		return rt
 	}

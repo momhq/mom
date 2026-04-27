@@ -4,20 +4,18 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
-	huhspinner "charm.land/huh/v2/spinner"
-	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 //go:embed schema.json
@@ -30,7 +28,7 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, cline)")
+	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, windsurf)")
 	initCmd.Flags().Bool("force", false, "Overwrite existing .mom/ directory")
 	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }
@@ -67,11 +65,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 		// Run bootstrap inline if the user opted in (non-interactive -y always skips).
 		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
-			cmd.Println()
+			p := ux.NewPrinter(cmd.OutOrStdout())
+			p.Blank()
 			if result.ScopeLabel == "user" || result.ScopeLabel == "org" {
 				// Multi-repo: bootstrap each child repo that has .mom/.
 				if err := bootstrapAllChildRepos(cmd, installDir); err != nil {
-					cmd.Printf("  ⚠ multi-repo bootstrap error: %v\n", err)
+					p.Warnf("multi-repo bootstrap error: %v", err)
 				}
 			} else {
 				scanDir := installDir
@@ -79,7 +78,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 					scanDir = cwd
 				}
 				if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".mom")); err != nil {
-					cmd.Printf("  ⚠ bootstrap scan error: %v\n", err)
+					p.Warnf("bootstrap scan error: %v", err)
 				}
 			}
 		}
@@ -122,19 +121,19 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	alreadyExists := false
 	if _, err := os.Stat(leoDir); err == nil {
 		if !force {
-			// .mom/ exists — skip scaffold+config but still honour bootstrap choice.
 			alreadyExists = true
 		}
 	}
 
-	// When .mom/ already exists and --force was not given, skip scaffold+config
-	// but still return nil so the caller can run bootstrap if requested.
+	p := ux.NewPrinter(cmd.OutOrStdout())
+
+	// When .mom/ already exists: update config with new runtimes, regenerate
+	// runtime files, and reinstall daemon — but skip scaffold.
 	if alreadyExists {
-		cmd.Println("  .mom/ already exists — skipping scaffold, using existing config.")
-		return nil
+		return runReinit(cmd, cwd, leoDir, result, p)
 	}
 
-	showSpinner := isTerminalWriter(cmd.OutOrStdout())
+	showSpinner := ux.IsTTY(cmd.OutOrStdout())
 
 	// ── Phase 1: Scaffold directories ───────────────────────────────────────
 	var scaffoldErr error
@@ -160,7 +159,10 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Scanning project structure...").Action(doScaffold).Run()
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Scanning project structure")
+		doScaffold()
+		sp.Stop()
 	} else {
 		doScaffold()
 	}
@@ -264,7 +266,10 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Writing memory structure...").Action(doWriteKB).Run()
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Writing memory structure")
+		doWriteKB()
+		sp.Stop()
 	} else {
 		doWriteKB()
 	}
@@ -330,30 +335,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				}
 			}
 
-			// Register MCP server config and hooks for OpenClaude.
-			if ca, ok := adapter.(*runtime.OpenClaudeAdapter); ok {
-				if err := ca.RegisterMCP(); err != nil {
-					genErr = err
-					return
-				}
-				if err := ca.RegisterHooks(runtime.OpenClaudeHooks()); err != nil {
-					genErr = err
-					return
-				}
-			}
-
-			// Register MCP server config and hooks for Cline.
-			if ca, ok := adapter.(*runtime.ClineAdapter); ok {
-				if err := ca.RegisterMCP(); err != nil {
-					genErr = err
-					return
-				}
-				if err := ca.RegisterHooks(runtime.ClineHooks()); err != nil {
-					genErr = err
-					return
-				}
-			}
-
 			// Register MCP server config and hooks for Windsurf.
 			if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
 				if err := ca.RegisterMCP(); err != nil {
@@ -373,7 +354,10 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 
 	if showSpinner {
-		_ = huhspinner.New().Title("Generating runtime context files...").Action(doGenerate).Run()
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Generating runtime context files")
+		doGenerate()
+		sp.Stop()
 	} else {
 		doGenerate()
 	}
@@ -381,11 +365,18 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return genErr
 	}
 
+	// ── Phase 3.5: Register with global watch daemon ────────────────────────
+	if err := ensureGlobalDaemon(cwd, leoDir, result.Runtimes); err != nil {
+		p.Warnf("watch daemon: %v", err)
+	} else {
+		p.Check("watch daemon installed")
+	}
+
 	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
 	if added, gitErr := ensureGitIgnore(cwd, registry, result.Runtimes); gitErr != nil {
-		cmd.Printf("  ⚠ .gitignore: %v\n", gitErr)
+		p.Warnf(".gitignore: %v", gitErr)
 	} else if len(added) > 0 {
-		cmd.Printf("  ✔ .gitignore updated (%d entries added)\n", len(added))
+		p.Checkf(".gitignore updated (%d entries added)", len(added))
 	}
 
 	// ── Telemetry: emit smoke events ────────────────────────────────────────
@@ -406,8 +397,8 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	})
 
 	// ── Done ────────────────────────────────────────────────────────────────
-	cmd.Println()
-	cmd.Println("  ✔ .mom/ structure created")
+	p.Blank()
+	p.Check(".mom/ structure created")
 	for _, rt := range result.Runtimes {
 		adapter, ok := registry.Get(rt)
 		if !ok {
@@ -416,12 +407,112 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		for _, f := range adapter.GeneratedFiles() {
 			absPath := filepath.Join(cwd, f)
 			if _, statErr := os.Stat(absPath); statErr == nil {
-				cmd.Printf("  ✔ %s\n", f)
+				p.Check(f)
 			}
 		}
 	}
-	cmd.Println()
-	cmd.Println("MOM is ready. Run 'mom status' to check health.")
+	p.Blank()
+	p.Textf("MOM is ready. Run %s to check health.", p.HighlightCmd("mom status"))
+	return nil
+}
+
+// runReinit handles `mom init` on an already-initialized project.
+// Updates runtimes in config, regenerates context files, and reinstalls daemon.
+func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, p *ux.Printer) error {
+	cfg, err := config.Load(leoDir)
+	if err != nil {
+		// Corrupt or missing config — fall back to informational message.
+		p.Muted(".mom/ already exists — run with --force to reinitialize from scratch.")
+		return nil
+	}
+
+	// Merge new runtimes into existing config.
+	changed := false
+	for _, rt := range result.Runtimes {
+		if _, exists := cfg.Runtimes[rt]; !exists {
+			cfg.Runtimes[rt] = config.RuntimeConfig{Enabled: true}
+			changed = true
+		}
+	}
+
+	if !changed {
+		// Still register with global daemon even if runtimes unchanged.
+		if err := ensureGlobalDaemon(cwd, leoDir, cfg.EnabledRuntimes()); err != nil {
+			p.Warnf("watch daemon: %v", err)
+		}
+		p.Muted(".mom/ already configured with selected runtimes — nothing to update.")
+		return nil
+	}
+
+	// Save updated config.
+	if err := config.Save(leoDir, cfg); err != nil {
+		return fmt.Errorf("saving config: %w", err)
+	}
+
+	// Regenerate runtime context files for all enabled runtimes.
+	registry := runtime.NewRegistry(cwd)
+	runtimeCfg := buildRuntimeConfig(cfg)
+	runtimeConstraints := buildRuntimeConstraints()
+	runtimeSkills := buildRuntimeSkills()
+	runtimeIdentity := buildRuntimeIdentity()
+
+	for _, rt := range cfg.EnabledRuntimes() {
+		adapter, ok := registry.Get(rt)
+		if !ok {
+			continue
+		}
+
+		for _, relPath := range adapter.GeneratedFiles() {
+			absPath := filepath.Join(cwd, relPath)
+			runtime.BackupIfNeeded(absPath) //nolint:errcheck
+		}
+
+		if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
+			p.Warnf("generating %s context: %v", rt, err)
+			continue
+		}
+
+		// Register MCP + hooks per adapter type.
+		if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.DefaultHooks())
+		}
+		if ca, ok := adapter.(*runtime.CodexAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.CodexHooks())
+		}
+		if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.WindsurfHooks())
+		}
+	}
+
+	// Register with global watch daemon (updated runtimes).
+	if err := ensureGlobalDaemon(cwd, leoDir, cfg.EnabledRuntimes()); err != nil {
+		p.Warnf("watch daemon: %v", err)
+	} else {
+		p.Check("watch daemon updated")
+	}
+
+	// Update .gitignore.
+	if added, gitErr := ensureGitIgnore(cwd, registry, cfg.EnabledRuntimes()); gitErr != nil {
+		p.Warnf(".gitignore: %v", gitErr)
+	} else if len(added) > 0 {
+		p.Checkf(".gitignore updated (%d entries added)", len(added))
+	}
+
+	p.Blank()
+	p.Check("configuration updated")
+	for _, rt := range result.Runtimes {
+		if adapter, ok := registry.Get(rt); ok {
+			for _, f := range adapter.GeneratedFiles() {
+				absPath := filepath.Join(cwd, f)
+				if _, statErr := os.Stat(absPath); statErr == nil {
+					p.Check(f)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -443,15 +534,17 @@ func bootstrapAllChildRepos(cmd *cobra.Command, rootDir string) error {
 		// If this child has .mom/ and .git/, it's a repo — bootstrap it.
 		gitPath := filepath.Join(childPath, ".git")
 		if _, err := os.Stat(childLeo); err == nil {
+			bp := ux.NewPrinter(cmd.OutOrStdout())
 			if _, err := os.Stat(gitPath); err == nil {
-				cmd.Printf("\n  Bootstrapping %s...\n", e.Name())
+				bp.Blank()
+				bp.Textf("Bootstrapping %s...", e.Name())
 				if err := runBootstrapInline(cmd, childPath, childLeo); err != nil {
-					cmd.Printf("  ⚠ %s: %v\n", e.Name(), err)
+					bp.Warnf("%s: %v", e.Name(), err)
 				}
 			} else {
 				// Org folder — recurse into its children.
 				if err := bootstrapAllChildRepos(cmd, childPath); err != nil {
-					cmd.Printf("  ⚠ %s: %v\n", e.Name(), err)
+					bp.Warnf("%s: %v", e.Name(), err)
 				}
 			}
 		}
@@ -486,6 +579,7 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 		}
 		childHasRepos := containsGitRepos(childPath)
 
+		pp := ux.NewPrinter(cmd.OutOrStdout())
 		if childHasRepos {
 			// Org folder: init with scope "org" and recurse into repos.
 			childResult := parentResult
@@ -493,10 +587,10 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 			childResult.ScopeLabel = "org"
 			childResult.BootstrapChoice = "" // bootstrap handled separately
 			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
-				cmd.Printf("  ⚠ failed to init %s: %v\n", childPath, err)
+				pp.Warnf("failed to init %s: %v", childPath, err)
 				continue
 			}
-			cmd.Printf("  ✔ initialized %s (scope: org)\n", e.Name())
+			pp.Checkf("initialized %s (scope: org)", e.Name())
 
 			// Recurse: init repos inside this org folder.
 			propagateInit(cmd, childPath, parentResult)
@@ -507,22 +601,14 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 			childResult.ScopeLabel = "repo"
 			childResult.BootstrapChoice = "" // bootstrap handled separately
 			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
-				cmd.Printf("  ⚠ failed to init %s: %v\n", childPath, err)
+				pp.Warnf("failed to init %s: %v", childPath, err)
 				continue
 			}
-			cmd.Printf("  ✔ initialized %s (scope: repo)\n", e.Name())
+			pp.Checkf("initialized %s (scope: repo)", e.Name())
 		}
 	}
 }
 
-
-// isTerminalWriter returns true if w is connected to a terminal.
-func isTerminalWriter(w io.Writer) bool {
-	if f, ok := w.(*os.File); ok {
-		return term.IsTerminal(f.Fd())
-	}
-	return false
-}
 
 // buildRuntimeConfig converts a config.Config to a runtime.Config.
 // Autonomy was retired from the persisted config in v0.9.0 (#74);

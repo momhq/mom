@@ -145,8 +145,10 @@ func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25In
 		}
 
 		// Split compound tags on "-" and deduplicate into single words.
+		// Normalize underscores to hyphens first to ensure kebab-case.
 		wordSet := make(map[string]bool)
 		for t := range tags {
+			t = strings.ReplaceAll(t, "_", "-")
 			parts := strings.Split(t, "-")
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
@@ -182,6 +184,11 @@ func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25In
 		tagSlice = dedup(tagSlice)
 		if len(tagSlice) > 15 {
 			tagSlice = tagSlice[:15]
+		}
+		// Guarantee at least one tag — fall back to "untagged" if POS
+		// filtering removed everything.
+		if len(tagSlice) == 0 {
+			tagSlice = []string{"untagged"}
 		}
 
 		// Use the source file from the first turn in the chunk.

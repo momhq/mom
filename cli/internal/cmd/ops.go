@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 )
 
 var statusCmd = &cobra.Command{
@@ -40,8 +40,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	// Load index.
-	adapter := storage.NewJSONAdapter(leoDir)
+	// Load index via IndexedAdapter (write-through + FTS5).
+	adapter := storage.NewIndexedAdapter(leoDir)
+	defer adapter.Close()
 	idx, err := adapter.List()
 	if err != nil {
 		return fmt.Errorf("loading index: %w", err)
@@ -58,74 +59,45 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	staleCount := readRawIndexInt(leoDir, "stats", "stale_count")
 
 	// Show enabled runtimes.
+	p := ux.NewPrinter(cmd.OutOrStdout())
+	w := 14
 	enabledRTs := cfg.EnabledRuntimes()
 	if len(enabledRTs) > 0 {
-		cmd.Printf("Runtimes:     %s\n", strings.Join(enabledRTs, ", "))
+		p.KeyValue("Runtimes", strings.Join(enabledRTs, ", "), w)
 	} else {
-		cmd.Printf("Runtimes:     (none)\n")
+		p.KeyValue("Runtimes", "(none)", w)
 	}
 	commMode := cfg.Communication.Mode
 	if commMode == "" {
 		commMode = "concise"
 	}
-	cmd.Printf("Mode:         %s\n", commMode)
-	cmd.Printf("Storage:      json\n")
-	cmd.Printf("Total docs:   %d\n", totalDocs)
-	cmd.Printf("Tags:         %d unique\n", totalTags)
-	cmd.Printf("Stale docs:   %d\n", staleCount)
+	p.KeyValue("Mode", commMode, w)
+	p.KeyValue("Storage", "json", w)
+	p.KeyValue("Total docs", fmt.Sprintf("%d", totalDocs), w)
+	p.KeyValue("Tags", fmt.Sprintf("%d unique", totalTags), w)
+	p.KeyValue("Stale docs", fmt.Sprintf("%d", staleCount), w)
 
 	return nil
 }
 
-// printAdapterCapabilities prints the MRP v0 capability summary for each enabled adapter.
-func printAdapterCapabilities(cmd *cobra.Command, projectRoot string, cfg *config.Config) {
-	enabled := cfg.EnabledRuntimes()
-	if len(enabled) == 0 {
-		return
-	}
-	registry := runtime.NewRegistry(projectRoot)
-	cmd.Printf("\nAdapter capabilities (MRP v0):\n")
-	for _, name := range enabled {
-		adapter, ok := registry.Get(name)
-		if !ok {
-			continue
-		}
-		cap := adapter.Capabilities()
-		adapterName := cap.Name
-		if adapterName == "" {
-			adapterName = name
-		}
-		version := cap.Version
-		if version == "" {
-			version = "unknown"
-		}
-		cmd.Printf("  Adapter: %s (v%s)\n", adapterName, version)
-		if len(cap.Supports) > 0 {
-			cmd.Printf("    Supported:    %s\n", strings.Join(cap.Supports, ", "))
-		}
-		if len(cap.Experimental) > 0 {
-			cmd.Printf("    Experimental: %s\n", strings.Join(cap.Experimental, ", "))
-		}
-	}
-}
-
 // printScopesSection prints the active scopes discovered by walk-up from cwd.
-func printScopesSection(cmd *cobra.Command, cwd string) {
+func printScopesSection(p *ux.Printer, cwd string) {
 	scopes := scope.Walk(cwd)
 	if len(scopes) == 0 {
 		return
 	}
-	cmd.Printf("\nActive scopes (nearest first):\n")
+	p.Blank()
+	p.Bold("Active scopes (nearest first)")
 	for _, s := range scopes {
-		cmd.Printf("  %-12s %s  (%d memories)\n",
-			s.Label, shortenPath(s.Path), s.MemoryCount())
+		p.KeyValue(fmt.Sprintf("  %s", s.Label),
+			fmt.Sprintf("%s  (%d memories)", shortenPath(s.Path), s.MemoryCount()), 14)
 	}
 }
 
 // validateAllDocs reads and validates every .json file in dir.
 // label is used for log messages (e.g. "doc", "constraint", "skill").
 // Returns (errorCount, set of valid doc IDs on disk).
-func validateAllDocs(cmd *cobra.Command, dir string, label string) (int, map[string]bool) {
+func validateAllDocs(p *ux.Printer, dir string, label string) (int, map[string]bool) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		// Dir unreadable or missing — already reported.
@@ -143,24 +115,26 @@ func validateAllDocs(cmd *cobra.Command, dir string, label string) (int, map[str
 		path := filepath.Join(dir, e.Name())
 		doc, loadErr := memory.LoadDoc(path)
 		if loadErr != nil {
-			cmd.Printf("✗ %s %s: %v\n", label, e.Name(), loadErr)
+			p.Failf("%s %s: %v", label, e.Name(), loadErr)
 			errors++
 			continue
 		}
+
+		// Always register the doc ID for index consistency checks,
+		// even if validation fails — the file exists on disk.
+		diskDocIDs[doc.ID] = true
 
 		if valErr := doc.Validate(); valErr != nil {
-			cmd.Printf("✗ %s %s: %v\n", label, e.Name(), valErr)
+			p.Failf("%s %s: %v", label, e.Name(), valErr)
 			errors++
 			continue
 		}
-
-		diskDocIDs[doc.ID] = true
 	}
 
 	if errors == 0 && len(diskDocIDs) > 0 {
-		cmd.Printf("✔ %ss: all %d valid\n", label, len(diskDocIDs))
+		p.Checkf("%ss: all %d valid", label, len(diskDocIDs))
 	} else if errors > 0 {
-		cmd.Printf("✗ %ss: %d failed validation\n", label, errors)
+		p.Failf("%ss: %d failed validation", label, errors)
 	}
 
 	return errors, diskDocIDs
@@ -168,11 +142,12 @@ func validateAllDocs(cmd *cobra.Command, dir string, label string) (int, map[str
 
 // checkIndexConsistency compares the index to the docs actually on disk.
 // Returns true if there are hard failures.
-func checkIndexConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[string]bool) bool {
-	adapter := storage.NewJSONAdapter(leoDir)
+func checkIndexConsistency(p *ux.Printer, leoDir string, diskDocIDs map[string]bool) bool {
+	adapter := storage.NewIndexedAdapter(leoDir)
+	defer adapter.Close()
 	idx, err := adapter.List()
 	if err != nil {
-		cmd.Printf("⚠ index: could not read — %v\n", err)
+		p.Warnf("index: could not read — %v", err)
 		return false
 	}
 
@@ -188,7 +163,7 @@ func checkIndexConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[str
 	orphanEntries := 0
 	for id := range indexIDs {
 		if diskDocIDs != nil && !diskDocIDs[id] {
-			cmd.Printf("⚠ index: orphan entry — %q not on disk\n", id)
+			p.Warnf("index: orphan entry — %q not on disk", id)
 			orphanEntries++
 		}
 	}
@@ -197,17 +172,17 @@ func checkIndexConsistency(cmd *cobra.Command, leoDir string, diskDocIDs map[str
 	orphanFiles := 0
 	for id := range diskDocIDs {
 		if !indexIDs[id] {
-			cmd.Printf("⚠ index: orphan file — %q not in index\n", id)
+			p.Warnf("index: orphan file — %q not in index", id)
 			orphanFiles++
 		}
 	}
 
 	if orphanEntries > 0 || orphanFiles > 0 {
-		cmd.Printf("✗ index consistency: %d orphan entries, %d orphan files\n", orphanEntries, orphanFiles)
+		p.Failf("index consistency: %d orphan entries, %d orphan files", orphanEntries, orphanFiles)
 		return true
 	}
 
-	cmd.Printf("✔ index consistency: ok\n")
+	p.Check("index consistency: ok")
 	return false
 }
 

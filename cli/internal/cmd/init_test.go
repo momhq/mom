@@ -126,17 +126,16 @@ func TestInitCmd_MultiRuntime(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"init", "--runtimes", "claude,codex,cline"})
+	rootCmd.SetArgs([]string{"init", "--runtimes", "claude,codex"})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
 
-	// All three runtime outputs should exist.
+	// Both runtime outputs should exist.
 	files := map[string]string{
-		".claude/CLAUDE.md":          "Claude",
-		"AGENTS.md":                  "Codex",
-		".clinerules/mom-context.md": "Cline",
+		".claude/CLAUDE.md": "Claude",
+		"AGENTS.md":         "Codex",
 	}
 
 	for path, name := range files {
@@ -146,15 +145,15 @@ func TestInitCmd_MultiRuntime(t *testing.T) {
 		}
 	}
 
-	// Config should have all three runtimes.
+	// Config should have both runtimes.
 	cfg, err := config.Load(filepath.Join(dir, ".mom"))
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
 	}
 
 	enabled := cfg.EnabledRuntimes()
-	if len(enabled) != 3 {
-		t.Errorf("expected 3 enabled runtimes, got %d: %v", len(enabled), enabled)
+	if len(enabled) != 2 {
+		t.Errorf("expected 2 enabled runtimes, got %d: %v", len(enabled), enabled)
 	}
 }
 

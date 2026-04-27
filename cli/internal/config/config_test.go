@@ -266,9 +266,9 @@ kb:
 func TestConfigEnabledRuntimes(t *testing.T) {
 	cfg := Config{
 		Runtimes: map[string]RuntimeConfig{
-			"claude": {Enabled: true},
-			"codex":  {Enabled: true},
-			"cline":  {Enabled: false},
+			"claude":   {Enabled: true},
+			"codex":    {Enabled: true},
+			"windsurf": {Enabled: false},
 		},
 	}
 
@@ -334,9 +334,9 @@ func TestConfigMultiRuntime(t *testing.T) {
 	cfg := Config{
 		Version: "1",
 		Runtimes: map[string]RuntimeConfig{
-			"claude": {Enabled: true},
-			"codex":  {Enabled: true},
-			"cline":  {Enabled: true},
+			"claude":   {Enabled: true},
+			"codex":    {Enabled: true},
+			"windsurf": {Enabled: true},
 		},
 		User:          UserConfig{Language: "en"},
 		Communication: CommunicationConfig{Mode: "concise"},

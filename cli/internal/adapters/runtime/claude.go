@@ -117,16 +117,12 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 }
 
 // DefaultHooks returns the standard MOM hooks for Claude Code.
-// Stop → mom record + mom draft: captures transcript and processes drafts
-// after each response (continuous mode, 1-response lag).
+// Recording is handled by `mom watch` (filesystem watcher) — no record hook needed.
+// Stop → mom draft: processes drafts after each response (continuous mode, 1-response lag).
 // SessionEnd → mom draft: fallback to draft the last response when the
 // session closes — covers abrupt exits and final decisions.
 func DefaultHooks() []HookDef {
 	return []HookDef{
-		{
-			Event:   "Stop",
-			Command: "mom record",
-		},
 		{
 			Event:   "Stop",
 			Command: "mom draft",
@@ -162,7 +158,7 @@ func (a *ClaudeAdapter) RegisterMCP() error {
 	}
 
 	servers["mom"] = map[string]any{
-		"command": "mom",
+		"command": resolveCommand(),
 		"args":    []string{"serve", "mcp"},
 	}
 	root["mcpServers"] = servers
@@ -241,4 +237,36 @@ func BackupIfNeeded(path string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// upsertMCPEntry writes or updates the MOM MCP server entry in the JSON file
+// at path. Existing entries for other servers are preserved.
+func upsertMCPEntry(path string) error {
+	root := make(map[string]any)
+	if data, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(data, &root); err != nil {
+			return fmt.Errorf("parsing %s: %w", filepath.Base(path), err)
+		}
+	}
+
+	servers, _ := root["mcpServers"].(map[string]any)
+	if servers == nil {
+		servers = make(map[string]any)
+	}
+
+	servers["mom"] = map[string]any{
+		"command": resolveCommand(),
+		"args":    []string{"serve", "mcp"},
+	}
+	root["mcpServers"] = servers
+
+	data, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling %s: %w", filepath.Base(path), err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", filepath.Base(path), err)
+	}
+	return nil
 }

@@ -200,6 +200,55 @@ func TestSearch_DefaultMaxResults(t *testing.T) {
 	}
 }
 
+// TestSearch_ExcludeDrafts verifies that ExcludeDrafts filters out docs with
+// promotion_state == "draft" (#147).
+func TestSearch_ExcludeDrafts(t *testing.T) {
+	dir := t.TempDir()
+
+	// writeDocWithState writes a minimal doc with a specific promotion_state.
+	writeDocWithState := func(id, summary, state string) {
+		t.Helper()
+		data := []byte(`{"id":"` + id + `","tags":["arch"],"summary":"` + summary +
+			`","promotion_state":"` + state + `","created":"2026-01-01T00:00:00Z","content":{"detail":"` + summary + `"}}`)
+		if err := os.WriteFile(filepath.Join(dir, id+".json"), data, 0644); err != nil {
+			t.Fatalf("write doc: %v", err)
+		}
+	}
+
+	writeDocWithState("curated-doc", "Curated memory about architecture", "curated")
+	writeDocWithState("draft-doc", "Draft memory about architecture", "draft")
+
+	// With ExcludeDrafts=true, draft-doc should not appear (empty query returns all non-draft).
+	results, err := search.Search(dir, search.SearchOptions{
+		Query:         "",
+		MaxResults:    10,
+		ExcludeDrafts: true,
+	})
+	if err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	for _, r := range results {
+		if r.ID == "draft-doc" {
+			t.Errorf("draft-doc appeared in results with ExcludeDrafts=true")
+		}
+	}
+	if len(results) == 0 {
+		t.Error("expected at least curated-doc in results")
+	}
+
+	// Without ExcludeDrafts, both should appear.
+	all, err := search.Search(dir, search.SearchOptions{
+		Query:      "",
+		MaxResults: 10,
+	})
+	if err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	if len(all) < 2 {
+		t.Errorf("expected at least 2 results without filter, got %d", len(all))
+	}
+}
+
 // TestBM25Index_Score verifies the exported BM25Index.Score works correctly.
 func TestBM25Index_Score(t *testing.T) {
 	vocab := []string{

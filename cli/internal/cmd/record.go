@@ -18,7 +18,8 @@ var recordRaw bool
 
 var recordCmd = &cobra.Command{
 	Use:   "record",
-	Short: "Record raw conversation data from hook stdin",
+	Short:  "Record raw conversation data from hook stdin",
+	Hidden: true,
 	Long: `Reads hook JSON from stdin, extracts transcript_path, and appends
 new turns to .mom/raw/ as JSONL. Idempotent — safe to call multiple times.
 
@@ -105,7 +106,7 @@ func runRecordRaw(data []byte, cwd string) error {
 		return nil
 	}
 
-	if err := recorder.RecordText(sc.Path, text); err != nil {
+	if err := recorder.RecordText(sc.Path, text, ""); err != nil {
 		logRecordError(err)
 	}
 	return nil

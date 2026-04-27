@@ -14,12 +14,15 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if warning := checkVersionCache(); warning != "" {
 			fmt.Fprintln(os.Stderr, warning)
+			fmt.Fprintln(os.Stderr)
 		}
 		refreshVersionCacheAsync()
 	},
 }
 
 func Execute() error {
+	// Hide cobra's auto-generated completion command.
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 	return rootCmd.Execute()
 }
 
@@ -45,4 +48,7 @@ func init() {
 	rootCmd.AddCommand(draftCmd)
 	rootCmd.AddCommand(diagnoseCmd)
 	rootCmd.AddCommand(sweepCmd)
+	rootCmd.AddCommand(reindexCmd)
+	rootCmd.AddCommand(watchCmd)
+	rootCmd.AddCommand(demoCmd)
 }

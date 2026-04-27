@@ -129,12 +129,12 @@ func TestPromote_HappyPath(t *testing.T) {
 	}
 	found := false
 	for _, tag := range doc.Tags {
-		if tag == "promoted_from:repo" {
+		if tag == "promoted-from-repo" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("promoted_from:repo tag missing from tags: %v", doc.Tags)
+		t.Errorf("promoted-from-repo tag missing from tags: %v", doc.Tags)
 	}
 }
 
@@ -207,12 +207,12 @@ func TestDemote_HappyPath(t *testing.T) {
 	}
 	found := false
 	for _, tag := range doc.Tags {
-		if tag == "demoted_from:user" {
+		if tag == "demoted-from-user" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("demoted_from:user tag missing from tags: %v", doc.Tags)
+		t.Errorf("demoted-from-user tag missing from tags: %v", doc.Tags)
 	}
 }
 

@@ -2,9 +2,11 @@ package recorder
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -258,8 +260,8 @@ func TestRecordCursorUpdated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Cursor file should exist.
-	cursorFile := filepath.Join(momDir, "raw", ".cursor")
+	// Cursor file should exist (per-session naming).
+	cursorFile := filepath.Join(momDir, "raw", ".cursor-sess-006")
 	data, err := os.ReadFile(cursorFile)
 	if err != nil {
 		t.Fatalf("cursor file not created: %v", err)
@@ -278,5 +280,59 @@ func TestRecordCursorUpdated(t *testing.T) {
 	}
 	if cursor.LastTimestamp == "" {
 		t.Error("cursor timestamp is empty")
+	}
+}
+
+// TestRecordTextConcurrent verifies that concurrent RecordText calls produce
+// valid JSONL (no interleaved writes / corrupt entries).
+func TestRecordTextConcurrent(t *testing.T) {
+	momDir := t.TempDir()
+
+	const goroutines = 20
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func(n int) {
+			defer wg.Done()
+			text := fmt.Sprintf("turn %d: some content that is long enough to exceed PIPE_BUF limits if writes interleave badly across goroutines", n)
+			if err := RecordText(momDir, text, fmt.Sprintf("sess-%03d", n)); err != nil {
+				t.Errorf("goroutine %d: RecordText error: %v", n, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Read the daily JSONL and verify every line is valid JSON.
+	rawDir := filepath.Join(momDir, "raw")
+	entries, err := os.ReadDir(rawDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var totalLines int
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".jsonl") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(rawDir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+		for i, line := range lines {
+			if line == "" {
+				continue
+			}
+			var entry RawEntry
+			if err := json.Unmarshal([]byte(line), &entry); err != nil {
+				t.Errorf("line %d is not valid JSON: %v\ncontent: %s", i, err, line)
+			}
+			totalLines++
+		}
+	}
+
+	if totalLines != goroutines {
+		t.Errorf("expected %d JSONL entries, got %d", goroutines, totalLines)
 	}
 }

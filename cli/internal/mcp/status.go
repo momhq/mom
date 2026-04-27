@@ -13,6 +13,7 @@ import (
 
 // statusPayload defines the mom_status response with explicit field ordering.
 type statusPayload struct {
+	ProjectDir     string                    `json:"project_dir"`
 	Identity       statusIdentityBlock       `json:"identity"`
 	OperatingRules statusOperatingRulesBlock `json:"operating_rules"`
 	Boundaries     []string                  `json:"boundaries"`
@@ -62,6 +63,7 @@ type statusVaultStateBlock struct {
 // toolMomStatus returns MOM's full behavioral protocol as a JSON payload.
 func (s *Server) toolMomStatus() (toolCallResult, error) {
 	payload := statusPayload{
+		ProjectDir:     filepath.Dir(s.momDir),
 		Identity:       statusIdentity(),
 		OperatingRules: statusOperatingRules(),
 		Boundaries:     statusBoundaries(),

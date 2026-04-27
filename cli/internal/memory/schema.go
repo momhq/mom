@@ -6,10 +6,23 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 )
 
 var validID = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+var multiDash = regexp.MustCompile(`-{2,}`)
+
+// SanitizeTag normalizes a string into a valid kebab-case tag.
+// Lowercases, replaces underscores/dots/slashes with dashes, collapses
+// consecutive dashes, and trims leading/trailing dashes.
+func SanitizeTag(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.NewReplacer("_", "-", ".", "-", "/", "-").Replace(s)
+	s = multiDash.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	return s
+}
 
 var validScopes = map[string]bool{
 	"core": true, "project": true,
@@ -72,6 +85,7 @@ func (d *Doc) ApplyDefaults() {
 
 // Validate checks the document against the memory schema rules.
 func (d *Doc) Validate() error {
+	d.ID = SanitizeTag(d.ID)
 	if !validID.MatchString(d.ID) {
 		return fmt.Errorf("invalid id %q: must be kebab-case", d.ID)
 	}
@@ -81,8 +95,9 @@ func (d *Doc) Validate() error {
 	if len(d.Tags) == 0 {
 		return fmt.Errorf("tags must not be empty")
 	}
-	for _, tag := range d.Tags {
-		if !validID.MatchString(tag) {
+	for i, tag := range d.Tags {
+		d.Tags[i] = SanitizeTag(tag)
+		if !validID.MatchString(d.Tags[i]) {
 			return fmt.Errorf("invalid tag %q: must be kebab-case", tag)
 		}
 	}

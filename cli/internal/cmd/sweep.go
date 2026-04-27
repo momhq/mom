@@ -9,6 +9,7 @@ import (
 
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/spf13/cobra"
 )
 
@@ -41,16 +42,35 @@ func runSweep(cmd *cobra.Command, _ []string) error {
 		cfg = &def
 	}
 
-	result := sweep(sc.Path, cfg.RawMemories)
+	p := ux.NewPrinter(os.Stderr)
+	p.Diamond("sweep")
+	p.Blank()
+
+	showSpinner := ux.IsTTY(os.Stderr)
+	var result SweepResult
+	doSweep := func() {
+		result = sweep(sc.Path, cfg.RawMemories)
+	}
+
+	if showSpinner {
+		sp := ux.NewSpinner(os.Stderr)
+		sp.Start("Scanning raw files")
+		doSweep()
+		sp.Stop()
+	} else {
+		doSweep()
+	}
+
 	if result.Errors > 0 {
-		fmt.Fprintf(os.Stderr, "sweep: deleted %d files, freed %.1f MB (%d errors)\n",
+		p.Warnf("deleted %d files, freed %.1f MB (%d errors)",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024), result.Errors)
 	} else if result.Deleted > 0 {
-		fmt.Fprintf(os.Stderr, "sweep: deleted %d files, freed %.1f MB\n",
+		p.Checkf("deleted %d files, freed %.1f MB",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024))
 	} else {
-		fmt.Fprintf(os.Stderr, "sweep: nothing to clean\n")
+		p.Muted("nothing to clean")
 	}
+	p.Blank()
 	return nil
 }
 
@@ -82,7 +102,8 @@ func sweep(momDir string, cfg config.RawMemoriesConfig) SweepResult {
 
 	var deleted []string
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+		isCursor := strings.HasPrefix(e.Name(), ".cursor-")
+		if e.IsDir() || (!strings.HasSuffix(e.Name(), ".jsonl") && !isCursor) {
 			continue
 		}
 

@@ -36,8 +36,8 @@ func TestExportCmd_CreatesDefaultDirStructure(t *testing.T) {
 	if _, err := os.Stat(exportDir); err != nil {
 		t.Fatalf("mom-export/ directory not created: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(exportDir, "docs")); err != nil {
-		t.Error("mom-export/docs/ not created")
+	if _, err := os.Stat(filepath.Join(exportDir, "memory")); err != nil {
+		t.Error("mom-export/memory/ not created")
 	}
 
 }
@@ -63,7 +63,7 @@ func TestExportCmd_CopiesAllDocs(t *testing.T) {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	exportDocsDir := filepath.Join(dir, "mom-export", "docs")
+	exportDocsDir := filepath.Join(dir, "mom-export", "memory")
 	for _, id := range []string{"export-alpha", "export-beta", "export-gamma"} {
 		docPath := filepath.Join(exportDocsDir, id+".json")
 		if _, err := os.Stat(docPath); err != nil {
@@ -95,11 +95,11 @@ func TestExportCmd_CustomOutputPath(t *testing.T) {
 		t.Fatalf("export --output failed: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(customOut, "docs")); err != nil {
-		t.Error("custom output docs/ dir not created")
+	if _, err := os.Stat(filepath.Join(customOut, "memory")); err != nil {
+		t.Error("custom output memory/ dir not created")
 	}
 
-	if _, err := os.Stat(filepath.Join(customOut, "docs", "export-custom.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(customOut, "memory", "export-custom.json")); err != nil {
 		t.Error("custom output doc not found")
 	}
 }
@@ -358,8 +358,8 @@ func TestImportCmd_ValidatesSchema(t *testing.T) {
 	rootCmd.Execute()
 
 	output := buf.String()
-	if !strings.Contains(output, "error") && !strings.Contains(output, "invalid") {
-		t.Errorf("expected error/invalid mention in output, got: %s", output)
+	if !strings.Contains(output, "failed") && !strings.Contains(output, "error") && !strings.Contains(output, "invalid") {
+		t.Errorf("expected failed/error/invalid mention in output, got: %s", output)
 	}
 }
 

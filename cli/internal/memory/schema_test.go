@@ -30,13 +30,9 @@ func TestValidate_InvalidID(t *testing.T) {
 		name string
 		id   string
 	}{
-		{"uppercase", "InvalidID"},
 		{"spaces", "has spaces"},
-		{"underscores", "has_underscores"},
 		{"empty", ""},
-		{"starts with hyphen", "-starts-bad"},
-		{"ends with hyphen", "ends-bad-"},
-		{"double hyphen", "double--hyphen"},
+		{"spaces only", "   "},
 	}
 
 	for _, tt := range tests {
@@ -45,6 +41,31 @@ func TestValidate_InvalidID(t *testing.T) {
 			doc.ID = tt.id
 			if err := doc.Validate(); err == nil {
 				t.Errorf("expected error for id %q, got nil", tt.id)
+			}
+		})
+	}
+}
+
+func TestValidate_SanitizedIDs(t *testing.T) {
+	tests := []struct {
+		name, input, expected string
+	}{
+		{"uppercase", "InvalidID", "invalidid"},
+		{"underscores", "has_underscores", "has-underscores"},
+		{"starts with hyphen", "-starts-bad", "starts-bad"},
+		{"ends with hyphen", "ends-bad-", "ends-bad"},
+		{"double hyphen", "double--hyphen", "double-hyphen"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := validDoc()
+			doc.ID = tt.input
+			if err := doc.Validate(); err != nil {
+				t.Errorf("expected sanitization to fix id %q, got: %v", tt.input, err)
+			}
+			if doc.ID != tt.expected {
+				t.Errorf("expected id %q after sanitization, got %q", tt.expected, doc.ID)
 			}
 		})
 	}
@@ -92,9 +113,23 @@ func TestValidate_EmptyTags(t *testing.T) {
 
 func TestValidate_InvalidTagFormat(t *testing.T) {
 	doc := validDoc()
-	doc.Tags = []string{"valid-tag", "INVALID"}
+	doc.Tags = []string{"valid-tag", "   "}
 	if err := doc.Validate(); err == nil {
 		t.Fatal("expected error for invalid tag format")
+	}
+}
+
+func TestValidate_SanitizedTags(t *testing.T) {
+	doc := validDoc()
+	doc.Tags = []string{"UPPER", "has_underscores", "double--dash", "pkg--websocket"}
+	if err := doc.Validate(); err != nil {
+		t.Fatalf("expected sanitization to fix tags, got: %v", err)
+	}
+	expected := []string{"upper", "has-underscores", "double-dash", "pkg-websocket"}
+	for i, tag := range doc.Tags {
+		if tag != expected[i] {
+			t.Errorf("tag[%d]: expected %q, got %q", i, expected[i], tag)
+		}
 	}
 }
 

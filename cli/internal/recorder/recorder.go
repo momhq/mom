@@ -49,8 +49,8 @@ func Record(momDir string, input HookInput) error {
 		return nil
 	}
 
-	// 2. Read cursor from .mom/raw/.cursor (JSON).
-	cursorFile := filepath.Join(rawDir, ".cursor")
+	// 2. Read cursor from .mom/raw/.cursor-{sessionID} (JSON).
+	cursorFile := filepath.Join(rawDir, ".cursor-"+input.SessionID)
 	cursor := readCursor(cursorFile, input.SessionID)
 
 	// 3. Open transcript_path, seek to cursor.LastOffset.
@@ -103,17 +103,18 @@ func Record(momDir string, input HookInput) error {
 		return nil
 	}
 
-	df, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		logError(momDir, fmt.Errorf("opening daily file: %w", err))
-		return nil
-	}
-	if _, err := df.Write(append(line, '\n')); err != nil {
+	if err := withFileLock(dailyFile, func() error {
+		df, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("opening daily file: %w", err)
+		}
+		_, werr := df.Write(append(line, '\n'))
 		_ = df.Close()
+		return werr
+	}); err != nil {
 		logError(momDir, fmt.Errorf("writing entry: %w", err))
 		return nil
 	}
-	_ = df.Close()
 
 	// 7. Update cursor with new offset.
 	newOffset := cursor.LastOffset + int64(len(newContent))
@@ -131,7 +132,7 @@ func Record(momDir string, input HookInput) error {
 
 // RecordText writes plain text directly to .mom/raw/ as a JSONL entry.
 // Used by runtimes that don't provide transcript_path (Cline, Windsurf, etc.).
-func RecordText(momDir string, text string) error {
+func RecordText(momDir string, text string, sessionID string) error {
 	rawDir := filepath.Join(momDir, "raw")
 	if err := os.MkdirAll(rawDir, 0755); err != nil {
 		logError(momDir, fmt.Errorf("creating raw dir: %w", err))
@@ -145,6 +146,7 @@ func RecordText(momDir string, text string) error {
 		Timestamp: now.Format(time.RFC3339),
 		Event:     "hook-raw",
 		Text:      text,
+		SessionID: sessionID,
 	}
 
 	line, err := json.Marshal(entry)
@@ -153,21 +155,23 @@ func RecordText(momDir string, text string) error {
 		return nil
 	}
 
-	f, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		logError(momDir, fmt.Errorf("opening daily file: %w", err))
-		return nil
-	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
+	if err := withFileLock(dailyFile, func() error {
+		f, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("opening daily file: %w", err)
+		}
+		_, werr := f.Write(append(line, '\n'))
 		_ = f.Close()
+		return werr
+	}); err != nil {
 		logError(momDir, fmt.Errorf("writing entry: %w", err))
 		return nil
 	}
-	_ = f.Close()
 	return nil
 }
 
 // readCursor reads the cursor file for the given session, or returns a zero cursor.
+// The cursor file is per-session (.cursor-{sessionID}), so no session mismatch check needed.
 func readCursor(cursorFile, sessionID string) Cursor {
 	data, err := os.ReadFile(cursorFile)
 	if err != nil {
@@ -176,10 +180,6 @@ func readCursor(cursorFile, sessionID string) Cursor {
 	}
 	var c Cursor
 	if err := json.Unmarshal(data, &c); err != nil {
-		return Cursor{SessionID: sessionID}
-	}
-	// If session changed, reset offset.
-	if c.SessionID != sessionID {
 		return Cursor{SessionID: sessionID}
 	}
 	return c

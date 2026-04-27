@@ -1,0 +1,521 @@
+package cmd
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"sync"
+	"syscall"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/config"
+	"github.com/momhq/mom/cli/internal/daemon"
+	"github.com/momhq/mom/cli/internal/drafter"
+	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/logbook"
+	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/ux"
+	"github.com/momhq/mom/cli/internal/watcher"
+	"github.com/spf13/cobra"
+)
+
+var (
+	watchTranscriptDir string
+	watchDebounceMs    int
+	watchStatus        bool
+	watchRuntime       string
+	watchSweep         bool
+	watchInstall       bool
+	watchUninstall     bool
+	watchGlobal        bool
+)
+
+// defaultTranscriptDirs maps runtime name to its default transcript directory.
+var defaultTranscriptDirs = map[string]string{
+	"claude":   "~/.claude/projects/",
+	"windsurf": "~/.windsurf/transcripts/",
+}
+
+var watchCmd = &cobra.Command{
+	Use:   "watch",
+	Short: "Watch runtime transcripts and ingest turns automatically",
+	Long: `Starts a filesystem watcher on a runtime transcript directory and
+ingests new conversation turns into .mom/raw/ without MCP calls or hook overhead.
+
+Supported runtimes:
+  claude    — ~/.claude/projects/ (default)
+  windsurf  — ~/.windsurf/transcripts/
+
+Each session's JSONL transcript is tailed incrementally.
+Cursor files in .mom/raw/ track the last ingested byte offset per session,
+so restarts are safe and idempotent.
+
+The watcher runs in the foreground. Use Ctrl-C to stop.`,
+	RunE:          runWatch,
+	SilenceUsage:  true,
+	SilenceErrors: true,
+}
+
+func init() {
+	watchCmd.Flags().StringVar(&watchRuntime, "runtime", "claude",
+		`Runtime to watch: "claude" (default) or "windsurf"`)
+	watchCmd.Flags().StringVar(&watchTranscriptDir, "dir", "",
+		"Transcript directory to watch (overrides the runtime default)")
+	watchCmd.Flags().IntVar(&watchDebounceMs, "debounce", 300,
+		"Milliseconds to wait after a write event before reading (debounce)")
+	watchCmd.Flags().BoolVar(&watchStatus, "status", false,
+		"Show watch cursors and ingested sessions, then exit")
+	watchCmd.Flags().BoolVar(&watchSweep, "sweep", false,
+		"One-shot mode: catch up on unprocessed transcripts and exit")
+	watchCmd.Flags().BoolVar(&watchInstall, "install", false,
+		"Install system daemon and periodic sweep timer for background recording")
+	watchCmd.Flags().BoolVar(&watchUninstall, "uninstall", false,
+		"Remove system daemon and periodic sweep timer")
+	watchCmd.Flags().BoolVar(&watchGlobal, "global", false,
+		"Run as a single global daemon watching all registered projects")
+}
+
+func runWatch(cmd *cobra.Command, _ []string) error {
+	// Global mode doesn't need a project-local .mom/ — handle it first.
+	if watchGlobal {
+		return runWatchGlobal(watchSweep)
+	}
+
+	cwd, _ := os.Getwd()
+	if envDir := os.Getenv("MOM_PROJECT_DIR"); envDir != "" {
+		cwd = envDir
+	}
+	sc, ok := scope.NearestWritable(cwd)
+	if !ok {
+		return fmt.Errorf("no .mom/ found from %q — run mom init first", cwd)
+	}
+	momDir := sc.Path
+
+	if watchStatus {
+		return runWatchStatus(momDir)
+	}
+
+	p := ux.NewPrinter(os.Stderr)
+
+	if watchInstall {
+		return runWatchInstall(momDir, p)
+	}
+	if watchUninstall {
+		return runWatchUninstall(momDir, p)
+	}
+
+	projectDir := filepath.Dir(momDir)
+
+	// Build watcher sources: if --runtime is explicitly set, use single source;
+	// otherwise read config and watch all enabled runtimes.
+	var sources []watcher.Source
+	runtimeExplicit := cmd.Flags().Changed("runtime")
+
+	if runtimeExplicit {
+		// Manual single-runtime mode.
+		transcriptDir := watchTranscriptDir
+		var adapter watcher.Adapter
+
+		switch watchRuntime {
+		case "windsurf":
+			adapter = &watcher.WindsurfAdapter{ProjectDir: projectDir}
+			if transcriptDir == "" {
+				transcriptDir = defaultTranscriptDirs["windsurf"]
+			}
+		case "claude", "":
+			adapter = watcher.NewClaudeAdapter()
+			if transcriptDir == "" {
+				transcriptDir = defaultTranscriptDirs["claude"]
+			}
+		default:
+			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf", watchRuntime)
+		}
+
+		sources = []watcher.Source{{
+			Runtime:       watchRuntime,
+			TranscriptDir: transcriptDir,
+			Adapter:       adapter,
+		}}
+	} else {
+		// Config-driven multi-runtime mode (daemon default).
+		momCfg, err := config.Load(momDir)
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+		sources = buildWatcherSources(momCfg, projectDir)
+		if len(sources) == 0 {
+			return fmt.Errorf("no watcher-capable runtimes enabled in config")
+		}
+	}
+
+	// Sweep mode: one-shot catch-up and exit.
+	if watchSweep {
+		adapterMap := make(map[string]watcher.Adapter, len(sources))
+		for _, src := range sources {
+			adapterMap[src.Runtime] = src.Adapter
+		}
+		bus := newProjectBus(momDir, adapterMap)
+		w, err := watcher.New(watcher.Config{
+			ProjectDir: projectDir,
+			MomDir:     momDir,
+			Sources:    sources,
+			SweepOnly:  true,
+			Bus:        bus,
+		})
+		if err != nil {
+			return fmt.Errorf("creating watcher: %w", err)
+		}
+		sessions, turns := w.Sweep()
+		if sessions > 0 {
+			p.Checkf("sweep: %s sessions, %s turns",
+				p.HighlightValue(fmt.Sprintf("%d", sessions)),
+				p.HighlightValue(fmt.Sprintf("%d", turns)))
+		} else {
+			p.Muted("sweep: nothing new")
+		}
+		return nil
+	}
+
+	// Herald event bus: watcher publishes RecordAppended events,
+	// Logbook and Drafter subscribe as downstream processors.
+	adapterMap := make(map[string]watcher.Adapter, len(sources))
+	for _, src := range sources {
+		adapterMap[src.Runtime] = src.Adapter
+	}
+	bus := newProjectBus(momDir, adapterMap)
+
+	w, err := watcher.New(watcher.Config{
+		ProjectDir: projectDir,
+		MomDir:     momDir,
+		Sources:    sources,
+		DebounceMs: watchDebounceMs,
+		Bus:        bus,
+	})
+	if err != nil {
+		return fmt.Errorf("creating watcher: %w", err)
+	}
+
+	// Print startup info.
+	runtimeNames := make([]string, len(sources))
+	for i, src := range sources {
+		runtimeNames[i] = src.Runtime
+	}
+	p.Diamond(fmt.Sprintf("watch [%s]", strings.Join(runtimeNames, ", ")))
+	for rt, dir := range w.TranscriptDirs() {
+		p.Chevron(fmt.Sprintf("%s: %s", rt, dir))
+	}
+	p.Chevron(fmt.Sprintf("target: %s/raw/", momDir))
+	p.Muted("press Ctrl-C to stop")
+	p.Blank()
+
+	if err := w.Run(); err != nil {
+		return fmt.Errorf("watcher stopped: %w", err)
+	}
+	return nil
+}
+
+// newProjectBus creates a Herald event bus with Logbook and Drafter subscribers
+// wired for a given momDir. Used by both single-project and global watch modes.
+// adapters maps runtime name → Adapter for runtime-specific logbook parsing.
+func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.Bus {
+	bus := herald.NewBus()
+
+	// Logbook: parse transcript → write session metrics to .mom/logs/.
+	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
+		tp, _ := e.Payload["transcript_path"].(string)
+		sid, _ := e.Payload["session_id"].(string)
+		md, _ := e.Payload["mom_dir"].(string)
+		if tp == "" || sid == "" || md == "" {
+			return
+		}
+		logsDir := filepath.Join(md, "logs")
+		_ = os.MkdirAll(logsDir, 0755)
+
+		// Use runtime-specific parser when available, fall back to Claude format.
+		var sessionLog *logbook.SessionLog
+		var err error
+		if rt, ok := e.Payload["runtime"].(string); ok {
+			if adapter, ok := adapters[rt]; ok {
+				if sp, ok := adapter.(watcher.SessionParser); ok {
+					sessionLog, err = sp.ParseSession(tp, sid)
+				}
+			}
+		}
+		if sessionLog == nil && err == nil {
+			sessionLog, err = logbook.ParseTranscript(tp, sid)
+		}
+		if err != nil || sessionLog == nil {
+			return
+		}
+		outPath := filepath.Join(logsDir, fmt.Sprintf("session-%s.json", sid))
+		data, _ := json.MarshalIndent(sessionLog, "", "  ")
+		_ = os.WriteFile(outPath, append(data, '\n'), 0644)
+	})
+
+	// Drafter: process raw → write draft memories to .mom/memory/.
+	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
+		md, _ := e.Payload["mom_dir"].(string)
+		if md == "" {
+			return
+		}
+		rawDir := filepath.Join(md, "raw")
+		memDir := filepath.Join(md, "memory")
+		_ = os.MkdirAll(memDir, 0755)
+
+		since := lastDraftTime(md)
+		vocabFn := func() []string { return collectVocab(memDir) }
+
+		d := drafter.New(rawDir, memDir, vocabFn)
+		drafts, err := d.Process(since)
+		if err != nil || len(drafts) == 0 {
+			return
+		}
+
+		idx := storage.NewIndexedAdapter(md)
+		defer idx.Close()
+
+		for _, dr := range drafts {
+			_ = writeDraftDoc(idx, memDir, dr)
+		}
+		updateDraftMarker(md)
+	})
+
+	return bus
+}
+
+// runWatchGlobal runs the global watch daemon: watches all registered projects.
+func runWatchGlobal(sweepOnly bool) error {
+	reg, err := daemon.LoadRegistry()
+	if err != nil {
+		return fmt.Errorf("loading registry: %w", err)
+	}
+
+	if sweepOnly {
+		p := ux.NewPrinter(os.Stderr)
+		totalSessions, totalTurns := 0, 0
+		// Sweep all registered projects and exit.
+		for projDir, entry := range reg {
+			cfg, err := config.Load(entry.MomDir)
+			if err != nil {
+				p.Warn(fmt.Sprintf("sweep %s: config: %v", projDir, err))
+				continue
+			}
+			sources := buildWatcherSources(cfg, projDir)
+			if len(sources) == 0 {
+				continue
+			}
+			adapterMap := make(map[string]watcher.Adapter, len(sources))
+			for _, src := range sources {
+				adapterMap[src.Runtime] = src.Adapter
+			}
+			bus := newProjectBus(entry.MomDir, adapterMap)
+			w, err := watcher.New(watcher.Config{
+				ProjectDir: projDir,
+				MomDir:     entry.MomDir,
+				Sources:    sources,
+				SweepOnly:  true,
+				Bus:        bus,
+			})
+			if err != nil {
+				p.Warn(fmt.Sprintf("sweep %s: %v", projDir, err))
+				continue
+			}
+			sessions, turns := w.Sweep()
+			totalSessions += sessions
+			totalTurns += turns
+			if sessions > 0 {
+				p.Checkf("sweep %s: %s sessions, %s turns",
+					filepath.Base(projDir),
+					p.HighlightValue(fmt.Sprintf("%d", sessions)),
+					p.HighlightValue(fmt.Sprintf("%d", turns)))
+			}
+		}
+		if totalSessions == 0 {
+			p.Muted("sweep: nothing new across all projects")
+		}
+		return nil
+	}
+
+	// Persistent watch mode: one watcher per registered project.
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	type runningWatcher struct {
+		cancel context.CancelFunc
+	}
+	var mu sync.Mutex
+	watchers := make(map[string]*runningWatcher)
+
+	startProject := func(projDir string, entry daemon.RegistryEntry) {
+		cfg, err := config.Load(entry.MomDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[mom] watch %s: config: %v\n", projDir, err)
+			return
+		}
+		sources := buildWatcherSources(cfg, projDir)
+		if len(sources) == 0 {
+			return
+		}
+		adapterMap := make(map[string]watcher.Adapter, len(sources))
+		for _, src := range sources {
+			adapterMap[src.Runtime] = src.Adapter
+		}
+		bus := newProjectBus(entry.MomDir, adapterMap)
+		w, err := watcher.New(watcher.Config{
+			ProjectDir: projDir,
+			MomDir:     entry.MomDir,
+			Sources:    sources,
+			DebounceMs: 300,
+			Bus:        bus,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[mom] watch %s: %v\n", projDir, err)
+			return
+		}
+
+		wCtx, wCancel := context.WithCancel(ctx)
+		mu.Lock()
+		watchers[projDir] = &runningWatcher{cancel: wCancel}
+		mu.Unlock()
+
+		go func() {
+			if err := w.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "[mom] watch %s stopped: %v\n", projDir, err)
+			}
+		}()
+
+		go func() {
+			<-wCtx.Done()
+			w.Stop() //nolint:errcheck
+		}()
+	}
+
+	// Start watchers for all currently registered projects.
+	for projDir, entry := range reg {
+		startProject(projDir, entry)
+	}
+
+	fmt.Fprintf(os.Stderr, "[mom] global daemon: watching %d projects\n", len(reg))
+
+	// Watch the registry file for changes (add/remove projects).
+	regPath, err := daemon.RegistryPath()
+	if err != nil {
+		return fmt.Errorf("registry path: %w", err)
+	}
+	regDir := filepath.Dir(regPath)
+
+	fw, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("fsnotify watcher: %w", err)
+	}
+	defer fw.Close()
+
+	if err := fw.Add(regDir); err != nil {
+		return fmt.Errorf("watching registry dir: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			mu.Lock()
+			for _, rw := range watchers {
+				rw.cancel()
+			}
+			mu.Unlock()
+			return nil
+
+		case ev, ok := <-fw.Events:
+			if !ok {
+				return nil
+			}
+			if filepath.Base(ev.Name) != "watch-registry.json" {
+				continue
+			}
+			if ev.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+				continue
+			}
+
+			newReg, err := daemon.LoadRegistry()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[mom] reload registry: %v\n", err)
+				continue
+			}
+
+			mu.Lock()
+			// Stop watchers for removed projects.
+			for projDir, rw := range watchers {
+				if _, exists := newReg[projDir]; !exists {
+					rw.cancel()
+					delete(watchers, projDir)
+					fmt.Fprintf(os.Stderr, "[mom] unregistered: %s\n", projDir)
+				}
+			}
+			// Start watchers for new projects.
+			for projDir, entry := range newReg {
+				if _, exists := watchers[projDir]; !exists {
+					startProject(projDir, entry)
+					fmt.Fprintf(os.Stderr, "[mom] registered: %s\n", projDir)
+				}
+			}
+			mu.Unlock()
+
+		case err, ok := <-fw.Errors:
+			if !ok {
+				return nil
+			}
+			fmt.Fprintf(os.Stderr, "[mom] fsnotify error: %v\n", err)
+		}
+	}
+}
+
+// runWatchStatus prints cursor files in .mom/raw/ for inspection.
+func runWatchStatus(momDir string) error {
+	p := ux.NewPrinter(os.Stderr)
+	rawDir := filepath.Join(momDir, "raw")
+	entries, err := os.ReadDir(rawDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			p.Warn(fmt.Sprintf("no raw dir at %s — nothing recorded yet", rawDir))
+			return nil
+		}
+		return fmt.Errorf("reading raw dir: %w", err)
+	}
+
+	type cursor struct {
+		sid    string
+		offset string
+	}
+	var cursors []cursor
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if strings.HasPrefix(e.Name(), ".watch-cursor-") {
+			sid := strings.TrimPrefix(e.Name(), ".watch-cursor-")
+			cf := filepath.Join(rawDir, e.Name())
+			data, err := os.ReadFile(cf)
+			if err != nil {
+				continue
+			}
+			cursors = append(cursors, cursor{sid: sid, offset: strings.TrimSpace(string(data))})
+		}
+	}
+
+	if len(cursors) == 0 {
+		p.Warn("no watch cursors found — watcher has not run yet")
+		return nil
+	}
+
+	p.Diamond("watch cursors")
+	p.Muted(fmt.Sprintf("%d sessions", len(cursors)))
+	p.Blank()
+	for _, c := range cursors {
+		p.Chevron(fmt.Sprintf("%s: %s bytes", c.sid, c.offset))
+	}
+	return nil
+}
