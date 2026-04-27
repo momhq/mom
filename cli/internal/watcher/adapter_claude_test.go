@@ -2,6 +2,8 @@ package watcher
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -168,5 +170,73 @@ func TestClaudeAdapter_Name(t *testing.T) {
 	a := NewClaudeAdapter()
 	if a.Name() != "claude" {
 		t.Errorf("expected Name()=claude, got %q", a.Name())
+	}
+}
+
+func TestClaudeAdapter_ParseSession(t *testing.T) {
+	// Build a minimal Claude Code transcript JSONL.
+	lines := []map[string]any{
+		{
+			"type":      "assistant",
+			"timestamp": "2026-01-15T10:00:00Z",
+			"role":      "assistant",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Let me read that file."},
+				map[string]any{"type": "tool_use", "name": "Read", "id": "t1", "input": map[string]any{"file_path": "/foo/bar.go"}},
+			},
+		},
+		{
+			"type":      "assistant",
+			"timestamp": "2026-01-15T10:01:00Z",
+			"role":      "assistant",
+			"content": []any{
+				map[string]any{"type": "text", "text": "I'll edit it."},
+				map[string]any{"type": "tool_use", "name": "Edit", "id": "t2", "input": map[string]any{"file_path": "/foo/bar.go"}},
+			},
+		},
+		{
+			"type":      "assistant",
+			"timestamp": "2026-01-15T10:02:00Z",
+			"role":      "assistant",
+			"content": []any{
+				map[string]any{"type": "tool_use", "name": "create_memory_draft", "id": "t3", "input": map[string]any{}},
+			},
+		},
+	}
+
+	dir := t.TempDir()
+	tp := filepath.Join(dir, "sess-test.jsonl")
+	f, _ := os.Create(tp)
+	for _, l := range lines {
+		data, _ := json.Marshal(l)
+		f.Write(append(data, '\n'))
+	}
+	f.Close()
+
+	a := NewClaudeAdapter()
+	sl, err := a.ParseSession(tp, "sess-test")
+	if err != nil {
+		t.Fatalf("ParseSession error: %v", err)
+	}
+	if sl.SessionID != "sess-test" {
+		t.Errorf("session_id: got %q, want sess-test", sl.SessionID)
+	}
+	if sl.Interactions != 3 {
+		t.Errorf("interactions: got %d, want 3", sl.Interactions)
+	}
+	if sl.Started != "2026-01-15T10:00:00Z" {
+		t.Errorf("started: got %q, want 2026-01-15T10:00:00Z", sl.Started)
+	}
+	if sl.FilesChanged != 1 {
+		t.Errorf("files_changed: got %d, want 1", sl.FilesChanged)
+	}
+	if sl.MemoriesCreated != 1 {
+		t.Errorf("memories_created: got %d, want 1", sl.MemoriesCreated)
+	}
+	if g, ok := sl.ToolCalls["codebase_read"]; !ok || g.Total != 1 {
+		t.Errorf("codebase_read: got %+v, want total=1", g)
+	}
+	if g, ok := sl.ToolCalls["codebase_write"]; !ok || g.Total != 1 {
+		t.Errorf("codebase_write: got %+v, want total=1", g)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/momhq/mom/cli/internal/logbook"
 	"github.com/momhq/mom/cli/internal/recorder"
 )
 
@@ -190,4 +191,96 @@ func (a *WindsurfAdapter) ParseLine(line []byte, sessionID string) (recorder.Raw
 		// Drop: code_action, command_action, file-history-snapshot, hook_progress, etc.
 		return recorder.RawEntry{}, false
 	}
+}
+
+// ParseSession implements SessionParser for Windsurf transcripts.
+// Windsurf JSONL uses planner_response, code_action, command_action, and mcp_tool
+// instead of Claude Code's assistant/tool_use format.
+func (a *WindsurfAdapter) ParseSession(transcriptPath, sessionID string) (*logbook.SessionLog, error) {
+	f, err := os.Open(transcriptPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	log := &logbook.SessionLog{
+		SessionID: sessionID,
+		ToolCalls: make(map[string]logbook.ToolGroup),
+	}
+
+	scanner := bufio.NewScanner(f)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 2*1024*1024)
+
+	filesChanged := make(map[string]bool)
+
+	for scanner.Scan() {
+		var entry map[string]any
+		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
+			continue
+		}
+
+		t, _ := entry["type"].(string)
+
+		switch t {
+		case "planner_response":
+			log.Interactions++
+
+		case "code_action":
+			windCountTool(log, "code_action")
+			if ca, ok := entry["code_action"].(map[string]any); ok {
+				if p, ok := ca["path"].(string); ok && p != "" {
+					filesChanged[p] = true
+				}
+			}
+
+		case "command_action":
+			windCountTool(log, "command_action")
+
+		case "mcp_tool":
+			toolName := ""
+			if mcp, ok := entry["mcp_tool"].(map[string]any); ok {
+				toolName, _ = mcp["tool_name"].(string)
+			}
+			if toolName != "" {
+				windCountTool(log, toolName)
+				if toolName == "create_memory_draft" {
+					log.MemoriesCreated++
+				}
+			}
+		}
+	}
+
+	// Windsurf JSONL has no timestamp fields — use file ModTime for Started.
+	info, err := os.Stat(transcriptPath)
+	if err == nil {
+		log.Started = info.ModTime().UTC().Format(time.RFC3339)
+	} else {
+		log.Started = time.Now().UTC().Format(time.RFC3339)
+	}
+	log.Ended = time.Now().UTC().Format(time.RFC3339)
+	log.FilesChanged = len(filesChanged)
+
+	return log, nil
+}
+
+// windCountTool increments tool counts in a SessionLog, routing to the correct category.
+func windCountTool(log *logbook.SessionLog, toolName string) {
+	var category string
+	switch toolName {
+	case "code_action":
+		category = "codebase_write"
+	case "command_action":
+		category = "system"
+	default:
+		category = logbook.CategorizeToolCall(toolName)
+	}
+
+	group := log.ToolCalls[category]
+	group.Total++
+	if group.Detail == nil {
+		group.Detail = make(map[string]int)
+	}
+	group.Detail[toolName]++
+	log.ToolCalls[category] = group
 }

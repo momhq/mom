@@ -177,7 +177,11 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	// Herald event bus: watcher publishes RecordAppended events,
 	// Logbook and Drafter subscribe as downstream processors.
-	bus := newProjectBus(momDir)
+	adapterMap := make(map[string]watcher.Adapter, len(sources))
+	for _, src := range sources {
+		adapterMap[src.Runtime] = src.Adapter
+	}
+	bus := newProjectBus(momDir, adapterMap)
 
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
@@ -211,7 +215,8 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 // newProjectBus creates a Herald event bus with Logbook and Drafter subscribers
 // wired for a given momDir. Used by both single-project and global watch modes.
-func newProjectBus(momDir string) *herald.Bus {
+// adapters maps runtime name → Adapter for runtime-specific logbook parsing.
+func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.Bus {
 	bus := herald.NewBus()
 
 	// Logbook: parse transcript → write session metrics to .mom/logs/.
@@ -225,8 +230,20 @@ func newProjectBus(momDir string) *herald.Bus {
 		logsDir := filepath.Join(md, "logs")
 		_ = os.MkdirAll(logsDir, 0755)
 
-		sessionLog, err := logbook.ParseTranscript(tp, sid)
-		if err != nil {
+		// Use runtime-specific parser when available, fall back to Claude format.
+		var sessionLog *logbook.SessionLog
+		var err error
+		if rt, ok := e.Payload["runtime"].(string); ok {
+			if adapter, ok := adapters[rt]; ok {
+				if sp, ok := adapter.(watcher.SessionParser); ok {
+					sessionLog, err = sp.ParseSession(tp, sid)
+				}
+			}
+		}
+		if sessionLog == nil && err == nil {
+			sessionLog, err = logbook.ParseTranscript(tp, sid)
+		}
+		if err != nil || sessionLog == nil {
 			return
 		}
 		outPath := filepath.Join(logsDir, fmt.Sprintf("session-%s.json", sid))
@@ -319,7 +336,11 @@ func runWatchGlobal(sweepOnly bool) error {
 		if len(sources) == 0 {
 			return
 		}
-		bus := newProjectBus(entry.MomDir)
+		adapterMap := make(map[string]watcher.Adapter, len(sources))
+		for _, src := range sources {
+			adapterMap[src.Runtime] = src.Adapter
+		}
+		bus := newProjectBus(entry.MomDir, adapterMap)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projDir,
 			MomDir:     entry.MomDir,

@@ -17,10 +17,22 @@ import (
 	"github.com/momhq/mom/cli/internal/ux"
 )
 
+// Source describes one runtime's transcript directory and parser.
+type Source struct {
+	// Runtime is the name of the runtime (e.g. "claude", "windsurf").
+	Runtime string
+	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
+	// Tilde expansion is performed automatically.
+	TranscriptDir string
+	// Adapter parses runtime-specific JSONL lines.
+	Adapter Adapter
+}
+
 // Config holds watcher configuration (mirrors .mom/config.yaml watcher block).
 type Config struct {
 	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
 	// Tilde expansion is performed automatically.
+	// DEPRECATED: use Sources instead. Kept for single-runtime compat.
 	TranscriptDir string
 	// ProjectDir is the absolute path of the project being watched.
 	// Used to scope ingestion to the matching transcript subdirectory.
@@ -29,7 +41,11 @@ type Config struct {
 	// MomDir is the path to .mom/ where raw/ and cursor files are written.
 	MomDir string
 	// Adapter parses runtime-specific JSONL lines.
+	// DEPRECATED: use Sources instead. Kept for single-runtime compat.
 	Adapter Adapter
+	// Sources lists all runtime transcript directories to watch.
+	// When set, TranscriptDir and Adapter are ignored.
+	Sources []Source
 	// DebounceMs is how long to wait after a Write event before reading.
 	// Defaults to 300ms if zero.
 	DebounceMs int
@@ -37,12 +53,23 @@ type Config struct {
 	// RecordAppended events after each ingestion so Herald can trigger
 	// downstream processors (Logbook, Drafter). May be nil.
 	Bus *herald.Bus
+	// SweepOnly when true skips fsnotify setup. The watcher can only be
+	// used for one-shot Sweep() calls, not Run().
+	SweepOnly bool
 }
 
-// Watcher watches a Claude Code transcript directory and ingests new entries
+// resolvedSource is a Source after tilde expansion and project scoping.
+type resolvedSource struct {
+	runtime string
+	dir     string // resolved absolute path
+	adapter Adapter
+}
+
+// Watcher watches runtime transcript directories and ingests new entries
 // into .mom/raw/ using cursor-based incremental reads.
 type Watcher struct {
 	cfg        Config
+	sources    []resolvedSource // resolved transcript sources
 	fw         *fsnotify.Watcher
 	mu         sync.Mutex
 	timers     map[string]*time.Timer // debounce timers keyed by file path
@@ -58,22 +85,44 @@ func New(cfg Config) (*Watcher, error) {
 		cfg.DebounceMs = 300
 	}
 
-	dir, err := expandTilde(cfg.TranscriptDir)
-	if err != nil {
-		return nil, fmt.Errorf("expanding transcript dir: %w", err)
+	// Normalize sources: if Sources is empty, build from legacy single fields.
+	sources := cfg.Sources
+	if len(sources) == 0 && cfg.TranscriptDir != "" {
+		sources = []Source{{
+			Runtime:       "default",
+			TranscriptDir: cfg.TranscriptDir,
+			Adapter:       cfg.Adapter,
+		}}
 	}
 
-	// Scope to project-specific subdirectory when ProjectDir is set.
-	if cfg.ProjectDir != "" {
-		slug := projectSlug(cfg.ProjectDir)
-		scoped := filepath.Join(dir, slug)
-		// Only narrow if the subdirectory exists.
-		if info, serr := os.Stat(scoped); serr == nil && info.IsDir() {
-			dir = scoped
+	// Resolve each source: tilde expansion + project scoping.
+	var resolved []resolvedSource
+	for _, src := range sources {
+		dir, err := expandTilde(src.TranscriptDir)
+		if err != nil {
+			return nil, fmt.Errorf("expanding transcript dir for %s: %w", src.Runtime, err)
 		}
+
+		// Scope to project-specific subdirectory when ProjectDir is set.
+		if cfg.ProjectDir != "" {
+			slug := projectSlug(cfg.ProjectDir)
+			scoped := filepath.Join(dir, slug)
+			if info, serr := os.Stat(scoped); serr == nil && info.IsDir() {
+				dir = scoped
+			}
+		}
+
+		resolved = append(resolved, resolvedSource{
+			runtime: src.Runtime,
+			dir:     dir,
+			adapter: src.Adapter,
+		})
 	}
 
-	cfg.TranscriptDir = dir
+	// Update legacy field for TranscriptDir() accessor.
+	if len(resolved) > 0 {
+		cfg.TranscriptDir = resolved[0].dir
+	}
 
 	rawDir := filepath.Join(cfg.MomDir, "raw")
 	if err := os.MkdirAll(rawDir, 0755); err != nil {
@@ -83,29 +132,35 @@ func New(cfg Config) (*Watcher, error) {
 	logsDir := filepath.Join(cfg.MomDir, "logs")
 	_ = os.MkdirAll(logsDir, 0755)
 
-	fw, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("creating fsnotify watcher: %w", err)
-	}
-
-	return &Watcher{
+	w := &Watcher{
 		cfg:     cfg,
-		fw:      fw,
+		sources: resolved,
 		timers:  make(map[string]*time.Timer),
 		rawDir:  rawDir,
 		logFile: filepath.Join(logsDir, "watch.log"),
 		p:       ux.NewPrinter(os.Stderr),
-	}, nil
+	}
+
+	if !cfg.SweepOnly {
+		fw, err := fsnotify.NewWatcher()
+		if err != nil {
+			return nil, fmt.Errorf("creating fsnotify watcher: %w", err)
+		}
+		w.fw = fw
+	}
+
+	return w, nil
 }
 
 // Run starts the watcher loop. It blocks until ctx-equivalent stop is called.
 // Returns when the watcher is stopped or encounters an unrecoverable error.
 // Call Stop to terminate.
 func (w *Watcher) Run() error {
-	// Watch the transcript directory recursively — Claude Code creates per-project
-	// subdirectories under ~/.claude/projects/.
-	if err := w.addDir(w.cfg.TranscriptDir); err != nil {
-		return fmt.Errorf("watching %s: %w", w.cfg.TranscriptDir, err)
+	// Watch all transcript directories recursively.
+	for _, src := range w.sources {
+		if err := w.addDir(src.dir); err != nil {
+			w.logf("watching %s (%s): %v — skipping", src.dir, src.runtime, err)
+		}
 	}
 
 	// Process any existing files on startup (catch up on offline turns).
@@ -120,7 +175,9 @@ func (w *Watcher) Run() error {
 		w.p.Blank()
 	}
 
-	w.logf("watcher started on %s", w.cfg.TranscriptDir)
+	for _, src := range w.sources {
+		w.logf("watcher started on %s (%s)", src.dir, src.runtime)
+	}
 
 	for {
 		select {
@@ -141,12 +198,50 @@ func (w *Watcher) Run() error {
 
 // Stop shuts down the underlying fsnotify watcher.
 func (w *Watcher) Stop() error {
+	if w.fw == nil {
+		return nil
+	}
 	return w.fw.Close()
 }
 
-// TranscriptDir returns the resolved (scoped, tilde-expanded) transcript directory.
+// Sweep processes all existing transcript files (one-shot catch-up) and returns.
+// Unlike Run(), it does not start the fsnotify event loop.
+// Safe to call on a watcher created with SweepOnly: true.
+func (w *Watcher) Sweep() (sessions int, turns int) {
+	w.catchingUp = true
+	sessions, turns = w.catchUp()
+	w.catchingUp = false
+	return
+}
+
+// TranscriptDir returns the resolved (scoped, tilde-expanded) transcript directory
+// of the first source. For multi-source watchers, use TranscriptDirs().
 func (w *Watcher) TranscriptDir() string {
+	if len(w.sources) > 0 {
+		return w.sources[0].dir
+	}
 	return w.cfg.TranscriptDir
+}
+
+// TranscriptDirs returns all resolved transcript directories with their runtime names.
+func (w *Watcher) TranscriptDirs() map[string]string {
+	dirs := make(map[string]string, len(w.sources))
+	for _, src := range w.sources {
+		dirs[src.runtime] = src.dir
+	}
+	return dirs
+}
+
+// adapterForPath returns the adapter that owns the given file path
+// by matching against resolved source directories.
+func (w *Watcher) adapterForPath(path string) Adapter {
+	for _, src := range w.sources {
+		if strings.HasPrefix(path, src.dir) {
+			return src.adapter
+		}
+	}
+	// Fallback: legacy single-adapter config.
+	return w.cfg.Adapter
 }
 
 // handleEvent dispatches fsnotify events.
@@ -173,8 +268,9 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 	}
 
 	if event.Has(fsnotify.Create) || event.Has(fsnotify.Write) {
+		adapter := w.adapterForPath(path)
 		// Check project filter for adapters that need it (e.g. Windsurf).
-		if pf, ok := w.cfg.Adapter.(ProjectFilter); ok {
+		if pf, ok := adapter.(ProjectFilter); ok {
 			if !pf.BelongsToProject(path) {
 				return
 			}
@@ -201,28 +297,30 @@ func (w *Watcher) scheduleRead(path string) {
 	})
 }
 
-// catchUp processes all existing .jsonl files in the transcript dir on startup.
+// catchUp processes all existing .jsonl files across all sources on startup.
 // Returns the number of sessions and total turns ingested.
 func (w *Watcher) catchUp() (sessions int, turns int) {
-	_ = filepath.WalkDir(w.cfg.TranscriptDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(path, ".jsonl") && !strings.Contains(path, "subagents") {
-			// Check project filter for adapters that need it (e.g. Windsurf).
-			if pf, ok := w.cfg.Adapter.(ProjectFilter); ok {
-				if !pf.BelongsToProject(path) {
-					return nil
+	for _, src := range w.sources {
+		_ = filepath.WalkDir(src.dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(path, ".jsonl") && !strings.Contains(path, "subagents") {
+				// Check project filter for adapters that need it (e.g. Windsurf).
+				if pf, ok := src.adapter.(ProjectFilter); ok {
+					if !pf.BelongsToProject(path) {
+						return nil
+					}
+				}
+				n := w.ingestFile(path)
+				if n > 0 {
+					sessions++
+					turns += n
 				}
 			}
-			n := w.ingestFile(path)
-			if n > 0 {
-				sessions++
-				turns += n
-			}
-		}
-		return nil
-	})
+			return nil
+		})
+	}
 	return
 }
 
@@ -262,7 +360,7 @@ func (w *Watcher) ingestFile(path string) int {
 		raw := scanner.Bytes()
 		bytesRead += int64(len(raw)) + 1 // +1 for newline
 
-		entry, ok := w.cfg.Adapter.ParseLine(raw, sessionID)
+		entry, ok := w.adapterForPath(path).ParseLine(raw, sessionID)
 		if !ok {
 			continue
 		}
@@ -302,6 +400,7 @@ func (w *Watcher) ingestFile(path string) int {
 			"session_id":      sessionID,
 			"count":           len(entries),
 			"mom_dir":         w.cfg.MomDir,
+			"runtime":         w.adapterForPath(path).Name(),
 		})
 	}
 

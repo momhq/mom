@@ -2,6 +2,8 @@ package watcher
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -217,5 +219,67 @@ func TestWindsurfAdapter_ParseLine_WhitespaceOnlyLine(t *testing.T) {
 	_, ok := a.ParseLine([]byte("   \t  "), "traj-xxx")
 	if ok {
 		t.Error("expected whitespace-only line to return ok=false")
+	}
+}
+
+func TestWindsurfAdapter_ParseSession(t *testing.T) {
+	lines := []map[string]any{
+		{"type": "planner_response", "status": "done", "planner_response": map[string]any{"response": "I'll fix the bug."}},
+		{"type": "planner_response", "status": "done", "planner_response": map[string]any{"response": "Done fixing."}},
+		{"type": "code_action", "status": "done", "code_action": map[string]any{"path": "/proj/main.go", "new_content": "package main"}},
+		{"type": "code_action", "status": "done", "code_action": map[string]any{"path": "/proj/util.go", "new_content": "package util"}},
+		{"type": "command_action", "status": "done", "command_action": map[string]any{"command": "go test ./..."}},
+		{"type": "mcp_tool", "status": "done", "mcp_tool": map[string]any{"tool_name": "mom_recall", "result": "..."}},
+		{"type": "mcp_tool", "status": "done", "mcp_tool": map[string]any{"tool_name": "create_memory_draft", "result": "ok"}},
+		{"type": "user_input", "status": "done", "user_input": map[string]any{"user_response": "looks good"}},
+	}
+
+	dir := t.TempDir()
+	tp := filepath.Join(dir, "traj-abc.jsonl")
+	f, _ := os.Create(tp)
+	for _, l := range lines {
+		data, _ := json.Marshal(l)
+		f.Write(append(data, '\n'))
+	}
+	f.Close()
+
+	a := NewWindsurfAdapter()
+	sl, err := a.ParseSession(tp, "traj-abc")
+	if err != nil {
+		t.Fatalf("ParseSession error: %v", err)
+	}
+
+	if sl.SessionID != "traj-abc" {
+		t.Errorf("session_id: got %q, want traj-abc", sl.SessionID)
+	}
+	if sl.Interactions != 2 {
+		t.Errorf("interactions: got %d, want 2 (planner_response count)", sl.Interactions)
+	}
+	if sl.FilesChanged != 2 {
+		t.Errorf("files_changed: got %d, want 2", sl.FilesChanged)
+	}
+	if sl.MemoriesCreated != 1 {
+		t.Errorf("memories_created: got %d, want 1", sl.MemoriesCreated)
+	}
+
+	// code_action → codebase_write
+	if g, ok := sl.ToolCalls["codebase_write"]; !ok || g.Total != 2 {
+		t.Errorf("codebase_write: got %+v, want total=2", g)
+	}
+	// command_action → system
+	if g, ok := sl.ToolCalls["system"]; !ok || g.Total != 1 {
+		t.Errorf("system: got %+v, want total=1", g)
+	}
+	// mom_recall → mom_memory
+	if g, ok := sl.ToolCalls["mom_memory"]; !ok || g.Total != 2 {
+		t.Errorf("mom_memory: got %+v, want total=2 (mom_recall + create_memory_draft)", g)
+	}
+
+	// Timestamps should be set.
+	if sl.Started == "" {
+		t.Error("expected non-empty Started")
+	}
+	if sl.Ended == "" {
+		t.Error("expected non-empty Ended")
 	}
 }

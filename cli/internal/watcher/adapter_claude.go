@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/momhq/mom/cli/internal/logbook"
 	"github.com/momhq/mom/cli/internal/recorder"
 )
 
@@ -23,6 +24,11 @@ func NewClaudeAdapter() *ClaudeAdapter {
 }
 
 func (a *ClaudeAdapter) Name() string { return "claude" }
+
+// ParseSession implements SessionParser by delegating to logbook.ParseTranscript.
+func (a *ClaudeAdapter) ParseSession(transcriptPath, sessionID string) (*logbook.SessionLog, error) {
+	return logbook.ParseTranscript(transcriptPath, sessionID)
+}
 
 // claudeTranscriptLine is the minimal subset of a Claude Code JSONL line
 // that the adapter needs to inspect.

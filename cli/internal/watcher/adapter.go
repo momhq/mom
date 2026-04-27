@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"github.com/momhq/mom/cli/internal/logbook"
 	"github.com/momhq/mom/cli/internal/recorder"
 )
 
@@ -17,6 +18,13 @@ type Adapter interface {
 	// Returns (entry, true) if the line yields a recordable entry,
 	// (zero, false) if the line should be skipped (tool_use, metadata, etc.).
 	ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool)
+}
+
+// SessionParser is optionally implemented by adapters that provide
+// runtime-specific logbook parsing. Falls back to logbook.ParseTranscript
+// (Claude Code format) when not implemented.
+type SessionParser interface {
+	ParseSession(transcriptPath, sessionID string) (*logbook.SessionLog, error)
 }
 
 // ProjectFilter is optionally implemented by adapters that need to
