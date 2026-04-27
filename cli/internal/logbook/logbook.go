@@ -96,13 +96,19 @@ func ParseTranscript(transcriptPath, sessionID string) (*SessionLog, error) {
 			lastTS = ts
 		}
 
+		// Claude Code nests role/content inside "message"; unwrap if present.
+		msg := entry
+		if m, ok := entry["message"].(map[string]any); ok {
+			msg = m
+		}
+
 		// Count interactions (assistant messages).
-		if role, _ := entry["role"].(string); role == "assistant" {
+		if role, _ := msg["role"].(string); role == "assistant" {
 			log.Interactions++
 		}
 
 		// Extract tool calls from content array.
-		if content, ok := entry["content"].([]any); ok {
+		if content, ok := msg["content"].([]any); ok {
 			for _, item := range content {
 				block, ok := item.(map[string]any)
 				if !ok {
