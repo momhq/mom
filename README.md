@@ -16,16 +16,6 @@ Your AI assistant forgets everything between sessions. You re-explain decisions,
 
 **MOM** (Memory Oriented Machine) is an open-source CLI that gives AI agents persistent, structured memory. Decisions, constraints, patterns, and learnings — stored in your project, loaded automatically, evolving with every session. Runtime-agnostic. On-prem. Schema-validated.
 
-```
-Monday without MOM:                Monday with MOM:
-
-"We use Go with Cobra for the CLI"   "Add the export command."
-"Tests go in the same package"       → Your agent already knows the stack,
-"Don't mock the database"             the conventions, and the decisions
-"JWT auth, not sessions"               from last week.
-"The deploy target is AWS Lambda"
-```
-
 Self-hosting since v0.2 — MOM builds itself with its own memory.
 
 ## Quick Start
