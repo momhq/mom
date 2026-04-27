@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/momhq/mom/releases"><img src="https://img.shields.io/github/v/release/momhq/mom?style=flat-square&color=FFCC2C" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-4A6B3A?style=flat-square" alt="License"></a>
-  <a href="https://github.com/momhq/mom"><img src="https://img.shields.io/badge/go-1.24+-3B1F0A?style=flat-square" alt="Go 1.24+"></a>
+  <a href="https://github.com/momhq/mom"><img src="https://img.shields.io/badge/go-1.26+-3B1F0A?style=flat-square" alt="Go 1.26+"></a>
   <a href="https://goreportcard.com/report/github.com/momhq/mom/cli"><img src="https://goreportcard.com/badge/github.com/momhq/mom/cli?style=flat-square" alt="Go Report Card"></a>
 </p>
 
@@ -92,8 +92,8 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 | `mom init` | Interactive onboarding — runtime, language, mode |
 | `mom status` | Memory summary — document count, tags, health |
 | `mom doctor` | Diagnostic checks on `.mom/` health |
-| `mom recall <query>` | BM25 search across memory |
-| `mom record` | Record raw conversation data from hook stdin |
+| `mom recall <query>` | Search across memory (SQLite FTS5) |
+| `mom record` | Record raw conversation data (legacy — watcher preferred) |
 | `mom draft` | Extract memory drafts from raw session capture |
 | `mom log` | Generate session-level observability data from transcript |
 | `mom diagnose` | Compute derived metrics from session logs |
@@ -115,23 +115,25 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 
 ## Supported Runtimes
 
-| Runtime | MCP | Hooks | Boot file | Status |
-|---------|-----|-------|-----------|--------|
-| Claude Code | Yes | Stop + SessionEnd | CLAUDE.md | Full support |
+| Runtime | MCP | Watcher | Boot file | Status |
+|---------|-----|---------|-----------|--------|
+| Claude Code | Yes | Yes | CLAUDE.md | Full support |
 | OpenAI Codex | Yes | — | AGENTS.md | Boot file + MCP |
-| Windsurf | Yes | — | .windsurf/rules/ | Boot file + MCP |
+| Windsurf | Yes | Yes | .windsurf/rules/ | Full support |
 
 ## Current Status
 
-MOM is in active development (v0.11.2). It works, and it self-hosts — the tool builds itself with its own memory.
+MOM is in active development (v0.13). It works, and it self-hosts — the tool builds itself with its own memory.
 
-What's in v0.11:
+What's in v0.13:
+- **Watcher-based ingestion** — global daemon watches Claude Code and Windsurf transcripts via fsnotify, replacing hook-based recording
+- **SQLite FTS5 search** — `mom_recall` and MCP search use a full-text index, self-healing from JSON source of truth
+- **Global watch daemon** — single launchd (macOS) or systemd (Linux) service manages all registered projects
+- **Runtime-specific logbook parsing** — `SessionParser` adapter interface with native parsers per runtime
+- **CLI design system** — spinners, color-coded output, structured status views across all commands
 - **MCP-first context delivery** — behavioral protocol via `mom_status` tool, `.mcp.json` auto-injected
-- **Continuous raw capture** — hooks record every session turn to `.mom/raw/` JSONL
 - **Drafter pipeline** — RAKE + BM25 extraction from raw capture into memory drafts
 - **Cartographer** — AST-based repo scanning for initial memory bootstrap
-- **Simplified schema (v2)** — free-form content, promotion-based lifecycle (`draft`/`curated`)
-- **Herald event bus** — internal telemetry and event emission
 - Three runtime adapters (Claude Code, Codex, Windsurf)
 - Communication modes (verbose, concise, normal, caveman)
 - Multi-repo support with scope-based memory
