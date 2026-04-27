@@ -386,7 +386,8 @@ func (w *Watcher) ingestFile(path string) int {
 			if len(short) > 8 {
 				short = short[:8]
 			}
-			w.p.Checkf("ingested %d turns from %s", len(entries), w.p.HighlightValue(short))
+			rt := w.adapterForPath(path).Name()
+			w.p.Checkf("ingested %d turns from %s — %s", len(entries), w.p.HighlightValue(rt), w.p.HighlightValue(short))
 		}
 	}
 
