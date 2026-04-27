@@ -12,6 +12,7 @@ import (
 	"github.com/momhq/mom/cli/internal/watcher"
 )
 
+
 // ensureGlobalDaemon registers the project in the global watch registry and
 // ensures the single global daemon is running. Also cleans up legacy per-project agents.
 // Skipped when MOM_NO_DAEMON=1 or when running inside a test binary.
@@ -81,9 +82,14 @@ func runWatchInstall(momDir string, p *ux.Printer) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	if err := ensureGlobalDaemon(projectRoot, momDir, cfg.EnabledRuntimes()); err != nil {
-		return fmt.Errorf("installing daemon: %w", err)
+	sp := ux.NewSpinner(os.Stderr)
+	sp.Start("Installing global watch daemon")
+	installErr := ensureGlobalDaemon(projectRoot, momDir, cfg.EnabledRuntimes())
+	if installErr != nil {
+		sp.StopFail()
+		return fmt.Errorf("installing daemon: %w", installErr)
 	}
+	sp.Stop()
 
 	runtimes := watcherRuntimes(cfg)
 	p.Check("global watch daemon installed")
@@ -100,9 +106,16 @@ func runWatchInstall(momDir string, p *ux.Printer) error {
 // runWatchUninstall handles `mom watch --uninstall`.
 func runWatchUninstall(momDir string, p *ux.Printer) error {
 	projectRoot := filepath.Dir(momDir)
-	if err := unregisterProject(projectRoot, momDir); err != nil {
-		return fmt.Errorf("uninstalling daemon: %w", err)
+
+	sp := ux.NewSpinner(os.Stderr)
+	sp.Start("Removing watch daemon")
+	uninstallErr := unregisterProject(projectRoot, momDir)
+	if uninstallErr != nil {
+		sp.StopFail()
+		return fmt.Errorf("uninstalling daemon: %w", uninstallErr)
 	}
+	sp.Stop()
+
 	p.Check("project unregistered from global watch daemon")
 	return nil
 }

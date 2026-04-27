@@ -124,6 +124,7 @@ func RegisterProject(projectDir, momDir string, runtimes []string) error {
 }
 
 // UnregisterProject removes a project from the registry (lock → load → delete → save).
+// If the registry becomes empty, the file is deleted.
 func UnregisterProject(projectDir string) error {
 	return withRegistryLock(func() error {
 		reg, err := LoadRegistry()
@@ -131,6 +132,14 @@ func UnregisterProject(projectDir string) error {
 			return err
 		}
 		delete(reg, projectDir)
+		if len(reg) == 0 {
+			path, err := RegistryPath()
+			if err != nil {
+				return err
+			}
+			_ = os.Remove(path)
+			return nil
+		}
 		return SaveRegistry(reg)
 	})
 }
