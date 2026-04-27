@@ -174,32 +174,50 @@ func TestClaudeAdapter_Name(t *testing.T) {
 }
 
 func TestClaudeAdapter_ParseSession(t *testing.T) {
-	// Build a minimal Claude Code transcript JSONL.
+	// Build a realistic Claude Code transcript JSONL.
+	// Real format: role/content are nested inside "message", not at top level.
+	// MCP tools use "mcp__mom__" prefix.
 	lines := []map[string]any{
 		{
 			"type":      "assistant",
 			"timestamp": "2026-01-15T10:00:00Z",
-			"role":      "assistant",
-			"content": []any{
-				map[string]any{"type": "text", "text": "Let me read that file."},
-				map[string]any{"type": "tool_use", "name": "Read", "id": "t1", "input": map[string]any{"file_path": "/foo/bar.go"}},
+			"message": map[string]any{
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Let me read that file."},
+					map[string]any{"type": "tool_use", "name": "Read", "id": "t1", "input": map[string]any{"file_path": "/foo/bar.go"}},
+				},
 			},
 		},
 		{
 			"type":      "assistant",
 			"timestamp": "2026-01-15T10:01:00Z",
-			"role":      "assistant",
-			"content": []any{
-				map[string]any{"type": "text", "text": "I'll edit it."},
-				map[string]any{"type": "tool_use", "name": "Edit", "id": "t2", "input": map[string]any{"file_path": "/foo/bar.go"}},
+			"message": map[string]any{
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "I'll edit it."},
+					map[string]any{"type": "tool_use", "name": "Edit", "id": "t2", "input": map[string]any{"file_path": "/foo/bar.go"}},
+				},
 			},
 		},
 		{
 			"type":      "assistant",
 			"timestamp": "2026-01-15T10:02:00Z",
-			"role":      "assistant",
-			"content": []any{
-				map[string]any{"type": "tool_use", "name": "create_memory_draft", "id": "t3", "input": map[string]any{}},
+			"message": map[string]any{
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "tool_use", "name": "mcp__mom__create_memory_draft", "id": "t3", "input": map[string]any{}},
+				},
+			},
+		},
+		{
+			"type":      "assistant",
+			"timestamp": "2026-01-15T10:03:00Z",
+			"message": map[string]any{
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "tool_use", "name": "mcp__mom__mom_recall", "id": "t4", "input": map[string]any{}},
+				},
 			},
 		},
 	}
@@ -221,8 +239,8 @@ func TestClaudeAdapter_ParseSession(t *testing.T) {
 	if sl.SessionID != "sess-test" {
 		t.Errorf("session_id: got %q, want sess-test", sl.SessionID)
 	}
-	if sl.Interactions != 3 {
-		t.Errorf("interactions: got %d, want 3", sl.Interactions)
+	if sl.Interactions != 4 {
+		t.Errorf("interactions: got %d, want 4", sl.Interactions)
 	}
 	if sl.Started != "2026-01-15T10:00:00Z" {
 		t.Errorf("started: got %q, want 2026-01-15T10:00:00Z", sl.Started)
@@ -238,5 +256,9 @@ func TestClaudeAdapter_ParseSession(t *testing.T) {
 	}
 	if g, ok := sl.ToolCalls["codebase_write"]; !ok || g.Total != 1 {
 		t.Errorf("codebase_write: got %+v, want total=1", g)
+	}
+	// MCP-prefixed tools should be categorized correctly.
+	if g, ok := sl.ToolCalls["mom_memory"]; !ok || g.Total != 2 {
+		t.Errorf("mom_memory: got %+v, want total=2 (create_memory_draft + mom_recall)", g)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -26,16 +27,30 @@ type ToolGroup struct {
 	Detail map[string]int `json:"detail"`
 }
 
+// NormalizeToolName strips runtime-specific prefixes from tool names.
+// Claude Code prefixes MCP tools with "mcp__<server>__" (e.g. "mcp__mom__mom_recall").
+func NormalizeToolName(toolName string) string {
+	if strings.HasPrefix(toolName, "mcp__") {
+		// Strip "mcp__<server>__" → bare tool name.
+		if i := strings.Index(toolName[5:], "__"); i >= 0 {
+			return toolName[5+i+2:]
+		}
+	}
+	return toolName
+}
+
 // CategorizeToolCall returns the category for a given tool name.
+// Handles both bare names (Windsurf) and MCP-prefixed names (Claude Code).
 func CategorizeToolCall(toolName string) string {
+	name := NormalizeToolName(toolName)
 	switch {
-	case isMemoryTool(toolName):
+	case isMemoryTool(name):
 		return "mom_memory"
-	case isMomCLI(toolName):
+	case isMomCLI(name):
 		return "mom_cli"
-	case isCodebaseRead(toolName):
+	case isCodebaseRead(name):
 		return "codebase_read"
-	case isCodebaseWrite(toolName):
+	case isCodebaseWrite(name):
 		return "codebase_write"
 	default:
 		return "system"
@@ -122,6 +137,7 @@ func ParseTranscript(transcriptPath, sessionID string) (*SessionLog, error) {
 					continue
 				}
 
+				normalized := NormalizeToolName(toolName)
 				category := CategorizeToolCall(toolName)
 				group := log.ToolCalls[category]
 				group.Total++
@@ -132,7 +148,7 @@ func ParseTranscript(transcriptPath, sessionID string) (*SessionLog, error) {
 				log.ToolCalls[category] = group
 
 				// Track unique files changed.
-				if isCodebaseWrite(toolName) {
+				if isCodebaseWrite(normalized) {
 					if input, ok := block["input"].(map[string]any); ok {
 						if fp, ok := input["file_path"].(string); ok && fp != "" {
 							filesChanged[fp] = true
@@ -141,7 +157,7 @@ func ParseTranscript(transcriptPath, sessionID string) (*SessionLog, error) {
 				}
 
 				// Track memory creation.
-				if toolName == "create_memory_draft" {
+				if normalized == "create_memory_draft" {
 					log.MemoriesCreated++
 				}
 			}

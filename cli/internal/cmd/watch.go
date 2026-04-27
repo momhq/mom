@@ -155,11 +155,17 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	// Sweep mode: one-shot catch-up and exit.
 	if watchSweep {
+		adapterMap := make(map[string]watcher.Adapter, len(sources))
+		for _, src := range sources {
+			adapterMap[src.Runtime] = src.Adapter
+		}
+		bus := newProjectBus(momDir, adapterMap)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projectDir,
 			MomDir:     momDir,
 			Sources:    sources,
 			SweepOnly:  true,
+			Bus:        bus,
 		})
 		if err != nil {
 			return fmt.Errorf("creating watcher: %w", err)
@@ -301,11 +307,17 @@ func runWatchGlobal(sweepOnly bool) error {
 			if len(sources) == 0 {
 				continue
 			}
+			adapterMap := make(map[string]watcher.Adapter, len(sources))
+			for _, src := range sources {
+				adapterMap[src.Runtime] = src.Adapter
+			}
+			bus := newProjectBus(entry.MomDir, adapterMap)
 			w, err := watcher.New(watcher.Config{
 				ProjectDir: projDir,
 				MomDir:     entry.MomDir,
 				Sources:    sources,
 				SweepOnly:  true,
+				Bus:        bus,
 			})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "[mom] sweep %s: %v\n", projDir, err)
