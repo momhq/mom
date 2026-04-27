@@ -121,17 +121,16 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	alreadyExists := false
 	if _, err := os.Stat(leoDir); err == nil {
 		if !force {
-			// .mom/ exists — skip scaffold+config but still honour bootstrap choice.
 			alreadyExists = true
 		}
 	}
 
-	// When .mom/ already exists and --force was not given, skip scaffold+config
-	// but still return nil so the caller can run bootstrap if requested.
 	p := ux.NewPrinter(cmd.OutOrStdout())
+
+	// When .mom/ already exists: update config with new runtimes, regenerate
+	// runtime files, and reinstall daemon — but skip scaffold.
 	if alreadyExists {
-		p.Muted(".mom/ already exists — skipping scaffold, using existing config.")
-		return nil
+		return runReinit(cmd, cwd, leoDir, result, p)
 	}
 
 	showSpinner := ux.IsTTY(cmd.OutOrStdout())
@@ -366,6 +365,13 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		return genErr
 	}
 
+	// ── Phase 3.5: Register with global watch daemon ────────────────────────
+	if err := ensureGlobalDaemon(cwd, leoDir, result.Runtimes); err != nil {
+		p.Warnf("watch daemon: %v", err)
+	} else {
+		p.Check("watch daemon installed")
+	}
+
 	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
 	if added, gitErr := ensureGitIgnore(cwd, registry, result.Runtimes); gitErr != nil {
 		p.Warnf(".gitignore: %v", gitErr)
@@ -407,6 +413,102 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 	p.Blank()
 	p.Textf("MOM is ready. Run %s to check health.", p.HighlightCmd("mom status"))
+	return nil
+}
+
+// runReinit handles `mom init` on an already-initialized project.
+// Updates runtimes in config, regenerates context files, and reinstalls daemon.
+func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, p *ux.Printer) error {
+	cfg, err := config.Load(leoDir)
+	if err != nil {
+		// Corrupt or missing config — fall back to informational message.
+		p.Muted(".mom/ already exists — run with --force to reinitialize from scratch.")
+		return nil
+	}
+
+	// Merge new runtimes into existing config.
+	changed := false
+	for _, rt := range result.Runtimes {
+		if _, exists := cfg.Runtimes[rt]; !exists {
+			cfg.Runtimes[rt] = config.RuntimeConfig{Enabled: true}
+			changed = true
+		}
+	}
+
+	if !changed {
+		p.Muted(".mom/ already configured with selected runtimes — nothing to update.")
+		return nil
+	}
+
+	// Save updated config.
+	if err := config.Save(leoDir, cfg); err != nil {
+		return fmt.Errorf("saving config: %w", err)
+	}
+
+	// Regenerate runtime context files for all enabled runtimes.
+	registry := runtime.NewRegistry(cwd)
+	runtimeCfg := buildRuntimeConfig(cfg)
+	runtimeConstraints := buildRuntimeConstraints()
+	runtimeSkills := buildRuntimeSkills()
+	runtimeIdentity := buildRuntimeIdentity()
+
+	for _, rt := range cfg.EnabledRuntimes() {
+		adapter, ok := registry.Get(rt)
+		if !ok {
+			continue
+		}
+
+		for _, relPath := range adapter.GeneratedFiles() {
+			absPath := filepath.Join(cwd, relPath)
+			runtime.BackupIfNeeded(absPath) //nolint:errcheck
+		}
+
+		if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
+			p.Warnf("generating %s context: %v", rt, err)
+			continue
+		}
+
+		// Register MCP + hooks per adapter type.
+		if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.DefaultHooks())
+		}
+		if ca, ok := adapter.(*runtime.CodexAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.CodexHooks())
+		}
+		if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.WindsurfHooks())
+		}
+	}
+
+	// Register with global watch daemon (updated runtimes).
+	if err := ensureGlobalDaemon(cwd, leoDir, cfg.EnabledRuntimes()); err != nil {
+		p.Warnf("watch daemon: %v", err)
+	} else {
+		p.Check("watch daemon updated")
+	}
+
+	// Update .gitignore.
+	if added, gitErr := ensureGitIgnore(cwd, registry, cfg.EnabledRuntimes()); gitErr != nil {
+		p.Warnf(".gitignore: %v", gitErr)
+	} else if len(added) > 0 {
+		p.Checkf(".gitignore updated (%d entries added)", len(added))
+	}
+
+	p.Blank()
+	p.Check("configuration updated")
+	for _, rt := range result.Runtimes {
+		if adapter, ok := registry.Get(rt); ok {
+			for _, f := range adapter.GeneratedFiles() {
+				absPath := filepath.Join(cwd, f)
+				if _, statErr := os.Stat(absPath); statErr == nil {
+					p.Check(f)
+				}
+			}
+		}
+	}
 	return nil
 }
 

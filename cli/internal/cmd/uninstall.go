@@ -149,6 +149,13 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Unregister from global watch daemon.
+	if err := unregisterProject(projectRoot, leoDir); err != nil {
+		p.Warnf("watch daemon removal: %v", err)
+	} else {
+		p.Check("watch daemon removed")
+	}
+
 	// Remove .mom/.
 	if hasLeoDir {
 		if err := os.RemoveAll(leoDir); err != nil {

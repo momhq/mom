@@ -373,6 +373,15 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 		return phase3Err
 	}
 
+	// ── Phase 3.5: Register with global watch daemon ────────────────────────
+	if !dryRun {
+		if err := ensureGlobalDaemon(projectRoot, leoDir, cfg.EnabledRuntimes()); err != nil {
+			addAction("⚠", fmt.Sprintf("watch daemon: %v", err))
+		} else {
+			addAction("✔", "watch daemon installed/updated")
+		}
+	}
+
 	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
 	if !dryRun {
 		registry := runtime.NewRegistry(projectRoot)
