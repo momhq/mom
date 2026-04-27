@@ -353,7 +353,7 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 			} else {
 				addAction("✔", "SQLite search index rebuilt")
 			}
-			idx.Close()
+			_ = idx.Close()
 		}
 
 		if showSpinner {

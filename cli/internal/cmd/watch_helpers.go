@@ -134,11 +134,17 @@ func sweepTranscripts(momDir string) {
 		return
 	}
 
+	adapterMap := make(map[string]watcher.Adapter, len(sources))
+	for _, src := range sources {
+		adapterMap[src.Runtime] = src.Adapter
+	}
+	bus := newProjectBus(momDir, adapterMap)
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
 		MomDir:     momDir,
 		Sources:    sources,
 		SweepOnly:  true,
+		Bus:        bus,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[mom] sweep: %v\n", err)

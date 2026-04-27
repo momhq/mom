@@ -56,14 +56,14 @@ func openSQLiteIndex(momDir string) (*sqliteIndex, error) {
 	// Apply connection pragmas.
 	for _, pragma := range []string{pragmaWAL, pragmaForeignKeys, pragmaSynchronous, pragmaCacheSize} {
 		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("applying pragma %q: %w", pragma, err)
 		}
 	}
 
 	idx := &sqliteIndex{db: db, dbPath: dbPath}
 	if err := idx.createSchema(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("creating schema: %w", err)
 	}
 

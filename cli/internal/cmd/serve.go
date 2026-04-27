@@ -74,6 +74,10 @@ func runServeMCP(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("no .mom/ directory found. Run 'mom init' first")
 	}
 
+	// Layer 2: one-shot sweep catches unprocessed transcripts.
+	// Covers the scenario where the daemon is not installed yet.
+	sweepTranscripts(sc.Path)
+
 	mcp.Version = Version
 	srv := mcp.New(sc.Path)
 	// Blocks until stdin is closed.
@@ -237,7 +241,7 @@ func runServerStatusFollow(p *ux.Printer, logPath string) error {
 	defer f.Close()
 
 	// Seek to end — only show new activity.
-	f.Seek(0, io.SeekEnd)
+	_, _ = f.Seek(0, io.SeekEnd)
 
 	buf := make([]byte, 4096)
 	var partial string

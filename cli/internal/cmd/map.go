@@ -179,7 +179,7 @@ func runBootstrap(cmd *cobra.Command, _ []string) error {
 				// Gardener writes directly to JSON; reindex to sync SQLite.
 				reIdx := storage.NewIndexedAdapter(targetScope.Path)
 				_ = reIdx.Reindex()
-				reIdx.Close()
+				_ = reIdx.Close()
 			}
 		}
 

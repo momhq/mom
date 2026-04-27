@@ -2,7 +2,7 @@ package cartographer
 
 import (
 	"context"
-	"regexp"
+
 	"strings"
 )
 
@@ -24,12 +24,6 @@ func (e *MarkdownExtractor) Matches(path string) bool {
 	return markdownExtensions[ext]
 }
 
-// Patterns used for extraction.
-var (
-	reDecisionInline = regexp.MustCompile(`(?i)^Decision:\s*(.+)`)
-	rePatternInline  = regexp.MustCompile(`(?i)^Pattern:\s*(.+)`)
-	reURL = regexp.MustCompile(`https?://[^\s)\]"']+`)
-)
 
 func (e *MarkdownExtractor) Extract(_ context.Context, src Source) ([]Draft, error) {
 	lines := linesOf(src.Content)
