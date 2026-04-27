@@ -67,17 +67,11 @@ func (a *WindsurfAdapter) BelongsToProject(path string) bool {
 		t, _ := obj["type"].(string)
 
 		// mcp_tool — check any MCP tool result for project path.
-		// mom_status is authoritative (has constraint paths), but any
-		// tool result mentioning the project dir is a valid signal.
 		if t == "mcp_tool" {
 			if mcp, ok := obj["mcp_tool"].(map[string]any); ok {
 				if result, ok := mcp["result"].(string); ok {
 					if strings.Contains(result, a.ProjectDir) {
 						return true
-					}
-					// mom_status is authoritative — if it doesn't match, stop.
-					if mcp["tool_name"] == "mom_status" {
-						return false
 					}
 				}
 			}
