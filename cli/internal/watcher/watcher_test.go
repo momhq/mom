@@ -348,3 +348,82 @@ func mustMarshal(t *testing.T, v any) string {
 	}
 	return string(b)
 }
+
+// TestNew_ProjectScoping_PiUsesCustomSlug verifies that when pi is one of
+// the configured sources, its custom ProjectSlug is honored — the watcher
+// scopes to the pi-style "--<path>--" subdirectory rather than the default
+// "<path>" slug. This guards the privacy-bleed regression where a missing
+// scoper override caused pi sessions from OTHER projects to be ingested.
+func TestNew_ProjectScoping_PiUsesCustomSlug(t *testing.T) {
+	base := t.TempDir()                                 // simulated ~/.pi/agent/sessions
+	momDir := filepath.Join(t.TempDir(), ".mom")
+	projectDir := "/Users/foo/proj"
+
+	// Create the pi-style scoped subdir so the scoping check finds it.
+	piSlugDir := filepath.Join(base, "--Users-foo-proj--")
+	if err := os.MkdirAll(piSlugDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Also create a default-style dir to prove pi DOESN'T use it.
+	defaultSlugDir := filepath.Join(base, "-Users-foo-proj")
+	if err := os.MkdirAll(defaultSlugDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	w, err := New(Config{
+		ProjectDir: projectDir,
+		MomDir:     momDir,
+		Sources: []Source{{
+			Runtime:       "pi",
+			TranscriptDir: base,
+			Adapter:       NewPiAdapter(),
+		}},
+		SweepOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	got := w.TranscriptDir()
+	if got != piSlugDir {
+		t.Errorf("expected scoped dir to be pi slug %q, got %q", piSlugDir, got)
+	}
+}
+
+// TestNew_ProjectScoping_ClaudeUsesDefaultSlug is the negative control:
+// claude adapter does NOT implement ProjectScoper, so the default
+// strings.ReplaceAll(path, "/", "-") rule applies.
+func TestNew_ProjectScoping_ClaudeUsesDefaultSlug(t *testing.T) {
+	base := t.TempDir()
+	momDir := filepath.Join(t.TempDir(), ".mom")
+	projectDir := "/Users/foo/proj"
+
+	defaultSlugDir := filepath.Join(base, "-Users-foo-proj")
+	if err := os.MkdirAll(defaultSlugDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	piSlugDir := filepath.Join(base, "--Users-foo-proj--")
+	if err := os.MkdirAll(piSlugDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	w, err := New(Config{
+		ProjectDir: projectDir,
+		MomDir:     momDir,
+		Sources: []Source{{
+			Runtime:       "claude",
+			TranscriptDir: base,
+			Adapter:       NewClaudeAdapter(),
+		}},
+		SweepOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	got := w.TranscriptDir()
+	if got != defaultSlugDir {
+		t.Errorf("expected scoped dir to be default slug %q, got %q", defaultSlugDir, got)
+	}
+}
