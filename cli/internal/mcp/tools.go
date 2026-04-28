@@ -353,7 +353,7 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 		Tags:           tags,
 		Created:        now,
 		CreatedBy:      "mcp",
-		PromotionState: "draft",
+		PromotionState: "curated",
 		Classification: "INTERNAL",
 		Compartments:   map[string][]string{},
 		Provenance: &memory.Provenance{
@@ -369,9 +369,9 @@ func (s *Server) toolCreateMemoryDraft(args map[string]any) (toolCallResult, err
 	path := filepath.Join(memDir, id+".json")
 	result := map[string]any{
 		"id":              id,
-		"promotion_state": "draft",
+		"promotion_state": "curated",
 		"path":            path,
-		"message":         fmt.Sprintf("Draft memory created at %s", path),
+		"message":         fmt.Sprintf("Memory created at %s", path),
 	}
 	text, _ := json.MarshalIndent(result, "", "  ")
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
