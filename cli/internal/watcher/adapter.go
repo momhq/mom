@@ -36,6 +36,14 @@ type ProjectFilter interface {
 	BelongsToProject(path string) bool
 }
 
+// ToolCategorizer is optionally implemented by adapters that know how to
+// bucket their Harness's tool names into logbook categories. Falls back to
+// logbook.categorizeTool when not implemented or when an empty string is
+// returned for an unknown tool.
+type ToolCategorizer interface {
+	CategorizeTool(toolName string) string
+}
+
 // ProjectScoper is optionally implemented by adapters whose runtime uses a
 // non-default project-slug convention for its per-project transcript
 // subdirectory. The default convention (claude/codex) is
