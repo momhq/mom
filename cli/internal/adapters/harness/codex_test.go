@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	"encoding/json"
@@ -15,16 +15,16 @@ func TestCodexAdapter_Name(t *testing.T) {
 	}
 }
 
-func TestCodexAdapter_DetectRuntime(t *testing.T) {
+func TestCodexAdapter_DetectHarness(t *testing.T) {
 	dir := t.TempDir()
 	a := NewCodexAdapter(dir)
 
-	if a.DetectRuntime() {
+	if a.DetectHarness() {
 		t.Error("expected false when AGENTS.md does not exist")
 	}
 
 	os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# agents"), 0644)
-	if !a.DetectRuntime() {
+	if !a.DetectHarness() {
 		t.Error("expected true when AGENTS.md exists")
 	}
 }
@@ -169,7 +169,7 @@ func TestCodexAdapter_RegisterMCP(t *testing.T) {
 		t.Fatalf("RegisterMCP failed: %v", err)
 	}
 
-	// Verify .mcp.json (shared with other runtimes).
+	// Verify .mcp.json (shared with other Harnesses).
 	data, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
 	if err != nil {
 		t.Fatalf("reading .mcp.json: %v", err)

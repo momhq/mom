@@ -1,23 +1,18 @@
-# 0003 — Design for breakability: modular monolith with extractable seams
+# 0004 — Transcript source as optional interface on runtime.Adapter
 
-MOM is built as a modular monolith: single-process simplicity by default, but with seams designed so that any module can be extracted into its own service if growth demands it. The discipline is:
+Watcher sources (harness name, transcript dir, watcher.Adapter instance) were reconstructed at every call site via a `switch watchRuntime` (manual path) or `buildWatcherSources` lookup (config path), plus a package-level map `defaultTranscriptDirs`. Adding a Harness required edits in three places.
 
-1. **Default to single-process simplicity.** Don't introduce a service boundary unless the cost of *not* having it exceeds the cost of having it.
-2. **Treat module boundaries as if they could become service boundaries.** Even when extraction isn't planned, design so that future extraction is mechanical — not a rewrite.
-3. **Favor event-driven seams** when they fit the domain. Input → process → output, with the process being replaceable.
-4. **Coupling is paid daily; modularity is paid at extraction.** Choose the cheaper bill given expected lifetime.
-
-This is a *decision-making framework*, not a one-off architectural choice. It will recur every time we resolve a "should this be one thing or two?" question.
-
-## Examples
-
-- **ADR 0002** (adapter interfaces): Flavor 2 over Flavor 1 — optional interfaces instead of base methods — because the base stays small and focused, allowing future extraction of "integration mechanisms" as a separate service without breaking existing adapters.
-- **ADR 0004** (watcher sources): Optional `TranscriptSource` interface over base method, with joining logic at call site only — because the two registries (runtime adapters, watcher adapters) can be extracted into a unified `HarnessRegistry` service without touching either adapter type.
+Transcript source knowledge moves to an optional `TranscriptSource` interface on `runtime.Adapter` (the install-time adapter). Adapters that have transcripts to watch implement it; adapters that don't (e.g., transcript-only) simply don't satisfy the interface. Callers query the adapter for its transcript dir, then join with the watcher adapter registry at call site. This fits the breakability principle: runtime adapters and watcher adapters stay separate, joinable without coupling.
 
 ## Consequences
 
-- Interfaces stay small and focused. New capabilities add optional interfaces rather than bloating the base.
-- Call sites handle joining logic explicitly (e.g., type assertions, name-keyed lookups). This keeps coupling explicit and extractable.
-- If a module grows large enough to warrant its own service, the extraction is mechanical: lift the joining logic into a new struct/package, add HTTP/gRPC serialization, and wire the event-driven seam.
-- The monolith stays simple until complexity demands otherwise.</content>
-<parameter name="path">/Users/vmarino/Github/mom/mom/adr/0003-design-for-breakability.md
+- The legacy `defaultTranscriptDirs` map and the `switch watchRuntime` / `buildWatcherSources` switches are deleted. Call sites become "iterate adapters, ask for TranscriptSource if present, join with watcher registry."
+- Adding a Harness → implement `TranscriptSource` on the runtime adapter → both call sites pick it up automatically.
+- **Fits the breakability principle (ADR 0003).** If watcher logic extracts to its own service, transcript knowledge stays with runtime adapters; joining moves to the service boundary.
+- Semantically honest: harnesses without transcripts (future MCP-only) don't implement the interface.
+- **Silent contract drift risk.** If `DefaultTranscriptDir` is renamed, type assertions stop matching. Mitigation: compile-time checks in adapter files.
+
+## Considered alternatives
+
+- **Method on base `Adapter` (B1).** Rejected: forces empty-string returns for transcript-less harnesses; couples transcript knowledge to every adapter.
+- **TranscriptSource on `watcher.Adapter` (D3 from grilling).** Rejected: violates breakability; watcher adapters are runtime-time, runtime adapters are install-time.

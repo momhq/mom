@@ -1,5 +1,5 @@
-// Package runtime defines the RuntimeAdapter interface for AI runtime integrations.
-package runtime
+// Package harness defines the Adapter interface for AI Harness integrations.
+package harness
 
 import (
 	"os/exec"
@@ -68,33 +68,33 @@ type AdapterCapability struct {
 	Experimental []string `yaml:"experimental"`
 }
 
-// HookDef defines a hook to register with the runtime.
+// HookDef defines a hook to register with the Harness.
 type HookDef struct {
 	Event   string // e.g. "PostToolUse"
 	Matcher string // e.g. "Write"
 	Command string
 }
 
-// Adapter is the interface that runtime integrations must implement.
-// Each runtime (Claude, Codex, Windsurf, etc.) provides an adapter
-// that reads from .mom/ and generates runtime-specific files.
+// Adapter is the interface that Harness integrations must implement.
+// Each Harness (Claude, Codex, Windsurf, etc.) provides an Adapter
+// that reads from .mom/ and generates Harness-specific files.
 type Adapter interface {
-	// Name returns the runtime identifier (e.g. "claude", "codex", "windsurf").
+	// Name returns the Harness identifier (e.g. "claude", "codex", "windsurf").
 	Name() string
 
-	// GenerateContextFile generates the runtime's boot file
+	// GenerateContextFile generates the Harness's boot file
 	// (e.g. CLAUDE.md, AGENTS.md) from MOM's config,
 	// constraints, skills, and identity.
 	GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
 
-	// SupportsHooks returns whether this runtime supports hooks.
+	// SupportsHooks returns whether this Harness supports hooks.
 	SupportsHooks() bool
 
-	// RegisterHooks registers hooks with the runtime if supported.
+	// RegisterHooks registers hooks with the Harness if supported.
 	RegisterHooks(hooks []HookDef) error
 
-	// DetectRuntime checks whether this runtime is present in the project.
-	DetectRuntime() bool
+	// DetectHarness checks whether this Harness is present in the project.
+	DetectHarness() bool
 
 	// GeneratedFiles returns the list of file paths (relative to project root)
 	// that this adapter generates. Used by uninstall to clean up.
@@ -117,12 +117,12 @@ type Adapter interface {
 	// directories (with trailing /) and files.
 	GitIgnorePaths() []string
 
-	// RegisterMCP registers the MOM MCP server config for this runtime.
+	// RegisterMCP registers the MOM MCP server config for this Harness.
 	RegisterMCP() error
 }
 
-// HooksForRuntime returns the standard MOM hooks for the given runtime name.
-func HooksForRuntime(name string) []HookDef {
+// HooksForHarness returns the standard MOM hooks for the given Harness name.
+func HooksForHarness(name string) []HookDef {
 	switch name {
 	case "claude":
 		return DefaultHooks()

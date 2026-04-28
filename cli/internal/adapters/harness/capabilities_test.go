@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	"testing"

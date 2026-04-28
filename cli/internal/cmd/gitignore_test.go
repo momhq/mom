@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/harness"
 )
 
 func TestEnsureGitIgnore_CreatesNewFile(t *testing.T) {
 	dir := t.TempDir()
-	registry := runtime.NewRegistry(dir)
+	registry := harness.NewRegistry(dir)
 
 	added, err := ensureGitIgnore(dir, registry, []string{"claude"})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestEnsureGitIgnore_CreatesNewFile(t *testing.T) {
 
 func TestEnsureGitIgnore_AppendsToExisting(t *testing.T) {
 	dir := t.TempDir()
-	registry := runtime.NewRegistry(dir)
+	registry := harness.NewRegistry(dir)
 
 	existing := "node_modules/\n*.log\n"
 	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(existing), 0644)
@@ -82,7 +82,7 @@ func TestEnsureGitIgnore_AppendsToExisting(t *testing.T) {
 
 func TestEnsureGitIgnore_NoDuplicates(t *testing.T) {
 	dir := t.TempDir()
-	registry := runtime.NewRegistry(dir)
+	registry := harness.NewRegistry(dir)
 
 	// Pre-populate with some MOM entries.
 	existing := ".mom/\n.mcp.json\n"
@@ -114,7 +114,7 @@ func TestEnsureGitIgnore_NoDuplicates(t *testing.T) {
 
 func TestEnsureGitIgnore_AllPresent_NoOp(t *testing.T) {
 	dir := t.TempDir()
-	registry := runtime.NewRegistry(dir)
+	registry := harness.NewRegistry(dir)
 
 	existing := ".mom/\n.mcp.json\n.claude/\nCLAUDE.md\n"
 	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(existing), 0644)
@@ -137,7 +137,7 @@ func TestEnsureGitIgnore_AllPresent_NoOp(t *testing.T) {
 
 func TestEnsureGitIgnore_MultiRuntime(t *testing.T) {
 	dir := t.TempDir()
-	registry := runtime.NewRegistry(dir)
+	registry := harness.NewRegistry(dir)
 
 	added, err := ensureGitIgnore(dir, registry, []string{"claude", "codex", "windsurf"})
 	if err != nil {
@@ -161,7 +161,7 @@ func TestEnsureGitIgnore_MultiRuntime(t *testing.T) {
 
 func TestEnsureGitIgnore_Idempotent(t *testing.T) {
 	dir := t.TempDir()
-	registry := runtime.NewRegistry(dir)
+	registry := harness.NewRegistry(dir)
 
 	// First call.
 	_, err := ensureGitIgnore(dir, registry, []string{"claude"})
@@ -189,7 +189,7 @@ func TestEnsureGitIgnore_Idempotent(t *testing.T) {
 
 func TestEnsureGitIgnore_ExistingFileNoTrailingNewline(t *testing.T) {
 	dir := t.TempDir()
-	registry := runtime.NewRegistry(dir)
+	registry := harness.NewRegistry(dir)
 
 	// File without trailing newline.
 	existing := "node_modules/"

@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	_ "embed"
@@ -103,10 +103,10 @@ func CodexHooks() []HookDef {
 }
 
 // RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
-// (shared with other runtimes) and Codex's config.toml files (project-level and
+// (shared with other Harnesses) and Codex's config.toml files (project-level and
 // global ~/.codex/config.toml), which is where Codex actually reads MCP config.
 func (a *CodexAdapter) RegisterMCP() error {
-	// 1. Project-level .mcp.json (shared with other runtimes).
+	// 1. Project-level .mcp.json (shared with other Harnesses).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
 	if err := upsertMCPEntry(mcpPath); err != nil {
 		return err
@@ -173,7 +173,7 @@ func upsertCodexMCPEntry(path string) error {
 	return nil
 }
 
-func (a *CodexAdapter) DetectRuntime() bool {
+func (a *CodexAdapter) DetectHarness() bool {
 	_, err := os.Stat(filepath.Join(a.projectRoot, "AGENTS.md"))
 	return err == nil
 }

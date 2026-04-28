@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	_ "embed"
@@ -46,7 +46,7 @@ func (a *PiAdapter) GenerateContextFile(config Config, constraints []Constraint,
 	}
 	content := a.Watermark() + "\n\n" + body
 
-	// AGENTS.md is shared with Codex; both runtimes produce identical content
+	// AGENTS.md is shared with Codex; both Harnesses produce identical content
 	// from the same .mom/ inputs, so co-installation is a no-op collision.
 	agentsFile := filepath.Join(a.projectRoot, "AGENTS.md")
 	if err := os.WriteFile(agentsFile, []byte(content), 0644); err != nil {
@@ -57,7 +57,7 @@ func (a *PiAdapter) GenerateContextFile(config Config, constraints []Constraint,
 
 func (a *PiAdapter) SupportsHooks() bool {
 	// Pi has no native hook system, but RegisterHooks installs an extension
-	// that fulfills the same architectural role (wiring runtime → MOM).
+	// that fulfills the same architectural role (wiring Harness → MOM).
 	return true
 }
 
@@ -89,7 +89,7 @@ func PiHooks() []HookDef {
 	return nil
 }
 
-func (a *PiAdapter) DetectRuntime() bool {
+func (a *PiAdapter) DetectHarness() bool {
 	// Use .pi/ as the marker — AGENTS.md alone is ambiguous (Codex uses it too).
 	info, err := os.Stat(filepath.Join(a.projectRoot, ".pi"))
 	return err == nil && info.IsDir()
