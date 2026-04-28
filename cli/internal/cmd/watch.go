@@ -131,7 +131,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		}
 
 		sources = []watcher.Source{{
-			Runtime:       watchHarness,
+			Harness:       watchHarness,
 			TranscriptDir: transcriptDir,
 			Adapter:       adapter,
 		}}
@@ -151,7 +151,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	if watchSweep {
 		adapterMap := make(map[string]watcher.Adapter, len(sources))
 		for _, src := range sources {
-			adapterMap[src.Runtime] = src.Adapter
+			adapterMap[src.Harness] = src.Adapter
 		}
 		bus := newProjectBus(momDir, adapterMap)
 		w, err := watcher.New(watcher.Config{
@@ -179,7 +179,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	// Logbook and Drafter subscribe as downstream processors.
 	adapterMap := make(map[string]watcher.Adapter, len(sources))
 	for _, src := range sources {
-		adapterMap[src.Runtime] = src.Adapter
+		adapterMap[src.Harness] = src.Adapter
 	}
 	bus := newProjectBus(momDir, adapterMap)
 
@@ -197,7 +197,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	// Print startup info.
 	harnessNames := make([]string, len(sources))
 	for i, src := range sources {
-		harnessNames[i] = src.Runtime
+		harnessNames[i] = src.Harness
 	}
 	p.Diamond(fmt.Sprintf("watch [%s]", strings.Join(harnessNames, ", ")))
 	for rt, dir := range w.TranscriptDirs() {
@@ -305,7 +305,7 @@ func runWatchGlobal(sweepOnly bool) error {
 			}
 			adapterMap := make(map[string]watcher.Adapter, len(sources))
 			for _, src := range sources {
-				adapterMap[src.Runtime] = src.Adapter
+				adapterMap[src.Harness] = src.Adapter
 			}
 			bus := newProjectBus(entry.MomDir, adapterMap)
 			w, err := watcher.New(watcher.Config{
@@ -357,7 +357,7 @@ func runWatchGlobal(sweepOnly bool) error {
 		}
 		adapterMap := make(map[string]watcher.Adapter, len(sources))
 		for _, src := range sources {
-			adapterMap[src.Runtime] = src.Adapter
+			adapterMap[src.Harness] = src.Adapter
 		}
 		bus := newProjectBus(entry.MomDir, adapterMap)
 		w, err := watcher.New(watcher.Config{
