@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	_ "embed"
@@ -29,6 +29,10 @@ func (a *CodexAdapter) Name() string {
 	return "codex"
 }
 
+func (a *CodexAdapter) Tier() Tier {
+	return Fluent
+}
+
 func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	var body string
 	if config.Delivery == "context-file" {
@@ -46,11 +50,11 @@ func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constrai
 	return nil
 }
 
-func (a *CodexAdapter) SupportsHooks() bool {
-	return true
-}
-
-func (a *CodexAdapter) RegisterHooks(hooks []HookDef) error {
+func (a *CodexAdapter) RegisterHooks() error {
+	hooks := []HookDef{
+		{Event: "Stop", Command: "mom record"},
+		{Event: "Stop", Command: "mom draft"},
+	}
 	codexDir := filepath.Join(a.projectRoot, ".codex")
 	hooksPath := filepath.Join(codexDir, "hooks.json")
 
@@ -93,20 +97,11 @@ func (a *CodexAdapter) RegisterHooks(hooks []HookDef) error {
 	return nil
 }
 
-// CodexHooks returns the standard MOM hooks for Codex.
-// Stop → mom record + mom draft: continuous mode (1-response lag).
-func CodexHooks() []HookDef {
-	return []HookDef{
-		{Event: "Stop", Command: "mom record"},
-		{Event: "Stop", Command: "mom draft"},
-	}
-}
-
 // RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
-// (shared with other runtimes) and Codex's config.toml files (project-level and
+// (shared with other Harnesses) and Codex's config.toml files (project-level and
 // global ~/.codex/config.toml), which is where Codex actually reads MCP config.
 func (a *CodexAdapter) RegisterMCP() error {
-	// 1. Project-level .mcp.json (shared with other runtimes).
+	// 1. Project-level .mcp.json (shared with other Harnesses).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
 	if err := upsertMCPEntry(mcpPath); err != nil {
 		return err
@@ -173,7 +168,7 @@ func upsertCodexMCPEntry(path string) error {
 	return nil
 }
 
-func (a *CodexAdapter) DetectRuntime() bool {
+func (a *CodexAdapter) DetectHarness() bool {
 	_, err := os.Stat(filepath.Join(a.projectRoot, "AGENTS.md"))
 	return err == nil
 }
@@ -206,3 +201,5 @@ func (a *CodexAdapter) Capabilities() AdapterCapability {
 	}
 	return cap
 }
+
+var _ HookInstaller = (*CodexAdapter)(nil)

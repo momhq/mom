@@ -9,7 +9,7 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/harness"
 	"github.com/momhq/mom/cli/internal/ux"
 )
 
@@ -39,7 +39,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	accessible := !isTerminalReader(r)
 
 	// ── Prepare runtime options ─────────────────────────────────────────────
-	registry := runtime.NewRegistry(cwd)
+	registry := harness.NewRegistry(cwd)
 	allAdapters := registry.All()
 	detected := registry.DetectAll()
 
@@ -435,6 +435,8 @@ func runtimeLabel(rt string) string {
 		return "Cursor"
 	case "windsurf":
 		return "Windsurf"
+	case "pi":
+		return "Pi"
 	default:
 		return rt
 	}
