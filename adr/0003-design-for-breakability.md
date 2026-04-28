@@ -12,7 +12,7 @@ This is a *decision-making framework*, not a one-off architectural choice. It wi
 ## Examples
 
 - **ADR 0002** (adapter interfaces): Flavor 2 over Flavor 1 — optional interfaces instead of base methods — because the base stays small and focused, allowing future extraction of "integration mechanisms" as a separate service without breaking existing adapters.
-- **ADR 0004** (watcher sources): Optional `TranscriptSource` interface over base method, with joining logic at call site only — because the two registries (runtime adapters, watcher adapters) can be extracted into a unified `HarnessRegistry` service without touching either adapter type.
+- **ADR 0004** (watcher sources): Optional `TranscriptSource` interface over base method, with joining logic at call site only — because the two registries (Harness adapters, watcher adapters) can be extracted into a unified `HarnessRegistry` service without touching either adapter type.
 
 ## Consequences
 
