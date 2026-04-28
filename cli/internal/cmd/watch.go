@@ -39,6 +39,7 @@ var (
 var defaultTranscriptDirs = map[string]string{
 	"claude":   "~/.claude/projects/",
 	"windsurf": "~/.windsurf/transcripts/",
+	"pi":       "~/.pi/agent/sessions/",
 }
 
 var watchCmd = &cobra.Command{
@@ -50,6 +51,7 @@ ingests new conversation turns into .mom/raw/ without MCP calls or hook overhead
 Supported runtimes:
   claude    — ~/.claude/projects/ (default)
   windsurf  — ~/.windsurf/transcripts/
+  pi        — ~/.pi/agent/sessions/
 
 Each session's JSONL transcript is tailed incrementally.
 Cursor files in .mom/raw/ track the last ingested byte offset per session,
@@ -63,7 +65,7 @@ The watcher runs in the foreground. Use Ctrl-C to stop.`,
 
 func init() {
 	watchCmd.Flags().StringVar(&watchRuntime, "runtime", "claude",
-		`Runtime to watch: "claude" (default) or "windsurf"`)
+		`Runtime to watch: "claude" (default), "windsurf", or "pi"`)
 	watchCmd.Flags().StringVar(&watchTranscriptDir, "dir", "",
 		"Transcript directory to watch (overrides the runtime default)")
 	watchCmd.Flags().IntVar(&watchDebounceMs, "debounce", 300,
@@ -127,13 +129,18 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 			if transcriptDir == "" {
 				transcriptDir = defaultTranscriptDirs["windsurf"]
 			}
+		case "pi":
+			adapter = watcher.NewPiAdapter()
+			if transcriptDir == "" {
+				transcriptDir = defaultTranscriptDirs["pi"]
+			}
 		case "claude", "":
 			adapter = watcher.NewClaudeAdapter()
 			if transcriptDir == "" {
 				transcriptDir = defaultTranscriptDirs["claude"]
 			}
 		default:
-			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf", watchRuntime)
+			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf, pi", watchRuntime)
 		}
 
 		sources = []watcher.Source{{
