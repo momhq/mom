@@ -29,6 +29,10 @@ func (a *ClaudeAdapter) Name() string {
 	return "claude"
 }
 
+func (a *ClaudeAdapter) Tier() Tier {
+	return Fluent
+}
+
 func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	claudeDir := filepath.Join(a.projectRoot, ".claude")
 	if err := os.MkdirAll(claudeDir, 0755); err != nil {
