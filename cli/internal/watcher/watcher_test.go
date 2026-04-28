@@ -375,7 +375,7 @@ func TestNew_ProjectScoping_PiUsesCustomSlug(t *testing.T) {
 		ProjectDir: projectDir,
 		MomDir:     momDir,
 		Sources: []Source{{
-			Runtime:       "pi",
+			Harness:       "pi",
 			TranscriptDir: base,
 			Adapter:       NewPiAdapter(),
 		}},
@@ -412,7 +412,7 @@ func TestNew_ProjectScoping_ClaudeUsesDefaultSlug(t *testing.T) {
 		ProjectDir: projectDir,
 		MomDir:     momDir,
 		Sources: []Source{{
-			Runtime:       "claude",
+			Harness:       "claude",
 			TranscriptDir: base,
 			Adapter:       NewClaudeAdapter(),
 		}},

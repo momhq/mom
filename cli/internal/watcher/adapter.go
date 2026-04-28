@@ -8,10 +8,10 @@ import (
 	"github.com/momhq/mom/cli/internal/recorder"
 )
 
-// Adapter parses runtime-specific transcript lines into RawEntry values.
-// Each runtime (Claude Code, Windsurf, Codex) has its own adapter.
+// Adapter parses Harness-specific transcript lines into RawEntry values.
+// Each Harness (Claude Code, Windsurf, Pi) has its own adapter.
 type Adapter interface {
-	// Name returns the adapter's runtime identifier.
+	// Name returns the adapter's Harness identifier.
 	Name() string
 
 	// ParseLine parses a single JSONL line from a transcript file.
@@ -21,7 +21,7 @@ type Adapter interface {
 }
 
 // SessionParser is optionally implemented by adapters that provide
-// runtime-specific logbook parsing. Falls back to logbook.ParseTranscript
+// Harness-specific logbook parsing. Falls back to logbook.ParseTranscript
 // (Claude Code format) when not implemented.
 type SessionParser interface {
 	ParseSession(transcriptPath, sessionID string) (*logbook.SessionLog, error)
@@ -44,7 +44,7 @@ type ToolCategorizer interface {
 	CategorizeTool(toolName string) string
 }
 
-// ProjectScoper is optionally implemented by adapters whose runtime uses a
+// ProjectScoper is optionally implemented by adapters whose Harness uses a
 // non-default project-slug convention for its per-project transcript
 // subdirectory. The default convention (claude/codex) is
 // strings.ReplaceAll(path, "/", "-"); pi (for example) uses
@@ -54,7 +54,7 @@ type ToolCategorizer interface {
 // projectSlug() to locate the scoped transcript subdirectory.
 type ProjectScoper interface {
 	// ProjectSlug returns the per-project subdirectory name this adapter's
-	// runtime would create under its base transcript directory for the given
+	// Harness would create under its base transcript directory for the given
 	// absolute project path.
 	ProjectSlug(projectDir string) string
 }
