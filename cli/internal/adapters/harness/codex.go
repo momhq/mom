@@ -50,11 +50,11 @@ func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constrai
 	return nil
 }
 
-func (a *CodexAdapter) SupportsHooks() bool {
-	return true
-}
-
-func (a *CodexAdapter) RegisterHooks(hooks []HookDef) error {
+func (a *CodexAdapter) RegisterHooks() error {
+	hooks := []HookDef{
+		{Event: "Stop", Command: "mom record"},
+		{Event: "Stop", Command: "mom draft"},
+	}
 	codexDir := filepath.Join(a.projectRoot, ".codex")
 	hooksPath := filepath.Join(codexDir, "hooks.json")
 
@@ -95,15 +95,6 @@ func (a *CodexAdapter) RegisterHooks(hooks []HookDef) error {
 	}
 
 	return nil
-}
-
-// CodexHooks returns the standard MOM hooks for Codex.
-// Stop → mom record + mom draft: continuous mode (1-response lag).
-func CodexHooks() []HookDef {
-	return []HookDef{
-		{Event: "Stop", Command: "mom record"},
-		{Event: "Stop", Command: "mom draft"},
-	}
 }
 
 // RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
@@ -210,3 +201,5 @@ func (a *CodexAdapter) Capabilities() AdapterCapability {
 	}
 	return cap
 }
+
+var _ HookInstaller = (*CodexAdapter)(nil)

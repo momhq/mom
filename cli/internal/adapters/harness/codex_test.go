@@ -82,18 +82,11 @@ func TestCodexAdapter_GenerateContextFileWatermark(t *testing.T) {
 	}
 }
 
-func TestCodexAdapter_SupportsHooks(t *testing.T) {
-	a := NewCodexAdapter("/tmp/test")
-	if !a.SupportsHooks() {
-		t.Error("expected SupportsHooks to be true")
-	}
-}
-
 func TestCodexAdapter_RegisterHooks(t *testing.T) {
 	dir := t.TempDir()
 	a := NewCodexAdapter(dir)
 
-	if err := a.RegisterHooks(CodexHooks()); err != nil {
+	if err := a.RegisterHooks(); err != nil {
 		t.Fatalf("RegisterHooks failed: %v", err)
 	}
 

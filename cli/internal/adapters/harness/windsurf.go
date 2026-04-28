@@ -56,11 +56,15 @@ func (a *WindsurfAdapter) GenerateContextFile(config Config, constraints []Const
 	return nil
 }
 
-func (a *WindsurfAdapter) SupportsHooks() bool {
-	return true
+// DefaultTranscriptDir returns Windsurf's transcript directory.
+func (a *WindsurfAdapter) DefaultTranscriptDir() string {
+	return "~/.windsurf/transcripts/"
 }
 
-func (a *WindsurfAdapter) RegisterHooks(hooks []HookDef) error {
+func (a *WindsurfAdapter) RegisterHooks() error {
+	hooks := []HookDef{
+		{Event: "post_cascade_response_with_transcript", Command: "mom draft"},
+	}
 	windsurfDir := filepath.Join(a.projectRoot, ".windsurf")
 	if err := os.MkdirAll(windsurfDir, 0755); err != nil {
 		return fmt.Errorf("creating .windsurf dir: %w", err)
@@ -92,19 +96,6 @@ func (a *WindsurfAdapter) RegisterHooks(hooks []HookDef) error {
 		return fmt.Errorf("writing hooks.json: %w", err)
 	}
 	return nil
-}
-
-// WindsurfHooks returns the standard MOM hooks for Windsurf.
-//
-// Recording is handled by the filesystem watcher (mom watch --runtime windsurf),
-// which reads ~/.windsurf/transcripts/ directly. The mom record hook is intentionally
-// omitted to avoid the 25-fires-per-turn problem and explosive raw data growth (#145).
-//
-// Only mom draft is retained so the drafter pipeline runs after each turn.
-func WindsurfHooks() []HookDef {
-	return []HookDef{
-		{Event: "post_cascade_response_with_transcript", Command: "mom draft"},
-	}
 }
 
 func (a *WindsurfAdapter) DetectHarness() bool {
@@ -203,3 +194,8 @@ func (a *WindsurfAdapter) Capabilities() AdapterCapability {
 	}
 	return cap
 }
+
+var (
+	_ HookInstaller    = (*WindsurfAdapter)(nil)
+	_ TranscriptSource = (*WindsurfAdapter)(nil)
+)
