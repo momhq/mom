@@ -17,14 +17,14 @@ import (
 	"github.com/momhq/mom/cli/internal/ux"
 )
 
-// Source describes one runtime's transcript directory and parser.
+// Source describes one Harness's transcript directory and parser.
 type Source struct {
-	// Runtime is the name of the runtime (e.g. "claude", "windsurf").
-	Runtime string
+	// Harness is the name of the Harness (e.g. "claude", "windsurf").
+	Harness string
 	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
 	// Tilde expansion is performed automatically.
 	TranscriptDir string
-	// Adapter parses runtime-specific JSONL lines.
+	// Adapter parses Harness-specific JSONL lines.
 	Adapter Adapter
 }
 
@@ -32,8 +32,7 @@ type Source struct {
 type Config struct {
 	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
 	// Tilde expansion is performed automatically.
-	//
-	// Deprecated: use Sources instead. Kept for single-runtime compat.
+	// DEPRECATED: use Sources instead. Kept for single-Harness compat.
 	TranscriptDir string
 	// ProjectDir is the absolute path of the project being watched.
 	// Used to scope ingestion to the matching transcript subdirectory.
@@ -41,11 +40,10 @@ type Config struct {
 	ProjectDir string
 	// MomDir is the path to .mom/ where raw/ and cursor files are written.
 	MomDir string
-	// Adapter parses runtime-specific JSONL lines.
-	//
-	// Deprecated: use Sources instead. Kept for single-runtime compat.
+	// Adapter parses Harness-specific JSONL lines.
+	// DEPRECATED: use Sources instead. Kept for single-Harness compat.
 	Adapter Adapter
-	// Sources lists all runtime transcript directories to watch.
+	// Sources lists all Harness transcript directories to watch.
 	// When set, TranscriptDir and Adapter are ignored.
 	Sources []Source
 	// DebounceMs is how long to wait after a Write event before reading.
@@ -62,12 +60,12 @@ type Config struct {
 
 // resolvedSource is a Source after tilde expansion and project scoping.
 type resolvedSource struct {
-	runtime string
+	harness string
 	dir     string // resolved absolute path
 	adapter Adapter
 }
 
-// Watcher watches runtime transcript directories and ingests new entries
+// Watcher watches Harness transcript directories and ingests new entries
 // into .mom/raw/ using cursor-based incremental reads.
 type Watcher struct {
 	cfg        Config
@@ -91,7 +89,7 @@ func New(cfg Config) (*Watcher, error) {
 	sources := cfg.Sources
 	if len(sources) == 0 && cfg.TranscriptDir != "" {
 		sources = []Source{{
-			Runtime:       "default",
+			Harness:       "default",
 			TranscriptDir: cfg.TranscriptDir,
 			Adapter:       cfg.Adapter,
 		}}
@@ -102,7 +100,7 @@ func New(cfg Config) (*Watcher, error) {
 	for _, src := range sources {
 		dir, err := expandTilde(src.TranscriptDir)
 		if err != nil {
-			return nil, fmt.Errorf("expanding transcript dir for %s: %w", src.Runtime, err)
+			return nil, fmt.Errorf("expanding transcript dir for %s: %w", src.Harness, err)
 		}
 
 		// Scope to project-specific subdirectory when ProjectDir is set.
@@ -124,7 +122,7 @@ func New(cfg Config) (*Watcher, error) {
 		}
 
 		resolved = append(resolved, resolvedSource{
-			runtime: src.Runtime,
+			harness: src.Harness,
 			dir:     dir,
 			adapter: src.Adapter,
 		})
@@ -170,7 +168,7 @@ func (w *Watcher) Run() error {
 	// Watch all transcript directories recursively.
 	for _, src := range w.sources {
 		if err := w.addDir(src.dir); err != nil {
-			w.logf("watching %s (%s): %v — skipping", src.dir, src.runtime, err)
+			w.logf("watching %s (%s): %v — skipping", src.dir, src.harness, err)
 		}
 	}
 
@@ -187,7 +185,7 @@ func (w *Watcher) Run() error {
 	}
 
 	for _, src := range w.sources {
-		w.logf("watcher started on %s (%s)", src.dir, src.runtime)
+		w.logf("watcher started on %s (%s)", src.dir, src.harness)
 	}
 
 	for {
@@ -238,7 +236,7 @@ func (w *Watcher) TranscriptDir() string {
 func (w *Watcher) TranscriptDirs() map[string]string {
 	dirs := make(map[string]string, len(w.sources))
 	for _, src := range w.sources {
-		dirs[src.runtime] = src.dir
+		dirs[src.harness] = src.dir
 	}
 	return dirs
 }

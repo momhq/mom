@@ -153,7 +153,7 @@ func sweepTranscripts(momDir string) {
 
 	adapterMap := make(map[string]watcher.Adapter, len(sources))
 	for _, src := range sources {
-		adapterMap[src.Runtime] = src.Adapter
+		adapterMap[src.Harness] = src.Adapter
 	}
 	bus := newProjectBus(momDir, adapterMap)
 	w, err := watcher.New(watcher.Config{
@@ -200,7 +200,7 @@ func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source
 			continue
 		}
 		sources = append(sources, watcher.Source{
-			Runtime:       rt,
+			Harness:       rt,
 			TranscriptDir: dir,
 			Adapter:       adapter,
 		})
