@@ -55,11 +55,16 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constra
 	return nil
 }
 
-func (a *ClaudeAdapter) SupportsHooks() bool {
-	return true
+// DefaultTranscriptDir returns Claude Code's transcript directory.
+func (a *ClaudeAdapter) DefaultTranscriptDir() string {
+	return "~/.claude/projects/"
 }
 
-func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
+func (a *ClaudeAdapter) RegisterHooks() error {
+	hooks := []HookDef{
+		{Event: "Stop", Command: "mom draft"},
+		{Event: "SessionEnd", Command: "mom draft"},
+	}
 	claudeDir := filepath.Join(a.projectRoot, ".claude")
 	settingsPath := filepath.Join(claudeDir, "settings.json")
 
@@ -118,24 +123,6 @@ func (a *ClaudeAdapter) RegisterHooks(hooks []HookDef) error {
 	}
 
 	return nil
-}
-
-// DefaultHooks returns the standard MOM hooks for Claude Code.
-// Recording is handled by `mom watch` (filesystem watcher) — no record hook needed.
-// Stop → mom draft: processes drafts after each response (continuous mode, 1-response lag).
-// SessionEnd → mom draft: fallback to draft the last response when the
-// session closes — covers abrupt exits and final decisions.
-func DefaultHooks() []HookDef {
-	return []HookDef{
-		{
-			Event:   "Stop",
-			Command: "mom draft",
-		},
-		{
-			Event:   "SessionEnd",
-			Command: "mom draft",
-		},
-	}
 }
 
 func (a *ClaudeAdapter) DetectHarness() bool {
@@ -207,6 +194,11 @@ func (a *ClaudeAdapter) Capabilities() AdapterCapability {
 	}
 	return cap
 }
+
+var (
+	_ HookInstaller    = (*ClaudeAdapter)(nil)
+	_ TranscriptSource = (*ClaudeAdapter)(nil)
+)
 
 // HasWatermark checks if a file contains the MOM watermark (or the legacy L.E.O. watermark).
 func HasWatermark(path string) bool {

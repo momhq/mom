@@ -84,7 +84,7 @@ func TestWindsurfAdapter_RegisterHooks(t *testing.T) {
 	dir := t.TempDir()
 	a := NewWindsurfAdapter(dir)
 
-	if err := a.RegisterHooks(WindsurfHooks()); err != nil {
+	if err := a.RegisterHooks(); err != nil {
 		t.Fatalf("RegisterHooks failed: %v", err)
 	}
 
