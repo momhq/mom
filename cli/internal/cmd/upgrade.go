@@ -779,13 +779,17 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
 
-		// Register MCP server config and hooks for all adapters.
 		if err := adapter.RegisterMCP(); err != nil {
 			return fmt.Errorf("registering %s MCP config: %w", rt, err)
 		}
-		if adapter.SupportsHooks() {
-			if err := adapter.RegisterHooks(harness.HooksForHarness(rt)); err != nil {
+		if h, ok := adapter.(harness.HookInstaller); ok {
+			if err := h.RegisterHooks(); err != nil {
 				return fmt.Errorf("registering %s hooks: %w", rt, err)
+			}
+		}
+		if e, ok := adapter.(harness.ExtensionInstaller); ok {
+			if err := e.RegisterExtension(); err != nil {
+				return fmt.Errorf("registering %s extension: %w", rt, err)
 			}
 		}
 	}

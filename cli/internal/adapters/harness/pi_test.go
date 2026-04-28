@@ -70,14 +70,12 @@ func TestPiAdapter_GenerateContextFile_MinimalDelivery(t *testing.T) {
 	}
 }
 
-func TestPiAdapter_RegisterHooks_LaysDownExtension(t *testing.T) {
+func TestPiAdapter_RegisterExtension_LaysDownExtension(t *testing.T) {
 	dir := t.TempDir()
 	a := NewPiAdapter(dir)
 
-	// Hooks parameter is ignored — pi has no hook system. Pass PiHooks()
-	// to mirror how init.go invokes the adapter.
-	if err := a.RegisterHooks(PiHooks()); err != nil {
-		t.Fatalf("RegisterHooks: %v", err)
+	if err := a.RegisterExtension(); err != nil {
+		t.Fatalf("RegisterExtension: %v", err)
 	}
 
 	target := filepath.Join(dir, ".pi", "extensions", "mom-tools.ts")
@@ -104,15 +102,15 @@ func TestPiAdapter_RegisterHooks_LaysDownExtension(t *testing.T) {
 	}
 }
 
-func TestPiAdapter_RegisterHooks_Idempotent(t *testing.T) {
+func TestPiAdapter_RegisterExtension_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	a := NewPiAdapter(dir)
 
-	if err := a.RegisterHooks(nil); err != nil {
-		t.Fatalf("first RegisterHooks: %v", err)
+	if err := a.RegisterExtension(); err != nil {
+		t.Fatalf("first RegisterExtension: %v", err)
 	}
-	if err := a.RegisterHooks(nil); err != nil {
-		t.Fatalf("second RegisterHooks: %v", err)
+	if err := a.RegisterExtension(); err != nil {
+		t.Fatalf("second RegisterExtension: %v", err)
 	}
 
 	// Second call should overwrite cleanly with identical content.
@@ -276,15 +274,3 @@ func TestPiAdapter_Watermark(t *testing.T) {
 // other adapters' capability tests — keeping the cross-Harness contract
 // (Supports vs Experimental, no overlap) in one place.
 
-func TestPiAdapter_SupportsHooks(t *testing.T) {
-	a := NewPiAdapter("/tmp/x")
-	if !a.SupportsHooks() {
-		t.Error("pi adapter should report SupportsHooks=true (extension lay-down)")
-	}
-}
-
-func TestPiHooks_IsNil(t *testing.T) {
-	if h := PiHooks(); h != nil {
-		t.Errorf("PiHooks() should return nil (pi has no hook system); got %v", h)
-	}
-}

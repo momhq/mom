@@ -15,13 +15,6 @@ func TestClaudeAdapter_Name(t *testing.T) {
 	}
 }
 
-func TestClaudeAdapter_SupportsHooks(t *testing.T) {
-	a := NewClaudeAdapter("/tmp/test")
-	if !a.SupportsHooks() {
-		t.Error("expected SupportsHooks to be true")
-	}
-}
-
 func TestClaudeAdapter_DetectHarness(t *testing.T) {
 	dir := t.TempDir()
 
@@ -206,71 +199,10 @@ func TestClaudeAdapter_GenerateContextFile_CommunicationModes(t *testing.T) {
 
 func TestClaudeAdapter_RegisterHooks(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, ".claude"), 0755)
 	a := NewClaudeAdapter(dir)
 
-	hooks := []HookDef{
-		{Event: "PostToolUse", Matcher: "Write", Command: "validate.sh"},
-	}
-
-	if err := a.RegisterHooks(hooks); err != nil {
+	if err := a.RegisterHooks(); err != nil {
 		t.Fatalf("RegisterHooks failed: %v", err)
-	}
-
-	content, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
-	if err != nil {
-		t.Fatalf("reading settings.json: %v", err)
-	}
-
-	// Verify Claude Code hooks format: { "hooks": { "Event": [ { "matcher": "...", "hooks": [...] } ] } }
-	var settings map[string]any
-	if err := json.Unmarshal(content, &settings); err != nil {
-		t.Fatalf("parsing settings.json: %v", err)
-	}
-
-	hooksMap, ok := settings["hooks"].(map[string]any)
-	if !ok {
-		t.Fatal("hooks should be a map keyed by event name")
-	}
-
-	postToolUse, ok := hooksMap["PostToolUse"].([]any)
-	if !ok {
-		t.Fatal("hooks.PostToolUse should be an array")
-	}
-	if len(postToolUse) != 1 {
-		t.Fatalf("expected 1 matcher group, got %d", len(postToolUse))
-	}
-
-	group, ok := postToolUse[0].(map[string]any)
-	if !ok {
-		t.Fatal("matcher group should be a map")
-	}
-	if group["matcher"] != "Write" {
-		t.Errorf("expected matcher 'Write', got %v", group["matcher"])
-	}
-
-	innerHooks, ok := group["hooks"].([]any)
-	if !ok || len(innerHooks) == 0 {
-		t.Fatal("matcher group should have a hooks array")
-	}
-	hookEntry, ok := innerHooks[0].(map[string]any)
-	if !ok {
-		t.Fatal("hook entry should be a map")
-	}
-	if hookEntry["type"] != "command" {
-		t.Errorf("expected type 'command', got %v", hookEntry["type"])
-	}
-	if hookEntry["command"] != "validate.sh" {
-		t.Errorf("expected command 'validate.sh', got %v", hookEntry["command"])
-	}
-}
-
-func TestClaudeAdapter_RegisterHooks_DefaultHooks(t *testing.T) {
-	dir := t.TempDir()
-	a := NewClaudeAdapter(dir)
-
-	if err := a.RegisterHooks(DefaultHooks()); err != nil {
-		t.Fatalf("RegisterHooks with defaults failed: %v", err)
 	}
 
 	content, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))

@@ -28,19 +28,12 @@ var (
 	watchTranscriptDir string
 	watchDebounceMs    int
 	watchStatus        bool
-	watchRuntime       string
+	watchHarness       string
 	watchSweep         bool
 	watchInstall       bool
 	watchUninstall     bool
 	watchGlobal        bool
 )
-
-// defaultTranscriptDirs maps runtime name to its default transcript directory.
-var defaultTranscriptDirs = map[string]string{
-	"claude":   "~/.claude/projects/",
-	"windsurf": "~/.windsurf/transcripts/",
-	"pi":       "~/.pi/agent/sessions/",
-}
 
 var watchCmd = &cobra.Command{
 	Use:   "watch",
@@ -64,7 +57,7 @@ The watcher runs in the foreground. Use Ctrl-C to stop.`,
 }
 
 func init() {
-	watchCmd.Flags().StringVar(&watchRuntime, "runtime", "claude",
+	watchCmd.Flags().StringVar(&watchHarness, "runtime", "claude",
 		`Runtime to watch: "claude" (default), "windsurf", or "pi"`)
 	watchCmd.Flags().StringVar(&watchTranscriptDir, "dir", "",
 		"Transcript directory to watch (overrides the runtime default)")
@@ -116,40 +109,34 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	// Build watcher sources: if --runtime is explicitly set, use single source;
 	// otherwise read config and watch all enabled runtimes.
 	var sources []watcher.Source
-	runtimeExplicit := cmd.Flags().Changed("runtime")
+	harnessExplicit := cmd.Flags().Changed("runtime")
 
-	if runtimeExplicit {
-		// Manual single-runtime mode.
+	if harnessExplicit {
+		// Manual single-Harness mode.
 		transcriptDir := watchTranscriptDir
 		var adapter watcher.Adapter
 
-		switch watchRuntime {
+		switch watchHarness {
 		case "windsurf":
 			adapter = &watcher.WindsurfAdapter{ProjectDir: projectDir}
-			if transcriptDir == "" {
-				transcriptDir = defaultTranscriptDirs["windsurf"]
-			}
 		case "pi":
 			adapter = watcher.NewPiAdapter()
-			if transcriptDir == "" {
-				transcriptDir = defaultTranscriptDirs["pi"]
-			}
 		case "claude", "":
 			adapter = watcher.NewClaudeAdapter()
-			if transcriptDir == "" {
-				transcriptDir = defaultTranscriptDirs["claude"]
-			}
 		default:
-			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf, pi", watchRuntime)
+			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf, pi", watchHarness)
+		}
+		if transcriptDir == "" {
+			transcriptDir = harnessTranscriptDir(watchHarness)
 		}
 
 		sources = []watcher.Source{{
-			Runtime:       watchRuntime,
+			Runtime:       watchHarness,
 			TranscriptDir: transcriptDir,
 			Adapter:       adapter,
 		}}
 	} else {
-		// Config-driven multi-runtime mode (daemon default).
+		// Config-driven multi-Harness mode (daemon default).
 		momCfg, err := config.Load(momDir)
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
@@ -208,11 +195,11 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Print startup info.
-	runtimeNames := make([]string, len(sources))
+	harnessNames := make([]string, len(sources))
 	for i, src := range sources {
-		runtimeNames[i] = src.Runtime
+		harnessNames[i] = src.Runtime
 	}
-	p.Diamond(fmt.Sprintf("watch [%s]", strings.Join(runtimeNames, ", ")))
+	p.Diamond(fmt.Sprintf("watch [%s]", strings.Join(harnessNames, ", ")))
 	for rt, dir := range w.TranscriptDirs() {
 		p.Chevron(fmt.Sprintf("%s: %s", rt, dir))
 	}
@@ -228,7 +215,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 // newProjectBus creates a Herald event bus with Logbook and Drafter subscribers
 // wired for a given momDir. Used by both single-project and global watch modes.
-// adapters maps runtime name → Adapter for runtime-specific logbook parsing.
+// adapters maps Harness name → Adapter for Harness-specific logbook parsing.
 func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.Bus {
 	bus := herald.NewBus()
 
@@ -243,7 +230,7 @@ func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.B
 		logsDir := filepath.Join(md, "logs")
 		_ = os.MkdirAll(logsDir, 0755)
 
-		// Use runtime-specific parser when available, fall back to Claude format.
+		// Use Harness-specific parser when available, fall back to Claude format.
 		var sessionLog *logbook.SessionLog
 		var err error
 		if rt, ok := e.Payload["runtime"].(string); ok {

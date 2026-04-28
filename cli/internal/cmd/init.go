@@ -311,15 +311,20 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				return
 			}
 
-			// Register MCP server config and hooks. The Adapter interface
-			// covers all Harnesses uniformly; each adapter knows its own hook
-			// set via HooksForHarness(name).
+			// Register MCP, then any optional integration mechanisms the
+			// Harness exposes (hooks, extensions).
 			if err := adapter.RegisterMCP(); err != nil {
 				genErr = err
 				return
 			}
-			if adapter.SupportsHooks() {
-				if err := adapter.RegisterHooks(harness.HooksForHarness(rt)); err != nil {
+			if h, ok := adapter.(harness.HookInstaller); ok {
+				if err := h.RegisterHooks(); err != nil {
+					genErr = err
+					return
+				}
+			}
+			if e, ok := adapter.(harness.ExtensionInstaller); ok {
+				if err := e.RegisterExtension(); err != nil {
 					genErr = err
 					return
 				}
@@ -450,12 +455,12 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 			continue
 		}
 
-		// Register MCP + hooks generically. Same pattern as upgrade.go and
-		// the fresh-init path above; covers any adapter implementing the
-		// harness.Adapter interface, including pi.
 		_ = adapter.RegisterMCP()
-		if adapter.SupportsHooks() {
-			_ = adapter.RegisterHooks(harness.HooksForHarness(rt))
+		if h, ok := adapter.(harness.HookInstaller); ok {
+			_ = h.RegisterHooks()
+		}
+		if e, ok := adapter.(harness.ExtensionInstaller); ok {
+			_ = e.RegisterExtension()
 		}
 	}
 

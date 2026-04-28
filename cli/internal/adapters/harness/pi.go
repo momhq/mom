@@ -57,21 +57,13 @@ func (a *PiAdapter) GenerateContextFile(config Config, constraints []Constraint,
 	return nil
 }
 
-func (a *PiAdapter) SupportsHooks() bool {
-	// Pi has no native hook system, but RegisterHooks installs an extension
-	// that fulfills the same architectural role (wiring Harness → MOM).
-	return true
+// DefaultTranscriptDir returns pi's session transcript directory.
+func (a *PiAdapter) DefaultTranscriptDir() string {
+	return "~/.pi/agent/sessions/"
 }
 
-// RegisterHooks lays down pi extensions that integrate MOM. Pi has no
-// equivalent of Claude/Codex/Windsurf hook config; the extension model is
-// how pi gets extended at runtime, so MOM's "hook" for pi is an embedded
-// TypeScript extension dropped into .pi/extensions/.
-//
-// The hooks []HookDef parameter is accepted for interface compatibility
-// but is not used — pi does not run shell commands per event. Use
-// PiHooks() (returns nil) when invoking from init.go.
-func (a *PiAdapter) RegisterHooks(_ []HookDef) error {
+// RegisterExtension lays down the MOM TypeScript extension in .pi/extensions/.
+func (a *PiAdapter) RegisterExtension() error {
 	extDir := filepath.Join(a.projectRoot, ".pi", "extensions")
 	if err := os.MkdirAll(extDir, 0755); err != nil {
 		return fmt.Errorf("creating .pi/extensions dir: %w", err)
@@ -81,13 +73,6 @@ func (a *PiAdapter) RegisterHooks(_ []HookDef) error {
 	if err := os.WriteFile(target, piMomToolsExtension, 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", target, err)
 	}
-	return nil
-}
-
-// PiHooks returns the standard MOM hooks for pi. Pi has no hook system,
-// so this returns nil; RegisterHooks ignores its argument and lays down
-// the embedded extension instead.
-func PiHooks() []HookDef {
 	return nil
 }
 
@@ -137,3 +122,8 @@ func (a *PiAdapter) Capabilities() AdapterCapability {
 	}
 	return cap
 }
+
+var (
+	_ ExtensionInstaller = (*PiAdapter)(nil)
+	_ TranscriptSource   = (*PiAdapter)(nil)
+)

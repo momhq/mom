@@ -116,12 +116,6 @@ type Adapter interface {
 	// constraints, skills, and identity.
 	GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
 
-	// SupportsHooks returns whether this Harness supports hooks.
-	SupportsHooks() bool
-
-	// RegisterHooks registers hooks with the Harness if supported.
-	RegisterHooks(hooks []HookDef) error
-
 	// DetectHarness checks whether this Harness is present in the project.
 	DetectHarness() bool
 
@@ -170,18 +164,4 @@ type TranscriptSource interface {
 	DefaultTranscriptDir() string
 }
 
-// HooksForHarness returns the standard MOM hooks for the given Harness name.
-func HooksForHarness(name string) []HookDef {
-	switch name {
-	case "claude":
-		return DefaultHooks()
-	case "codex":
-		return CodexHooks()
-	case "windsurf":
-		return WindsurfHooks()
-	case "pi":
-		return PiHooks()
-	default:
-		return DefaultHooks()
-	}
-}
+
