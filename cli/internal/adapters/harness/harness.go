@@ -68,6 +68,32 @@ type AdapterCapability struct {
 	Experimental []string `yaml:"experimental"`
 }
 
+// Tier classifies a Harness's integration quality with MOM.
+type Tier int
+
+const (
+	// Functional integration: minimal surface, automation may be unreliable.
+	Functional Tier = iota
+	// Fluent integration: standard idioms (hooks, settings files), good fidelity.
+	Fluent
+	// Native integration: programmable extensibility, full feature exposure.
+	Native
+)
+
+// String returns the lowercase tier name.
+func (t Tier) String() string {
+	switch t {
+	case Native:
+		return "native"
+	case Fluent:
+		return "fluent"
+	case Functional:
+		return "functional"
+	default:
+		return "unknown"
+	}
+}
+
 // HookDef defines a hook to register with the Harness.
 type HookDef struct {
 	Event   string // e.g. "PostToolUse"
@@ -81,6 +107,9 @@ type HookDef struct {
 type Adapter interface {
 	// Name returns the Harness identifier (e.g. "claude", "codex", "windsurf").
 	Name() string
+
+	// Tier returns the Harness's integration quality classification.
+	Tier() Tier
 
 	// GenerateContextFile generates the Harness's boot file
 	// (e.g. CLAUDE.md, AGENTS.md) from MOM's config,

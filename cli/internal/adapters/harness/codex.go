@@ -29,6 +29,10 @@ func (a *CodexAdapter) Name() string {
 	return "codex"
 }
 
+func (a *CodexAdapter) Tier() Tier {
+	return Fluent
+}
+
 func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	var body string
 	if config.Delivery == "context-file" {

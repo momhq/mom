@@ -28,6 +28,10 @@ func (a *WindsurfAdapter) Name() string {
 	return "windsurf"
 }
 
+func (a *WindsurfAdapter) Tier() Tier {
+	return Functional
+}
+
 func (a *WindsurfAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	rulesDir := filepath.Join(a.projectRoot, ".windsurf", "rules")
 	if err := os.MkdirAll(rulesDir, 0755); err != nil {
