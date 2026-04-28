@@ -14,15 +14,15 @@ func TestDefault_HasSaneValues(t *testing.T) {
 	if cfg.Version != "1" {
 		t.Errorf("expected version %q, got %q", "1", cfg.Version)
 	}
-	if len(cfg.Runtimes) == 0 {
-		t.Fatal("expected at least one runtime in defaults")
+	if len(cfg.Harnesses) == 0 {
+		t.Fatal("expected at least one harness in defaults")
 	}
-	rc, ok := cfg.Runtimes["claude"]
+	rc, ok := cfg.Harnesses["claude"]
 	if !ok {
-		t.Fatal("expected claude runtime in defaults")
+		t.Fatal("expected claude harness in defaults")
 	}
 	if !rc.Enabled {
-		t.Error("expected claude runtime to be enabled")
+		t.Error("expected claude harness to be enabled")
 	}
 	if cfg.Communication.Mode != "concise" {
 		t.Errorf("expected communication.mode %q, got %q", "concise", cfg.Communication.Mode)
@@ -33,7 +33,7 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 
 	original := Default()
-	original.Runtimes["codex"] = RuntimeConfig{Enabled: true}
+	original.Harnesses["codex"] = HarnessConfig{Enabled: true}
 	original.User.Language = "pt-BR"
 
 	if err := Save(dir, &original); err != nil {
@@ -51,8 +51,8 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if _, ok := loaded.Runtimes["codex"]; !ok {
-		t.Error("expected codex runtime after round-trip")
+	if _, ok := loaded.Harnesses["codex"]; !ok {
+		t.Error("expected codex harness after round-trip")
 	}
 	if loaded.User.Language != "pt-BR" {
 		t.Errorf("expected language %q, got %q", "pt-BR", loaded.User.Language)
@@ -112,9 +112,9 @@ specialists:
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	rc, ok := cfg.Runtimes["claude"]
+	rc, ok := cfg.Harnesses["claude"]
 	if !ok {
-		t.Fatal("expected claude runtime after migration")
+		t.Fatal("expected claude harness after migration")
 	}
 	if !rc.Enabled {
 		t.Error("expected claude to be enabled after migration")
@@ -252,9 +252,9 @@ kb:
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	_, ok := cfg.Runtimes["cline"]
+	_, ok := cfg.Harnesses["cline"]
 	if !ok {
-		t.Fatal("expected cline runtime")
+		t.Fatal("expected cline harness")
 	}
 	// Verify the config loaded correctly — the struct no longer has Tiers/Autonomy
 	// fields so go-yaml silently drops them. Verify other fields are intact.
@@ -263,23 +263,50 @@ kb:
 	}
 }
 
-func TestConfigEnabledRuntimes(t *testing.T) {
+func TestConfigEnabledHarnesses(t *testing.T) {
 	cfg := Config{
-		Runtimes: map[string]RuntimeConfig{
+		Harnesses: map[string]HarnessConfig{
 			"claude":   {Enabled: true},
 			"codex":    {Enabled: true},
 			"windsurf": {Enabled: false},
 		},
 	}
 
-	enabled := cfg.EnabledRuntimes()
+	enabled := cfg.EnabledHarnesses()
 	sort.Strings(enabled)
 
 	if len(enabled) != 2 {
-		t.Fatalf("expected 2 enabled runtimes, got %d", len(enabled))
+		t.Fatalf("expected 2 enabled harnesses, got %d", len(enabled))
 	}
 	if enabled[0] != "claude" || enabled[1] != "codex" {
 		t.Errorf("expected [claude, codex], got %v", enabled)
+	}
+}
+
+// TestLoad_LegacyRuntimesKey verifies that configs using the deprecated
+// "runtimes:" key are still loaded and promoted to "harnesses:".
+func TestLoad_LegacyRuntimesKey(t *testing.T) {
+	dir := t.TempDir()
+	cfgYaml := `version: "1"
+runtimes:
+  claude:
+    enabled: true
+  windsurf:
+    enabled: true
+communication:
+  mode: concise
+`
+	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(cfgYaml), 0644)
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if len(cfg.Harnesses) != 2 {
+		t.Fatalf("expected 2 harnesses promoted from runtimes:, got %d", len(cfg.Harnesses))
+	}
+	if _, ok := cfg.Harnesses["claude"]; !ok {
+		t.Error("expected claude in harnesses after promotion")
 	}
 }
 
@@ -328,12 +355,12 @@ func TestTelemetryRoundTrip(t *testing.T) {
 	}
 }
 
-func TestConfigMultiRuntime(t *testing.T) {
+func TestConfigMultiHarness(t *testing.T) {
 	dir := t.TempDir()
 
 	cfg := Config{
 		Version: "1",
-		Runtimes: map[string]RuntimeConfig{
+		Harnesses: map[string]HarnessConfig{
 			"claude":   {Enabled: true},
 			"codex":    {Enabled: true},
 			"windsurf": {Enabled: true},
@@ -352,7 +379,7 @@ func TestConfigMultiRuntime(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if len(loaded.Runtimes) != 3 {
-		t.Errorf("expected 3 runtimes, got %d", len(loaded.Runtimes))
+	if len(loaded.Harnesses) != 3 {
+		t.Errorf("expected 3 harnesses, got %d", len(loaded.Harnesses))
 	}
 }

@@ -16,7 +16,7 @@ import (
 // OnboardingResult holds the choices the user made during the interactive
 // onboarding wizard. All values are the internal identifiers used by Leo.
 type OnboardingResult struct {
-	Runtimes   []string // ["claude", "codex", "windsurf"]
+	Harnesses  []string // ["claude", "codex", "windsurf"]
 	Language   string   // always "en" — language selection removed in v0.9
 	Mode       string   // "default", "concise", "efficient"
 	CoreSource string   // path to mom clone, or "" if skipped
@@ -53,7 +53,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 
 	var runtimeOptions []huh.Option[string]
 	for _, a := range allAdapters {
-		label := runtimeLabel(a.Name())
+		label := harnessLabel(a.Name())
 		if detectedSet[a.Name()] {
 			label += " (detected)"
 		}
@@ -65,7 +65,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}
 
 	// ── Bind variables ──────────────────────────────────────────────────────
-	var selectedRuntimes []string
+	var selectedHarnesses []string
 	// Language is fixed to "en"; the prompt was removed in v0.9.
 	lang := "en"
 	mode := "concise"
@@ -102,16 +102,16 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				),
 		),
 
-		// Group 2: Runtimes
+		// Group 2: Harnesses
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Which AI Assistants do you want to enable?").
 				Options(runtimeOptions...).
 				Height(len(runtimeOptions)+2).
-				Value(&selectedRuntimes).
+				Value(&selectedHarnesses).
 				Validate(func(selected []string) error {
 					if len(selected) == 0 {
-						return fmt.Errorf("select at least one runtime")
+						return fmt.Errorf("select at least one harness")
 					}
 					return nil
 				}),
@@ -170,8 +170,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		scopeDisplay = "current directory (repo)"
 	}
 	summaryText := fmt.Sprintf(
-		"  Runtimes:  %s\n  Language:  %s\n  Mode:      %s\n  Scope:     %s (%s)",
-		runtimesLabel(selectedRuntimes),
+		"  Harnesses: %s\n  Language:  %s\n  Mode:      %s\n  Scope:     %s (%s)",
+		harnessesLabel(selectedHarnesses),
 		languageLabel(lang),
 		modeLabel(mode),
 		scopeLabel,
@@ -204,7 +204,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}
 
 	return OnboardingResult{
-		Runtimes:        selectedRuntimes,
+		Harnesses:       selectedHarnesses,
 		Language:        lang,
 		Mode:            mode,
 		CoreSource:      "",
@@ -425,7 +425,7 @@ func expandTilde(path string) string {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-func runtimeLabel(rt string) string {
+func harnessLabel(rt string) string {
 	switch rt {
 	case "claude":
 		return "Claude Code"
@@ -442,10 +442,10 @@ func runtimeLabel(rt string) string {
 	}
 }
 
-func runtimesLabel(rts []string) string {
+func harnessesLabel(rts []string) string {
 	labels := make([]string, len(rts))
 	for i, rt := range rts {
-		labels[i] = runtimeLabel(rt)
+		labels[i] = harnessLabel(rt)
 	}
 	return strings.Join(labels, ", ")
 }

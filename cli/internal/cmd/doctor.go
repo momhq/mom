@@ -91,14 +91,14 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		p.Failf("config.yaml: %v", cfgErr)
 		failed = true
 	} else {
-		p.Checkf("config.yaml: valid (runtimes: %s)", strings.Join(cfg.EnabledRuntimes(), ", "))
+		p.Checkf("config.yaml: valid (harnesses: %s)", strings.Join(cfg.EnabledHarnesses(), ", "))
 	}
 
 	// Harness status: tier + integration capabilities.
-	if cfg != nil && len(cfg.EnabledRuntimes()) > 0 {
+	if cfg != nil && len(cfg.EnabledHarnesses()) > 0 {
 		cwd, _ := os.Getwd()
 		reg := harness.NewRegistry(cwd)
-		for _, name := range cfg.EnabledRuntimes() {
+		for _, name := range cfg.EnabledHarnesses() {
 			a, ok := reg.Get(name)
 			if !ok {
 				continue
@@ -702,7 +702,7 @@ func runDoctorBundle(cmd *cobra.Command) error {
 }
 
 func printBundleAdapterStatus(cmd *cobra.Command, cwd string, cfg *config.Config) {
-	enabled := cfg.EnabledRuntimes()
+	enabled := cfg.EnabledHarnesses()
 	if len(enabled) == 0 {
 		cmd.Printf("(no adapters enabled)\n")
 		return

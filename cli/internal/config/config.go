@@ -16,9 +16,9 @@ type Config struct {
 	// Scope declares this install's position in the hierarchy.
 	// Valid values: user | org | repo | workspace | custom.
 	// Absent or empty is treated as "repo" for backward compatibility.
-	Scope         string                   `yaml:"scope,omitempty"`
-	Runtimes      map[string]RuntimeConfig `yaml:"runtimes"`
-	User          UserConfig               `yaml:"user"`
+	Scope         string                    `yaml:"scope,omitempty"`
+	Harnesses     map[string]HarnessConfig  `yaml:"harnesses"`
+	User          UserConfig                `yaml:"user"`
 	Communication CommunicationConfig      `yaml:"communication"`
 	Memory        MemoryConfig             `yaml:"memory"`
 	RawMemories   RawMemoriesConfig        `yaml:"raw_memories"`
@@ -82,13 +82,17 @@ func (tc TelemetryConfig) TelemetryEnabled() bool {
 	return tc.Enabled == nil || *tc.Enabled
 }
 
-// RuntimeConfig holds per-runtime settings.
-type RuntimeConfig struct {
+// HarnessConfig holds per-harness settings.
+type HarnessConfig struct {
 	Enabled bool `yaml:"enabled"`
 	// Tiers was retired in v0.9.0 (#74). The field is intentionally absent from
 	// this struct so that go-yaml silently drops it on load. The upgrade command
 	// strips any residual tiers: keys from config files on disk.
 }
+
+// RuntimeConfig is deprecated: use HarnessConfig.
+// Kept as a type alias for one minor version while callers migrate.
+type RuntimeConfig = HarnessConfig
 
 // UserConfig holds user preferences.
 type UserConfig struct {
@@ -119,7 +123,7 @@ type RawMemoriesConfig struct {
 func Default() Config {
 	return Config{
 		Version: "1",
-		Runtimes: map[string]RuntimeConfig{
+		Harnesses: map[string]HarnessConfig{
 			"claude": {Enabled: true},
 		},
 		User: UserConfig{
@@ -134,27 +138,33 @@ func Default() Config {
 	}
 }
 
-// EnabledRuntimes returns the names of all runtimes where enabled is true.
-func (c *Config) EnabledRuntimes() []string {
-	var runtimes []string
-	for name, rc := range c.Runtimes {
-		if rc.Enabled {
-			runtimes = append(runtimes, name)
+// EnabledHarnesses returns the names of all harnesses where enabled is true.
+func (c *Config) EnabledHarnesses() []string {
+	var harnesses []string
+	for name, hc := range c.Harnesses {
+		if hc.Enabled {
+			harnesses = append(harnesses, name)
 		}
 	}
-	return runtimes
+	return harnesses
 }
 
-// PrimaryRuntime returns the first enabled runtime name, for backward
-// compatibility with code that expects a single runtime.
-func (c *Config) PrimaryRuntime() string {
-	for name, rc := range c.Runtimes {
-		if rc.Enabled {
+// EnabledRuntimes is deprecated: use EnabledHarnesses.
+func (c *Config) EnabledRuntimes() []string { return c.EnabledHarnesses() }
+
+// PrimaryHarness returns the first enabled harness name, for backward
+// compatibility with code that expects a single harness.
+func (c *Config) PrimaryHarness() string {
+	for name, hc := range c.Harnesses {
+		if hc.Enabled {
 			return name
 		}
 	}
 	return "claude"
 }
+
+// PrimaryRuntime is deprecated: use PrimaryHarness.
+func (c *Config) PrimaryRuntime() string { return c.PrimaryHarness() }
 
 // legacyUserConfig includes fields present in v0.6.0/v0.7.0 user blocks.
 type legacyUserConfig struct {
@@ -183,9 +193,18 @@ type legacySpecialists struct {
 	Validation        string `yaml:"validation"`
 }
 
+// loadableConfig is an intermediate struct used only during YAML parsing to
+// accept both the current "harnesses:" key and the deprecated "runtimes:" key.
+type loadableConfig struct {
+	Config          `yaml:",inline"`
+	LegacyRuntimes  map[string]HarnessConfig `yaml:"runtimes,omitempty"`
+}
+
 // Load reads a config.yaml from the given .mom/ directory.
 // Handles both v0.6.0 (single runtime) and v0.7.0 (multi-runtime) formats,
 // and migrates legacy kb: keys to memory: on load.
+// If only the deprecated "runtimes:" key is present, a deprecation warning is
+// printed to stderr and the values are promoted to "harnesses:".
 func Load(momDir string) (*Config, error) {
 	path := filepath.Join(momDir, "config.yaml")
 	data, err := os.ReadFile(path)
@@ -193,14 +212,21 @@ func Load(momDir string) (*Config, error) {
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
 
-	// Try new format first.
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	// Try new format first (accepts both harnesses: and runtimes: keys).
+	var lc loadableConfig
+	if err := yaml.Unmarshal(data, &lc); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
+	cfg := lc.Config
 
-	// If Runtimes is populated, it's the new format.
-	if len(cfg.Runtimes) > 0 {
+	// Promote legacy runtimes: → harnesses: with a deprecation warning.
+	if len(cfg.Harnesses) == 0 && len(lc.LegacyRuntimes) > 0 {
+		fmt.Fprintf(os.Stderr, "[mom] warning: config key \"runtimes:\" is deprecated — rename it to \"harnesses:\" in %s (run \"mom upgrade\" to migrate automatically)\n", path)
+		cfg.Harnesses = lc.LegacyRuntimes
+	}
+
+	// If Harnesses is populated, it's the new format.
+	if len(cfg.Harnesses) > 0 {
 		// Back-fill communication.mode if absent (pre-v0.8 configs that had
 		// user.mode but no communication block are handled via legacyConfig).
 		if cfg.Communication.Mode == "" {
@@ -225,8 +251,8 @@ func Load(momDir string) (*Config, error) {
 	}
 
 	// Fallback: return what we have with defaults.
-	if cfg.Runtimes == nil {
-		cfg.Runtimes = Default().Runtimes
+	if cfg.Harnesses == nil {
+		cfg.Harnesses = Default().Harnesses
 	}
 	return &cfg, nil
 }
@@ -283,7 +309,7 @@ func migrateFromLegacy(legacy *legacyConfig) *Config {
 	return &Config{
 		Version:    legacy.Version,
 		CoreSource: legacy.CoreSource,
-		Runtimes: map[string]RuntimeConfig{
+		Harnesses: map[string]HarnessConfig{
 			rt: {Enabled: true},
 		},
 		User:          user,

@@ -50,11 +50,11 @@ func TestOnboarding_DefaultSelections(t *testing.T) {
 		t.Fatalf("runOnboarding failed: %v\noutput:\n%s", err, output.String())
 	}
 
-	if len(result.Runtimes) == 0 {
+	if len(result.Harnesses) == 0 {
 		t.Fatal("expected at least one runtime")
 	}
-	if result.Runtimes[0] != "claude" {
-		t.Errorf("expected first runtime=claude, got %q", result.Runtimes[0])
+	if result.Harnesses[0] != "claude" {
+		t.Errorf("expected first runtime=claude, got %q", result.Harnesses[0])
 	}
 	if result.Language != "en" {
 		t.Errorf("expected language=en, got %q", result.Language)
@@ -77,7 +77,7 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 	}
 
 	hasRuntime := func(name string) bool {
-		for _, r := range result.Runtimes {
+		for _, r := range result.Harnesses {
 			if r == name {
 				return true
 			}
@@ -143,7 +143,7 @@ func TestOnboarding_OutputContainsSummary(t *testing.T) {
 
 	out := output.String()
 	// Autonomy is no longer in the summary; Language is still shown.
-	for _, keyword := range []string{"Runtimes", "Language", "Mode"} {
+	for _, keyword := range []string{"Harnesses", "Language", "Mode"} {
 		if !strings.Contains(out, keyword) {
 			t.Errorf("expected summary to contain %q, got:\n%s", keyword, out)
 		}
@@ -165,8 +165,8 @@ func TestOnboarding_MultipleRuntimesSelected(t *testing.T) {
 		t.Fatalf("runOnboarding failed: %v\noutput:\n%s", err, output.String())
 	}
 
-	if len(result.Runtimes) != 3 {
-		t.Fatalf("expected 3 runtimes, got %d: %v", len(result.Runtimes), result.Runtimes)
+	if len(result.Harnesses) != 3 {
+		t.Fatalf("expected 3 runtimes, got %d: %v", len(result.Harnesses), result.Harnesses)
 	}
 }
 
@@ -200,7 +200,7 @@ func TestOnboarding_NonInteractiveDefaultsToRepo(t *testing.T) {
 	// correct scope fields by constructing it directly (as runInit does).
 	cwd := t.TempDir()
 	result := OnboardingResult{
-		Runtimes:   []string{"claude"},
+		Harnesses:  []string{"claude"},
 		Language:   "en",
 		Mode:       "concise",
 		InstallDir: cwd,

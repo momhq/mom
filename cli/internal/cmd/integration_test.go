@@ -133,9 +133,9 @@ func setupMinimalMom(t *testing.T, dir string, runtimes []string) {
 	}
 
 	cfg := config.Default()
-	cfg.Runtimes = make(map[string]config.RuntimeConfig)
+	cfg.Harnesses = make(map[string]config.HarnessConfig)
 	for _, rt := range runtimes {
-		cfg.Runtimes[rt] = config.RuntimeConfig{Enabled: true}
+		cfg.Harnesses[rt] = config.HarnessConfig{Enabled: true}
 	}
 	cfg.Communication.Mode = "efficient"
 	if err := config.Save(momDir, &cfg); err != nil {
@@ -344,8 +344,8 @@ func TestIntegration_AddRuntimesViaUpgrade(t *testing.T) {
 	// Add windsurf + codex to config.
 	momDir := filepath.Join(dir, ".mom")
 	cfg, _ := config.Load(momDir)
-	cfg.Runtimes["windsurf"] = config.RuntimeConfig{Enabled: true}
-	cfg.Runtimes["codex"] = config.RuntimeConfig{Enabled: true}
+	cfg.Harnesses["windsurf"] = config.HarnessConfig{Enabled: true}
+	cfg.Harnesses["codex"] = config.HarnessConfig{Enabled: true}
 	config.Save(momDir, cfg)
 
 	// Upgrade should pick up new runtimes.

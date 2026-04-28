@@ -101,7 +101,7 @@ func runWatchInstall(momDir string, p *ux.Printer) error {
 
 	sp := ux.NewSpinner(os.Stderr)
 	sp.Start("Installing global watch daemon")
-	installErr := ensureGlobalDaemon(projectRoot, momDir, cfg.EnabledRuntimes())
+	installErr := ensureGlobalDaemon(projectRoot, momDir, cfg.EnabledHarnesses())
 	if installErr != nil {
 		sp.StopFail()
 		return fmt.Errorf("installing daemon: %w", installErr)
@@ -174,7 +174,7 @@ func sweepTranscripts(momDir string) {
 // watcher-capable Harnesses.
 func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source {
 	var sources []watcher.Source
-	for _, rt := range cfg.EnabledRuntimes() {
+	for _, rt := range cfg.EnabledHarnesses() {
 		var (
 			override string
 			adapter  watcher.Adapter
@@ -211,7 +211,7 @@ func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source
 // watcherRuntimes returns the names of watcher-capable runtimes from config.
 func watcherRuntimes(cfg *config.Config) []string {
 	var rts []string
-	for _, rt := range cfg.EnabledRuntimes() {
+	for _, rt := range cfg.EnabledHarnesses() {
 		if rt == "claude" || rt == "windsurf" {
 			rts = append(rts, rt)
 		}

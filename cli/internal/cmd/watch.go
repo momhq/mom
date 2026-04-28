@@ -57,8 +57,11 @@ The watcher runs in the foreground. Use Ctrl-C to stop.`,
 }
 
 func init() {
+	watchCmd.Flags().StringVar(&watchHarness, "harness", "claude",
+		`Harness to watch: "claude" (default), "windsurf", or "pi"`)
 	watchCmd.Flags().StringVar(&watchHarness, "runtime", "claude",
-		`Runtime to watch: "claude" (default), "windsurf", or "pi"`)
+		`deprecated: use --harness`)
+	_ = watchCmd.Flags().MarkDeprecated("runtime", "use --harness instead")
 	watchCmd.Flags().StringVar(&watchTranscriptDir, "dir", "",
 		"Transcript directory to watch (overrides the runtime default)")
 	watchCmd.Flags().IntVar(&watchDebounceMs, "debounce", 300,
@@ -106,10 +109,10 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	projectDir := filepath.Dir(momDir)
 
-	// Build watcher sources: if --runtime is explicitly set, use single source;
-	// otherwise read config and watch all enabled runtimes.
+	// Build watcher sources: if --harness is explicitly set, use single source;
+	// otherwise read config and watch all enabled harnesses.
 	var sources []watcher.Source
-	harnessExplicit := cmd.Flags().Changed("runtime")
+	harnessExplicit := cmd.Flags().Changed("harness") || cmd.Flags().Changed("runtime")
 
 	if harnessExplicit {
 		// Manual single-Harness mode.
@@ -124,7 +127,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		case "claude", "":
 			adapter = watcher.NewClaudeAdapter()
 		default:
-			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf, pi", watchHarness)
+			return fmt.Errorf("unknown harness %q — supported: claude, windsurf, pi", watchHarness)
 		}
 		if transcriptDir == "" {
 			transcriptDir = harnessTranscriptDir(watchHarness)
