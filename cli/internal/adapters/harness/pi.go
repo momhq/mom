@@ -37,6 +37,8 @@ func NewPiAdapter(projectRoot string) *PiAdapter {
 
 func (a *PiAdapter) Name() string { return "pi" }
 
+func (a *PiAdapter) Tier() Tier { return Native }
+
 func (a *PiAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	var body string
 	if config.Delivery == "context-file" {
