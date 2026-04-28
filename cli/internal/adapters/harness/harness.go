@@ -150,6 +150,26 @@ type Adapter interface {
 	RegisterMCP() error
 }
 
+// HookInstaller is optionally implemented by adapters whose Harness has a
+// hook system. The adapter owns its hook list internally.
+type HookInstaller interface {
+	RegisterHooks() error
+}
+
+// ExtensionInstaller is optionally implemented by adapters whose Harness
+// supports loadable extensions.
+type ExtensionInstaller interface {
+	RegisterExtension() error
+}
+
+// TranscriptSource is optionally implemented by adapters whose Harness
+// emits a transcript file or directory the watcher should tail.
+type TranscriptSource interface {
+	// DefaultTranscriptDir returns the path (tilde-expanded if needed) where
+	// the Harness writes transcripts. Empty string means none.
+	DefaultTranscriptDir() string
+}
+
 // HooksForHarness returns the standard MOM hooks for the given Harness name.
 func HooksForHarness(name string) []HookDef {
 	switch name {
