@@ -95,14 +95,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	runtimes, _ := cmd.Flags().GetStringSlice("runtimes")
-	if len(runtimes) == 0 {
-		runtimes = []string{"claude"}
+	harnesses, _ := cmd.Flags().GetStringSlice("harnesses")
+	if len(harnesses) == 0 {
+		harnesses, _ = cmd.Flags().GetStringSlice("runtimes")
+	}
+	if len(harnesses) == 0 {
+		harnesses = []string{"claude"}
 	}
 
 	defaults := config.Default()
 	return runInitWithConfig(cmd, installDir, force, OnboardingResult{
-		Runtimes:   runtimes,
+		Harnesses:  harnesses,
 		Language:   defaults.User.Language,
 		Mode:       defaults.Communication.Mode,
 		InstallDir: installDir,
@@ -175,14 +178,14 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 
 	var kbErr error
 	doWriteKB := func() {
-		// Build runtime config from selected runtimes.
-		runtimesCfg := make(map[string]config.RuntimeConfig)
-		for _, rt := range result.Runtimes {
+		// Build harness config from selected harnesses.
+		harnessesCfg := make(map[string]config.HarnessConfig)
+		for _, rt := range result.Harnesses {
 			_, ok := registry.Get(rt)
 			if !ok {
 				continue
 			}
-			runtimesCfg[rt] = config.RuntimeConfig{Enabled: true}
+			harnessesCfg[rt] = config.HarnessConfig{Enabled: true}
 		}
 
 		// Infer communication.mode from the onboarding mode selection.
@@ -202,7 +205,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			Version:    "1",
 			CoreSource: result.CoreSource,
 			Scope:      scopeLabel,
-			Runtimes:   runtimesCfg,
+			Harnesses:  harnessesCfg,
 			User: config.UserConfig{
 				Language: result.Language,
 			},
@@ -294,7 +297,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		runtimeIdentity := buildRuntimeIdentity()
 
 		// Generate context files for all selected runtimes.
-		for _, rt := range result.Runtimes {
+		for _, rt := range result.Harnesses {
 			adapter, ok := registry.Get(rt)
 			if !ok {
 				continue
@@ -349,14 +352,14 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 
 	// ── Phase 3.5: Register with global watch daemon ────────────────────────
-	if err := ensureGlobalDaemon(cwd, leoDir, result.Runtimes); err != nil {
+	if err := ensureGlobalDaemon(cwd, leoDir, result.Harnesses); err != nil {
 		p.Warnf("watch daemon: %v", err)
 	} else {
 		p.Check("watch daemon installed")
 	}
 
 	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
-	if added, gitErr := ensureGitIgnore(cwd, registry, result.Runtimes); gitErr != nil {
+	if added, gitErr := ensureGitIgnore(cwd, registry, result.Harnesses); gitErr != nil {
 		p.Warnf(".gitignore: %v", gitErr)
 	} else if len(added) > 0 {
 		p.Checkf(".gitignore updated (%d entries added)", len(added))
@@ -382,7 +385,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	// ── Done ────────────────────────────────────────────────────────────────
 	p.Blank()
 	p.Check(".mom/ structure created")
-	for _, rt := range result.Runtimes {
+	for _, rt := range result.Harnesses {
 		adapter, ok := registry.Get(rt)
 		if !ok {
 			continue
@@ -411,9 +414,9 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 
 	// Merge new runtimes into existing config.
 	changed := false
-	for _, rt := range result.Runtimes {
-		if _, exists := cfg.Runtimes[rt]; !exists {
-			cfg.Runtimes[rt] = config.RuntimeConfig{Enabled: true}
+	for _, rt := range result.Harnesses {
+		if _, exists := cfg.Harnesses[rt]; !exists {
+			cfg.Harnesses[rt] = config.HarnessConfig{Enabled: true}
 			changed = true
 		}
 	}
@@ -480,7 +483,7 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 
 	p.Blank()
 	p.Check("configuration updated")
-	for _, rt := range result.Runtimes {
+	for _, rt := range result.Harnesses {
 		if adapter, ok := registry.Get(rt); ok {
 			for _, f := range adapter.GeneratedFiles() {
 				absPath := filepath.Join(cwd, f)

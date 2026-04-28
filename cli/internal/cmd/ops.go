@@ -61,11 +61,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Show enabled runtimes.
 	p := ux.NewPrinter(cmd.OutOrStdout())
 	w := 14
-	enabledRTs := cfg.EnabledRuntimes()
+	enabledRTs := cfg.EnabledHarnesses()
 	if len(enabledRTs) > 0 {
-		p.KeyValue("Runtimes", strings.Join(enabledRTs, ", "), w)
+		p.KeyValue("Harnesses", strings.Join(enabledRTs, ", "), w)
 	} else {
-		p.KeyValue("Runtimes", "(none)", w)
+		p.KeyValue("Harnesses", "(none)", w)
 	}
 	commMode := cfg.Communication.Mode
 	if commMode == "" {

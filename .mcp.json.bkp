@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mom": {
+      "args": [
+        "serve",
+        "mcp"
+      ],
+      "command": "/opt/homebrew/bin/mom",
+      "env": {
+        "MOM_PROJECT_DIR": "/Users/vmarino/Github/mom/mom"
+      }
+    }
+  }
+}

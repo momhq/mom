@@ -60,7 +60,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 	if hasLeoDir {
 		cfg, err := config.Load(leoDir)
 		if err == nil {
-			for _, rt := range cfg.EnabledRuntimes() {
+			for _, rt := range cfg.EnabledHarnesses() {
 				if a, ok := registry.Get(rt); ok {
 					adapters = append(adapters, a)
 				}
