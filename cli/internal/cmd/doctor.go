@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	leort "github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/harness"
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/memory"
@@ -679,7 +679,7 @@ func printBundleAdapterStatus(cmd *cobra.Command, cwd string, cfg *config.Config
 		cmd.Printf("(no adapters enabled)\n")
 		return
 	}
-	registry := leort.NewRegistry(cwd)
+	registry := harness.NewRegistry(cwd)
 	for _, name := range enabled {
 		adapter, ok := registry.Get(name)
 		if !ok {

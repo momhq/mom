@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	_ "embed"
@@ -134,7 +134,7 @@ func DefaultHooks() []HookDef {
 	}
 }
 
-func (a *ClaudeAdapter) DetectRuntime() bool {
+func (a *ClaudeAdapter) DetectHarness() bool {
 	info, err := os.Stat(filepath.Join(a.projectRoot, ".claude"))
 	return err == nil && info.IsDir()
 }

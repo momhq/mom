@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	_ "embed"
@@ -103,7 +103,7 @@ func WindsurfHooks() []HookDef {
 	}
 }
 
-func (a *WindsurfAdapter) DetectRuntime() bool {
+func (a *WindsurfAdapter) DetectHarness() bool {
 	info, err := os.Stat(filepath.Join(a.projectRoot, ".windsurf"))
 	return err == nil && info.IsDir()
 }
@@ -116,7 +116,7 @@ func (a *WindsurfAdapter) DetectRuntime() bool {
 // setups the last project to call RegisterMCP wins — run `mom upgrade` in the
 // active project to point the global config at it.
 func (a *WindsurfAdapter) RegisterMCP() error {
-	// 1. Project-level .mcp.json (shared with other runtimes).
+	// 1. Project-level .mcp.json (shared with other Harnesses).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
 	if err := upsertMCPEntryWithEnv(mcpPath, a.projectRoot); err != nil {
 		return err
@@ -137,7 +137,7 @@ func (a *WindsurfAdapter) RegisterMCP() error {
 }
 
 // upsertMCPEntryWithEnv is like upsertMCPEntry but adds MOM_PROJECT_DIR env var.
-// Used by runtimes that start MCP subprocesses from a different cwd (Windsurf, Cline VS Code).
+// Used by Harnesses that start MCP subprocesses from a different cwd (Windsurf, Cline VS Code).
 func upsertMCPEntryWithEnv(path, projectRoot string) error {
 	root := make(map[string]any)
 	if data, err := os.ReadFile(path); err == nil {
