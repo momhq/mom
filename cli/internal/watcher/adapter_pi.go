@@ -45,6 +45,32 @@ func NewPiAdapter() *PiAdapter {
 
 func (a *PiAdapter) Name() string { return "pi" }
 
+// ProjectSlug implements ProjectScoper. Pi uses a different per-project
+// directory convention than Claude/Codex: it strips the leading separator,
+// replaces remaining path separators and colons with '-', and wraps the
+// result with '--' on both sides.
+//
+// Example: /Users/foo/proj  →  --Users-foo-proj--
+//
+// Source-of-truth: pi-coding-agent dist/migrations.js, which builds the
+// directory path as:
+//
+//	const safePath = `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+//
+// We mirror that rule exactly so the watcher's project-scoping check finds
+// pi's actual session subdirectory and does not fall back to scanning all
+// projects' sessions globally.
+func (a *PiAdapter) ProjectSlug(projectDir string) string {
+	p := projectDir
+	// Strip leading path separator (Unix '/' or Windows '\').
+	if len(p) > 0 && (p[0] == '/' || p[0] == '\\') {
+		p = p[1:]
+	}
+	// Replace remaining separators and colons with '-'.
+	p = strings.NewReplacer("/", "-", "\\", "-", ":", "-").Replace(p)
+	return "--" + p + "--"
+}
+
 // ParseSession parses a pi session JSONL file into a logbook.SessionLog.
 //
 // Pi's transcript schema differs from Claude Code's in two ways that matter

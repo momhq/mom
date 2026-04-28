@@ -35,3 +35,18 @@ type ProjectFilter interface {
 	// belongs to the adapter's configured project directory.
 	BelongsToProject(path string) bool
 }
+
+// ProjectScoper is optionally implemented by adapters whose runtime uses a
+// non-default project-slug convention for its per-project transcript
+// subdirectory. The default convention (claude/codex) is
+// strings.ReplaceAll(path, "/", "-"); pi (for example) uses
+// "--<path-with-separators-as-dashes>--".
+//
+// When implemented, the watcher uses this method instead of the default
+// projectSlug() to locate the scoped transcript subdirectory.
+type ProjectScoper interface {
+	// ProjectSlug returns the per-project subdirectory name this adapter's
+	// runtime would create under its base transcript directory for the given
+	// absolute project path.
+	ProjectSlug(projectDir string) string
+}

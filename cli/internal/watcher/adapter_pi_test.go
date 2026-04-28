@@ -13,6 +13,70 @@ func TestPiAdapter_Name(t *testing.T) {
 	}
 }
 
+// TestPiAdapter_ProjectSlug verifies pi's slug convention matches what pi
+// actually writes to disk under ~/.pi/agent/sessions/. The reference rule
+// (from pi's own migrations.js) is:
+//
+//	const safePath = `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+func TestPiAdapter_ProjectSlug(t *testing.T) {
+	a := NewPiAdapter()
+
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "unix path with leading slash",
+			in:   "/Users/vmarino/Github/mom/mom",
+			want: "--Users-vmarino-Github-mom-mom--",
+		},
+		{
+			name: "unix path without leading slash",
+			in:   "Users/vmarino/proj",
+			want: "--Users-vmarino-proj--",
+		},
+		{
+			name: "single segment",
+			in:   "/proj",
+			want: "--proj--",
+		},
+		{
+			// Pi's regex `[/\\:]` replaces each separator/colon individually,
+			// so the ":" and following "\" both become '-' and stack up.
+			name: "windows path with drive letter",
+			in:   `C:\Users\foo\proj`,
+			want: "--C--Users-foo-proj--",
+		},
+		{
+			name: "windows path with leading backslash",
+			in:   `\Users\foo\proj`,
+			want: "--Users-foo-proj--",
+		},
+		{
+			name: "empty string (defensive)",
+			in:   "",
+			want: "----",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := a.ProjectSlug(tc.in); got != tc.want {
+				t.Errorf("ProjectSlug(%q): got %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestPiAdapter_ImplementsProjectScoper is a compile-time-ish check that
+// PiAdapter satisfies the ProjectScoper optional interface. Without this,
+// a refactor that drops the method silently breaks the watcher's per-project
+// scoping for pi.
+func TestPiAdapter_ImplementsProjectScoper(t *testing.T) {
+	var _ ProjectScoper = (*PiAdapter)(nil)
+}
+
 func TestPiAdapter_ParseLine_UserMessage_StringContent(t *testing.T) {
 	a := NewPiAdapter()
 

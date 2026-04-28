@@ -104,8 +104,17 @@ func New(cfg Config) (*Watcher, error) {
 		}
 
 		// Scope to project-specific subdirectory when ProjectDir is set.
+		// Adapters that use a non-default slug convention (e.g. pi) implement
+		// ProjectScoper to override the rule — critical for tight scoping,
+		// otherwise the watcher falls back to scanning the entire transcript
+		// dir and ingests sessions from other projects.
 		if cfg.ProjectDir != "" {
-			slug := projectSlug(cfg.ProjectDir)
+			var slug string
+			if scoper, ok := src.Adapter.(ProjectScoper); ok {
+				slug = scoper.ProjectSlug(cfg.ProjectDir)
+			} else {
+				slug = projectSlug(cfg.ProjectDir)
+			}
 			scoped := filepath.Join(dir, slug)
 			if info, serr := os.Stat(scoped); serr == nil && info.IsDir() {
 				dir = scoped
