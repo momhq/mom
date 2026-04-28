@@ -344,6 +344,14 @@ func (w *Watcher) ingestFile(path string) int {
 	}
 	defer f.Close()
 
+	// If file shrank (truncation/rotation), reset cursor to re-ingest (#154).
+	if offset > 0 {
+		if info, err := f.Stat(); err == nil && offset > info.Size() {
+			w.logf("file %s shrank (cursor %d > size %d) — resetting cursor", path, offset, info.Size())
+			offset = 0
+		}
+	}
+
 	if offset > 0 {
 		if _, err := f.Seek(offset, io.SeekStart); err != nil {
 			w.logf("seeking %s to %d: %v", path, offset, err)
@@ -351,16 +359,23 @@ func (w *Watcher) ingestFile(path string) int {
 		}
 	}
 
-	// Read new content.
+	// Read new content. Use ReadBytes('\n') instead of Scanner to distinguish
+	// complete lines (terminated by \n) from truncated trailing data (#153).
 	var entries []recorder.RawEntry
-	var bytesRead int64
-	scanner := bufio.NewScanner(f)
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 2*1024*1024)
+	var committedBytes int64
+	reader := bufio.NewReaderSize(f, 2*1024*1024)
 
-	for scanner.Scan() {
-		raw := scanner.Bytes()
-		bytesRead += int64(len(raw)) + 1 // +1 for newline
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			// EOF without trailing \n — incomplete line, don't advance cursor past it.
+			break
+		}
+		committedBytes += int64(len(line))
+		raw := line[:len(line)-1] // strip trailing \n
+		if len(raw) == 0 {
+			continue
+		}
 
 		entry, ok := w.adapterForPath(path).ParseLine(raw, sessionID)
 		if !ok {
@@ -368,11 +383,8 @@ func (w *Watcher) ingestFile(path string) int {
 		}
 		entries = append(entries, entry)
 	}
-	if err := scanner.Err(); err != nil {
-		w.logf("scanning %s: %v", path, err)
-	}
 
-	if bytesRead == 0 {
+	if committedBytes == 0 {
 		return 0
 	}
 
@@ -393,8 +405,8 @@ func (w *Watcher) ingestFile(path string) int {
 		}
 	}
 
-	// Advance cursor.
-	writeWatchCursor(cursorFile, offset+bytesRead)
+	// Advance cursor only past complete lines (#153).
+	writeWatchCursor(cursorFile, offset+committedBytes)
 
 	// Publish to Herald so downstream processors (Logbook, Drafter) run.
 	if len(entries) > 0 && w.cfg.Bus != nil {

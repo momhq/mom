@@ -153,7 +153,7 @@ func TestIntegration_InitAllRuntimes(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir) // isolate global configs
 
-	allRuntimes := []string{"claude", "codex", "windsurf"}
+	allRuntimes := []string{"claude", "codex", "windsurf", "pi"}
 	initProject(t, dir, allRuntimes)
 
 	// ── .mom/ structure ──
@@ -166,8 +166,8 @@ func TestIntegration_InitAllRuntimes(t *testing.T) {
 		t.Fatalf("loading config: %v", err)
 	}
 	enabled := cfg.EnabledRuntimes()
-	if len(enabled) != 3 {
-		t.Errorf("expected 3 enabled runtimes, got %d: %v", len(enabled), enabled)
+	if len(enabled) != 4 {
+		t.Errorf("expected 4 enabled runtimes, got %d: %v", len(enabled), enabled)
 	}
 
 	// ── Claude ──
@@ -201,6 +201,14 @@ func TestIntegration_InitAllRuntimes(t *testing.T) {
 	// mom record hook removed — recording now via mom watch (#145)
 	assertFileContains(t, windsurfHooks, "working_directory")
 
+	// ── Pi ──
+	// Pi shares AGENTS.md with Codex (already asserted above) and lays down
+	// its MCP-tool-bridging extension under .pi/extensions/.
+	piExt := filepath.Join(dir, ".pi", "extensions", "mom-tools.ts")
+	assertFileExists(t, piExt)
+	assertFileContains(t, piExt, "export default")
+	assertFileContains(t, piExt, "pi.registerTool")
+
 	// ── MCP config ──
 	mcpJSON := filepath.Join(dir, ".mcp.json")
 	assertMCPEntry(t, mcpJSON)
@@ -215,13 +223,14 @@ func TestIntegration_UpgradeRegistersAllRuntimes(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 
-	allRuntimes := []string{"claude", "codex", "windsurf"}
+	allRuntimes := []string{"claude", "codex", "windsurf", "pi"}
 	setupMinimalMom(t, dir, allRuntimes)
 
 	// No runtime artifacts exist yet — this simulates the bug scenario.
 	assertFileNotExists(t, filepath.Join(dir, ".claude", "CLAUDE.md"))
 	assertFileNotExists(t, filepath.Join(dir, "AGENTS.md"))
 	assertFileNotExists(t, filepath.Join(dir, ".windsurf", "rules", "mom.md"))
+	assertFileNotExists(t, filepath.Join(dir, ".pi", "extensions", "mom-tools.ts"))
 
 	output := upgradeProject(t, dir)
 
@@ -246,6 +255,10 @@ func TestIntegration_UpgradeRegistersAllRuntimes(t *testing.T) {
 	assertFileExists(t, filepath.Join(dir, ".windsurf", "rules", "mom.md"))
 	assertFileExists(t, filepath.Join(dir, ".windsurf", "hooks.json"))
 	assertFileContains(t, filepath.Join(dir, ".windsurf", "hooks.json"), "working_directory")
+
+	// Pi: extension must be deployed by upgrade too.
+	assertFileExists(t, filepath.Join(dir, ".pi", "extensions", "mom-tools.ts"))
+	assertFileContains(t, filepath.Join(dir, ".pi", "extensions", "mom-tools.ts"), "pi.registerTool")
 
 	// MCP config must exist with mom entry.
 	assertMCPEntry(t, filepath.Join(dir, ".mcp.json"))
@@ -398,7 +411,7 @@ func TestIntegration_RecordDraftPipeline(t *testing.T) {
 		t.Fatalf("draft failed: %v\noutput: %s", err, buf.String())
 	}
 
-	// Verify memory drafts were created.
+	// Verify memory drafts were created (drafter output stays as draft).
 	memEntries, err := os.ReadDir(memDir)
 	if err != nil {
 		t.Fatalf("reading memory dir: %v", err)

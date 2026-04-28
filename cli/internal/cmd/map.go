@@ -430,7 +430,7 @@ func writeDrafts(drafts []cartographer.Draft, momDir string) (int, error) {
 			Tags:           d.Tags,
 			Created:        now,
 			CreatedBy:      "cartographer",
-			PromotionState: "draft",
+			PromotionState: "curated",
 			Classification: "INTERNAL",
 			Content:        content,
 		})
