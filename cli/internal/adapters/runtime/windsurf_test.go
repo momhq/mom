@@ -1,4 +1,4 @@
-package harness
+package runtime
 
 import (
 	"encoding/json"
@@ -84,7 +84,7 @@ func TestWindsurfAdapter_RegisterHooks(t *testing.T) {
 	dir := t.TempDir()
 	a := NewWindsurfAdapter(dir)
 
-	if err := a.RegisterHooks(); err != nil {
+	if err := a.RegisterHooks(WindsurfHooks()); err != nil {
 		t.Fatalf("RegisterHooks failed: %v", err)
 	}
 
@@ -190,16 +190,16 @@ func TestWindsurfAdapter_GitIgnorePaths(t *testing.T) {
 	}
 }
 
-func TestWindsurfAdapter_DetectHarness(t *testing.T) {
+func TestWindsurfAdapter_DetectRuntime(t *testing.T) {
 	dir := t.TempDir()
 	a := NewWindsurfAdapter(dir)
 
-	if a.DetectHarness() {
+	if a.DetectRuntime() {
 		t.Error("expected false when .windsurf/ does not exist")
 	}
 
 	os.MkdirAll(filepath.Join(dir, ".windsurf"), 0755)
-	if !a.DetectHarness() {
+	if !a.DetectRuntime() {
 		t.Error("expected true when .windsurf/ exists")
 	}
 }

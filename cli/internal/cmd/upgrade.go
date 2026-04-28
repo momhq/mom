@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/harness"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/ux"
@@ -384,7 +384,7 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 
 	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
 	if !dryRun {
-		registry := harness.NewRegistry(projectRoot)
+		registry := runtime.NewRegistry(projectRoot)
 		enabledRTs := cfg.EnabledRuntimes()
 		if added, gitErr := ensureGitIgnore(projectRoot, registry, enabledRTs); gitErr != nil {
 			addAction("⚠", fmt.Sprintf(".gitignore: %v", gitErr))
@@ -763,7 +763,7 @@ func kebabOnly(s string) string {
 
 // regenerateRuntimeFiles rebuilds all runtime context files from the current config.
 func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) error {
-	registry := harness.NewRegistry(projectRoot)
+	registry := runtime.NewRegistry(projectRoot)
 
 	runtimeCfg := buildRuntimeConfig(cfg)
 	runtimeConstraints := buildRuntimeConstraints()
@@ -779,17 +779,13 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
 
+		// Register MCP server config and hooks for all adapters.
 		if err := adapter.RegisterMCP(); err != nil {
 			return fmt.Errorf("registering %s MCP config: %w", rt, err)
 		}
-		if h, ok := adapter.(harness.HookInstaller); ok {
-			if err := h.RegisterHooks(); err != nil {
+		if adapter.SupportsHooks() {
+			if err := adapter.RegisterHooks(runtime.HooksForRuntime(rt)); err != nil {
 				return fmt.Errorf("registering %s hooks: %w", rt, err)
-			}
-		}
-		if e, ok := adapter.(harness.ExtensionInstaller); ok {
-			if err := e.RegisterExtension(); err != nil {
-				return fmt.Errorf("registering %s extension: %w", rt, err)
 			}
 		}
 	}

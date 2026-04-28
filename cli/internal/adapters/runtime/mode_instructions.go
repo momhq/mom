@@ -1,4 +1,4 @@
-package harness
+package runtime
 
 // LanguageInstructions returns behavioral instructions for the given language code.
 // Supported values: "en", "pt", "es". Defaults to "en".
@@ -103,7 +103,7 @@ Switch to full prose when:
 Resume efficient style after.`
 
 	default: // "default" or any unrecognized value
-		return "" // No communication instructions — Harness uses its own defaults
+		return "" // No communication instructions — runtime uses its own defaults
 	}
 }
 

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/harness"
+	leort "github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/memory"
@@ -92,33 +92,6 @@ func runDoctorBase(cmd *cobra.Command, verbose bool) error {
 		failed = true
 	} else {
 		p.Checkf("config.yaml: valid (runtimes: %s)", strings.Join(cfg.EnabledRuntimes(), ", "))
-	}
-
-	// Harness status: tier + integration capabilities.
-	if cfg != nil && len(cfg.EnabledRuntimes()) > 0 {
-		cwd, _ := os.Getwd()
-		reg := harness.NewRegistry(cwd)
-		for _, name := range cfg.EnabledRuntimes() {
-			a, ok := reg.Get(name)
-			if !ok {
-				continue
-			}
-			var parts []string
-			if _, ok := a.(harness.HookInstaller); ok {
-				parts = append(parts, "hooks")
-			}
-			if _, ok := a.(harness.ExtensionInstaller); ok {
-				parts = append(parts, "extension")
-			}
-			if ts, ok := a.(harness.TranscriptSource); ok {
-				parts = append(parts, "transcript:"+ts.DefaultTranscriptDir())
-			}
-			detail := a.Tier().String()
-			if len(parts) > 0 {
-				detail += "  " + strings.Join(parts, "  ")
-			}
-			p.Checkf("%s: %s", name, detail)
-		}
 	}
 
 	// Check 3: memory and core dirs exist.
@@ -707,34 +680,15 @@ func printBundleAdapterStatus(cmd *cobra.Command, cwd string, cfg *config.Config
 		cmd.Printf("(no adapters enabled)\n")
 		return
 	}
-	registry := harness.NewRegistry(cwd)
+	registry := leort.NewRegistry(cwd)
 	for _, name := range enabled {
-		a, ok := registry.Get(name)
+		adapter, ok := registry.Get(name)
 		if !ok {
 			cmd.Printf("  %s: unknown adapter\n", name)
 			continue
 		}
-		cap := a.Capabilities()
-		cmd.Printf("  %s v%s  [%s]\n", cap.Name, cap.Version, a.Tier())
-
-		// Integration mechanisms.
-		var mechanisms []string
-		if _, ok := a.(harness.HookInstaller); ok {
-			mechanisms = append(mechanisms, "hooks")
-		}
-		if _, ok := a.(harness.ExtensionInstaller); ok {
-			mechanisms = append(mechanisms, "extension")
-		}
-		if len(mechanisms) > 0 {
-			cmd.Printf("    integration:  %s\n", strings.Join(mechanisms, ", "))
-		}
-
-		// Transcript source.
-		if ts, ok := a.(harness.TranscriptSource); ok {
-			cmd.Printf("    transcript:   %s\n", ts.DefaultTranscriptDir())
-		}
-
-		// MRP event coverage.
+		cap := adapter.Capabilities()
+		cmd.Printf("  %s v%s\n", cap.Name, cap.Version)
 		if len(cap.Supports) > 0 {
 			cmd.Printf("    supported:    %s\n", strings.Join(cap.Supports, ", "))
 		}

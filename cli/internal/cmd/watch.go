@@ -28,12 +28,18 @@ var (
 	watchTranscriptDir string
 	watchDebounceMs    int
 	watchStatus        bool
-	watchHarness       string
+	watchRuntime       string
 	watchSweep         bool
 	watchInstall       bool
 	watchUninstall     bool
 	watchGlobal        bool
 )
+
+// defaultTranscriptDirs maps runtime name to its default transcript directory.
+var defaultTranscriptDirs = map[string]string{
+	"claude":   "~/.claude/projects/",
+	"windsurf": "~/.windsurf/transcripts/",
+}
 
 var watchCmd = &cobra.Command{
 	Use:   "watch",
@@ -44,7 +50,6 @@ ingests new conversation turns into .mom/raw/ without MCP calls or hook overhead
 Supported runtimes:
   claude    — ~/.claude/projects/ (default)
   windsurf  — ~/.windsurf/transcripts/
-  pi        — ~/.pi/agent/sessions/
 
 Each session's JSONL transcript is tailed incrementally.
 Cursor files in .mom/raw/ track the last ingested byte offset per session,
@@ -57,8 +62,8 @@ The watcher runs in the foreground. Use Ctrl-C to stop.`,
 }
 
 func init() {
-	watchCmd.Flags().StringVar(&watchHarness, "runtime", "claude",
-		`Runtime to watch: "claude" (default), "windsurf", or "pi"`)
+	watchCmd.Flags().StringVar(&watchRuntime, "runtime", "claude",
+		`Runtime to watch: "claude" (default) or "windsurf"`)
 	watchCmd.Flags().StringVar(&watchTranscriptDir, "dir", "",
 		"Transcript directory to watch (overrides the runtime default)")
 	watchCmd.Flags().IntVar(&watchDebounceMs, "debounce", 300,
@@ -109,34 +114,35 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	// Build watcher sources: if --runtime is explicitly set, use single source;
 	// otherwise read config and watch all enabled runtimes.
 	var sources []watcher.Source
-	harnessExplicit := cmd.Flags().Changed("runtime")
+	runtimeExplicit := cmd.Flags().Changed("runtime")
 
-	if harnessExplicit {
-		// Manual single-Harness mode.
+	if runtimeExplicit {
+		// Manual single-runtime mode.
 		transcriptDir := watchTranscriptDir
 		var adapter watcher.Adapter
 
-		switch watchHarness {
+		switch watchRuntime {
 		case "windsurf":
 			adapter = &watcher.WindsurfAdapter{ProjectDir: projectDir}
-		case "pi":
-			adapter = watcher.NewPiAdapter()
+			if transcriptDir == "" {
+				transcriptDir = defaultTranscriptDirs["windsurf"]
+			}
 		case "claude", "":
 			adapter = watcher.NewClaudeAdapter()
+			if transcriptDir == "" {
+				transcriptDir = defaultTranscriptDirs["claude"]
+			}
 		default:
-			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf, pi", watchHarness)
-		}
-		if transcriptDir == "" {
-			transcriptDir = harnessTranscriptDir(watchHarness)
+			return fmt.Errorf("unknown runtime %q — supported: claude, windsurf", watchRuntime)
 		}
 
 		sources = []watcher.Source{{
-			Harness:       watchHarness,
+			Runtime:       watchRuntime,
 			TranscriptDir: transcriptDir,
 			Adapter:       adapter,
 		}}
 	} else {
-		// Config-driven multi-Harness mode (daemon default).
+		// Config-driven multi-runtime mode (daemon default).
 		momCfg, err := config.Load(momDir)
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
@@ -151,7 +157,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	if watchSweep {
 		adapterMap := make(map[string]watcher.Adapter, len(sources))
 		for _, src := range sources {
-			adapterMap[src.Harness] = src.Adapter
+			adapterMap[src.Runtime] = src.Adapter
 		}
 		bus := newProjectBus(momDir, adapterMap)
 		w, err := watcher.New(watcher.Config{
@@ -179,7 +185,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	// Logbook and Drafter subscribe as downstream processors.
 	adapterMap := make(map[string]watcher.Adapter, len(sources))
 	for _, src := range sources {
-		adapterMap[src.Harness] = src.Adapter
+		adapterMap[src.Runtime] = src.Adapter
 	}
 	bus := newProjectBus(momDir, adapterMap)
 
@@ -195,11 +201,11 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Print startup info.
-	harnessNames := make([]string, len(sources))
+	runtimeNames := make([]string, len(sources))
 	for i, src := range sources {
-		harnessNames[i] = src.Harness
+		runtimeNames[i] = src.Runtime
 	}
-	p.Diamond(fmt.Sprintf("watch [%s]", strings.Join(harnessNames, ", ")))
+	p.Diamond(fmt.Sprintf("watch [%s]", strings.Join(runtimeNames, ", ")))
 	for rt, dir := range w.TranscriptDirs() {
 		p.Chevron(fmt.Sprintf("%s: %s", rt, dir))
 	}
@@ -215,7 +221,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 // newProjectBus creates a Herald event bus with Logbook and Drafter subscribers
 // wired for a given momDir. Used by both single-project and global watch modes.
-// adapters maps Harness name → Adapter for Harness-specific logbook parsing.
+// adapters maps runtime name → Adapter for runtime-specific logbook parsing.
 func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.Bus {
 	bus := herald.NewBus()
 
@@ -230,7 +236,7 @@ func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.B
 		logsDir := filepath.Join(md, "logs")
 		_ = os.MkdirAll(logsDir, 0755)
 
-		// Use Harness-specific parser when available, fall back to Claude format.
+		// Use runtime-specific parser when available, fall back to Claude format.
 		var sessionLog *logbook.SessionLog
 		var err error
 		if rt, ok := e.Payload["runtime"].(string); ok {
@@ -305,7 +311,7 @@ func runWatchGlobal(sweepOnly bool) error {
 			}
 			adapterMap := make(map[string]watcher.Adapter, len(sources))
 			for _, src := range sources {
-				adapterMap[src.Harness] = src.Adapter
+				adapterMap[src.Runtime] = src.Adapter
 			}
 			bus := newProjectBus(entry.MomDir, adapterMap)
 			w, err := watcher.New(watcher.Config{
@@ -357,7 +363,7 @@ func runWatchGlobal(sweepOnly bool) error {
 		}
 		adapterMap := make(map[string]watcher.Adapter, len(sources))
 		for _, src := range sources {
-			adapterMap[src.Harness] = src.Adapter
+			adapterMap[src.Runtime] = src.Adapter
 		}
 		bus := newProjectBus(entry.MomDir, adapterMap)
 		w, err := watcher.New(watcher.Config{

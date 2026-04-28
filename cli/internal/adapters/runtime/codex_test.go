@@ -1,4 +1,4 @@
-package harness
+package runtime
 
 import (
 	"encoding/json"
@@ -15,16 +15,16 @@ func TestCodexAdapter_Name(t *testing.T) {
 	}
 }
 
-func TestCodexAdapter_DetectHarness(t *testing.T) {
+func TestCodexAdapter_DetectRuntime(t *testing.T) {
 	dir := t.TempDir()
 	a := NewCodexAdapter(dir)
 
-	if a.DetectHarness() {
+	if a.DetectRuntime() {
 		t.Error("expected false when AGENTS.md does not exist")
 	}
 
 	os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# agents"), 0644)
-	if !a.DetectHarness() {
+	if !a.DetectRuntime() {
 		t.Error("expected true when AGENTS.md exists")
 	}
 }
@@ -82,11 +82,18 @@ func TestCodexAdapter_GenerateContextFileWatermark(t *testing.T) {
 	}
 }
 
+func TestCodexAdapter_SupportsHooks(t *testing.T) {
+	a := NewCodexAdapter("/tmp/test")
+	if !a.SupportsHooks() {
+		t.Error("expected SupportsHooks to be true")
+	}
+}
+
 func TestCodexAdapter_RegisterHooks(t *testing.T) {
 	dir := t.TempDir()
 	a := NewCodexAdapter(dir)
 
-	if err := a.RegisterHooks(); err != nil {
+	if err := a.RegisterHooks(CodexHooks()); err != nil {
 		t.Fatalf("RegisterHooks failed: %v", err)
 	}
 
@@ -162,7 +169,7 @@ func TestCodexAdapter_RegisterMCP(t *testing.T) {
 		t.Fatalf("RegisterMCP failed: %v", err)
 	}
 
-	// Verify .mcp.json (shared with other Harnesses).
+	// Verify .mcp.json (shared with other runtimes).
 	data, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
 	if err != nil {
 		t.Fatalf("reading .mcp.json: %v", err)

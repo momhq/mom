@@ -19,32 +19,12 @@ type SessionLog struct {
 	FilesChanged    int                  `json:"files_changed"`
 	MemoriesCreated int                  `json:"memories_created"`
 	ToolCalls       map[string]ToolGroup `json:"tool_calls"`
-
-	// Optional per-runtime metadata. Populated when the runtime's transcript
-	// surfaces it in-band (currently: pi). Older adapters leave these nil/empty
-	// — JSON omitempty keeps logs backwards compatible.
-	Model    string          `json:"model,omitempty"`
-	Provider string          `json:"provider,omitempty"`
-	Usage    *UsageAggregate `json:"usage,omitempty"`
 }
 
 // ToolGroup aggregates tool call counts within a category.
 type ToolGroup struct {
 	Total  int            `json:"total"`
 	Detail map[string]int `json:"detail"`
-}
-
-// UsageAggregate sums per-turn token usage and cost across a session.
-// Fields mirror what runtimes typically report (Anthropic-style breakdown);
-// providers that report less leave the unsupported fields at zero.
-type UsageAggregate struct {
-	InputTokens      int            `json:"input_tokens"`
-	OutputTokens     int            `json:"output_tokens"`
-	CacheReadTokens  int            `json:"cache_read_tokens"`
-	CacheWriteTokens int            `json:"cache_write_tokens"`
-	TotalTokens      int            `json:"total_tokens"`
-	CostUSD          float64        `json:"cost_usd"`
-	StopReasons      map[string]int `json:"stop_reasons,omitempty"`
 }
 
 // NormalizeToolName strips runtime-specific prefixes from tool names.

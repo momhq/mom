@@ -8,10 +8,10 @@ import (
 	"github.com/momhq/mom/cli/internal/recorder"
 )
 
-// Adapter parses Harness-specific transcript lines into RawEntry values.
-// Each Harness (Claude Code, Windsurf, Pi) has its own adapter.
+// Adapter parses runtime-specific transcript lines into RawEntry values.
+// Each runtime (Claude Code, Windsurf, Codex) has its own adapter.
 type Adapter interface {
-	// Name returns the adapter's Harness identifier.
+	// Name returns the adapter's runtime identifier.
 	Name() string
 
 	// ParseLine parses a single JSONL line from a transcript file.
@@ -21,7 +21,7 @@ type Adapter interface {
 }
 
 // SessionParser is optionally implemented by adapters that provide
-// Harness-specific logbook parsing. Falls back to logbook.ParseTranscript
+// runtime-specific logbook parsing. Falls back to logbook.ParseTranscript
 // (Claude Code format) when not implemented.
 type SessionParser interface {
 	ParseSession(transcriptPath, sessionID string) (*logbook.SessionLog, error)
@@ -34,27 +34,4 @@ type ProjectFilter interface {
 	// BelongsToProject reads a transcript file and returns true if it
 	// belongs to the adapter's configured project directory.
 	BelongsToProject(path string) bool
-}
-
-// ToolCategorizer is optionally implemented by adapters that know how to
-// bucket their Harness's tool names into logbook categories. Falls back to
-// logbook.categorizeTool when not implemented or when an empty string is
-// returned for an unknown tool.
-type ToolCategorizer interface {
-	CategorizeTool(toolName string) string
-}
-
-// ProjectScoper is optionally implemented by adapters whose Harness uses a
-// non-default project-slug convention for its per-project transcript
-// subdirectory. The default convention (claude/codex) is
-// strings.ReplaceAll(path, "/", "-"); pi (for example) uses
-// "--<path-with-separators-as-dashes>--".
-//
-// When implemented, the watcher uses this method instead of the default
-// projectSlug() to locate the scoped transcript subdirectory.
-type ProjectScoper interface {
-	// ProjectSlug returns the per-project subdirectory name this adapter's
-	// Harness would create under its base transcript directory for the given
-	// absolute project path.
-	ProjectSlug(projectDir string) string
 }

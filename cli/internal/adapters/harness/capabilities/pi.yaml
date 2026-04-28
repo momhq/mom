@@ -1,8 +1,0 @@
-adapter: pi
-version: "1.0"
-supports:
-  - session.start
-  - session.end
-  - turn.complete
-experimental:
-  - compact.triggered

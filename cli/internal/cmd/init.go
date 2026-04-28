@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/harness"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/scope"
@@ -28,7 +28,7 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, windsurf, pi)")
+	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, windsurf)")
 	initCmd.Flags().Bool("force", false, "Overwrite existing .mom/ directory")
 	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }
@@ -171,7 +171,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	}
 
 	// ── Phase 2: Write memory structure ──────────────────────────────────────
-	registry := harness.NewRegistry(cwd)
+	registry := runtime.NewRegistry(cwd)
 
 	var kbErr error
 	doWriteKB := func() {
@@ -303,7 +303,7 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			// Backup existing files if needed.
 			for _, relPath := range adapter.GeneratedFiles() {
 				absPath := filepath.Join(cwd, relPath)
-				harness.BackupIfNeeded(absPath) //nolint:errcheck
+				runtime.BackupIfNeeded(absPath) //nolint:errcheck
 			}
 
 			if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
@@ -311,20 +311,37 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				return
 			}
 
-			// Register MCP, then any optional integration mechanisms the
-			// Harness exposes (hooks, extensions).
-			if err := adapter.RegisterMCP(); err != nil {
-				genErr = err
-				return
-			}
-			if h, ok := adapter.(harness.HookInstaller); ok {
-				if err := h.RegisterHooks(); err != nil {
+			// Register MCP server config and hooks for Claude.
+			if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+				if err := ca.RegisterHooks(runtime.DefaultHooks()); err != nil {
 					genErr = err
 					return
 				}
 			}
-			if e, ok := adapter.(harness.ExtensionInstaller); ok {
-				if err := e.RegisterExtension(); err != nil {
+
+			// Register MCP server config and hooks for Codex.
+			if ca, ok := adapter.(*runtime.CodexAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+				if err := ca.RegisterHooks(runtime.CodexHooks()); err != nil {
+					genErr = err
+					return
+				}
+			}
+
+			// Register MCP server config and hooks for Windsurf.
+			if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
+				if err := ca.RegisterMCP(); err != nil {
+					genErr = err
+					return
+				}
+				if err := ca.RegisterHooks(runtime.WindsurfHooks()); err != nil {
 					genErr = err
 					return
 				}
@@ -433,7 +450,7 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 	}
 
 	// Regenerate runtime context files for all enabled runtimes.
-	registry := harness.NewRegistry(cwd)
+	registry := runtime.NewRegistry(cwd)
 	runtimeCfg := buildRuntimeConfig(cfg)
 	runtimeConstraints := buildRuntimeConstraints()
 	runtimeSkills := buildRuntimeSkills()
@@ -447,7 +464,7 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 
 		for _, relPath := range adapter.GeneratedFiles() {
 			absPath := filepath.Join(cwd, relPath)
-			harness.BackupIfNeeded(absPath) //nolint:errcheck
+			runtime.BackupIfNeeded(absPath) //nolint:errcheck
 		}
 
 		if err := adapter.GenerateContextFile(runtimeCfg, runtimeConstraints, runtimeSkills, runtimeIdentity); err != nil {
@@ -455,12 +472,18 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 			continue
 		}
 
-		_ = adapter.RegisterMCP()
-		if h, ok := adapter.(harness.HookInstaller); ok {
-			_ = h.RegisterHooks()
+		// Register MCP + hooks per adapter type.
+		if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.DefaultHooks())
 		}
-		if e, ok := adapter.(harness.ExtensionInstaller); ok {
-			_ = e.RegisterExtension()
+		if ca, ok := adapter.(*runtime.CodexAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.CodexHooks())
+		}
+		if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
+			_ = ca.RegisterMCP()
+			_ = ca.RegisterHooks(runtime.WindsurfHooks())
 		}
 	}
 
@@ -587,11 +610,11 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 }
 
 
-// buildRuntimeConfig converts a config.Config to a harness.Config.
+// buildRuntimeConfig converts a config.Config to a runtime.Config.
 // Autonomy was retired from the persisted config in v0.9.0 (#74);
 // the generated context files still include the autonomy section using
 // the "balanced" default so the runtime retains the behavioral directive.
-func buildRuntimeConfig(cfg *config.Config) harness.Config {
+func buildRuntimeConfig(cfg *config.Config) runtime.Config {
 	commMode := cfg.Communication.Mode
 	if commMode == "" {
 		commMode = "concise"
@@ -600,9 +623,9 @@ func buildRuntimeConfig(cfg *config.Config) harness.Config {
 	if delivery == "" {
 		delivery = "mcp"
 	}
-	return harness.Config{
+	return runtime.Config{
 		Version: cfg.Version,
-		User: harness.UserConfig{
+		User: runtime.UserConfig{
 			Language:          cfg.User.Language,
 			Autonomy:          "balanced",
 			CommunicationMode: commMode,
@@ -612,14 +635,14 @@ func buildRuntimeConfig(cfg *config.Config) harness.Config {
 }
 
 // buildRuntimeConstraints extracts constraint summaries from coreConstraints().
-func buildRuntimeConstraints() []harness.Constraint {
-	var runtimeConstraints []harness.Constraint
+func buildRuntimeConstraints() []runtime.Constraint {
+	var runtimeConstraints []runtime.Constraint
 	for id := range coreConstraints() {
 		var doc struct {
 			Summary string `json:"summary"`
 		}
 		json.Unmarshal([]byte(coreConstraints()[id]), &doc) //nolint:errcheck
-		runtimeConstraints = append(runtimeConstraints, harness.Constraint{
+		runtimeConstraints = append(runtimeConstraints, runtime.Constraint{
 			ID:      id,
 			Summary: doc.Summary,
 		})
@@ -631,14 +654,14 @@ func buildRuntimeConstraints() []harness.Constraint {
 }
 
 // buildRuntimeSkills extracts skill summaries from coreSkills().
-func buildRuntimeSkills() []harness.Skill {
-	var runtimeSkills []harness.Skill
+func buildRuntimeSkills() []runtime.Skill {
+	var runtimeSkills []runtime.Skill
 	for id := range coreSkills() {
 		var doc struct {
 			Summary string `json:"summary"`
 		}
 		json.Unmarshal([]byte(coreSkills()[id]), &doc) //nolint:errcheck
-		runtimeSkills = append(runtimeSkills, harness.Skill{
+		runtimeSkills = append(runtimeSkills, runtime.Skill{
 			ID:      id,
 			Summary: doc.Summary,
 		})
@@ -649,15 +672,15 @@ func buildRuntimeSkills() []harness.Skill {
 	return runtimeSkills
 }
 
-// buildRuntimeIdentity parses the identity JSON into a harness.Identity.
-func buildRuntimeIdentity() *harness.Identity {
+// buildRuntimeIdentity parses the identity JSON into a runtime.Identity.
+func buildRuntimeIdentity() *runtime.Identity {
 	var identityData struct {
 		What        string   `json:"what"`
 		Philosophy  string   `json:"philosophy"`
 		Constraints []string `json:"constraints"`
 	}
 	json.Unmarshal([]byte(defaultIdentity()), &identityData) //nolint:errcheck
-	return &harness.Identity{
+	return &runtime.Identity{
 		What:        identityData.What,
 		Philosophy:  identityData.Philosophy,
 		Constraints: identityData.Constraints,

@@ -357,8 +357,8 @@ func TestToolsCallCreateMemoryDraft(t *testing.T) {
 		t.Fatal("first content item not a map")
 	}
 	text, _ := first["text"].(string)
-	if !strings.Contains(text, "curated") {
-		t.Errorf("expected response to mention curated, got: %s", text)
+	if !strings.Contains(text, "draft") {
+		t.Errorf("expected response to mention draft, got: %s", text)
 	}
 
 	// Verify the file was actually created.

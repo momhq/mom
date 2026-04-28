@@ -1,5 +1,5 @@
-// Package harness defines the Adapter interface for AI Harness integrations.
-package harness
+// Package runtime defines the RuntimeAdapter interface for AI runtime integrations.
+package runtime
 
 import (
 	"os/exec"
@@ -68,56 +68,33 @@ type AdapterCapability struct {
 	Experimental []string `yaml:"experimental"`
 }
 
-// Tier classifies a Harness's integration quality with MOM.
-type Tier int
-
-const (
-	// Functional integration: minimal surface, automation may be unreliable.
-	Functional Tier = iota
-	// Fluent integration: standard idioms (hooks, settings files), good fidelity.
-	Fluent
-	// Native integration: programmable extensibility, full feature exposure.
-	Native
-)
-
-// String returns the lowercase tier name.
-func (t Tier) String() string {
-	switch t {
-	case Native:
-		return "native"
-	case Fluent:
-		return "fluent"
-	case Functional:
-		return "functional"
-	default:
-		return "unknown"
-	}
-}
-
-// HookDef defines a hook to register with the Harness.
+// HookDef defines a hook to register with the runtime.
 type HookDef struct {
 	Event   string // e.g. "PostToolUse"
 	Matcher string // e.g. "Write"
 	Command string
 }
 
-// Adapter is the interface that Harness integrations must implement.
-// Each Harness (Claude, Codex, Windsurf, etc.) provides an Adapter
-// that reads from .mom/ and generates Harness-specific files.
+// Adapter is the interface that runtime integrations must implement.
+// Each runtime (Claude, Codex, Windsurf, etc.) provides an adapter
+// that reads from .mom/ and generates runtime-specific files.
 type Adapter interface {
-	// Name returns the Harness identifier (e.g. "claude", "codex", "windsurf").
+	// Name returns the runtime identifier (e.g. "claude", "codex", "windsurf").
 	Name() string
 
-	// Tier returns the Harness's integration quality classification.
-	Tier() Tier
-
-	// GenerateContextFile generates the Harness's boot file
+	// GenerateContextFile generates the runtime's boot file
 	// (e.g. CLAUDE.md, AGENTS.md) from MOM's config,
 	// constraints, skills, and identity.
 	GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
 
-	// DetectHarness checks whether this Harness is present in the project.
-	DetectHarness() bool
+	// SupportsHooks returns whether this runtime supports hooks.
+	SupportsHooks() bool
+
+	// RegisterHooks registers hooks with the runtime if supported.
+	RegisterHooks(hooks []HookDef) error
+
+	// DetectRuntime checks whether this runtime is present in the project.
+	DetectRuntime() bool
 
 	// GeneratedFiles returns the list of file paths (relative to project root)
 	// that this adapter generates. Used by uninstall to clean up.
@@ -140,28 +117,20 @@ type Adapter interface {
 	// directories (with trailing /) and files.
 	GitIgnorePaths() []string
 
-	// RegisterMCP registers the MOM MCP server config for this Harness.
+	// RegisterMCP registers the MOM MCP server config for this runtime.
 	RegisterMCP() error
 }
 
-// HookInstaller is optionally implemented by adapters whose Harness has a
-// hook system. The adapter owns its hook list internally.
-type HookInstaller interface {
-	RegisterHooks() error
+// HooksForRuntime returns the standard MOM hooks for the given runtime name.
+func HooksForRuntime(name string) []HookDef {
+	switch name {
+	case "claude":
+		return DefaultHooks()
+	case "codex":
+		return CodexHooks()
+	case "windsurf":
+		return WindsurfHooks()
+	default:
+		return DefaultHooks()
+	}
 }
-
-// ExtensionInstaller is optionally implemented by adapters whose Harness
-// supports loadable extensions.
-type ExtensionInstaller interface {
-	RegisterExtension() error
-}
-
-// TranscriptSource is optionally implemented by adapters whose Harness
-// emits a transcript file or directory the watcher should tail.
-type TranscriptSource interface {
-	// DefaultTranscriptDir returns the path (tilde-expanded if needed) where
-	// the Harness writes transcripts. Empty string means none.
-	DefaultTranscriptDir() string
-}
-
-

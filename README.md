@@ -110,14 +110,13 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 | Claude Code | Yes | Yes | CLAUDE.md | Full support |
 | OpenAI Codex | Yes | — | AGENTS.md | Boot file + MCP |
 | Windsurf | Yes | Yes | .windsurf/rules/ | Full support |
-| Pi | Yes | Yes | AGENTS.md | Full support (extension-based, no native hooks) |
 
 ## Current Status
 
 MOM is in active development (v0.13). It works, and it self-hosts — the tool builds itself with its own memory.
 
 What's in v0.13:
-- **Watcher-based ingestion** — global daemon watches Claude Code, Windsurf, and pi transcripts via fsnotify, replacing hook-based recording
+- **Watcher-based ingestion** — global daemon watches Claude Code and Windsurf transcripts via fsnotify, replacing hook-based recording
 - **SQLite FTS5 search** — `mom_recall` and MCP search use a full-text index, self-healing from JSON source of truth
 - **Global watch daemon** — single launchd (macOS) or systemd (Linux) service manages all registered projects
 - **Runtime-specific logbook parsing** — `SessionParser` adapter interface with native parsers per runtime
@@ -125,7 +124,7 @@ What's in v0.13:
 - **MCP-first context delivery** — behavioral protocol via `mom_status` tool, `.mcp.json` auto-injected
 - **Drafter pipeline** — RAKE + BM25 extraction from raw capture into memory drafts
 - **Cartographer** — AST-based repo scanning for initial memory bootstrap
-- Four runtime adapters (Claude Code, Codex, Windsurf, Pi)
+- Three runtime adapters (Claude Code, Codex, Windsurf)
 - Communication modes (verbose, concise, normal, caveman)
 - Multi-repo support with scope-based memory
 - Homebrew installation with automated tap updates

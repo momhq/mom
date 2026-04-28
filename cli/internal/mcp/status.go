@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/momhq/mom/cli/internal/adapters/harness"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/scope"
 )
@@ -232,9 +232,9 @@ func (s *Server) statusModes() statusModesBlock {
 	}
 
 	return statusModesBlock{
-		Language:      harness.LanguageInstructions(lang),
-		Communication: harness.CommunicationModeInstructions(commMode),
-		Autonomy:      harness.AutonomyInstructions(autoMode),
+		Language:      runtime.LanguageInstructions(lang),
+		Communication: runtime.CommunicationModeInstructions(commMode),
+		Autonomy:      runtime.AutonomyInstructions(autoMode),
 	}
 }
 

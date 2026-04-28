@@ -1,4 +1,4 @@
-package harness
+package runtime
 
 import (
 	"testing"
@@ -65,36 +65,6 @@ func TestCodexAdapter_Capabilities(t *testing.T) {
 	}
 }
 
-// TestPiAdapter_Capabilities verifies the pi adapter loads its YAML and
-// reports session/turn support, with compact.triggered as experimental
-// (pi has /compact, but the watcher only sees the resulting JSONL writes,
-// not a structured compact event).
-func TestPiAdapter_Capabilities(t *testing.T) {
-	a := NewPiAdapter("/tmp/test")
-	cap := a.Capabilities()
-
-	if cap.Name != "pi" {
-		t.Errorf("expected adapter name %q, got %q", "pi", cap.Name)
-	}
-	if cap.Version == "" {
-		t.Error("expected non-empty version")
-	}
-
-	wantSupports := []string{"session.start", "session.end", "turn.complete"}
-	for _, event := range wantSupports {
-		if !containsString(cap.Supports, event) {
-			t.Errorf("pi Supports missing %q", event)
-		}
-	}
-
-	wantExperimental := []string{"compact.triggered"}
-	for _, event := range wantExperimental {
-		if !containsString(cap.Experimental, event) {
-			t.Errorf("pi Experimental missing %q", event)
-		}
-	}
-}
-
 // TestAdapterCapability_NoOverlap verifies that no event appears in both
 // Supports and Experimental for any adapter.
 func TestAdapterCapability_NoOverlap(t *testing.T) {
@@ -102,7 +72,6 @@ func TestAdapterCapability_NoOverlap(t *testing.T) {
 		NewClaudeAdapter("/tmp/test"),
 		NewCodexAdapter("/tmp/test"),
 		NewWindsurfAdapter("/tmp/test"),
-		NewPiAdapter("/tmp/test"),
 	}
 	for _, a := range adapters {
 		cap := a.Capabilities()

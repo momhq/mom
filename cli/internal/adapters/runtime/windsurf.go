@@ -1,4 +1,4 @@
-package harness
+package runtime
 
 import (
 	_ "embed"
@@ -28,10 +28,6 @@ func (a *WindsurfAdapter) Name() string {
 	return "windsurf"
 }
 
-func (a *WindsurfAdapter) Tier() Tier {
-	return Functional
-}
-
 func (a *WindsurfAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
 	rulesDir := filepath.Join(a.projectRoot, ".windsurf", "rules")
 	if err := os.MkdirAll(rulesDir, 0755); err != nil {
@@ -56,15 +52,11 @@ func (a *WindsurfAdapter) GenerateContextFile(config Config, constraints []Const
 	return nil
 }
 
-// DefaultTranscriptDir returns Windsurf's transcript directory.
-func (a *WindsurfAdapter) DefaultTranscriptDir() string {
-	return "~/.windsurf/transcripts/"
+func (a *WindsurfAdapter) SupportsHooks() bool {
+	return true
 }
 
-func (a *WindsurfAdapter) RegisterHooks() error {
-	hooks := []HookDef{
-		{Event: "post_cascade_response_with_transcript", Command: "mom draft"},
-	}
+func (a *WindsurfAdapter) RegisterHooks(hooks []HookDef) error {
 	windsurfDir := filepath.Join(a.projectRoot, ".windsurf")
 	if err := os.MkdirAll(windsurfDir, 0755); err != nil {
 		return fmt.Errorf("creating .windsurf dir: %w", err)
@@ -98,7 +90,20 @@ func (a *WindsurfAdapter) RegisterHooks() error {
 	return nil
 }
 
-func (a *WindsurfAdapter) DetectHarness() bool {
+// WindsurfHooks returns the standard MOM hooks for Windsurf.
+//
+// Recording is handled by the filesystem watcher (mom watch --runtime windsurf),
+// which reads ~/.windsurf/transcripts/ directly. The mom record hook is intentionally
+// omitted to avoid the 25-fires-per-turn problem and explosive raw data growth (#145).
+//
+// Only mom draft is retained so the drafter pipeline runs after each turn.
+func WindsurfHooks() []HookDef {
+	return []HookDef{
+		{Event: "post_cascade_response_with_transcript", Command: "mom draft"},
+	}
+}
+
+func (a *WindsurfAdapter) DetectRuntime() bool {
 	info, err := os.Stat(filepath.Join(a.projectRoot, ".windsurf"))
 	return err == nil && info.IsDir()
 }
@@ -111,7 +116,7 @@ func (a *WindsurfAdapter) DetectHarness() bool {
 // setups the last project to call RegisterMCP wins — run `mom upgrade` in the
 // active project to point the global config at it.
 func (a *WindsurfAdapter) RegisterMCP() error {
-	// 1. Project-level .mcp.json (shared with other Harnesses).
+	// 1. Project-level .mcp.json (shared with other runtimes).
 	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
 	if err := upsertMCPEntryWithEnv(mcpPath, a.projectRoot); err != nil {
 		return err
@@ -132,7 +137,7 @@ func (a *WindsurfAdapter) RegisterMCP() error {
 }
 
 // upsertMCPEntryWithEnv is like upsertMCPEntry but adds MOM_PROJECT_DIR env var.
-// Used by Harnesses that start MCP subprocesses from a different cwd (Windsurf, Cline VS Code).
+// Used by runtimes that start MCP subprocesses from a different cwd (Windsurf, Cline VS Code).
 func upsertMCPEntryWithEnv(path, projectRoot string) error {
 	root := make(map[string]any)
 	if data, err := os.ReadFile(path); err == nil {
@@ -194,8 +199,3 @@ func (a *WindsurfAdapter) Capabilities() AdapterCapability {
 	}
 	return cap
 }
-
-var (
-	_ HookInstaller    = (*WindsurfAdapter)(nil)
-	_ TranscriptSource = (*WindsurfAdapter)(nil)
-)

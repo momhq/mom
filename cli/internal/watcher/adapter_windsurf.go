@@ -227,7 +227,7 @@ func (a *WindsurfAdapter) ParseSession(transcriptPath, sessionID string) (*logbo
 			log.Interactions++
 
 		case "code_action":
-			a.windCountTool(log, "code_action")
+			windCountTool(log, "code_action")
 			if ca, ok := entry["code_action"].(map[string]any); ok {
 				if p, ok := ca["path"].(string); ok && p != "" {
 					filesChanged[p] = true
@@ -235,7 +235,7 @@ func (a *WindsurfAdapter) ParseSession(transcriptPath, sessionID string) (*logbo
 			}
 
 		case "command_action":
-			a.windCountTool(log, "command_action")
+			windCountTool(log, "command_action")
 
 		case "mcp_tool":
 			toolName := ""
@@ -243,7 +243,7 @@ func (a *WindsurfAdapter) ParseSession(transcriptPath, sessionID string) (*logbo
 				toolName, _ = mcp["tool_name"].(string)
 			}
 			if toolName != "" {
-				a.windCountTool(log, toolName)
+				windCountTool(log, toolName)
 				if toolName == "create_memory_draft" {
 					log.MemoriesCreated++
 				}
@@ -264,23 +264,18 @@ func (a *WindsurfAdapter) ParseSession(transcriptPath, sessionID string) (*logbo
 	return log, nil
 }
 
-// CategorizeTool returns Windsurf-specific synonyms for tool names; falls back
-// to logbook.CategorizeToolCall for everything else.
-func (a *WindsurfAdapter) CategorizeTool(toolName string) string {
+// windCountTool increments tool counts in a SessionLog, routing to the correct category.
+func windCountTool(log *logbook.SessionLog, toolName string) {
+	var category string
 	switch toolName {
 	case "code_action":
-		return "codebase_write"
+		category = "codebase_write"
 	case "command_action":
-		return "system"
+		category = "system"
 	default:
-		return logbook.CategorizeToolCall(toolName)
+		category = logbook.CategorizeToolCall(toolName)
 	}
-}
 
-// windCountTool increments tool counts in a SessionLog, routing via the
-// adapter's CategorizeTool override.
-func (a *WindsurfAdapter) windCountTool(log *logbook.SessionLog, toolName string) {
-	category := a.CategorizeTool(toolName)
 	group := log.ToolCalls[category]
 	group.Total++
 	if group.Detail == nil {
@@ -289,5 +284,3 @@ func (a *WindsurfAdapter) windCountTool(log *logbook.SessionLog, toolName string
 	group.Detail[toolName]++
 	log.ToolCalls[category] = group
 }
-
-var _ ToolCategorizer = (*WindsurfAdapter)(nil)

@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/momhq/mom/cli/internal/adapters/harness"
+	"github.com/momhq/mom/cli/internal/adapters/runtime"
 )
 
-// coreGitIgnorePaths are always added regardless of harness.
+// coreGitIgnorePaths are always added regardless of runtime.
 var coreGitIgnorePaths = []string{
 	".mom/",
 	".mcp.json",
@@ -20,7 +20,7 @@ const gitIgnoreHeader = "# MOM (generated at runtime)"
 // ensureGitIgnore ensures that .gitignore at projectRoot contains all MOM-generated
 // paths for the given runtimes. If .gitignore doesn't exist, it is created.
 // Returns the list of entries that were added (empty if all were already present).
-func ensureGitIgnore(projectRoot string, registry *harness.Registry, runtimes []string) ([]string, error) {
+func ensureGitIgnore(projectRoot string, registry *runtime.Registry, runtimes []string) ([]string, error) {
 	gitignorePath := filepath.Join(projectRoot, ".gitignore")
 
 	// Collect all paths that should be present.
