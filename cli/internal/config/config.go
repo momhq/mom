@@ -43,6 +43,9 @@ type WatcherConfig struct {
 	// WindsurfTranscriptDir overrides the default Windsurf transcript directory.
 	// Defaults to ~/.windsurf/transcripts/ when empty.
 	WindsurfTranscriptDir string `yaml:"windsurf_transcript_dir,omitempty"`
+	// PiTranscriptDir overrides the default pi session directory.
+	// Defaults to ~/.pi/agent/sessions/ when empty.
+	PiTranscriptDir string `yaml:"pi_transcript_dir,omitempty"`
 	// DebounceMs is the debounce delay in milliseconds. Default: 300.
 	DebounceMs int `yaml:"debounce_ms,omitempty"`
 }

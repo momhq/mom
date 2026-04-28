@@ -130,6 +130,8 @@ func HooksForRuntime(name string) []HookDef {
 		return CodexHooks()
 	case "windsurf":
 		return WindsurfHooks()
+	case "pi":
+		return PiHooks()
 	default:
 		return DefaultHooks()
 	}

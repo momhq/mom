@@ -179,6 +179,16 @@ func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source
 				TranscriptDir: dir,
 				Adapter:       &watcher.WindsurfAdapter{ProjectDir: projectDir},
 			})
+		case "pi":
+			dir := cfg.Watcher.PiTranscriptDir
+			if dir == "" {
+				dir = "~/.pi/agent/sessions/"
+			}
+			sources = append(sources, watcher.Source{
+				Runtime:       "pi",
+				TranscriptDir: dir,
+				Adapter:       watcher.NewPiAdapter(),
+			})
 		}
 	}
 	return sources

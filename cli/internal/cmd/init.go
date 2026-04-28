@@ -28,7 +28,7 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, windsurf)")
+	initCmd.Flags().StringSlice("runtimes", nil, "AI runtimes to configure (claude, codex, windsurf, pi)")
 	initCmd.Flags().Bool("force", false, "Overwrite existing .mom/ directory")
 	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }
@@ -311,37 +311,15 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 				return
 			}
 
-			// Register MCP server config and hooks for Claude.
-			if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
-				if err := ca.RegisterMCP(); err != nil {
-					genErr = err
-					return
-				}
-				if err := ca.RegisterHooks(runtime.DefaultHooks()); err != nil {
-					genErr = err
-					return
-				}
+			// Register MCP server config and hooks. The Adapter interface
+			// covers all runtimes uniformly; each adapter knows its own hook
+			// set via HooksForRuntime(name).
+			if err := adapter.RegisterMCP(); err != nil {
+				genErr = err
+				return
 			}
-
-			// Register MCP server config and hooks for Codex.
-			if ca, ok := adapter.(*runtime.CodexAdapter); ok {
-				if err := ca.RegisterMCP(); err != nil {
-					genErr = err
-					return
-				}
-				if err := ca.RegisterHooks(runtime.CodexHooks()); err != nil {
-					genErr = err
-					return
-				}
-			}
-
-			// Register MCP server config and hooks for Windsurf.
-			if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
-				if err := ca.RegisterMCP(); err != nil {
-					genErr = err
-					return
-				}
-				if err := ca.RegisterHooks(runtime.WindsurfHooks()); err != nil {
+			if adapter.SupportsHooks() {
+				if err := adapter.RegisterHooks(runtime.HooksForRuntime(rt)); err != nil {
 					genErr = err
 					return
 				}
@@ -472,18 +450,12 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 			continue
 		}
 
-		// Register MCP + hooks per adapter type.
-		if ca, ok := adapter.(*runtime.ClaudeAdapter); ok {
-			_ = ca.RegisterMCP()
-			_ = ca.RegisterHooks(runtime.DefaultHooks())
-		}
-		if ca, ok := adapter.(*runtime.CodexAdapter); ok {
-			_ = ca.RegisterMCP()
-			_ = ca.RegisterHooks(runtime.CodexHooks())
-		}
-		if ca, ok := adapter.(*runtime.WindsurfAdapter); ok {
-			_ = ca.RegisterMCP()
-			_ = ca.RegisterHooks(runtime.WindsurfHooks())
+		// Register MCP + hooks generically. Same pattern as upgrade.go and
+		// the fresh-init path above; covers any adapter implementing the
+		// runtime.Adapter interface, including pi.
+		_ = adapter.RegisterMCP()
+		if adapter.SupportsHooks() {
+			_ = adapter.RegisterHooks(runtime.HooksForRuntime(rt))
 		}
 	}
 
