@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	"encoding/json"
@@ -22,16 +22,16 @@ func TestClaudeAdapter_SupportsHooks(t *testing.T) {
 	}
 }
 
-func TestClaudeAdapter_DetectRuntime(t *testing.T) {
+func TestClaudeAdapter_DetectHarness(t *testing.T) {
 	dir := t.TempDir()
 
 	a := NewClaudeAdapter(dir)
-	if a.DetectRuntime() {
+	if a.DetectHarness() {
 		t.Error("expected false when .claude/ does not exist")
 	}
 
 	os.MkdirAll(filepath.Join(dir, ".claude"), 0755)
-	if !a.DetectRuntime() {
+	if !a.DetectHarness() {
 		t.Error("expected true when .claude/ exists")
 	}
 }

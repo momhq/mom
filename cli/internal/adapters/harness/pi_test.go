@@ -1,4 +1,4 @@
-package runtime
+package harness
 
 import (
 	"encoding/json"
@@ -196,23 +196,23 @@ func TestPiAdapter_RegisterMCP_PreservesOtherServers(t *testing.T) {
 	}
 }
 
-func TestPiAdapter_DetectRuntime(t *testing.T) {
+func TestPiAdapter_DetectHarness(t *testing.T) {
 	dir := t.TempDir()
 	a := NewPiAdapter(dir)
 
-	if a.DetectRuntime() {
+	if a.DetectHarness() {
 		t.Error("expected false when .pi/ absent")
 	}
 
 	if err := os.MkdirAll(filepath.Join(dir, ".pi"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if !a.DetectRuntime() {
+	if !a.DetectHarness() {
 		t.Error("expected true when .pi/ exists")
 	}
 }
 
-func TestPiAdapter_DetectRuntime_DoesNotMatchOnAGENTSMd(t *testing.T) {
+func TestPiAdapter_DetectHarness_DoesNotMatchOnAGENTSMd(t *testing.T) {
 	// Codex also writes AGENTS.md. Pi must NOT report itself as detected
 	// based on AGENTS.md alone, otherwise every Codex project would
 	// spuriously claim pi.
@@ -220,7 +220,7 @@ func TestPiAdapter_DetectRuntime_DoesNotMatchOnAGENTSMd(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("..."), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if NewPiAdapter(dir).DetectRuntime() {
+	if NewPiAdapter(dir).DetectHarness() {
 		t.Error("AGENTS.md alone must not trigger pi detection")
 	}
 }
@@ -273,7 +273,7 @@ func TestPiAdapter_Watermark(t *testing.T) {
 }
 
 // TestPiAdapter_Capabilities lives in capabilities_test.go alongside the
-// other adapters' capability tests — keeping the cross-runtime contract
+// other adapters' capability tests — keeping the cross-Harness contract
 // (Supports vs Experimental, no overlap) in one place.
 
 func TestPiAdapter_SupportsHooks(t *testing.T) {
