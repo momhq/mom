@@ -182,8 +182,8 @@ func TestToolsList(t *testing.T) {
 	if !ok {
 		t.Fatalf("tools not an array: %v", result["tools"])
 	}
-	if len(tools) != 8 {
-		t.Errorf("expected 8 tools, got %d", len(tools))
+	if len(tools) != 7 {
+		t.Errorf("expected 7 tools, got %d", len(tools))
 	}
 
 	names := make(map[string]bool)
@@ -195,28 +195,32 @@ func TestToolsList(t *testing.T) {
 		name, _ := tool["name"].(string)
 		names[name] = true
 	}
-	expected := []string{"search_memories", "get_memory", "list_scopes", "create_memory_draft", "list_landmarks", "mom_status", "mom_record_turn", "mom_recall"}
+	expected := []string{"get_memory", "list_scopes", "create_memory_draft", "list_landmarks", "mom_status", "mom_record_turn", "mom_recall"}
 	for _, n := range expected {
 		if !names[n] {
 			t.Errorf("tool %q missing from tools/list", n)
 		}
 	}
+	if names["search_memories"] {
+		t.Error("search_memories should not appear in tools/list — it was removed in v0.14")
+	}
 }
 
-func TestToolsCallSearchMemories(t *testing.T) {
+func TestToolsCallMomRecall(t *testing.T) {
 	leoDir := newTestLeoDir(t)
 	writeMemoryDoc(t, leoDir, map[string]any{
-		"id":         "auth-pattern",
-		"type":       "pattern",
-		"lifecycle":  "permanent",
-		"scope":      "project",
-		"tags":       []string{"auth", "security"},
-		"summary":    "Authentication pattern for JWT",
-		"created":    time.Now().Format(time.RFC3339),
-		"created_by": "test",
-		"updated":    time.Now().Format(time.RFC3339),
-		"updated_by": "test",
-		"content":    map[string]any{"detail": "Use JWT with RS256"},
+		"id":              "auth-pattern",
+		"type":            "pattern",
+		"lifecycle":       "permanent",
+		"scope":           "project",
+		"tags":            []string{"auth", "security"},
+		"summary":         "Authentication pattern for JWT",
+		"promotion_state": "curated",
+		"created":         time.Now().Format(time.RFC3339),
+		"created_by":      "test",
+		"updated":         time.Now().Format(time.RFC3339),
+		"updated_by":      "test",
+		"content":         map[string]any{"detail": "Use JWT with RS256"},
 	})
 
 	inW, outR, _ := runServer(t, leoDir)
@@ -226,7 +230,7 @@ func TestToolsCallSearchMemories(t *testing.T) {
 	readResponse(t, outR)
 
 	sendRequest(t, inW, "tools/call", 2, map[string]any{
-		"name": "search_memories",
+		"name": "mom_recall",
 		"arguments": map[string]any{
 			"query": "auth",
 		},
