@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/harness"
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/ux"
@@ -192,6 +192,10 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 			"peer-review-automatic",
 			"token-economy-caveman",
 			"token-economy-model-selection",
+			"evidence-over-claim",
+			"inheritance",
+			"metrics-collection",
+			"propagation",
 		}
 		constraintsDir := filepath.Join(leoDir, "constraints")
 		for _, name := range retiredConstraints {
@@ -341,7 +345,7 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 				return
 			}
 		}
-		for _, rt := range cfg.EnabledRuntimes() {
+		for _, rt := range cfg.EnabledHarnesses() {
 			addAction("✔", fmt.Sprintf("runtime %s context file regenerated", rt))
 		}
 
@@ -375,7 +379,7 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 
 	// ── Phase 3.5: Register with global watch daemon ────────────────────────
 	if !dryRun {
-		if err := ensureGlobalDaemon(projectRoot, leoDir, cfg.EnabledRuntimes()); err != nil {
+		if err := ensureGlobalDaemon(projectRoot, leoDir, cfg.EnabledHarnesses()); err != nil {
 			addAction("⚠", fmt.Sprintf("watch daemon: %v", err))
 		} else {
 			addAction("✔", "watch daemon installed/updated")
@@ -384,8 +388,8 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 
 	// ── Phase 4: Update .gitignore ──────────────────────────────────────────
 	if !dryRun {
-		registry := runtime.NewRegistry(projectRoot)
-		enabledRTs := cfg.EnabledRuntimes()
+		registry := harness.NewRegistry(projectRoot)
+		enabledRTs := cfg.EnabledHarnesses()
 		if added, gitErr := ensureGitIgnore(projectRoot, registry, enabledRTs); gitErr != nil {
 			addAction("⚠", fmt.Sprintf(".gitignore: %v", gitErr))
 		} else if len(added) > 0 {
@@ -763,14 +767,14 @@ func kebabOnly(s string) string {
 
 // regenerateRuntimeFiles rebuilds all runtime context files from the current config.
 func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) error {
-	registry := runtime.NewRegistry(projectRoot)
+	registry := harness.NewRegistry(projectRoot)
 
 	runtimeCfg := buildRuntimeConfig(cfg)
 	runtimeConstraints := buildRuntimeConstraints()
 	runtimeSkills := buildRuntimeSkills()
 	runtimeIdentity := buildRuntimeIdentity()
 
-	for _, rt := range cfg.EnabledRuntimes() {
+	for _, rt := range cfg.EnabledHarnesses() {
 		adapter, ok := registry.Get(rt)
 		if !ok {
 			continue
@@ -779,13 +783,17 @@ func regenerateRuntimeFiles(projectRoot, leoDir string, cfg *config.Config) erro
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
 
-		// Register MCP server config and hooks for all adapters.
 		if err := adapter.RegisterMCP(); err != nil {
 			return fmt.Errorf("registering %s MCP config: %w", rt, err)
 		}
-		if adapter.SupportsHooks() {
-			if err := adapter.RegisterHooks(runtime.HooksForRuntime(rt)); err != nil {
+		if h, ok := adapter.(harness.HookInstaller); ok {
+			if err := h.RegisterHooks(); err != nil {
 				return fmt.Errorf("registering %s hooks: %w", rt, err)
+			}
+		}
+		if e, ok := adapter.(harness.ExtensionInstaller); ok {
+			if err := e.RegisterExtension(); err != nil {
+				return fmt.Errorf("registering %s extension: %w", rt, err)
 			}
 		}
 	}
@@ -820,19 +828,19 @@ func scrubDeadConfigFields(leoDir string) (scrubbed []byte, changed bool, err er
 		return data, false, nil
 	}
 
-	changed = removeKeyFromMapping(doc, "runtimes", func(runtimesNode *yaml.Node) {
-		if runtimesNode.Kind != yaml.MappingNode {
-			return
-		}
-		for i := 1; i < len(runtimesNode.Content); i += 2 {
-			rtVal := runtimesNode.Content[i]
+	changed = renameYAMLKey(doc, "runtimes", "harnesses") || changed
+
+	// Strip retired "tiers" sub-keys from each harness block.
+	if harnessesNode := findMappingValue(doc, "harnesses"); harnessesNode != nil && harnessesNode.Kind == yaml.MappingNode {
+		for i := 1; i < len(harnessesNode.Content); i += 2 {
+			rtVal := harnessesNode.Content[i]
 			if rtVal.Kind == yaml.MappingNode {
 				if removeYAMLKey(rtVal, "tiers") {
 					changed = true
 				}
 			}
 		}
-	}) || changed
+	}
 
 	if removeYAMLKey(findMappingValue(doc, "user"), "autonomy") {
 		changed = true
@@ -849,13 +857,13 @@ func scrubDeadConfigFields(leoDir string) (scrubbed []byte, changed bool, err er
 	return out, true, nil
 }
 
-// removeKeyFromMapping visits the value node for key in a YAML mapping node,
-// calling fn with the value node. Returns true if the key was found (fn may
-// set the outer changed flag).
-func removeKeyFromMapping(mapping *yaml.Node, key string, fn func(*yaml.Node)) bool {
+// renameYAMLKey renames a top-level key in a YAML mapping node from oldKey to
+// newKey, preserving the value and its position. Returns true if the key was
+// found and renamed.
+func renameYAMLKey(mapping *yaml.Node, oldKey, newKey string) bool {
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		if mapping.Content[i].Value == key {
-			fn(mapping.Content[i+1])
+		if mapping.Content[i].Value == oldKey {
+			mapping.Content[i].Value = newKey
 			return true
 		}
 	}

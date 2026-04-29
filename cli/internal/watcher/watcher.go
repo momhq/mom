@@ -17,14 +17,14 @@ import (
 	"github.com/momhq/mom/cli/internal/ux"
 )
 
-// Source describes one runtime's transcript directory and parser.
+// Source describes one Harness's transcript directory and parser.
 type Source struct {
-	// Runtime is the name of the runtime (e.g. "claude", "windsurf").
-	Runtime string
+	// Harness is the name of the Harness (e.g. "claude", "windsurf").
+	Harness string
 	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
 	// Tilde expansion is performed automatically.
 	TranscriptDir string
-	// Adapter parses runtime-specific JSONL lines.
+	// Adapter parses Harness-specific JSONL lines.
 	Adapter Adapter
 }
 
@@ -33,7 +33,7 @@ type Config struct {
 	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
 	// Tilde expansion is performed automatically.
 	//
-	// Deprecated: use Sources instead. Kept for single-runtime compat.
+	// Deprecated: use Sources instead. Kept for single-Harness compat.
 	TranscriptDir string
 	// ProjectDir is the absolute path of the project being watched.
 	// Used to scope ingestion to the matching transcript subdirectory.
@@ -41,11 +41,11 @@ type Config struct {
 	ProjectDir string
 	// MomDir is the path to .mom/ where raw/ and cursor files are written.
 	MomDir string
-	// Adapter parses runtime-specific JSONL lines.
+	// Adapter parses Harness-specific JSONL lines.
 	//
-	// Deprecated: use Sources instead. Kept for single-runtime compat.
+	// Deprecated: use Sources instead. Kept for single-Harness compat.
 	Adapter Adapter
-	// Sources lists all runtime transcript directories to watch.
+	// Sources lists all Harness transcript directories to watch.
 	// When set, TranscriptDir and Adapter are ignored.
 	Sources []Source
 	// DebounceMs is how long to wait after a Write event before reading.
@@ -62,12 +62,12 @@ type Config struct {
 
 // resolvedSource is a Source after tilde expansion and project scoping.
 type resolvedSource struct {
-	runtime string
+	harness string
 	dir     string // resolved absolute path
 	adapter Adapter
 }
 
-// Watcher watches runtime transcript directories and ingests new entries
+// Watcher watches Harness transcript directories and ingests new entries
 // into .mom/raw/ using cursor-based incremental reads.
 type Watcher struct {
 	cfg        Config
@@ -91,7 +91,7 @@ func New(cfg Config) (*Watcher, error) {
 	sources := cfg.Sources
 	if len(sources) == 0 && cfg.TranscriptDir != "" {
 		sources = []Source{{
-			Runtime:       "default",
+			Harness:       "default",
 			TranscriptDir: cfg.TranscriptDir,
 			Adapter:       cfg.Adapter,
 		}}
@@ -102,12 +102,21 @@ func New(cfg Config) (*Watcher, error) {
 	for _, src := range sources {
 		dir, err := expandTilde(src.TranscriptDir)
 		if err != nil {
-			return nil, fmt.Errorf("expanding transcript dir for %s: %w", src.Runtime, err)
+			return nil, fmt.Errorf("expanding transcript dir for %s: %w", src.Harness, err)
 		}
 
 		// Scope to project-specific subdirectory when ProjectDir is set.
+		// Adapters that use a non-default slug convention (e.g. pi) implement
+		// ProjectScoper to override the rule — critical for tight scoping,
+		// otherwise the watcher falls back to scanning the entire transcript
+		// dir and ingests sessions from other projects.
 		if cfg.ProjectDir != "" {
-			slug := projectSlug(cfg.ProjectDir)
+			var slug string
+			if scoper, ok := src.Adapter.(ProjectScoper); ok {
+				slug = scoper.ProjectSlug(cfg.ProjectDir)
+			} else {
+				slug = projectSlug(cfg.ProjectDir)
+			}
 			scoped := filepath.Join(dir, slug)
 			if info, serr := os.Stat(scoped); serr == nil && info.IsDir() {
 				dir = scoped
@@ -115,7 +124,7 @@ func New(cfg Config) (*Watcher, error) {
 		}
 
 		resolved = append(resolved, resolvedSource{
-			runtime: src.Runtime,
+			harness: src.Harness,
 			dir:     dir,
 			adapter: src.Adapter,
 		})
@@ -161,7 +170,7 @@ func (w *Watcher) Run() error {
 	// Watch all transcript directories recursively.
 	for _, src := range w.sources {
 		if err := w.addDir(src.dir); err != nil {
-			w.logf("watching %s (%s): %v — skipping", src.dir, src.runtime, err)
+			w.logf("watching %s (%s): %v — skipping", src.dir, src.harness, err)
 		}
 	}
 
@@ -178,7 +187,7 @@ func (w *Watcher) Run() error {
 	}
 
 	for _, src := range w.sources {
-		w.logf("watcher started on %s (%s)", src.dir, src.runtime)
+		w.logf("watcher started on %s (%s)", src.dir, src.harness)
 	}
 
 	for {
@@ -229,7 +238,7 @@ func (w *Watcher) TranscriptDir() string {
 func (w *Watcher) TranscriptDirs() map[string]string {
 	dirs := make(map[string]string, len(w.sources))
 	for _, src := range w.sources {
-		dirs[src.runtime] = src.dir
+		dirs[src.harness] = src.dir
 	}
 	return dirs
 }
@@ -344,6 +353,14 @@ func (w *Watcher) ingestFile(path string) int {
 	}
 	defer f.Close()
 
+	// If file shrank (truncation/rotation), reset cursor to re-ingest (#154).
+	if offset > 0 {
+		if info, err := f.Stat(); err == nil && offset > info.Size() {
+			w.logf("file %s shrank (cursor %d > size %d) — resetting cursor", path, offset, info.Size())
+			offset = 0
+		}
+	}
+
 	if offset > 0 {
 		if _, err := f.Seek(offset, io.SeekStart); err != nil {
 			w.logf("seeking %s to %d: %v", path, offset, err)
@@ -351,16 +368,23 @@ func (w *Watcher) ingestFile(path string) int {
 		}
 	}
 
-	// Read new content.
+	// Read new content. Use ReadBytes('\n') instead of Scanner to distinguish
+	// complete lines (terminated by \n) from truncated trailing data (#153).
 	var entries []recorder.RawEntry
-	var bytesRead int64
-	scanner := bufio.NewScanner(f)
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 2*1024*1024)
+	var committedBytes int64
+	reader := bufio.NewReaderSize(f, 2*1024*1024)
 
-	for scanner.Scan() {
-		raw := scanner.Bytes()
-		bytesRead += int64(len(raw)) + 1 // +1 for newline
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			// EOF without trailing \n — incomplete line, don't advance cursor past it.
+			break
+		}
+		committedBytes += int64(len(line))
+		raw := line[:len(line)-1] // strip trailing \n
+		if len(raw) == 0 {
+			continue
+		}
 
 		entry, ok := w.adapterForPath(path).ParseLine(raw, sessionID)
 		if !ok {
@@ -368,11 +392,8 @@ func (w *Watcher) ingestFile(path string) int {
 		}
 		entries = append(entries, entry)
 	}
-	if err := scanner.Err(); err != nil {
-		w.logf("scanning %s: %v", path, err)
-	}
 
-	if bytesRead == 0 {
+	if committedBytes == 0 {
 		return 0
 	}
 
@@ -393,8 +414,8 @@ func (w *Watcher) ingestFile(path string) int {
 		}
 	}
 
-	// Advance cursor.
-	writeWatchCursor(cursorFile, offset+bytesRead)
+	// Advance cursor only past complete lines (#153).
+	writeWatchCursor(cursorFile, offset+committedBytes)
 
 	// Publish to Herald so downstream processors (Logbook, Drafter) run.
 	if len(entries) > 0 && w.cfg.Bus != nil {

@@ -14,7 +14,7 @@
 
 Your AI assistant forgets everything between sessions. You re-explain decisions, conventions, architecture — every time. MOM fixes that.
 
-**MOM** (Memory Oriented Machine) is an open-source CLI that gives AI agents persistent, structured memory. Decisions, constraints, patterns, and learnings — stored in your project, loaded automatically, evolving with every session. Runtime-agnostic. On-prem. Schema-validated.
+**MOM** (Memory Oriented Machine) is an open-source CLI that gives AI agents persistent, structured memory. Decisions, constraints, patterns, and learnings — stored in your project, loaded automatically, evolving with every session. Harness-agnostic. On-prem. Schema-validated.
 
 Self-hosting since v0.2 — MOM builds itself with its own memory.
 
@@ -61,13 +61,13 @@ your-project/
 └── your code...
 ```
 
-You work with your agent. MOM validates, indexes, and delivers memory to the runtime. Switch runtimes without losing anything.
+You work with your agent. MOM validates, indexes, and delivers memory to the harness. Switch harnesses without losing anything.
 
 ## What Makes It Different
 
 **Memory compounds.** Month 6 is structurally richer than month 1. Your agent knows the web of decisions behind your codebase. No one starting from zero can match months of accumulated context.
 
-**Runtime-agnostic.** Memory lives in `.mom/`, not in `.claude/` or `.cursor/`. MOM generates the right context for each runtime through adapters. Your memory is yours, not locked to a vendor.
+**Harness-agnostic.** Memory lives in `.mom/`, not in `.claude/` or `.cursor/`. MOM generates the right context for each harness through adapters. Your memory is yours, not locked to a vendor.
 
 **Schema-validated.** Every memory document is tagged, scoped, and promotion-managed. Not a loose Markdown file — a structured, queryable memory with free-form content.
 
@@ -79,7 +79,7 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 
 | Command | What it does |
 |---------|-------------|
-| `mom init` | Interactive onboarding — runtime, language, mode |
+| `mom init` | Interactive onboarding — harness, language, mode |
 | `mom status` | Memory summary — document count, tags, health |
 | `mom doctor` | Diagnostic checks on `.mom/` health |
 | `mom recall <query>` | Search across memory (SQLite FTS5) |
@@ -95,7 +95,7 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 | `mom export` | Export memory to portable directory |
 | `mom import` | Import memory (merge or replace) |
 | `mom reindex` | Rebuild the SQLite search index from JSON memory files |
-| `mom watch` | Watch runtime transcripts and ingest turns automatically |
+| `mom watch` | Watch harness transcripts and ingest turns automatically |
 | `mom sweep` | Delete old raw JSONL recordings based on retention policy |
 | `mom serve mcp` | Start MCP stdio server |
 | `mom serve status` | Show MCP server activity |
@@ -103,28 +103,29 @@ You work with your agent. MOM validates, indexes, and delivers memory to the run
 | `mom uninstall` | Remove all MOM files from this project |
 | `mom version` | Print version |
 
-## Supported Runtimes
+## Supported Harnesses
 
-| Runtime | MCP | Watcher | Boot file | Status |
+| Harness | MCP | Watcher | Boot file | Status |
 |---------|-----|---------|-----------|--------|
 | Claude Code | Yes | Yes | CLAUDE.md | Full support |
 | OpenAI Codex | Yes | — | AGENTS.md | Boot file + MCP |
 | Windsurf | Yes | Yes | .windsurf/rules/ | Full support |
+| Pi | Yes | Yes | AGENTS.md | Full support (extension-based, no native hooks) |
 
 ## Current Status
 
 MOM is in active development (v0.13). It works, and it self-hosts — the tool builds itself with its own memory.
 
 What's in v0.13:
-- **Watcher-based ingestion** — global daemon watches Claude Code and Windsurf transcripts via fsnotify, replacing hook-based recording
+- **Watcher-based ingestion** — global daemon watches Claude Code, Windsurf, and pi transcripts via fsnotify, replacing hook-based recording
 - **SQLite FTS5 search** — `mom_recall` and MCP search use a full-text index, self-healing from JSON source of truth
 - **Global watch daemon** — single launchd (macOS) or systemd (Linux) service manages all registered projects
-- **Runtime-specific logbook parsing** — `SessionParser` adapter interface with native parsers per runtime
+- **Harness-specific logbook parsing** — `SessionParser` adapter interface with native parsers per harness
 - **CLI design system** — spinners, color-coded output, structured status views across all commands
 - **MCP-first context delivery** — behavioral protocol via `mom_status` tool, `.mcp.json` auto-injected
 - **Drafter pipeline** — RAKE + BM25 extraction from raw capture into memory drafts
 - **Cartographer** — AST-based repo scanning for initial memory bootstrap
-- Three runtime adapters (Claude Code, Codex, Windsurf)
+- Four harness adapters (Claude Code, Codex, Windsurf, Pi)
 - Communication modes (verbose, concise, normal, caveman)
 - Multi-repo support with scope-based memory
 - Homebrew installation with automated tap updates

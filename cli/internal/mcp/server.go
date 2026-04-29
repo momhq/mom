@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/recall"
+	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
 )
 
@@ -59,13 +61,27 @@ type rpcError struct {
 type Server struct {
 	momDir string
 	idx    *storage.IndexedAdapter
+	engine *recall.Engine
 }
 
 // New creates a new Server rooted at the given .mom/ directory.
+// It builds the recall Engine from the scope chain discovered at momDir.
 func New(momDir string) *Server {
+	idx := storage.NewIndexedAdapter(momDir)
+
+	scopes := scope.Walk(momDir)
+	if len(scopes) == 0 {
+		scopes = []scope.Scope{{Path: momDir, Label: "repo"}}
+	}
+	chain := make([]recall.Searcher, len(scopes))
+	for i, sc := range scopes {
+		chain[i] = recall.NewScopeSearcher(idx, sc.Path)
+	}
+
 	return &Server{
 		momDir: momDir,
-		idx:    storage.NewIndexedAdapter(momDir),
+		idx:    idx,
+		engine: recall.NewEngine(chain),
 	}
 }
 

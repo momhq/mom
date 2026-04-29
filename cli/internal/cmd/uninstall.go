@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/momhq/mom/cli/internal/adapters/runtime"
+	"github.com/momhq/mom/cli/internal/adapters/harness"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
@@ -54,13 +54,13 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 	projectRoot := filepath.Dir(leoDir)
 
 	// Resolve adapters from config — use registry for all enabled runtimes.
-	registry := runtime.NewRegistry(projectRoot)
-	var adapters []runtime.Adapter
+	registry := harness.NewRegistry(projectRoot)
+	var adapters []harness.Adapter
 
 	if hasLeoDir {
 		cfg, err := config.Load(leoDir)
 		if err == nil {
-			for _, rt := range cfg.EnabledRuntimes() {
+			for _, rt := range cfg.EnabledHarnesses() {
 				if a, ok := registry.Get(rt); ok {
 					adapters = append(adapters, a)
 				}

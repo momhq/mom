@@ -6,11 +6,28 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/momhq/mom/cli/internal/adapters/harness"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/daemon"
 	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/momhq/mom/cli/internal/watcher"
 )
+
+// harnessTranscriptDir resolves a Harness's default transcript directory via
+// its TranscriptSource implementation. Returns "" if the Harness is unknown
+// or has no transcript source.
+func harnessTranscriptDir(name string) string {
+	reg := harness.NewRegistry("")
+	h, ok := reg.Get(name)
+	if !ok {
+		return ""
+	}
+	if ts, ok := h.(harness.TranscriptSource); ok {
+		return ts.DefaultTranscriptDir()
+	}
+	return ""
+}
+
 
 
 // ensureGlobalDaemon registers the project in the global watch registry and
@@ -84,7 +101,7 @@ func runWatchInstall(momDir string, p *ux.Printer) error {
 
 	sp := ux.NewSpinner(os.Stderr)
 	sp.Start("Installing global watch daemon")
-	installErr := ensureGlobalDaemon(projectRoot, momDir, cfg.EnabledRuntimes())
+	installErr := ensureGlobalDaemon(projectRoot, momDir, cfg.EnabledHarnesses())
 	if installErr != nil {
 		sp.StopFail()
 		return fmt.Errorf("installing daemon: %w", installErr)
@@ -136,7 +153,7 @@ func sweepTranscripts(momDir string) {
 
 	adapterMap := make(map[string]watcher.Adapter, len(sources))
 	for _, src := range sources {
-		adapterMap[src.Runtime] = src.Adapter
+		adapterMap[src.Harness] = src.Adapter
 	}
 	bus := newProjectBus(momDir, adapterMap)
 	w, err := watcher.New(watcher.Config{
@@ -154,32 +171,39 @@ func sweepTranscripts(momDir string) {
 }
 
 // buildWatcherSources builds watcher.Source entries from config for all
-// watcher-capable runtimes.
+// watcher-capable Harnesses.
 func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source {
 	var sources []watcher.Source
-	for _, rt := range cfg.EnabledRuntimes() {
+	for _, rt := range cfg.EnabledHarnesses() {
+		var (
+			override string
+			adapter  watcher.Adapter
+		)
 		switch rt {
 		case "claude":
-			dir := cfg.Watcher.TranscriptDir
-			if dir == "" {
-				dir = "~/.claude/projects/"
-			}
-			sources = append(sources, watcher.Source{
-				Runtime:       "claude",
-				TranscriptDir: dir,
-				Adapter:       watcher.NewClaudeAdapter(),
-			})
+			override = cfg.Watcher.TranscriptDir
+			adapter = watcher.NewClaudeAdapter()
 		case "windsurf":
-			dir := cfg.Watcher.WindsurfTranscriptDir
-			if dir == "" {
-				dir = "~/.windsurf/transcripts/"
-			}
-			sources = append(sources, watcher.Source{
-				Runtime:       "windsurf",
-				TranscriptDir: dir,
-				Adapter:       &watcher.WindsurfAdapter{ProjectDir: projectDir},
-			})
+			override = cfg.Watcher.WindsurfTranscriptDir
+			adapter = &watcher.WindsurfAdapter{ProjectDir: projectDir}
+		case "pi":
+			override = cfg.Watcher.PiTranscriptDir
+			adapter = watcher.NewPiAdapter()
+		default:
+			continue
 		}
+		dir := override
+		if dir == "" {
+			dir = harnessTranscriptDir(rt)
+		}
+		if dir == "" {
+			continue
+		}
+		sources = append(sources, watcher.Source{
+			Harness:       rt,
+			TranscriptDir: dir,
+			Adapter:       adapter,
+		})
 	}
 	return sources
 }
@@ -187,7 +211,7 @@ func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source
 // watcherRuntimes returns the names of watcher-capable runtimes from config.
 func watcherRuntimes(cfg *config.Config) []string {
 	var rts []string
-	for _, rt := range cfg.EnabledRuntimes() {
+	for _, rt := range cfg.EnabledHarnesses() {
 		if rt == "claude" || rt == "windsurf" {
 			rts = append(rts, rt)
 		}

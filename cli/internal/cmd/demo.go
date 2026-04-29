@@ -59,7 +59,7 @@ var demoCmd = &cobra.Command{
 		p.Bold("Key-Value Layout (mom status)")
 		p.Blank()
 		w := 13
-		p.KeyValue("Runtimes", "claude", w)
+		p.KeyValue("Harnesses", "claude", w)
 		p.KeyValue("Mode", "efficient", w)
 		p.KeyValue("Storage", "json", w)
 		p.KeyValue("Total docs", "5,452", w)

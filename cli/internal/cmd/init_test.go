@@ -239,7 +239,7 @@ func TestInitCmd_InheritsConstraintsFromParent(t *testing.T) {
 	cmd.SetOut(new(bytes.Buffer))
 
 	orgResult := OnboardingResult{
-		Runtimes:   []string{"claude"},
+		Harnesses:  []string{"claude"},
 		Language:   "en",
 		Mode:       "concise",
 		InstallDir: orgDir,
@@ -258,7 +258,7 @@ func TestInitCmd_InheritsConstraintsFromParent(t *testing.T) {
 
 	// Now init the child repo — should inherit constraints from org.
 	repoResult := OnboardingResult{
-		Runtimes:   []string{"claude"},
+		Harnesses:  []string{"claude"},
 		Language:   "en",
 		Mode:       "concise",
 		InstallDir: repoDir,
