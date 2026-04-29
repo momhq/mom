@@ -362,7 +362,7 @@ func TestSQLiteIndex_Upsert_Overwrite(t *testing.T) {
 	}
 }
 
-func TestBuildFTSQuery(t *testing.T) {
+func TestBuildFTSQueryOR(t *testing.T) {
 	cases := []struct {
 		input string
 		want  string
@@ -373,9 +373,70 @@ func TestBuildFTSQuery(t *testing.T) {
 		{"single", `"single"`},
 	}
 	for _, tc := range cases {
-		got := buildFTSQuery(tc.input)
+		got := buildFTSQueryOR(tc.input)
 		if got != tc.want {
-			t.Errorf("buildFTSQuery(%q) = %q, want %q", tc.input, got, tc.want)
+			t.Errorf("buildFTSQueryOR(%q) = %q, want %q", tc.input, got, tc.want)
 		}
+	}
+}
+
+func TestBuildFTSQueryAND(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"hello world", `+"hello" +"world"`},
+		{"JWT authentication", `+"jwt" +"authentication"`},
+		{"", ""},
+		{"single", `+"single"`},
+	}
+	for _, tc := range cases {
+		got := buildFTSQueryAND(tc.input)
+		if got != tc.want {
+			t.Errorf("buildFTSQueryAND(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestSearchColumnWeights(t *testing.T) {
+	dir := t.TempDir()
+	idx, err := openSQLiteIndex(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer idx.Close()
+
+	// contentMatch has the query term only in content_text (high weight).
+	contentMatch := &Doc{
+		ID: "content-match", Scope: "project", Tags: []string{"unrelated"},
+		Created: time.Now(), CreatedBy: "test", PromotionState: "curated",
+		Classification: "INTERNAL", Compartments: map[string][]string{},
+		Content: map[string]any{"detail": "harness integration architecture decision"},
+	}
+	// tagMatch has the query term only in tags (low weight).
+	tagMatch := &Doc{
+		ID: "tag-match", Scope: "project", Tags: []string{"harness"},
+		Created: time.Now(), CreatedBy: "test", PromotionState: "curated",
+		Classification: "INTERNAL", Compartments: map[string][]string{},
+		Content: map[string]any{"detail": "unrelated information about something else"},
+	}
+
+	if err := idx.Upsert(contentMatch, dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.Upsert(tagMatch, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := idx.Search(SearchOptions{Query: "harness", Limit: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) < 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	// content-match should rank first — content_text weight (10) > tags weight (1).
+	if results[0].ID != "content-match" {
+		t.Errorf("expected content-match to rank first (content weight > tag weight), got %q", results[0].ID)
 	}
 }
