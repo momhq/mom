@@ -18,7 +18,7 @@ import (
 const (
 	// dbSchemaVersion is bumped whenever the schema changes.
 	// A version mismatch triggers a full reindex.
-	dbSchemaVersion = "2"
+	dbSchemaVersion = "3"
 
 	// dbFileName is the SQLite database file inside .mom/cache/.
 	dbFileName = "index.db"
@@ -255,10 +255,23 @@ type SearchResult struct {
 	SessionID      string
 }
 
+// QueryType controls FTS5 token matching behaviour.
+type QueryType int
+
+const (
+	// QueryOR uses implicit OR — any token match scores (default, broader).
+	QueryOR QueryType = iota
+	// QueryAND requires all tokens to match (stricter, higher precision).
+	QueryAND
+)
+
 // SearchOptions controls a Search call.
 type SearchOptions struct {
 	// Query is a free-text search string. Empty = return all (no FTS filter).
 	Query string
+	// QueryType selects AND (all tokens required) or OR (any token scores).
+	// Defaults to QueryOR when zero.
+	QueryType QueryType
 	// ScopePaths restricts results to specific .mom/ directories.
 	// Empty = all scopes.
 	ScopePaths []string
@@ -334,15 +347,21 @@ func (idx *sqliteIndex) Search(opts SearchOptions) ([]SearchResult, error) {
 		args = append(args, opts.Limit)
 	} else {
 		// FTS5 MATCH query — bm25() returns negative values (more negative = better).
+		// Column weights: id=0, summary=2, tags=1, content_text=10 (ADR 0007).
 		ftsConds := "memories_fts MATCH ?"
-		ftsArg := buildFTSQuery(opts.Query)
+		var ftsArg string
+		if opts.QueryType == QueryAND {
+			ftsArg = buildFTSQueryAND(opts.Query)
+		} else {
+			ftsArg = buildFTSQueryOR(opts.Query)
+		}
 
 		// Build the WHERE clause combining FTS join and other filters.
 		allConds := append([]string{ftsConds}, conds...)
 		wherePart := "WHERE " + strings.Join(allConds, " AND ")
 
 		query = `
-			SELECT m.id, m.summary, m.tags_json, -bm25(memories_fts) AS raw_score,
+			SELECT m.id, m.summary, m.tags_json, -bm25(memories_fts, 0, 2, 1, 10) AS raw_score,
 			       m.scope_path, m.promotion_state, m.landmark,
 			       m.centrality_score, m.created, m.session_id
 			FROM memories_fts
@@ -408,20 +427,32 @@ func (idx *sqliteIndex) Search(opts SearchOptions) ([]SearchResult, error) {
 	return results, nil
 }
 
-// buildFTSQuery converts a natural-language query into an FTS5 MATCH expression.
-// Simple approach: tokenize and join with NEAR or just space (implicit OR in FTS5).
-// For better precision we prefix each token with + to require it (AND logic).
-func buildFTSQuery(query string) string {
+// buildFTSQueryOR builds an FTS5 MATCH expression with implicit OR —
+// any token match scores (broader, higher recall).
+func buildFTSQueryOR(query string) string {
 	tokens := strings.Fields(strings.ToLower(query))
 	if len(tokens) == 0 {
 		return ""
 	}
-	// Quote each token to avoid FTS5 special-character issues.
 	quoted := make([]string, 0, len(tokens))
 	for _, t := range tokens {
-		// Escape double-quotes inside the token.
 		t = strings.ReplaceAll(t, `"`, `""`)
 		quoted = append(quoted, `"`+t+`"`)
+	}
+	return strings.Join(quoted, " ")
+}
+
+// buildFTSQueryAND builds an FTS5 MATCH expression requiring all tokens —
+// every token must appear in the document (stricter, higher precision).
+func buildFTSQueryAND(query string) string {
+	tokens := strings.Fields(strings.ToLower(query))
+	if len(tokens) == 0 {
+		return ""
+	}
+	quoted := make([]string, 0, len(tokens))
+	for _, t := range tokens {
+		t = strings.ReplaceAll(t, `"`, `""`)
+		quoted = append(quoted, `+"`+t+`"`)
 	}
 	return strings.Join(quoted, " ")
 }
