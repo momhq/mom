@@ -192,6 +192,10 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 			"peer-review-automatic",
 			"token-economy-caveman",
 			"token-economy-model-selection",
+			"evidence-over-claim",
+			"inheritance",
+			"metrics-collection",
+			"propagation",
 		}
 		constraintsDir := filepath.Join(leoDir, "constraints")
 		for _, name := range retiredConstraints {
