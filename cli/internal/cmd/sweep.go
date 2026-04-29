@@ -61,13 +61,14 @@ func runSweep(cmd *cobra.Command, _ []string) error {
 		doSweep()
 	}
 
-	if result.Errors > 0 {
+	switch {
+	case result.Errors > 0:
 		p.Warnf("deleted %d files, freed %.1f MB (%d errors)",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024), result.Errors)
-	} else if result.Deleted > 0 {
+	case result.Deleted > 0:
 		p.Checkf("deleted %d files, freed %.1f MB",
 			result.Deleted, float64(result.BytesFreed)/(1024*1024))
-	} else {
+	default:
 		p.Muted("nothing to clean")
 	}
 	p.Blank()
