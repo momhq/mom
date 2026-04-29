@@ -32,7 +32,8 @@ type Source struct {
 type Config struct {
 	// TranscriptDir is the directory to watch (e.g. ~/.claude/projects/).
 	// Tilde expansion is performed automatically.
-	// DEPRECATED: use Sources instead. Kept for single-Harness compat.
+	//
+	// Deprecated: use Sources instead. Kept for single-Harness compat.
 	TranscriptDir string
 	// ProjectDir is the absolute path of the project being watched.
 	// Used to scope ingestion to the matching transcript subdirectory.
@@ -41,7 +42,8 @@ type Config struct {
 	// MomDir is the path to .mom/ where raw/ and cursor files are written.
 	MomDir string
 	// Adapter parses Harness-specific JSONL lines.
-	// DEPRECATED: use Sources instead. Kept for single-Harness compat.
+	//
+	// Deprecated: use Sources instead. Kept for single-Harness compat.
 	Adapter Adapter
 	// Sources lists all Harness transcript directories to watch.
 	// When set, TranscriptDir and Adapter are ignored.

@@ -857,19 +857,6 @@ func scrubDeadConfigFields(leoDir string) (scrubbed []byte, changed bool, err er
 	return out, true, nil
 }
 
-// removeKeyFromMapping visits the value node for key in a YAML mapping node,
-// calling fn with the value node. Returns true if the key was found (fn may
-// set the outer changed flag).
-func removeKeyFromMapping(mapping *yaml.Node, key string, fn func(*yaml.Node)) bool {
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		if mapping.Content[i].Value == key {
-			fn(mapping.Content[i+1])
-			return true
-		}
-	}
-	return false
-}
-
 // renameYAMLKey renames a top-level key in a YAML mapping node from oldKey to
 // newKey, preserving the value and its position. Returns true if the key was
 // found and renamed.
