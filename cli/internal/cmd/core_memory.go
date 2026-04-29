@@ -7,7 +7,7 @@ func coreConstraints() map[string]string {
   "id": "anti-hallucination",
   "type": "constraint",
   "boot": true,
-  "summary": "Verify before asserting. Use [RECALL] and [INFERRED] when source matters. Never fill gaps with confident-sounding assumptions.",
+  "summary": "Verify before asserting. Mark [RECALL] for memory-sourced claims, [INFERRED] for deductions. No exceptions.",
   "lifecycle": "permanent",
   "scope": "core",
   "tags": ["honesty", "verification", "trust", "evidence"],
@@ -95,7 +95,8 @@ func coreSkills() map[string]string {
   "updated_by": "system",
   "content": {
     "description": "Curates session memories by surfacing what the Drafter captured automatically, identifying what is worth promoting to curated memory, and executing promotions. Can be run mid-session (e.g., before /clear) or at end of session.",
-    "triggers": ["wrap up", "close the session", "done for today", "finalize", "fecha a sessão", "consolida aí", "pronto por hoje", "pode fechar"],
+    "triggers": ["wrap up", "close session", "done for today", "finalize"],
+    "trigger_guidance": "These keywords are the canonical trigger. Also recognize equivalent intent in any language — when the user signals they want to curate memories, consolidate work, or close out a session. Do not require exact phrasing.",
     "invoked_by": "mom",
     "steps": [
       {"name": "Surface", "instruction": "Call mom_recall with a broad query and include drafts. Focus on the last hour of activity. This returns what the Drafter automatically captured from this session — do not reconstruct from context window.", "wait_for_approval": false},
