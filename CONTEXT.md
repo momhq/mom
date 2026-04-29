@@ -36,6 +36,16 @@ A classification of Harness integration quality from MOM's perspective. Tier is 
 > **Dev:** "Should we add an MRP event for compaction?"
 > **Architect:** "Pi can support it natively — it's Native, the extension subscribes to compaction events. Claude is Fluent but happens to expose `PreCompact`, so we can wire it via hook. Windsurf is Functional; we won't capture compaction reliably and shouldn't promise it."
 
+## Dev conventions
+
+**Local build for testing**: before releasing from a `-dev` branch, build the binary locally and point it to `/tmp/mom` for testing without affecting the Homebrew installation:
+
+```bash
+cd cli && go build -ldflags "-X github.com/momhq/mom/cli/internal/cmd.Version=vX.X.X-dev" -o /tmp/mom ./cmd/mom/
+```
+
+Then run as `/tmp/mom <command>` from any directory.
+
 ## Coding conventions
 
 **Code comments**: Concise, objective, descriptive. Clarify what code does, not why a design was chosen. No ADR cross-references in `.go` files, no storytelling, no rationale prose. Rationale lives in commit messages, PR descriptions, and ADRs — not in code.

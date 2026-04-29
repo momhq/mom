@@ -412,21 +412,32 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 		return nil
 	}
 
-	// Merge new runtimes into existing config.
+	// Reconcile harnesses: enable selected, disable unselected.
+	selected := make(map[string]bool, len(result.Harnesses))
+	for _, rt := range result.Harnesses {
+		selected[rt] = true
+	}
 	changed := false
 	for _, rt := range result.Harnesses {
-		if _, exists := cfg.Harnesses[rt]; !exists {
+		existing, exists := cfg.Harnesses[rt]
+		if !exists || !existing.Enabled {
 			cfg.Harnesses[rt] = config.HarnessConfig{Enabled: true}
+			changed = true
+		}
+	}
+	for rt, hc := range cfg.Harnesses {
+		if !selected[rt] && hc.Enabled {
+			cfg.Harnesses[rt] = config.HarnessConfig{Enabled: false}
 			changed = true
 		}
 	}
 
 	if !changed {
-		// Still register with global daemon even if runtimes unchanged.
+		// Still register with global daemon even if config unchanged.
 		if err := ensureGlobalDaemon(cwd, leoDir, cfg.EnabledRuntimes()); err != nil {
 			p.Warnf("watch daemon: %v", err)
 		}
-		p.Muted(".mom/ already configured with selected runtimes — nothing to update.")
+		p.Muted(".mom/ already up to date — nothing to update.")
 		return nil
 	}
 
