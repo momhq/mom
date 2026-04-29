@@ -202,7 +202,7 @@ func coreSkills() map[string]string {
       {"name": "Inventory", "instruction": "List what changed: decisions, state changes, artifacts, learnings. Skip implementation details.", "wait_for_approval": false},
       {"name": "Classify", "instruction": "For each item: determine type, lifecycle, tags, id. Check index for existing docs to update.", "wait_for_approval": false},
       {"name": "Present plan", "instruction": "Show the user: new docs, updates, skipped items, commit strategy. Wait for approval.", "wait_for_approval": true},
-      {"name": "Execute", "instruction": "Write JSON docs to memory following schema. Stage exact files. Commit with clear message.", "wait_for_approval": false},
+      {"name": "Execute", "instruction": "Write JSON docs to .mom/memory/ following schema with promotion_state: 'curated'. Do NOT write memory docs to .mom/logs/ — that directory is for session-log entries only. Stage exact files. Commit with clear message.", "wait_for_approval": false},
       {"name": "Write session log", "instruction": "Write a session-log doc to .mom/logs/ using this template: {id: 'session-YYYY-MM-DD-XXXX', type: 'session-log', lifecycle: 'state', scope: 'project', tags: ['session-log'], content: {session_id: (same as id), timestamp: (now), repo: (repo name), communication_mode: (active mode from config), wrap_up_revisions: (count of rejected plans), tasks: [{task_id, timestamp, summary, tags}]}}. Create .mom/logs/ directory if it doesn't exist. Session-logs are NOT indexed and NOT loaded at boot.", "wait_for_approval": false},
       {"name": "Report", "instruction": "Brief report: commit SHA, files changed, session log written, deferred items.", "wait_for_approval": false}
     ],
