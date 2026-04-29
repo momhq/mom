@@ -76,7 +76,7 @@ func (d *Drafter) Process(since time.Time) ([]Draft, error) {
 	}
 
 	vocab := d.vocabFn()
-	bm25 := NewBM25Index(vocab)
+	bm25 := newBM25Index(vocab)
 
 	var drafts []Draft
 	for sessionID, turns := range bySession {
@@ -87,7 +87,7 @@ func (d *Drafter) Process(since time.Time) ([]Draft, error) {
 	return drafts, nil
 }
 
-func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25Index) []Draft {
+func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *bm25Index) []Draft {
 	// Convert to Turn structs for boundary detection.
 	parsedTurns := make([]Turn, len(turns))
 	for i, t := range turns {
@@ -137,7 +137,7 @@ func (d *Drafter) processSession(sessionID string, turns []rawTurn, bm25 *BM25In
 				tags[t] = true
 			}
 		}
-		ranked := bm25.RankCandidates(allKeywords)
+		ranked := bm25.rankCandidates(allKeywords)
 		for _, t := range ranked {
 			if len(t) > 2 && len(t) <= 40 {
 				tags[t] = true
