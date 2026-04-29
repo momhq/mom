@@ -104,7 +104,7 @@ func TestExtractFileTags_Empty(t *testing.T) {
 
 // TestExtractIdentifiers verifies CamelCase and snake_case extraction.
 func TestExtractIdentifiers(t *testing.T) {
-	text := "The BM25Index uses NewBM25Index to rank_candidates and extract_file_tags from RakeCandidate results."
+	text := "The BM25Index uses newBM25Index to rank_candidates and extract_file_tags from RakeCandidate results."
 	ids := ExtractIdentifiers(text)
 
 	if len(ids) == 0 {
@@ -203,16 +203,16 @@ func TestBM25Index(t *testing.T) {
 		"memory documents",
 		"raw recording",
 	}
-	idx := NewBM25Index(vocab)
+	idx := newBM25Index(vocab)
 
 	// Score a query against a document.
-	score := idx.Score("drafter", tokenizeBM25("drafter pipeline"))
+	score := idx.score("drafter", tokenizeBM25("drafter pipeline"))
 	if score <= 0 {
 		t.Errorf("expected positive score for matching query, got %f", score)
 	}
 
 	// Non-matching query should score lower.
-	noMatchScore := idx.Score("drafter", tokenizeBM25("raw recording"))
+	noMatchScore := idx.score("drafter", tokenizeBM25("raw recording"))
 	if noMatchScore >= score {
 		t.Errorf("non-matching doc scored higher (%f >= %f)", noMatchScore, score)
 	}
@@ -225,14 +225,14 @@ func TestBM25Index_RankCandidates(t *testing.T) {
 		"bm25 ranking algorithm",
 		"keyword extraction",
 	}
-	idx := NewBM25Index(vocab)
+	idx := newBM25Index(vocab)
 
 	candidates := []RakeCandidate{
 		{Phrase: "drafter pipeline", Score: 3.0},
 		{Phrase: "unrelated concept", Score: 0.5},
 	}
 
-	ranked := idx.RankCandidates(candidates)
+	ranked := idx.rankCandidates(candidates)
 	if len(ranked) != 2 {
 		t.Fatalf("expected 2 ranked results, got %d", len(ranked))
 	}
@@ -245,12 +245,12 @@ func TestBM25Index_RankCandidates(t *testing.T) {
 
 // TestBM25Index_Empty handles empty vocab.
 func TestBM25Index_Empty(t *testing.T) {
-	idx := NewBM25Index(nil)
-	score := idx.Score("anything", []string{"word"})
+	idx := newBM25Index(nil)
+	score := idx.score("anything", []string{"word"})
 	if score != 0 {
 		t.Errorf("expected 0 score with empty index, got %f", score)
 	}
-	ranked := idx.RankCandidates([]RakeCandidate{{Phrase: "hello", Score: 1.0}})
+	ranked := idx.rankCandidates([]RakeCandidate{{Phrase: "hello", Score: 1.0}})
 	if len(ranked) != 1 {
 		t.Errorf("expected 1 result from empty-vocab ranking, got %d", len(ranked))
 	}
@@ -283,7 +283,7 @@ func TestDrafterProcess(t *testing.T) {
 		{
 			Timestamp: past.Add(5 * time.Minute).Format(time.RFC3339),
 			Event:     "stop",
-			Text:      "Added BM25Index with NewBM25Index constructor. Uses bm25_k1 and bm25_b constants for term frequency normalization.",
+			Text:      "Added BM25Index with newBM25Index constructor. Uses bm25_k1 and bm25_b constants for term frequency normalization.",
 			SessionID: session,
 		},
 	}
