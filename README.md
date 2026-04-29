@@ -83,20 +83,14 @@ You work with your agent. MOM validates, indexes, and delivers memory to the har
 | `mom status` | Memory summary — document count, tags, health |
 | `mom doctor` | Diagnostic checks on `.mom/` health |
 | `mom recall <query>` | Search across memory (SQLite FTS5) |
-| `mom record` | Record raw conversation data (legacy — watcher preferred) |
-| `mom draft` | Extract memory drafts from raw session capture |
-| `mom log` | Generate session-level observability data from transcript |
-| `mom diagnose` | Compute derived metrics from session logs |
-| `mom map` | Cartographer — scan repo and generate initial memory |
 | `mom tour` | Show top landmark memories at current scope |
-| `mom promote <id>` | Move a memory doc up to a broader scope |
-| `mom demote <id>` | Move a memory doc down to the nearest scope |
 | `mom validate` | Validate documents against schema |
 | `mom export` | Export memory to portable directory |
 | `mom import` | Import memory (merge or replace) |
 | `mom reindex` | Rebuild the SQLite search index from JSON memory files |
 | `mom watch` | Watch harness transcripts and ingest turns automatically |
 | `mom sweep` | Delete old raw JSONL recordings based on retention policy |
+| `mom diagnose` | Compute derived metrics from session logs |
 | `mom serve mcp` | Start MCP stdio server |
 | `mom serve status` | Show MCP server activity |
 | `mom upgrade` | Upgrade `.mom/` to the latest version (preserves memory) |
@@ -114,20 +108,20 @@ You work with your agent. MOM validates, indexes, and delivers memory to the har
 
 ## Current Status
 
-MOM is in active development (v0.13). It works, and it self-hosts — the tool builds itself with its own memory.
+MOM is in active development (v0.14). It works, and it self-hosts — the tool builds itself with its own memory.
 
-What's in v0.13:
-- **Watcher-based ingestion** — global daemon watches Claude Code, Windsurf, and pi transcripts via fsnotify, replacing hook-based recording
-- **SQLite FTS5 search** — `mom_recall` and MCP search use a full-text index, self-healing from JSON source of truth
-- **Global watch daemon** — single launchd (macOS) or systemd (Linux) service manages all registered projects
-- **Harness-specific logbook parsing** — `SessionParser` adapter interface with native parsers per harness
-- **CLI design system** — spinners, color-coded output, structured status views across all commands
-- **MCP-first context delivery** — behavioral protocol via `mom_status` tool, `.mcp.json` auto-injected
-- **Drafter pipeline** — RAKE + BM25 extraction from raw capture into memory drafts
-- **Cartographer** — AST-based repo scanning for initial memory bootstrap
-- Four harness adapters (Claude Code, Codex, Windsurf, Pi)
-- Communication modes (verbose, concise, normal, caveman)
-- Multi-repo support with scope-based memory
+What's in v0.14:
+- **Progressive recall engine** — searches repo → org → user, curated-first, AND→OR query relaxation when results are sparse
+- **Cleaner MCP surface** — `mom_recall` is the single retrieval tool, wired through the recall engine with optional scope pinning
+- **Harness tier system** — Native / Fluent / Functional classification per harness, surfaced in `mom doctor`
+- **Pi support (Native tier)** — TypeScript extension, `.mcp.json` registration, full watcher integration
+- **Constraints simplified** — audited from 6 to 2: `anti-hallucination` and `escalation-triggers`
+- **`session-wrap-up` redesigned** — surfaces drafts from disk via `mom_recall`, not from context window
+- **`mom init` as config manager** — reconciles harnesses on reinit (enable new, disable removed)
+- **`harness` rename** — `runtime` → `harness` throughout config, CLI flags, and internals
+- SQLite FTS5 search with content-first column weights
+- Global watch daemon (launchd / systemd) for all registered projects
+- Multi-repo support with scope-based memory (repo → org → user)
 - Homebrew installation with automated tap updates
 
 ## Contributing
