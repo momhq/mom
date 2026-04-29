@@ -11,6 +11,7 @@ import (
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/memory"
+	"github.com/momhq/mom/cli/internal/recall"
 	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
 )
@@ -37,20 +38,6 @@ type toolCallResult struct {
 // allTools returns the static tool catalogue.
 func allTools() []toolDef {
 	return []toolDef{
-		{
-			Name:        "search_memories",
-			Description: "Search MOM memories by query text, tags, or classification. Returns ranked results.",
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"query":          map[string]any{"type": "string", "description": "Free-text search query"},
-					"scope":          map[string]any{"type": "string", "description": "Restrict to scope label (repo/org/user)"},
-					"tags":           map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (all must match)"},
-					"classification": map[string]any{"type": "string", "description": "Filter by classification (PUBLIC/INTERNAL/CONFIDENTIAL)"},
-					"limit":          map[string]any{"type": "integer", "description": "Maximum results (default 10)"},
-				},
-			},
-		},
 		{
 			Name:        "get_memory",
 			Description: "Retrieve a single memory document by its ID.",
@@ -113,7 +100,7 @@ func allTools() []toolDef {
 		},
 		{
 			Name:        "mom_recall",
-			Description: "Search your memory for relevant context. Returns ranked results using BM25 text search.",
+			Description: "Search your memory for relevant context. Uses progressive scope escalation (repo→org→user) with AND→OR query relaxation and curated-first, draft-fallback quality tiers.",
 			InputSchema: map[string]any{
 				"type":     "object",
 				"required": []string{"query"},
@@ -122,6 +109,7 @@ func allTools() []toolDef {
 					"max_results": map[string]any{"type": "integer", "description": "Maximum results (default 5)"},
 					"tags":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (AND logic)"},
 					"session_id":  map[string]any{"type": "string", "description": "Filter by source session"},
+					"scope":       map[string]any{"type": "string", "description": "Pin search to a single scope label (repo/org/user); omit to use full escalation chain"},
 				},
 			},
 		},
@@ -155,8 +143,6 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 	)
 
 	switch req.Name {
-	case "search_memories":
-		result, err = s.toolSearchMemories(req.Arguments)
 	case "get_memory":
 		result, err = s.toolGetMemory(req.Arguments)
 	case "list_scopes":
@@ -185,75 +171,6 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 }
 
 // --- Tool implementations ---
-
-// toolSearchMemories searches memories across scopes using FTS5.
-func (s *Server) toolSearchMemories(args map[string]any) (toolCallResult, error) {
-	query := stringArg(args, "query")
-	scopeLabel := stringArg(args, "scope")
-	tags := stringSliceArg(args, "tags")
-	limit := intArg(args, "limit", 10)
-
-	scopes := scope.Walk(s.momDir)
-	if len(scopes) == 0 {
-		scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
-	}
-
-	// Collect scope paths, filtering by label if specified.
-	var scopePaths []string
-	for _, sc := range scopes {
-		if scopeLabel == "" || sc.Label == scopeLabel {
-			scopePaths = append(scopePaths, sc.Path)
-		}
-	}
-
-	results, err := s.idx.Search(storage.SearchOptions{
-		Query:         query,
-		ScopePaths:    scopePaths,
-		Tags:          tags,
-		ExcludeDrafts: true,
-		Limit:         limit,
-	})
-	if err != nil {
-		return toolCallResult{}, fmt.Errorf("search_memories failed: %w", err)
-	}
-
-	// Emit telemetry for consumed memories.
-	if s.momDir != "" {
-		em := herald.New(s.momDir, true)
-		for _, r := range results {
-			em.EmitConsumptionEvent(herald.ConsumptionEvent{
-				MemoryID: r.ID,
-				TS:       time.Now().UTC().Format(time.RFC3339),
-				ByAgent:  "mcp",
-				Context:  "search_memories",
-			})
-		}
-	}
-
-	if len(results) == 0 {
-		return toolCallResult{Content: []toolContent{{Type: "text", Text: "No memories matched."}}}, nil
-	}
-
-	type resultItem struct {
-		ID       string   `json:"id"`
-		Score    float64  `json:"score"`
-		Summary  string   `json:"summary"`
-		Tags     []string `json:"tags"`
-		Landmark bool     `json:"landmark,omitempty"`
-	}
-	items := make([]resultItem, len(results))
-	for i, r := range results {
-		items[i] = resultItem{
-			ID:       r.ID,
-			Score:    r.Score,
-			Summary:  r.Summary,
-			Tags:     r.Tags,
-			Landmark: r.Landmark,
-		}
-	}
-	text, _ := json.MarshalIndent(items, "", "  ")
-	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
-}
 
 // toolGetMemory retrieves a single memory doc by ID.
 func (s *Server) toolGetMemory(args map[string]any) (toolCallResult, error) {
@@ -458,22 +375,54 @@ func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text2)}}}, nil
 }
 
-// toolMomRecall performs FTS5 search over memory docs and returns ranked results.
+// toolMomRecall searches memories using the progressive escalation engine.
+// When scope is provided, the engine chain is pinned to that single scope.
 func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
 	query := stringArg(args, "query")
 	maxResults := intArg(args, "max_results", 5)
 	tags := stringSliceArg(args, "tags")
 	sessionID := stringArg(args, "session_id")
+	scopeLabel := stringArg(args, "scope")
 
-	results, err := s.idx.Search(storage.SearchOptions{
-		Query:         query,
-		Limit:         maxResults,
-		Tags:          tags,
-		SessionID:     sessionID,
-		ExcludeDrafts: true, // #147: exclude raw drafter output from recall results
+	engine := s.engine
+	// Pin to a single scope when the caller requests it.
+	if scopeLabel != "" {
+		scopes := scope.Walk(s.momDir)
+		if len(scopes) == 0 {
+			scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
+		}
+		var chain []recall.Searcher
+		for _, sc := range scopes {
+			if sc.Label == scopeLabel {
+				chain = append(chain, recall.NewScopeSearcher(s.idx, sc.Path))
+			}
+		}
+		if len(chain) > 0 {
+			engine = recall.NewEngine(chain)
+		}
+	}
+
+	results, err := engine.Search(recall.Options{
+		Query:      query,
+		MaxResults: maxResults,
+		Tags:       tags,
+		SessionID:  sessionID,
 	})
 	if err != nil {
 		return toolCallResult{}, fmt.Errorf("mom_recall search failed: %w", err)
+	}
+
+	// Emit telemetry for consumed memories.
+	if s.momDir != "" {
+		em := herald.New(s.momDir, true)
+		for _, r := range results {
+			em.EmitConsumptionEvent(herald.ConsumptionEvent{
+				MemoryID: r.ID,
+				TS:       time.Now().UTC().Format(time.RFC3339),
+				ByAgent:  "mcp",
+				Context:  "mom_recall",
+			})
+		}
 	}
 
 	if len(results) == 0 {
