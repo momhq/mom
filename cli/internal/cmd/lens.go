@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/momhq/mom/cli/internal/lens"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/spf13/cobra"
 )
+
+const defaultLensPort = 7474
 
 var lensCmd = &cobra.Command{
 	Use:   "lens",
@@ -27,11 +30,12 @@ Press Ctrl+C to stop the server.`,
 }
 
 func init() {
-	lensCmd.Flags().Int("port", 7474, "Port to listen on")
+	lensCmd.Flags().Int("port", defaultLensPort, "Port to listen on")
 }
 
 func runLens(cmd *cobra.Command, _ []string) error {
 	port, _ := cmd.Flags().GetInt("port")
+	portExplicit := cmd.Flags().Changed("port")
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -53,12 +57,18 @@ func runLens(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("starting lens: %w", err)
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	// Default port: try up to 10 fallbacks. Explicit --port: fail loud if taken.
+	fallbacks := 10
+	if portExplicit {
+		fallbacks = 0
+	}
+	ln, err := lens.ListenWithFallback("", port, fallbacks)
 	if err != nil {
 		return fmt.Errorf("listening on port %d: %w", port, err)
 	}
+	actualPort := ln.Addr().(*net.TCPAddr).Port
 
-	url := fmt.Sprintf("http://localhost:%d", port)
+	url := fmt.Sprintf("http://localhost:%d", actualPort)
 	p := ux.NewPrinter(cmd.OutOrStdout())
 	p.Checkf("mom lens → %s", url)
 	for _, s := range scopes {
@@ -72,7 +82,13 @@ func runLens(cmd *cobra.Command, _ []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	httpSrv := &http.Server{Handler: srv.Handler()}
+	httpSrv := &http.Server{
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	go func() {
 		<-ctx.Done()
 		_ = httpSrv.Close()

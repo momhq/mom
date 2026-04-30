@@ -81,12 +81,11 @@ type MetaResponse struct {
 	TotalMemories int         `json:"total_memories"`
 }
 
-// scopeData holds pre-built indexes for one scope.
+// scopeData carries scope identity. Memory and session data are read fresh
+// on each request — see loadMemoryIndex and loadSessions.
 type scopeData struct {
-	entry         ScopeEntry
-	key           string // "0", "1", ... set by New()
-	memIndex      map[string][]MemoryItem // session_id → memories
-	totalMemories int
+	entry ScopeEntry
+	key   string // "0", "1", ... set by New()
 }
 
 // Server serves the lens dashboard.
@@ -100,9 +99,7 @@ func New(scopes []ScopeEntry) (*Server, error) {
 	s := &Server{mux: http.NewServeMux()}
 
 	for i, e := range scopes {
-		sd := &scopeData{entry: e, key: strconv.Itoa(i)}
-		sd.buildMemoryIndex()
-		s.scopes = append(s.scopes, sd)
+		s.scopes = append(s.scopes, &scopeData{entry: e, key: strconv.Itoa(i)})
 	}
 
 	s.mux.Handle("GET /api/meta", http.HandlerFunc(s.handleMeta))
@@ -126,12 +123,16 @@ func New(scopes []ScopeEntry) (*Server, error) {
 // Handler returns the HTTP handler.
 func (s *Server) Handler() http.Handler { return s.mux }
 
-func (sd *scopeData) buildMemoryIndex() {
-	sd.memIndex = make(map[string][]MemoryItem)
+// loadMemoryIndex scans the scope's memory dir and returns a session_id →
+// memories map plus the total memory count. Called per request — cheap for
+// local dirs and avoids stale state when memories are written while lens runs.
+func (sd *scopeData) loadMemoryIndex() (map[string][]MemoryItem, int) {
+	index := make(map[string][]MemoryItem)
+	total := 0
 	memDir := filepath.Join(sd.entry.Path, "memory")
 	entries, err := os.ReadDir(memDir)
 	if err != nil {
-		return
+		return index, 0
 	}
 	for _, e := range entries {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
@@ -141,9 +142,9 @@ func (sd *scopeData) buildMemoryIndex() {
 		if err != nil {
 			continue
 		}
-		sd.totalMemories++
+		total++
 		if doc.SessionID != "" {
-			sd.memIndex[doc.SessionID] = append(sd.memIndex[doc.SessionID], MemoryItem{
+			index[doc.SessionID] = append(index[doc.SessionID], MemoryItem{
 				ID:             doc.ID,
 				Summary:        doc.Summary,
 				Tags:           doc.Tags,
@@ -154,17 +155,21 @@ func (sd *scopeData) buildMemoryIndex() {
 			})
 		}
 	}
+	return index, total
 }
 
-// loadScopeSessionss returns sessions for a single scope.
-func (sd *scopeData) loadSessions() ([]SessionSummary, error) {
+// loadSessions returns sessions for a single scope, joined with the live
+// memory index for that scope.
+func (sd *scopeData) loadSessions() ([]SessionSummary, int, error) {
+	memIndex, totalMemories := sd.loadMemoryIndex()
+
 	logsDir := filepath.Join(sd.entry.Path, "logs")
 	entries, err := os.ReadDir(logsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, totalMemories, nil
 		}
-		return nil, err
+		return nil, totalMemories, err
 	}
 
 	var sessions []SessionSummary
@@ -184,12 +189,12 @@ func (sd *scopeData) loadSessions() ([]SessionSummary, error) {
 		if err := json.Unmarshal(data, &sl); err != nil {
 			continue
 		}
-		sessions = append(sessions, sd.toSummary(&sl))
+		sessions = append(sessions, sd.toSummary(&sl, memIndex))
 	}
-	return sessions, nil
+	return sessions, totalMemories, nil
 }
 
-func (sd *scopeData) toSummary(sl *logbook.SessionLog) SessionSummary {
+func (sd *scopeData) toSummary(sl *logbook.SessionLog, memIndex map[string][]MemoryItem) SessionSummary {
 	dur := 0.0
 	t1, err1 := time.Parse(time.RFC3339, sl.Started)
 	t2, err2 := time.Parse(time.RFC3339, sl.Ended)
@@ -209,7 +214,7 @@ func (sd *scopeData) toSummary(sl *logbook.SessionLog) SessionSummary {
 		costUSD = sl.Usage.CostUSD
 	}
 
-	memories := sd.memIndex[sl.SessionID]
+	memories := memIndex[sl.SessionID]
 	curatedCount := 0
 	for _, m := range memories {
 		if m.PromotionState == "curated" || m.Landmark {
@@ -239,13 +244,13 @@ func (s *Server) handleMeta(w http.ResponseWriter, _ *http.Request) {
 	seenIDs := make(map[string]bool)
 	totalSessions, totalMemories := 0, 0
 	for _, sd := range s.scopes {
-		sessions, _ := sd.loadSessions()
+		sessions, scopeMemories, _ := sd.loadSessions()
 		infos = append(infos, ScopeInfo{
 			Key:           sd.key,
 			Label:         sd.entry.Label,
 			PathHint:      filepath.Base(filepath.Dir(sd.entry.Path)),
 			TotalSessions: len(sessions),
-			TotalMemories: sd.totalMemories,
+			TotalMemories: scopeMemories,
 		})
 		for _, s := range sessions {
 			if !seenIDs[s.SessionID] {
@@ -253,7 +258,7 @@ func (s *Server) handleMeta(w http.ResponseWriter, _ *http.Request) {
 				totalSessions++
 			}
 		}
-		totalMemories += sd.totalMemories
+		totalMemories += scopeMemories
 	}
 	jsonResponse(w, MetaResponse{
 		Scopes:        infos,
@@ -270,7 +275,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		if scopeFilter != "" && scopeFilter != "all" && sd.key != scopeFilter {
 			continue
 		}
-		sessions, err := sd.loadSessions()
+		sessions, _, err := sd.loadSessions()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -318,12 +323,13 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "malformed session log", http.StatusInternalServerError)
 			return
 		}
-		memories := sd.memIndex[id]
+		memIndex, _ := sd.loadMemoryIndex()
+		memories := memIndex[id]
 		if memories == nil {
 			memories = []MemoryItem{}
 		}
 		jsonResponse(w, SessionDetail{
-			SessionSummary: sd.toSummary(&sl),
+			SessionSummary: sd.toSummary(&sl, memIndex),
 			ToolCalls:      sl.ToolCalls,
 			Memories:       memories,
 		})
