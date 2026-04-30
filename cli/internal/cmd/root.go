@@ -51,4 +51,5 @@ func init() {
 	rootCmd.AddCommand(reindexCmd)
 	rootCmd.AddCommand(watchCmd)
 	rootCmd.AddCommand(demoCmd)
+	rootCmd.AddCommand(lensCmd)
 }
