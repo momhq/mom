@@ -530,3 +530,33 @@ func TestGraphStore_MergeTags(t *testing.T) {
 	}
 	assertSubstanceUnchanged(t, gotFixture, fixture)
 }
+
+// T14: MergeTags rejects source == target. Without the guard, a typo
+// (or argument swap) would wipe all memory_tags edges for that tag and
+// delete the tag itself — irrecoverable data loss from one mistaken
+// keystroke.
+func TestGraphStore_MergeTags_RejectsSelfMerge(t *testing.T) {
+	ms, gs, _ := newStore(t)
+
+	fixture := insertedFixture(t, ms)
+	tagID, err := gs.UpsertTag("recall")
+	if err != nil {
+		t.Fatalf("UpsertTag: %v", err)
+	}
+	if err := gs.LinkTag(fixture.ID, tagID); err != nil {
+		t.Fatalf("LinkTag: %v", err)
+	}
+
+	if err := gs.MergeTags("recall", "recall"); err == nil {
+		t.Errorf("expected error from MergeTags(x, x), got nil")
+	}
+
+	// Tag and link still intact.
+	ids, err := gs.MemoriesByTag("recall")
+	if err != nil {
+		t.Fatalf("MemoriesByTag: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != fixture.ID {
+		t.Errorf("expected link preserved after rejected self-merge, got %v", ids)
+	}
+}

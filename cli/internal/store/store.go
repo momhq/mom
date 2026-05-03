@@ -112,6 +112,12 @@ func (s *MemoryStore) Get(id string) (Memory, error) {
 		[]any{id},
 		func(rows *sql.Rows) error {
 			if !rows.Next() {
+				// rows.Next() returns false on either end-of-results
+				// OR a mid-iteration failure. Surface the real error
+				// rather than reporting it as ErrNotFound.
+				if err := rows.Err(); err != nil {
+					return err
+				}
 				return ErrNotFound
 			}
 			return rows.Scan(
@@ -264,8 +270,17 @@ func (g *GraphStore) RenameTag(oldName, newName string) error {
 // linked to both source and target, the duplicate edge is dropped (the
 // PRIMARY KEY constraint is honored via INSERT OR IGNORE). Memory
 // substance is untouched (ADR 0010 — graph-level operation). Returns
-// ErrNotFound if either tag does not exist.
+// ErrNotFound if either tag does not exist. Returns an error if source
+// and target are the same name — without this guard, a typo would
+// silently wipe all edges and the tag itself.
+//
+// Comparison is case-sensitive: MergeTags("mcp", "MCP") is a valid
+// merge of two distinct tags. Tag-name normalization (kebab-case) is
+// a convention, not enforced by the schema.
 func (g *GraphStore) MergeTags(sourceName, targetName string) error {
+	if sourceName == targetName {
+		return fmt.Errorf("MergeTags: source and target are the same (%q)", sourceName)
+	}
 	return g.v.Tx(func(tx *sql.Tx) error {
 		var srcID, tgtID string
 		if err := tx.QueryRow(

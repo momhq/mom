@@ -340,6 +340,37 @@ func TestMigrate_RollsBackOnPartialFailure(t *testing.T) {
 	}
 }
 
+// T17: entities enforces UNIQUE(type, display_name). Two rows with the
+// same type and same display_name cannot coexist — the database
+// guarantees the contract that GraphStore.UpsertEntity assumes.
+func TestEntities_UniqueOnTypeAndDisplayName(t *testing.T) {
+	v, _ := newVault(t)
+
+	err := v.Tx(func(tx *sql.Tx) error {
+		_, e := tx.Exec(
+			`INSERT INTO entities (id, type, display_name, created_at)
+			 VALUES (?, ?, ?, ?)`,
+			"id1", "user", "Vinicius", "2026-05-03T00:00:00Z",
+		)
+		return e
+	})
+	if err != nil {
+		t.Fatalf("first insert: %v", err)
+	}
+
+	err = v.Tx(func(tx *sql.Tx) error {
+		_, e := tx.Exec(
+			`INSERT INTO entities (id, type, display_name, created_at)
+			 VALUES (?, ?, ?, ?)`,
+			"id2", "user", "Vinicius", "2026-05-03T00:00:01Z",
+		)
+		return e
+	})
+	if err == nil {
+		t.Errorf("expected UNIQUE(type, display_name) violation on duplicate")
+	}
+}
+
 // T13: memories.content is enforced as valid JSON via a CHECK
 // constraint. The schema contract says content is JSON (e.g.
 // {"text": "..."}); rejecting non-JSON at INSERT prevents the FTS5
