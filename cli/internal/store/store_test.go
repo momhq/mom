@@ -560,3 +560,20 @@ func TestGraphStore_MergeTags_RejectsSelfMerge(t *testing.T) {
 		t.Errorf("expected link preserved after rejected self-merge, got %v", ids)
 	}
 }
+
+// T15: Empty names are not meaningful identifiers. UpsertTag and
+// UpsertEntity reject empty inputs early so a buggy upstream caller
+// doesn't silently create zombie rows.
+func TestGraphStore_RejectsEmptyNames(t *testing.T) {
+	_, gs, _ := newStore(t)
+
+	if _, err := gs.UpsertTag(""); err == nil {
+		t.Errorf("UpsertTag(\"\"): expected error")
+	}
+	if _, err := gs.UpsertEntity("", "X"); err == nil {
+		t.Errorf("UpsertEntity(\"\", \"X\"): expected error for empty type")
+	}
+	if _, err := gs.UpsertEntity("user", ""); err == nil {
+		t.Errorf("UpsertEntity(\"user\", \"\"): expected error for empty display_name")
+	}
+}

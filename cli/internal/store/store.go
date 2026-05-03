@@ -202,8 +202,16 @@ func NewGraphStore(v *vault.Vault) *GraphStore {
 
 // UpsertEntity returns the existing entity's ID for the given (type,
 // display_name), or creates a new entity (with a fresh UUID) and
-// returns the new ID. Idempotent on (type, display_name).
+// returns the new ID. Idempotent on (type, display_name). Rejects
+// empty type or display_name — empty identifiers are not meaningful
+// and are almost always upstream bugs.
 func (g *GraphStore) UpsertEntity(typ, displayName string) (string, error) {
+	if typ == "" {
+		return "", fmt.Errorf("UpsertEntity: type cannot be empty")
+	}
+	if displayName == "" {
+		return "", fmt.Errorf("UpsertEntity: display_name cannot be empty")
+	}
 	var id string
 	err := g.v.Tx(func(tx *sql.Tx) error {
 		row := tx.QueryRow(
@@ -368,7 +376,12 @@ func (g *GraphStore) MemoriesByTag(tagName string) ([]string, error) {
 // UpsertTag returns the existing tag's ID for the given name, or
 // creates a new tag (with a fresh UUID) and returns the new ID.
 // Idempotent: repeated calls with the same name return the same ID.
+// Rejects empty name — empty identifiers are not meaningful and are
+// almost always upstream bugs.
 func (g *GraphStore) UpsertTag(name string) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("UpsertTag: name cannot be empty")
+	}
 	var id string
 	err := g.v.Tx(func(tx *sql.Tx) error {
 		row := tx.QueryRow(`SELECT id FROM tags WHERE name = ?`, name)
