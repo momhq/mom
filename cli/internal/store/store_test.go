@@ -561,6 +561,29 @@ func TestGraphStore_MergeTags_RejectsSelfMerge(t *testing.T) {
 	}
 }
 
+// T16: The Memory returned by Insert has a CreatedAt that is byte-
+// identical to what Get later returns. Without stripping the monotonic
+// clock from the stored time, struct equality (==) would silently
+// fail even though Equal() succeeds — a foot-gun for any caller that
+// uses the returned Memory as a cache key or comparison target.
+func TestMemoryStore_Insert_CreatedAtIsByteIdenticalToGet(t *testing.T) {
+	ms, _, _ := newStore(t)
+
+	inserted, err := ms.Insert(store.Memory{Content: map[string]any{"text": "x"}})
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	got, err := ms.Get(inserted.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	if inserted.CreatedAt != got.CreatedAt {
+		t.Errorf("CreatedAt should be == after round-trip; inserted=%v got=%v",
+			inserted.CreatedAt, got.CreatedAt)
+	}
+}
+
 // T15: Empty names are not meaningful identifiers. UpsertTag and
 // UpsertEntity reject empty inputs early so a buggy upstream caller
 // doesn't silently create zombie rows.

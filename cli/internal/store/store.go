@@ -69,7 +69,12 @@ func (s *MemoryStore) Insert(m Memory) (Memory, error) {
 		m.PromotionState = "draft"
 	}
 	if m.CreatedAt.IsZero() {
-		m.CreatedAt = time.Now().UTC()
+		// Round(0) strips the monotonic clock reading so the returned
+		// Memory.CreatedAt is byte-identical to what Get will return
+		// later (Get parses RFC3339Nano which has no monotonic).
+		// Without this, struct equality (==) on CreatedAt would
+		// silently fail even though Equal() succeeds.
+		m.CreatedAt = time.Now().UTC().Round(0)
 	}
 
 	contentJSON, err := json.Marshal(m.Content)
@@ -166,10 +171,27 @@ func (s *MemoryStore) SetCentralityScore(id string, score *float64) error {
 	return s.updateOperationalField(id, "centrality_score", score)
 }
 
+// allowedOperationalColumns is the whitelist of column names
+// updateOperationalField will accept. The value is parameterised
+// safely; the column name is concatenated into the SQL string, so a
+// whitelist removes any risk if this helper is ever called with a
+// caller-supplied value (defense in depth — current callers are all
+// in-package Set* methods).
+var allowedOperationalColumns = map[string]bool{
+	"type":             true,
+	"promotion_state":  true,
+	"landmark":         true,
+	"centrality_score": true,
+}
+
 // updateOperationalField runs a single-column UPDATE on memories,
 // returning ErrNotFound if the row does not exist. The column name is
-// trusted (caller is in-package); the value is parameterised.
+// validated against allowedOperationalColumns; the value is
+// parameterised.
 func (s *MemoryStore) updateOperationalField(id, column string, value any) error {
+	if !allowedOperationalColumns[column] {
+		return fmt.Errorf("updateOperationalField: column %q not allowed", column)
+	}
 	return s.v.Tx(func(tx *sql.Tx) error {
 		res, err := tx.Exec(
 			fmt.Sprintf(`UPDATE memories SET %s = ? WHERE id = ?`, column),
