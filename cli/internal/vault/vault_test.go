@@ -334,6 +334,54 @@ func TestMemory_DefaultsToUntyped(t *testing.T) {
 	}
 }
 
+// T14: A migration that fails partway rolls back atomically — the
+// statements that ran before the failure leave no schema artifacts,
+// and the migration version is not recorded in schema_migrations.
+// Forces injection of a deliberately bad migration via the package-
+// level slice; cleanup restores the original.
+func TestMigrate_RollsBackOnPartialFailure(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("baseline Migrate: %v", err)
+	}
+
+	saved := migrations
+	t.Cleanup(func() { migrations = saved })
+
+	migrations = append(append([]migration{}, saved...), migration{
+		version: 999,
+		stmts: []string{
+			`CREATE TABLE will_be_rolled_back (id INTEGER PRIMARY KEY)`,
+			`THIS IS DELIBERATELY NOT VALID SQL`,
+		},
+	})
+
+	if err := v.Migrate(); err == nil {
+		t.Fatal("expected Migrate to return an error from the failing migration")
+	}
+
+	if hasTable(t, v, "will_be_rolled_back") {
+		t.Errorf("partial migration committed: will_be_rolled_back table exists after rollback")
+	}
+
+	var version999Count int
+	if err := v.Query(
+		`SELECT COUNT(*) FROM schema_migrations WHERE version = 999`,
+		nil,
+		func(rows *sql.Rows) error {
+			if rows.Next() {
+				return rows.Scan(&version999Count)
+			}
+			return nil
+		},
+	); err != nil {
+		t.Fatalf("query schema_migrations for version 999: %v", err)
+	}
+	if version999Count != 0 {
+		t.Errorf("expected version 999 NOT to be in schema_migrations, got count=%d", version999Count)
+	}
+}
+
 // T13: memories.content is enforced as valid JSON via a CHECK
 // constraint. The schema contract says content is JSON (e.g.
 // {"text": "..."}); rejecting non-JSON at INSERT prevents the FTS5
