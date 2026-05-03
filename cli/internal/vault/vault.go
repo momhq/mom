@@ -133,14 +133,20 @@ const dsnPragmas = "?_pragma=foreign_keys(1)" +
 	"&_pragma=synchronous(NORMAL)" +
 	"&_pragma=cache_size(-8000)"
 
-// Open opens or creates the SQLite database at path and returns a usable
-// Vault. Callers must Close the Vault when done.
+// Open opens or creates the SQLite database at path, applies pragmas,
+// runs any pending schema migrations, and returns a usable Vault.
+// Callers must Close the Vault when done.
 //
 // On POSIX systems, the database file is created (or chmod'd if it
 // already exists) with mode 0600. The vault may contain captured
 // memories; group/world readability is the wrong default. modernc.org/
 // sqlite does not expose a perms DSN parameter, so the file is
 // materialized here before sql.Open.
+//
+// Migration is run automatically: a returned Vault is always at the
+// current schema version. There is no opt-out — every consumer wants a
+// migrated vault, and the central vault has no inspect-before-migrate
+// use case (mom upgrade reads legacy per-folder vaults, not this one).
 func Open(path string) (*Vault, error) {
 	if runtime.GOOS != "windows" {
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
@@ -162,7 +168,13 @@ func Open(path string) (*Vault, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("setting journal_mode=WAL: %w", err)
 	}
-	return &Vault{db: db}, nil
+
+	v := &Vault{db: db}
+	if err := v.Migrate(); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrating vault at %s: %w", path, err)
+	}
+	return v, nil
 }
 
 // Close releases the underlying database connection.

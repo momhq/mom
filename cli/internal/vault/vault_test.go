@@ -61,23 +61,6 @@ func hasTable(t *testing.T, v *Vault, name string) bool {
 	return found
 }
 
-// T2: Migrate on a fresh DB creates the memories table.
-func TestMigrate_CreatesMemoriesTable(t *testing.T) {
-	v, _ := newVault(t)
-
-	if hasTable(t, v, "memories") {
-		t.Fatalf("memories table should not exist before Migrate")
-	}
-
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
-
-	if !hasTable(t, v, "memories") {
-		t.Errorf("expected memories table after Migrate")
-	}
-}
-
 // countSchemaMigrations returns the number of applied migration rows.
 func countSchemaMigrations(t *testing.T, v *Vault) int {
 	t.Helper()
@@ -98,22 +81,19 @@ func countSchemaMigrations(t *testing.T, v *Vault) int {
 	return count
 }
 
-// T3: Migrate is idempotent — running it twice leaves schema_migrations
-// unchanged and is not an error. Forces the impl to track applied
-// migrations rather than relying solely on CREATE TABLE IF NOT EXISTS.
+// T3: Migrate is idempotent — calling it on an already-migrated vault
+// leaves schema_migrations unchanged. (Open auto-migrates, so newVault
+// returns a vault that has already had Migrate run once.)
 func TestMigrate_Idempotent(t *testing.T) {
 	v, _ := newVault(t)
 
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("first Migrate: %v", err)
-	}
 	first := countSchemaMigrations(t, v)
 	if first < 1 {
-		t.Fatalf("expected at least 1 applied migration after first run, got %d", first)
+		t.Fatalf("expected at least 1 applied migration from auto-migrate, got %d", first)
 	}
 
 	if err := v.Migrate(); err != nil {
-		t.Fatalf("second Migrate: %v", err)
+		t.Fatalf("explicit Migrate after auto-migrate: %v", err)
 	}
 	second := countSchemaMigrations(t, v)
 
@@ -126,10 +106,6 @@ func TestMigrate_Idempotent(t *testing.T) {
 // ADRs 0009/0010/0014.
 func TestMigrate_CreatesAllV030Tables(t *testing.T) {
 	v, _ := newVault(t)
-
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	expected := []string{
 		"memories",
@@ -176,9 +152,6 @@ func insertSimpleMemory(t *testing.T, v *Vault, id, summary, contentText string)
 // triggers keep it in sync with memories on insert.
 func TestFTS5_FindsInsertedMemory(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	insertSimpleMemory(t, v, "m1", "quick brown fox summary", "the quick brown fox jumps over the lazy dog")
 
@@ -225,9 +198,6 @@ func memoryExists(t *testing.T, v *Vault, id string) bool {
 // persist after the callback returns nil.
 func TestTx_CommitsOnSuccess(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	insertSimpleMemory(t, v, "commit1", "committed memory", "this should persist")
 
@@ -240,9 +210,6 @@ func TestTx_CommitsOnSuccess(t *testing.T) {
 // error, mutations performed inside the callback do not persist.
 func TestTx_RollsBackOnError(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	sentinel := errors.New("intentional rollback")
 	contentJSON := `{"text":"this should not persist"}`
@@ -273,9 +240,6 @@ func TestTx_RollsBackOnError(t *testing.T) {
 // forward-only, new values appear over time and are valid by appearing.
 func TestProvenance_OpenVocabulary(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	err := v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
@@ -298,9 +262,6 @@ func TestProvenance_OpenVocabulary(t *testing.T) {
 // post-hoc through wrap-up or explicit user/agent action.
 func TestMemory_DefaultsToUntyped(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	err := v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
@@ -341,9 +302,6 @@ func TestMemory_DefaultsToUntyped(t *testing.T) {
 // level slice; cleanup restores the original.
 func TestMigrate_RollsBackOnPartialFailure(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("baseline Migrate: %v", err)
-	}
 
 	saved := migrations
 	t.Cleanup(func() { migrations = saved })
@@ -389,9 +347,6 @@ func TestMigrate_RollsBackOnPartialFailure(t *testing.T) {
 // rather than a confusing trigger failure.
 func TestMemory_RejectsNonJSONContent(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	err := v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
@@ -433,9 +388,6 @@ func TestOpen_FileModeIs0600(t *testing.T) {
 // PRAGMA foreign_keys reports 1 and that an FK violation is rejected.
 func TestForeignKeys_EnforcedAcrossConnections(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	// Drop idle connections so the next query needs a fresh one.
 	v.db.SetMaxIdleConns(0)
@@ -466,9 +418,6 @@ func TestForeignKeys_EnforcedAcrossConnections(t *testing.T) {
 // foreign key relationships introduced in migration 1.
 func TestSmoke_RoundTripMemoryWithTagAndEntity(t *testing.T) {
 	v, _ := newVault(t)
-	if err := v.Migrate(); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
 
 	const ts = "2026-05-03T12:00:00Z"
 	memID := "smoke-mem-1"
