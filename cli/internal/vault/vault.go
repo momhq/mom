@@ -6,6 +6,8 @@ package vault
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"runtime"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -35,7 +37,7 @@ var migrations = []migration{
 			id                       TEXT PRIMARY KEY,
 			type                     TEXT NOT NULL DEFAULT 'untyped',
 			summary                  TEXT,
-			content                  TEXT NOT NULL,
+			content                  TEXT NOT NULL CHECK (json_valid(content)),
 			created_at               TEXT NOT NULL,
 			session_id               TEXT,
 			provenance_actor         TEXT,
@@ -119,29 +121,46 @@ type Vault struct {
 	db *sql.DB
 }
 
-// pragmas applied once after opening the database. These are the
-// production defaults inherited from the pre-0.30 storage layer:
-// WAL for concurrent readers, foreign keys enforced, normal sync for
-// good performance with WAL safety, ~8 MB page cache.
-var openPragmas = []string{
-	"PRAGMA journal_mode=WAL",
-	"PRAGMA foreign_keys=ON",
-	"PRAGMA synchronous=NORMAL",
-	"PRAGMA cache_size=-8000",
-}
+// dsnPragmas are SQLite pragmas embedded in the connection string so
+// modernc.org/sqlite applies them on EVERY new connection in the pool.
+// Per-connection pragmas (foreign_keys, synchronous, cache_size) do not
+// persist across pool growth when applied via db.Exec; embedding them
+// in the DSN is the documented fix.
+//
+// WAL mode is database-wide (persists in the file) and is set separately
+// via db.Exec after Open since it is not a per-connection setting.
+const dsnPragmas = "?_pragma=foreign_keys(1)" +
+	"&_pragma=synchronous(NORMAL)" +
+	"&_pragma=cache_size(-8000)"
 
 // Open opens or creates the SQLite database at path and returns a usable
 // Vault. Callers must Close the Vault when done.
+//
+// On POSIX systems, the database file is created (or chmod'd if it
+// already exists) with mode 0600. The vault may contain captured
+// memories; group/world readability is the wrong default. modernc.org/
+// sqlite does not expose a perms DSN parameter, so the file is
+// materialized here before sql.Open.
 func Open(path string) (*Vault, error) {
-	db, err := sql.Open("sqlite", path)
+	if runtime.GOOS != "windows" {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("creating vault file at %s: %w", path, err)
+		}
+		_ = f.Close()
+		if err := os.Chmod(path, 0600); err != nil {
+			return nil, fmt.Errorf("chmod %s to 0600: %w", path, err)
+		}
+	}
+
+	db, err := sql.Open("sqlite", path+dsnPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("opening sqlite at %s: %w", path, err)
 	}
-	for _, pragma := range openPragmas {
-		if _, err := db.Exec(pragma); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("applying %q: %w", pragma, err)
-		}
+	// WAL is database-wide — set once via Exec; persists in the file.
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("setting journal_mode=WAL: %w", err)
 	}
 	return &Vault{db: db}, nil
 }

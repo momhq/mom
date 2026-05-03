@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -330,6 +331,84 @@ func TestMemory_DefaultsToUntyped(t *testing.T) {
 
 	if typeVal != "untyped" {
 		t.Errorf("expected default type='untyped', got %q", typeVal)
+	}
+}
+
+// T13: memories.content is enforced as valid JSON via a CHECK
+// constraint. The schema contract says content is JSON (e.g.
+// {"text": "..."}); rejecting non-JSON at INSERT prevents the FTS5
+// trigger from exploding on json_extract and gives a clear error
+// rather than a confusing trigger failure.
+func TestMemory_RejectsNonJSONContent(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	err := v.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`INSERT INTO memories (id, type, content, created_at)
+			 VALUES (?, 'untyped', ?, ?)`,
+			"bad-json-1", "this is not valid json", "2026-05-03T12:00:00Z",
+		)
+		return err
+	})
+	if err == nil {
+		t.Errorf("expected CHECK (json_valid(content)) to reject non-JSON content")
+	}
+}
+
+// T12: A freshly opened vault has file mode 0600. The DB file may
+// contain captured memories, redaction-adjacent transient state, and
+// audit metadata; group/world readability is the wrong default.
+// Skipped on Windows since POSIX mode bits do not apply.
+func TestOpen_FileModeIs0600(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX file mode not applicable on Windows")
+	}
+
+	_, dbPath := newVault(t)
+
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("stat %s: %v", dbPath, err)
+	}
+	if mode := info.Mode().Perm(); mode != 0600 {
+		t.Errorf("expected file mode 0600, got %o", mode)
+	}
+}
+
+// T11: Foreign key enforcement is on for every connection in the pool.
+// Without the DSN-embedded `_pragma=foreign_keys(1)`, FK enforcement is
+// per-connection and may silently disable when the pool grows. We
+// force a fresh connection by closing idle ones, then verify both that
+// PRAGMA foreign_keys reports 1 and that an FK violation is rejected.
+func TestForeignKeys_EnforcedAcrossConnections(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	// Drop idle connections so the next query needs a fresh one.
+	v.db.SetMaxIdleConns(0)
+
+	var fk int
+	if err := v.db.QueryRow(`PRAGMA foreign_keys`).Scan(&fk); err != nil {
+		t.Fatalf("query PRAGMA foreign_keys: %v", err)
+	}
+	if fk != 1 {
+		t.Errorf("expected foreign_keys=1 on fresh connection, got %d", fk)
+	}
+
+	err := v.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`INSERT INTO memory_tags (memory_id, tag_id, created_at) VALUES (?, ?, ?)`,
+			"nonexistent-memory", "nonexistent-tag", "2026-05-03T12:00:00Z",
+		)
+		return err
+	})
+	if err == nil {
+		t.Errorf("expected FK violation inserting memory_tags with nonexistent FKs; foreign_keys not enforced")
 	}
 }
 
