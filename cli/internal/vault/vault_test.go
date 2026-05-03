@@ -1,0 +1,425 @@
+package vault
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+// T1 (tracer bullet): Open on a fresh path creates the DB file and
+// returns a usable Vault.
+func TestOpen_FreshPath(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "mom.db")
+
+	v, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open(%s): %v", dbPath, err)
+	}
+	t.Cleanup(func() { _ = v.Close() })
+
+	if _, err := os.Stat(dbPath); err != nil {
+		t.Errorf("expected DB file at %s: %v", dbPath, err)
+	}
+}
+
+// newVault is a test helper that opens a fresh Vault in a temp dir and
+// registers cleanup. Returns the Vault and its on-disk path.
+func newVault(t *testing.T) (*Vault, string) {
+	t.Helper()
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "mom.db")
+	v, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = v.Close() })
+	return v, dbPath
+}
+
+// hasTable reports whether a table exists in the vault's schema.
+func hasTable(t *testing.T, v *Vault, name string) bool {
+	t.Helper()
+	var found bool
+	err := v.Query(
+		`SELECT 1 FROM sqlite_master WHERE type='table' AND name=?`,
+		[]any{name},
+		func(rows *sql.Rows) error {
+			if rows.Next() {
+				found = true
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("Query sqlite_master for %s: %v", name, err)
+	}
+	return found
+}
+
+// T2: Migrate on a fresh DB creates the memories table.
+func TestMigrate_CreatesMemoriesTable(t *testing.T) {
+	v, _ := newVault(t)
+
+	if hasTable(t, v, "memories") {
+		t.Fatalf("memories table should not exist before Migrate")
+	}
+
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	if !hasTable(t, v, "memories") {
+		t.Errorf("expected memories table after Migrate")
+	}
+}
+
+// countSchemaMigrations returns the number of applied migration rows.
+func countSchemaMigrations(t *testing.T, v *Vault) int {
+	t.Helper()
+	var count int
+	err := v.Query(
+		`SELECT COUNT(*) FROM schema_migrations`,
+		nil,
+		func(rows *sql.Rows) error {
+			if rows.Next() {
+				return rows.Scan(&count)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("count schema_migrations: %v", err)
+	}
+	return count
+}
+
+// T3: Migrate is idempotent — running it twice leaves schema_migrations
+// unchanged and is not an error. Forces the impl to track applied
+// migrations rather than relying solely on CREATE TABLE IF NOT EXISTS.
+func TestMigrate_Idempotent(t *testing.T) {
+	v, _ := newVault(t)
+
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("first Migrate: %v", err)
+	}
+	first := countSchemaMigrations(t, v)
+	if first < 1 {
+		t.Fatalf("expected at least 1 applied migration after first run, got %d", first)
+	}
+
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("second Migrate: %v", err)
+	}
+	second := countSchemaMigrations(t, v)
+
+	if first != second {
+		t.Errorf("schema_migrations count changed across re-run: %d -> %d", first, second)
+	}
+}
+
+// T4: Migrate creates the full v0.30 table set per the design doc and
+// ADRs 0009/0010/0014.
+func TestMigrate_CreatesAllV030Tables(t *testing.T) {
+	v, _ := newVault(t)
+
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	expected := []string{
+		"memories",
+		"entities",
+		"tags",
+		"memory_tags",
+		"memory_entities",
+		"event_log",
+		"filter_audit",
+		"schema_migrations",
+	}
+	for _, name := range expected {
+		if !hasTable(t, v, name) {
+			t.Errorf("expected table %q after Migrate", name)
+		}
+	}
+}
+
+// insertSimpleMemory writes a minimum memory row through the public Tx
+// API. Used by tests that need a memory present without going through
+// the full MemoryStore (which lives in #235). content is JSON-encoded
+// per the v0.30 schema contract: {"text": "..."}.
+func insertSimpleMemory(t *testing.T, v *Vault, id, summary, contentText string) {
+	t.Helper()
+	contentJSON, err := json.Marshal(map[string]string{"text": contentText})
+	if err != nil {
+		t.Fatalf("marshal content for %s: %v", id, err)
+	}
+	err = v.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`INSERT INTO memories (id, type, summary, content, created_at)
+			 VALUES (?, 'untyped', ?, ?, ?)`,
+			id, summary, string(contentJSON), "2026-05-03T12:00:00Z",
+		)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("insert memory %s: %v", id, err)
+	}
+}
+
+// T5: After Migrate, an inserted memory is findable via FTS5 search.
+// Verifies that the memories_fts virtual table is wired and that
+// triggers keep it in sync with memories on insert.
+func TestFTS5_FindsInsertedMemory(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	insertSimpleMemory(t, v, "m1", "quick brown fox summary", "the quick brown fox jumps over the lazy dog")
+
+	var foundID string
+	err := v.Query(
+		`SELECT id FROM memories_fts WHERE memories_fts MATCH ? LIMIT 1`,
+		[]any{"quick"},
+		func(rows *sql.Rows) error {
+			if rows.Next() {
+				return rows.Scan(&foundID)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("FTS5 query: %v", err)
+	}
+	if foundID != "m1" {
+		t.Errorf("expected FTS5 to find m1 via 'quick', got %q", foundID)
+	}
+}
+
+// memoryExists is a query helper for the Tx tests.
+func memoryExists(t *testing.T, v *Vault, id string) bool {
+	t.Helper()
+	var found bool
+	err := v.Query(
+		`SELECT 1 FROM memories WHERE id = ?`,
+		[]any{id},
+		func(rows *sql.Rows) error {
+			if rows.Next() {
+				found = true
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("query memories for %s: %v", id, err)
+	}
+	return found
+}
+
+// T6: Tx commits on success — mutations performed inside the callback
+// persist after the callback returns nil.
+func TestTx_CommitsOnSuccess(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	insertSimpleMemory(t, v, "commit1", "committed memory", "this should persist")
+
+	if !memoryExists(t, v, "commit1") {
+		t.Errorf("expected commit1 to persist after Tx commit")
+	}
+}
+
+// T7: Tx rolls back on error — when the callback returns a non-nil
+// error, mutations performed inside the callback do not persist.
+func TestTx_RollsBackOnError(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	sentinel := errors.New("intentional rollback")
+	contentJSON := `{"text":"this should not persist"}`
+
+	err := v.Tx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(
+			`INSERT INTO memories (id, type, content, created_at)
+			 VALUES (?, 'untyped', ?, ?)`,
+			"rollback1", contentJSON, "2026-05-03T12:00:00Z",
+		); err != nil {
+			return err
+		}
+		return sentinel
+	})
+
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected sentinel error from Tx, got %v", err)
+	}
+
+	if memoryExists(t, v, "rollback1") {
+		t.Errorf("expected rollback1 NOT to persist after Tx rollback")
+	}
+}
+
+// T8: Inserting novel provenance values succeeds — no CHECK constraints
+// on actor / source_type / trigger_event. This locks in the open
+// vocabulary contract (ADR 0015 / UTM principle): renames are
+// forward-only, new values appear over time and are valid by appearing.
+func TestProvenance_OpenVocabulary(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	err := v.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`INSERT INTO memories (
+				id, type, content, created_at,
+				provenance_actor, provenance_source_type, provenance_trigger_event
+			) VALUES (?, 'untyped', ?, ?, ?, ?, ?)`,
+			"novel1", `{"text":"x"}`, "2026-05-03T12:00:00Z",
+			"future-harness-2027", "novel-source-type", "novel-trigger",
+		)
+		return err
+	})
+	if err != nil {
+		t.Errorf("expected novel provenance values to succeed (open vocabulary): %v", err)
+	}
+}
+
+// T9: Inserting a memory without specifying type defaults to 'untyped'
+// (ADR 0012). Capture never assigns a real type; classification is
+// post-hoc through wrap-up or explicit user/agent action.
+func TestMemory_DefaultsToUntyped(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	err := v.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`INSERT INTO memories (id, content, created_at)
+			 VALUES (?, ?, ?)`,
+			"default1", `{"text":"x"}`, "2026-05-03T12:00:00Z",
+		)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var typeVal string
+	err = v.Query(
+		`SELECT type FROM memories WHERE id = ?`,
+		[]any{"default1"},
+		func(rows *sql.Rows) error {
+			if rows.Next() {
+				return rows.Scan(&typeVal)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("query type: %v", err)
+	}
+
+	if typeVal != "untyped" {
+		t.Errorf("expected default type='untyped', got %q", typeVal)
+	}
+}
+
+// T10 (smoke): round-trip a memory + a tag + an entity edge through
+// Tx, then read back the joined view. Exercises the v0.30 graph-fluent
+// schema end-to-end (memory + memory_tags + memory_entities) and the
+// foreign key relationships introduced in migration 1.
+func TestSmoke_RoundTripMemoryWithTagAndEntity(t *testing.T) {
+	v, _ := newVault(t)
+	if err := v.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	const ts = "2026-05-03T12:00:00Z"
+	memID := "smoke-mem-1"
+	tagID := "smoke-tag-1"
+	entityID := "smoke-ent-1"
+
+	err := v.Tx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(
+			`INSERT INTO memories (id, type, summary, content, created_at)
+			 VALUES (?, 'untyped', ?, ?, ?)`,
+			memID, "smoke summary", `{"text":"smoke body"}`, ts,
+		); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)`,
+			tagID, "smoke", ts,
+		); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO memory_tags (memory_id, tag_id, created_at) VALUES (?, ?, ?)`,
+			memID, tagID, ts,
+		); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO entities (id, type, display_name, created_at) VALUES (?, 'user', ?, ?)`,
+			entityID, "Smoke User", ts,
+		); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO memory_entities (memory_id, entity_id, relationship, created_at)
+			 VALUES (?, ?, 'created_by', ?)`,
+			memID, entityID, ts,
+		); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("round-trip Tx: %v", err)
+	}
+
+	var (
+		gotMem, gotTag, gotEntity, gotRel string
+	)
+	err = v.Query(
+		`SELECT m.id, t.name, e.display_name, me.relationship
+		 FROM memories m
+		 JOIN memory_tags mt     ON mt.memory_id = m.id
+		 JOIN tags t             ON t.id = mt.tag_id
+		 JOIN memory_entities me ON me.memory_id = m.id
+		 JOIN entities e         ON e.id = me.entity_id
+		 WHERE m.id = ?`,
+		[]any{memID},
+		func(rows *sql.Rows) error {
+			if rows.Next() {
+				return rows.Scan(&gotMem, &gotTag, &gotEntity, &gotRel)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("joined query: %v", err)
+	}
+
+	if gotMem != memID {
+		t.Errorf("memory id = %q, want %q", gotMem, memID)
+	}
+	if gotTag != "smoke" {
+		t.Errorf("tag name = %q, want %q", gotTag, "smoke")
+	}
+	if gotEntity != "Smoke User" {
+		t.Errorf("entity display_name = %q, want %q", gotEntity, "Smoke User")
+	}
+	if gotRel != "created_by" {
+		t.Errorf("relationship = %q, want %q", gotRel, "created_by")
+	}
+}
