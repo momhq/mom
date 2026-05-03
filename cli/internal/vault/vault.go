@@ -75,7 +75,8 @@ var migrations = []migration{
 			id           TEXT PRIMARY KEY,
 			type         TEXT NOT NULL,
 			display_name TEXT,
-			created_at   TEXT NOT NULL
+			created_at   TEXT NOT NULL,
+			UNIQUE (type, display_name)
 		)`,
 		`CREATE TABLE IF NOT EXISTS tags (
 			id         TEXT PRIMARY KEY,
