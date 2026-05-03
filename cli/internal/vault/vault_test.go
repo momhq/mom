@@ -381,6 +381,54 @@ func TestOpen_FileModeIs0600(t *testing.T) {
 	}
 }
 
+// T15: The migrations slice is sorted by version with no duplicates.
+// Catches developer mistakes (declaring v3 before v2, accidentally
+// reusing a version number) at test time before they corrupt a real
+// vault. validateMigrations is also called from init() so a bad slice
+// panics at package load.
+func TestMigrations_AreSortedAndUnique(t *testing.T) {
+	if err := validateMigrations(migrations); err != nil {
+		t.Errorf("global migrations slice violates ordering: %v", err)
+	}
+}
+
+// T15b: validateMigrations rejects out-of-order versions and duplicates.
+func TestValidateMigrations(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   []migration
+		wantErr bool
+	}{
+		{"empty", nil, false},
+		{"single", []migration{{1, nil}}, false},
+		{"sorted", []migration{{1, nil}, {2, nil}, {5, nil}}, false},
+		{"out of order", []migration{{2, nil}, {1, nil}}, true},
+		{"duplicate version", []migration{{1, nil}, {1, nil}}, true},
+		{"duplicate non-adjacent", []migration{{1, nil}, {2, nil}, {1, nil}}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateMigrations(c.input)
+			if (err != nil) != c.wantErr {
+				t.Errorf("validateMigrations(%v): err=%v, wantErr=%v", c.input, err, c.wantErr)
+			}
+		})
+	}
+}
+
+// T16: Close is idempotent — calling it on an already-closed Vault
+// returns nil without panicking.
+func TestClose_Idempotent(t *testing.T) {
+	v, _ := newVault(t)
+
+	if err := v.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+	if err := v.Close(); err != nil {
+		t.Errorf("second Close should be a no-op, got: %v", err)
+	}
+}
+
 // T11: Foreign key enforcement is on for every connection in the pool.
 // Without the DSN-embedded `_pragma=foreign_keys(1)`, FK enforcement is
 // per-connection and may silently disable when the pool grows. We

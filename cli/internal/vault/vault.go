@@ -21,6 +21,30 @@ type migration struct {
 	stmts   []string
 }
 
+// init validates that the migrations slice is sorted by version and
+// contains no duplicate versions. A bad slice is a programming error
+// detected at package load — preferable to silently applying
+// migrations in the wrong order or skipping one because of a duplicate
+// version number.
+func init() {
+	if err := validateMigrations(migrations); err != nil {
+		panic("vault: invalid migrations: " + err.Error())
+	}
+}
+
+// validateMigrations returns an error if versions are not strictly
+// increasing (out of order or duplicated). Pure function, exposed for
+// testing. Empty slice is valid.
+func validateMigrations(ms []migration) error {
+	for i := 1; i < len(ms); i++ {
+		if ms[i].version <= ms[i-1].version {
+			return fmt.Errorf("migration %d follows %d (must be strictly increasing)",
+				ms[i].version, ms[i-1].version)
+		}
+	}
+	return nil
+}
+
 // migrations is the ordered list of schema changes for v0.30.
 // Re-runs of Migrate skip versions already recorded in schema_migrations.
 //
@@ -177,12 +201,15 @@ func Open(path string) (*Vault, error) {
 	return v, nil
 }
 
-// Close releases the underlying database connection.
+// Close releases the underlying database connection. Idempotent —
+// calling Close on an already-closed Vault is a no-op.
 func (v *Vault) Close() error {
 	if v.db == nil {
 		return nil
 	}
-	return v.db.Close()
+	err := v.db.Close()
+	v.db = nil
+	return err
 }
 
 // Migrate applies any pending schema migrations to bring the vault to the
@@ -227,6 +254,11 @@ func (v *Vault) Migrate() error {
 	}
 	return nil
 }
+
+// TODO(#238): add QueryContext / TxContext variants when Recall needs
+// query cancellation / timeout. Current callers are all CLI-bound and
+// don't yet have a context to thread; adding speculative ctx-taking
+// methods now would be premature.
 
 // Query runs a read-only query and invokes scan with the resulting rows.
 // Vault closes the *sql.Rows after scan returns. Callers never see
