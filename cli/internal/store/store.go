@@ -17,6 +17,12 @@ import (
 // Memory is the v0.30 in-memory shape of a memory document. Substance
 // fields are immutable after Insert; operational fields are mutated
 // only via the explicit Set* methods on MemoryStore.
+//
+// A Memory value returned by Insert or Get is a snapshot — modifying
+// its fields does not persist to the database. To update operational
+// fields after Insert, call SetType / SetPromotionState / SetLandmark
+// / SetCentralityScore on MemoryStore. Substance fields cannot be
+// changed after Insert; create a new memory and supersede instead.
 type Memory struct {
 	// Substance — immutable after Insert.
 	ID                     string
@@ -371,6 +377,12 @@ func (g *GraphStore) LinkTag(memoryID, tagID string) error {
 // MemoriesByTag returns the IDs of all memories linked to the tag with
 // the given name. Returns an empty slice if no such tag exists or no
 // memories are linked.
+//
+// TODO(post-v0.30): result is unbounded. At v0.30 alpha vault sizes
+// this is acceptable; if vaults grow large enough that a single tag
+// could match millions of memories, add pagination (limit/offset) or
+// a streaming variant. Recall (#238) will likely build a bounded
+// query layer on top of this.
 func (g *GraphStore) MemoriesByTag(tagName string) ([]string, error) {
 	var ids []string
 	err := g.v.Query(
