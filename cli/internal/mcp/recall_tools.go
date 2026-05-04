@@ -60,12 +60,13 @@ func (s *Server) toolMomLandmarks(args map[string]any) (toolCallResult, error) {
 		Summary         string   `json:"summary"`
 		PromotionState  string   `json:"promotion_state"`
 		CentralityScore *float64 `json:"centrality_score"`
+		SessionID       string   `json:"session_id"`
 		CreatedAt       string   `json:"created_at"`
 	}
 	var items []landmarkItem
 
 	err := s.vault.Query(
-		`SELECT id, type, summary, promotion_state, centrality_score, created_at
+		`SELECT id, type, summary, promotion_state, centrality_score, session_id, created_at
 		 FROM memories
 		 WHERE landmark = 1
 		 ORDER BY COALESCE(centrality_score, 0) DESC, created_at DESC
@@ -76,7 +77,8 @@ func (s *Server) toolMomLandmarks(args map[string]any) (toolCallResult, error) {
 				var item landmarkItem
 				if err := rows.Scan(
 					&item.ID, &item.Type, &item.Summary,
-					&item.PromotionState, &item.CentralityScore, &item.CreatedAt,
+					&item.PromotionState, &item.CentralityScore,
+					&item.SessionID, &item.CreatedAt,
 				); err != nil {
 					return err
 				}
