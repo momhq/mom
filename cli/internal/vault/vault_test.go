@@ -337,3 +337,21 @@ func TestClose_isIdempotent(t *testing.T) {
 		t.Fatalf("second Close: %v", err)
 	}
 }
+
+// TestUseAfterClose_ReturnsErrClosedNotPanic locks the contract that
+// using a closed Vault returns vault.ErrClosed instead of nil-pointer
+// panicking through the underlying *sql.DB. Callers that hold a stale
+// Vault (e.g., via a Librarian) get a recoverable error.
+func TestUseAfterClose_ReturnsErrClosedNotPanic(t *testing.T) {
+	v, _ := openTempVault(t, nil)
+	if err := v.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	if err := v.Tx(func(tx *sql.Tx) error { return nil }); !errors.Is(err, vault.ErrClosed) {
+		t.Errorf("Tx after Close: err = %v, want ErrClosed", err)
+	}
+	if err := v.Query(`SELECT 1`, nil, func(*sql.Rows) error { return nil }); !errors.Is(err, vault.ErrClosed) {
+		t.Errorf("Query after Close: err = %v, want ErrClosed", err)
+	}
+}

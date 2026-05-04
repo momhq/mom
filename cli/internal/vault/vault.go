@@ -12,6 +12,7 @@ package vault
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -19,6 +20,12 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+// ErrClosed is returned by Tx and Query when called on a Vault whose
+// Close has already run. Defends against nil-pointer panics in the
+// underlying *sql.DB; callers that hold a stale Vault reference get a
+// clear error rather than a stack trace.
+var ErrClosed = errors.New("vault: closed")
 
 // Migration is one applied schema change identified by a strictly
 // increasing integer version. Stmts run as a single transaction; either
@@ -170,7 +177,12 @@ func (v *Vault) migrate(migrations []Migration) error {
 // Query runs a read-only query and invokes scan with the resulting
 // rows. Vault closes the *sql.Rows after scan returns. Callers never
 // see *sql.DB.
+//
+// Returns ErrClosed if Close has already run on the Vault.
 func (v *Vault) Query(query string, args []any, scan func(*sql.Rows) error) error {
+	if v.db == nil {
+		return ErrClosed
+	}
 	rows, err := v.db.Query(query, args...)
 	if err != nil {
 		return err
@@ -186,7 +198,12 @@ func (v *Vault) Query(query string, args []any, scan func(*sql.Rows) error) erro
 // return; any non-nil error rolls it back and is returned to the
 // caller. A panic in fn rolls the transaction back and re-panics.
 // Callers receive a *sql.Tx but never *sql.DB.
+//
+// Returns ErrClosed if Close has already run on the Vault.
 func (v *Vault) Tx(fn func(*sql.Tx) error) (err error) {
+	if v.db == nil {
+		return ErrClosed
+	}
 	tx, err := v.db.Begin()
 	if err != nil {
 		return err

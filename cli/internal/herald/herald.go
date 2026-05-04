@@ -3,6 +3,7 @@ package herald
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 )
@@ -137,7 +138,11 @@ func (b *Bus) Publish(e Event) {
 func invoke(eventType EventType, event Event, h Handler) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "herald: handler for %q panicked: %v\n", eventType, r)
+			// Include the goroutine stack so a recovered panic is
+			// debuggable from a single log line. One-line panics are
+			// brittle when the failure mode is "which subscriber blew
+			// up and why."
+			fmt.Fprintf(os.Stderr, "herald: handler for %q panicked: %v\n%s\n", eventType, r, debug.Stack())
 		}
 	}()
 	h(event)
