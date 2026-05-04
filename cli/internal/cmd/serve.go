@@ -84,15 +84,22 @@ func runServeMCP(_ *cobra.Command, _ []string) error {
 
 	// Wire the v0.30 central vault at $HOME/.mom/mom.db so tools that
 	// target the new vault (mom_record) work. If the vault cannot be
-	// opened (e.g. missing $HOME/.mom/), continue without it — legacy
-	// tools still function; v0.30 tools return a clear error.
-	if home, err := os.UserHomeDir(); err == nil {
+	// opened, continue without it — legacy tools still function and
+	// v0.30 tools return a clear error. Each failure path logs to
+	// stderr (stdout is reserved for JSON-RPC) so the operator can
+	// diagnose why mom_record reports "vault not configured".
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[mom] warning: cannot resolve $HOME for v0.30 vault: %v\n", err)
+	} else {
 		momHome := filepath.Join(home, ".mom")
-		if err := os.MkdirAll(momHome, 0700); err == nil {
-			if v, err := vault.Open(filepath.Join(momHome, "mom.db")); err == nil {
-				srv.SetVault(v)
-				defer v.Close()
-			}
+		if err := os.MkdirAll(momHome, 0700); err != nil {
+			fmt.Fprintf(os.Stderr, "[mom] warning: cannot create %s for v0.30 vault: %v\n", momHome, err)
+		} else if v, err := vault.Open(filepath.Join(momHome, "mom.db")); err != nil {
+			fmt.Fprintf(os.Stderr, "[mom] warning: cannot open v0.30 vault at %s: %v\n", filepath.Join(momHome, "mom.db"), err)
+		} else {
+			srv.SetVault(v)
+			defer v.Close()
 		}
 	}
 
