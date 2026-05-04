@@ -429,6 +429,9 @@ func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
 	}
 
 	query := stringArg(args, "query")
+	if query == "" {
+		return toolCallResult{}, fmt.Errorf("mom_recall: query is required")
+	}
 	maxResults := intArg(args, "max_results", 5)
 	tags := stringSliceArg(args, "tags")
 	sessionID := stringArg(args, "session_id")

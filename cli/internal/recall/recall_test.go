@@ -210,3 +210,121 @@ func TestEngine_Search_ContentOutranksSummary(t *testing.T) {
 	}
 	_ = summaryOnlyID
 }
+
+// T6: tag filter applies AND logic across multiple tags. Only memories
+// linked to ALL the requested tags are returned.
+func TestEngine_Search_MultiTagAND(t *testing.T) {
+	e, ms, gs, _ := newEngine(t)
+
+	idAB := insertCurated(t, ms, "both tags", "test body alpha")
+	idA := insertCurated(t, ms, "alpha only", "test body alpha")
+	idB := insertCurated(t, ms, "beta only", "test body beta")
+
+	tagA, _ := gs.UpsertTag("alpha")
+	tagB, _ := gs.UpsertTag("beta")
+	for _, link := range []struct{ mem, tag string }{
+		{idAB, tagA}, {idAB, tagB},
+		{idA, tagA},
+		{idB, tagB},
+	} {
+		if err := gs.LinkTag(link.mem, link.tag); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	results, err := e.Search(recall.Options{
+		Query: "test",
+		Tags:  []string{"alpha", "beta"},
+	})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result with both tags, got %d: %v", len(results), results)
+	}
+	if results[0].ID != idAB {
+		t.Errorf("expected memory %s (both tags), got %s", idAB, results[0].ID)
+	}
+}
+
+// T7: session_id filter narrows results to memories from one session.
+func TestEngine_Search_SessionIDFilter(t *testing.T) {
+	e, ms, _, _ := newEngine(t)
+
+	mA, err := ms.Insert(store.Memory{
+		Summary:                "session a memory",
+		Content:                map[string]any{"text": "shared topic"},
+		SessionID:              "session-a",
+		ProvenanceActor:        "test",
+		ProvenanceSourceType:   "manual-draft",
+		ProvenanceTriggerEvent: "record",
+		PromotionState:         "curated",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mB, err := ms.Insert(store.Memory{
+		Summary:                "session b memory",
+		Content:                map[string]any{"text": "shared topic"},
+		SessionID:              "session-b",
+		ProvenanceActor:        "test",
+		ProvenanceSourceType:   "manual-draft",
+		ProvenanceTriggerEvent: "record",
+		PromotionState:         "curated",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := e.Search(recall.Options{
+		Query:     "shared",
+		SessionID: "session-a",
+	})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result for session-a, got %d: %v", len(results), results)
+	}
+	if results[0].ID != mA.ID {
+		t.Errorf("expected memory from session-a (%s), got %s", mA.ID, results[0].ID)
+	}
+	_ = mB
+}
+
+// T8: when the curated tier returns fewer results than the threshold,
+// the engine escalates to include drafts. Drafts surface in the
+// returned results alongside any curated matches.
+func TestEngine_Search_EscalatesToDraftsWhenCuratedBelowThreshold(t *testing.T) {
+	e, ms, _, _ := newEngine(t)
+
+	curatedID := insertCurated(t, ms, "curated single", "shared keyword")
+	// 3 drafts also matching — pushes curated tier (1 result) below
+	// the threshold of 3, forcing escalation to drafts.
+	draftIDs := make(map[string]bool)
+	for i := 0; i < 3; i++ {
+		draftIDs[insertDraft(t, ms, "draft", "shared keyword")] = true
+	}
+
+	results, err := e.Search(recall.Options{Query: "shared", MaxResults: 10})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+
+	foundCurated := false
+	foundAtLeastOneDraft := false
+	for _, r := range results {
+		if r.ID == curatedID {
+			foundCurated = true
+		}
+		if draftIDs[r.ID] {
+			foundAtLeastOneDraft = true
+		}
+	}
+	if !foundCurated {
+		t.Errorf("expected curated memory in results, got %v", results)
+	}
+	if !foundAtLeastOneDraft {
+		t.Errorf("expected drafts to escalate when curated tier below threshold, got %v", results)
+	}
+}

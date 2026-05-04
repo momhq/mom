@@ -159,6 +159,30 @@ func TestToolsCallMomGet_NotFound(t *testing.T) {
 	}
 }
 
+// T9: mom_recall rejects an empty query with a clear isError result.
+// The schema declares query as required; the handler enforces it at
+// runtime so a buggy caller gets a clear error rather than a silent
+// "no matches" diagnosis.
+func TestToolsCallMomRecall_RejectsEmptyQuery(t *testing.T) {
+	v, _ := newTestVault(t)
+	leoDir := newTestLeoDir(t)
+	inW, outR, _ := runServerWithVault(t, leoDir, v)
+	defer inW.Close()
+
+	sendRequest(t, inW, "initialize", 1, map[string]any{"protocolVersion": "2024-11-05"})
+	readResponse(t, outR)
+
+	sendRequest(t, inW, "tools/call", 2, map[string]any{
+		"name":      "mom_recall",
+		"arguments": map[string]any{"query": ""},
+	})
+	resp := readResponse(t, outR)
+	result, _ := resp["result"].(map[string]any)
+	if isErr, _ := result["isError"].(bool); !isErr {
+		t.Errorf("expected isError=true for empty query, got %v", result)
+	}
+}
+
 // T8: mom_landmarks via MCP — returns landmark memories sorted by
 // centrality_score descending.
 func TestToolsCallMomLandmarks_v030(t *testing.T) {
