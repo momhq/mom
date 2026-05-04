@@ -15,6 +15,7 @@ import (
 	"github.com/momhq/mom/cli/internal/mcp"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
+	"github.com/momhq/mom/cli/internal/vault"
 )
 
 var serveCmd = &cobra.Command{
@@ -80,6 +81,21 @@ func runServeMCP(_ *cobra.Command, _ []string) error {
 
 	mcp.Version = Version
 	srv := mcp.New(sc.Path)
+
+	// Wire the v0.30 central vault at $HOME/.mom/mom.db so tools that
+	// target the new vault (mom_record) work. If the vault cannot be
+	// opened (e.g. missing $HOME/.mom/), continue without it — legacy
+	// tools still function; v0.30 tools return a clear error.
+	if home, err := os.UserHomeDir(); err == nil {
+		momHome := filepath.Join(home, ".mom")
+		if err := os.MkdirAll(momHome, 0700); err == nil {
+			if v, err := vault.Open(filepath.Join(momHome, "mom.db")); err == nil {
+				srv.SetVault(v)
+				defer v.Close()
+			}
+		}
+	}
+
 	// Blocks until stdin is closed.
 	srv.Serve(os.Stdin, os.Stdout)
 	return nil
