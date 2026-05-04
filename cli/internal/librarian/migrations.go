@@ -2,6 +2,12 @@ package librarian
 
 import "github.com/momhq/mom/cli/internal/vault"
 
+// Migration is a re-export of vault.Migration so other v0.30 packages
+// (Logbook, future Cartographer state) can register their schema
+// changes through Librarian without importing Vault directly. Only
+// Librarian touches Vault — this alias keeps the rule auditable.
+type Migration = vault.Migration
+
 // Migrations returns the schema migrations Librarian owns. Callers pass
 // these to vault.Open so the runner applies them at version boundaries.
 //
