@@ -91,7 +91,11 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 		ProvenanceTriggerEvent: "record",
 	}
 
-	s.bus.Publish(MemoryRecordEventType, payloadAsMap(payload))
+	s.bus.Publish(herald.Event{
+		Type:      MemoryRecordEventType,
+		SessionID: payload.SessionID,
+		Payload:   payloadAsMap(payload),
+	})
 
 	return toolCallResult{
 		Content: []toolContent{{
@@ -157,13 +161,13 @@ func optionalStringSliceArg(args map[string]any, key string) ([]string, error) {
 	return out, nil
 }
 
-// payloadAsMap converts a MemoryRecordPayload to a map for Herald
-// transport. Each Herald event payload is map[string]any per the
-// v1+v0.30 Bus contract; using a typed struct internally keeps the
-// handler readable while the Bus stays type-agnostic.
+// payloadAsMap converts a MemoryRecordPayload to a map for the Herald
+// payload bag. SessionID is NOT included — it lives on the envelope
+// (herald.Event.SessionID), not in the bag. Including it here would
+// duplicate the contract and re-introduce the silent-drop class of
+// bug Theme A retired.
 func payloadAsMap(p MemoryRecordPayload) map[string]any {
 	m := map[string]any{
-		"session_id":               p.SessionID,
 		"content":                  p.Content,
 		"provenance_actor":         p.ProvenanceActor,
 		"provenance_source_type":   p.ProvenanceSourceType,

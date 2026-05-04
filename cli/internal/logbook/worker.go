@@ -7,6 +7,9 @@
 package logbook
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/librarian"
 )
@@ -45,17 +48,21 @@ func (w *Worker) Log(eventType, sessionID string, payload map[string]any) error 
 // event. Returns the unsubscribe func from Herald — callers may detach
 // the worker without retaining the Bus reference.
 //
-// The handler reads session_id from event.Payload["session_id"] when
-// present; if missing, the row is skipped (the API requires non-empty
-// session_id and a programming-error event without one should not
-// silently land in the stream).
+// SessionID comes from the Event envelope (e.SessionID), set by the
+// producer. An empty SessionID is a programming-error event and is
+// skipped with a stderr log — the schema NOT NULL constraint would
+// reject it anyway, but losing it silently in the audit substrate is
+// the bigger sin. A persistence failure (closed vault, FK error, disk
+// full) is also logged to stderr; we do not silently drop audit data.
 func (w *Worker) Subscribe(bus *herald.Bus, eventType herald.EventType) func() {
 	return bus.Subscribe(eventType, func(e herald.Event) {
-		sessionID := stringField(e.Payload, "session_id")
-		if sessionID == "" {
+		if e.SessionID == "" {
+			fmt.Fprintf(os.Stderr, "logbook: drop %q event with empty session_id\n", e.Type)
 			return
 		}
-		_ = w.Log(string(e.Type), sessionID, e.Payload)
+		if err := w.Log(string(e.Type), e.SessionID, e.Payload); err != nil {
+			fmt.Fprintf(os.Stderr, "logbook: persist %q failed: %v\n", e.Type, err)
+		}
 	})
 }
 
@@ -76,16 +83,4 @@ func (w *Worker) SubscribeAll(bus *herald.Bus, eventTypes ...herald.EventType) f
 // Query reads back rows from the operational stream through Librarian.
 func (w *Worker) Query(filter librarian.OpEventFilter) ([]librarian.OpEvent, error) {
 	return w.lib.QueryOpEvents(filter)
-}
-
-func stringField(m map[string]any, key string) string {
-	if m == nil {
-		return ""
-	}
-	if v, ok := m[key]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return ""
 }

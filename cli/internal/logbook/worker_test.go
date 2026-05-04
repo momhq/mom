@@ -69,10 +69,10 @@ func TestWorker_Subscribe_PersistsPublishedEvents(t *testing.T) {
 	unsub := w.Subscribe(bus, "op.recall.queried")
 	defer unsub()
 
-	bus.Publish("op.recall.queried", map[string]any{
-		"session_id":  "s-test",
-		"query":       "deploy",
-		"max_results": 10,
+	bus.Publish(herald.Event{
+		Type:      "op.recall.queried",
+		SessionID: "s-test",
+		Payload:   map[string]any{"query": "deploy", "max_results": 10},
 	})
 
 	rows, _ := lib.QueryOpEvents(librarian.OpEventFilter{EventType: "op.recall.queried"})
@@ -88,16 +88,19 @@ func TestWorker_Subscribe_PersistsPublishedEvents(t *testing.T) {
 }
 
 func TestWorker_Subscribe_SkipsEventsWithoutSessionID(t *testing.T) {
-	// Events without a session_id field violate the API contract. Rather
-	// than letting the row land with empty session_id (which is also
-	// rejected at the API), the subscriber drops the event silently.
-	// This matches the lesson: empty session_id is always a programming
-	// error and should never appear in the stream.
+	// Events without an envelope SessionID violate the API contract.
+	// Rather than letting the row land with empty session_id (which is
+	// also rejected at the API), the subscriber drops the event and
+	// logs to stderr — empty session_id is always a programming error
+	// and should never appear in the stream.
 	w, lib := openWorker(t)
 	bus := herald.NewBus()
 	defer w.Subscribe(bus, "op.broken")()
 
-	bus.Publish("op.broken", map[string]any{"foo": "bar"})
+	bus.Publish(herald.Event{
+		Type:    "op.broken",
+		Payload: map[string]any{"foo": "bar"},
+	})
 
 	rows, _ := lib.QueryOpEvents(librarian.OpEventFilter{})
 	if len(rows) != 0 {
@@ -110,9 +113,9 @@ func TestWorker_Unsubscribe_StopsRecording(t *testing.T) {
 	bus := herald.NewBus()
 	unsub := w.Subscribe(bus, "op.x")
 
-	bus.Publish("op.x", map[string]any{"session_id": "s"})
+	bus.Publish(herald.Event{Type: "op.x", SessionID: "s"})
 	unsub()
-	bus.Publish("op.x", map[string]any{"session_id": "s"})
+	bus.Publish(herald.Event{Type: "op.x", SessionID: "s"})
 
 	rows, _ := lib.QueryOpEvents(librarian.OpEventFilter{})
 	if len(rows) != 1 {
@@ -125,10 +128,10 @@ func TestWorker_SubscribeAll_AndCombinedUnsubscribe(t *testing.T) {
 	bus := herald.NewBus()
 	stop := w.SubscribeAll(bus, "op.a", "op.b", "op.c")
 
-	bus.Publish("op.a", map[string]any{"session_id": "s"})
-	bus.Publish("op.b", map[string]any{"session_id": "s"})
-	bus.Publish("op.c", map[string]any{"session_id": "s"})
-	bus.Publish("op.d", map[string]any{"session_id": "s"}) // not subscribed
+	bus.Publish(herald.Event{Type: "op.a", SessionID: "s"})
+	bus.Publish(herald.Event{Type: "op.b", SessionID: "s"})
+	bus.Publish(herald.Event{Type: "op.c", SessionID: "s"})
+	bus.Publish(herald.Event{Type: "op.d", SessionID: "s"}) // not subscribed
 
 	rows, _ := lib.QueryOpEvents(librarian.OpEventFilter{})
 	if len(rows) != 3 {
@@ -136,7 +139,7 @@ func TestWorker_SubscribeAll_AndCombinedUnsubscribe(t *testing.T) {
 	}
 
 	stop()
-	bus.Publish("op.a", map[string]any{"session_id": "s"})
+	bus.Publish(herald.Event{Type: "op.a", SessionID: "s"})
 	rows, _ = lib.QueryOpEvents(librarian.OpEventFilter{})
 	if len(rows) != 3 {
 		t.Fatalf("got %d rows after combined unsub, want still 3", len(rows))
@@ -153,7 +156,7 @@ func TestWorker_Subscribe_FanOutWithOtherSubscribers(t *testing.T) {
 	var sibling atomic.Int64
 	bus.Subscribe("op.x", func(e herald.Event) { sibling.Add(1) })
 
-	bus.Publish("op.x", map[string]any{"session_id": "s"})
+	bus.Publish(herald.Event{Type: "op.x", SessionID: "s"})
 
 	if got := sibling.Load(); got != 1 {
 		t.Errorf("sibling handler fired %d times, want 1", got)

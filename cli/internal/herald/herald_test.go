@@ -91,8 +91,7 @@ func TestPublish_DeliversToHandler(t *testing.T) {
 		received = append(received, e)
 	})
 
-	payload := map[string]any{"session_id": "s-123"}
-	bus.Publish(SessionStart, payload)
+	bus.Publish(Event{Type: SessionStart, SessionID: "s-123"})
 
 	if len(received) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(received))
@@ -101,8 +100,8 @@ func TestPublish_DeliversToHandler(t *testing.T) {
 	if ev.Type != SessionStart {
 		t.Errorf("expected type %q, got %q", SessionStart, ev.Type)
 	}
-	if ev.Payload["session_id"] != "s-123" {
-		t.Errorf("expected session_id %q, got %v", "s-123", ev.Payload["session_id"])
+	if ev.SessionID != "s-123" {
+		t.Errorf("expected session_id %q, got %q", "s-123", ev.SessionID)
 	}
 	if ev.Timestamp.IsZero() {
 		t.Error("expected non-zero timestamp")
@@ -122,7 +121,7 @@ func TestPublish_MultipleSubscribersReceiveSameEvent(t *testing.T) {
 		})
 	}
 
-	bus.Publish(MemoryCreated, map[string]any{"id": "m-001"})
+	bus.Publish(Event{Type: MemoryCreated, Payload: map[string]any{"id": "m-001"}})
 
 	if count != 3 {
 		t.Errorf("expected 3 handler calls, got %d", count)
@@ -133,7 +132,7 @@ func TestPublish_UnsubscribedEventType_NoOp(t *testing.T) {
 	bus := NewBus()
 	// No subscribers registered.
 	// Must not panic, must not error.
-	bus.Publish(ConfigChanged, map[string]any{"key": "telemetry"})
+	bus.Publish(Event{Type: ConfigChanged, Payload: map[string]any{"key": "telemetry"}})
 }
 
 func TestPublish_SetsTimestampUTC(t *testing.T) {
@@ -142,7 +141,7 @@ func TestPublish_SetsTimestampUTC(t *testing.T) {
 	bus.Subscribe(TurnComplete, func(e Event) { ev = e })
 
 	before := time.Now().UTC()
-	bus.Publish(TurnComplete, nil)
+	bus.Publish(Event{Type: TurnComplete})
 	after := time.Now().UTC()
 
 	if ev.Timestamp.Before(before) || ev.Timestamp.After(after) {
@@ -157,7 +156,7 @@ func TestPublish_NilPayload_NoOp(t *testing.T) {
 	bus := NewBus()
 	var received Event
 	bus.Subscribe(Error, func(e Event) { received = e })
-	bus.Publish(Error, nil)
+	bus.Publish(Event{Type: Error})
 	if received.Payload != nil {
 		t.Errorf("expected nil payload, got %v", received.Payload)
 	}
@@ -179,7 +178,7 @@ func TestPublish_ConcurrentSafety(t *testing.T) {
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			bus.Publish(ToolUse, map[string]any{"tool": "read"})
+			bus.Publish(Event{Type: ToolUse, Payload: map[string]any{"tool": "read"}})
 		}()
 	}
 	wg.Wait()
@@ -203,7 +202,7 @@ func TestSubscribe_ConcurrentWithPublish(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			bus.Publish(MemorySearched, nil)
+			bus.Publish(Event{Type: MemorySearched})
 		}()
 	}
 	wg.Wait()
@@ -218,9 +217,10 @@ func TestTelemetrySubscriber_WritesJSONLOnEvent(t *testing.T) {
 	ts.Register(bus)
 
 	// Publish a known event; TelemetrySubscriber should write it.
-	bus.Publish(SessionStart, map[string]any{
-		"session_id": "s-test",
-		"runtime":    "claude-code",
+	bus.Publish(Event{
+		Type:      SessionStart,
+		SessionID: "s-test",
+		Payload:   map[string]any{"runtime": "claude-code"},
 	})
 
 	// Read back — there should be at least one JSONL file.
@@ -250,7 +250,7 @@ func TestTelemetrySubscriber_DisabledWritesNothing(t *testing.T) {
 	ts := NewTelemetrySubscriber(momDir, false)
 	ts.Register(bus)
 
-	bus.Publish(SessionEnd, map[string]any{"session_id": "s-off"})
+	bus.Publish(Event{Type: SessionEnd, SessionID: "s-off"})
 
 	telDir := momDir + "/telemetry"
 	entries, _ := readDir(telDir)

@@ -27,8 +27,25 @@ const (
 )
 
 // Event is a single message on the bus.
+//
+// Type and SessionID are first-class envelope fields — producers set
+// them explicitly, consumers read them directly. SessionID is required
+// for any event a worker (Logbook, Drafter) will persist; programming-
+// error empty values are caught at the worker boundary, not buried
+// inside the payload.
+//
+// Timestamp is set by Publish (not by producers) using wall-clock UTC.
+// Any value a caller assigns is overwritten — the bus is the only
+// authority for "when this event happened on the wire." Historical
+// times for replay or import belong on the persisted row, not on the
+// envelope.
+//
+// Payload carries per-event-type fields. The bus is type-agnostic; the
+// payload contract is defined by each producer/consumer pair (see
+// e.g. mcp.MemoryRecordPayload).
 type Event struct {
 	Type      EventType
+	SessionID string
 	Timestamp time.Time
 	Payload   map[string]any
 }
@@ -85,16 +102,20 @@ func (b *Bus) Subscribe(eventType EventType, handler Handler) func() {
 	}
 }
 
-// Publish dispatches an event of eventType with the given payload to
-// all registered handlers. Handlers fire synchronously in registration
-// order. A panic in one handler is recovered and logged to stderr; the
-// remaining handlers still fire. The panicking handler stays registered.
+// Publish dispatches the event to all handlers registered for its
+// type. Handlers fire synchronously in registration order. A panic in
+// one handler is recovered and logged to stderr; the remaining
+// handlers still fire. The panicking handler stays registered.
+//
+// Publish always stamps Timestamp with wall-clock UTC, overwriting any
+// value the caller may have set. The bus is the sole authority for
+// event timing.
 //
 // stdout is reserved for JSON-RPC output by the MCP server, so all
 // recovered-panic logging goes to stderr.
-func (b *Bus) Publish(eventType EventType, payload map[string]any) {
+func (b *Bus) Publish(e Event) {
 	b.mu.RLock()
-	hs := b.entries[eventType]
+	hs := b.entries[e.Type]
 	if len(hs) == 0 {
 		b.mu.RUnlock()
 		return
@@ -106,14 +127,10 @@ func (b *Bus) Publish(eventType EventType, payload map[string]any) {
 	}
 	b.mu.RUnlock()
 
-	event := Event{
-		Type:      eventType,
-		Timestamp: time.Now().UTC(),
-		Payload:   payload,
-	}
+	e.Timestamp = time.Now().UTC()
 
 	for _, h := range handlers {
-		invoke(eventType, event, h)
+		invoke(e.Type, e, h)
 	}
 }
 
