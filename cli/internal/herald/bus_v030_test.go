@@ -19,9 +19,9 @@ func TestPublish_TypeOnlyRouting(t *testing.T) {
 	bus.Subscribe(SessionStart, func(e Event) { aCount.Add(1) })
 	bus.Subscribe(SessionEnd, func(e Event) { bCount.Add(1) })
 
-	bus.Publish(SessionStart, nil)
-	bus.Publish(SessionStart, nil)
-	bus.Publish(SessionEnd, nil)
+	bus.Publish(Event{Type: SessionStart})
+	bus.Publish(Event{Type: SessionStart})
+	bus.Publish(Event{Type: SessionEnd})
 
 	if got := aCount.Load(); got != 2 {
 		t.Errorf("SessionStart handler got %d events, want 2", got)
@@ -37,14 +37,14 @@ func TestSubscribe_ReturnsUnsubscribe_StopsDelivery(t *testing.T) {
 
 	unsub := bus.Subscribe(MemoryCreated, func(e Event) { count.Add(1) })
 
-	bus.Publish(MemoryCreated, nil)
+	bus.Publish(Event{Type: MemoryCreated})
 	if got := count.Load(); got != 1 {
 		t.Fatalf("got %d, want 1 (before unsubscribe)", got)
 	}
 
 	unsub()
 
-	bus.Publish(MemoryCreated, nil)
+	bus.Publish(Event{Type: MemoryCreated})
 	if got := count.Load(); got != 1 {
 		t.Errorf("got %d, want 1 (handler should not fire after unsubscribe)", got)
 	}
@@ -63,7 +63,7 @@ func TestUnsubscribe_IsIdempotent(t *testing.T) {
 	unsub()
 	unsub() // second call is a no-op
 
-	bus.Publish(ToolUse, nil)
+	bus.Publish(Event{Type: ToolUse})
 	if got := count.Load(); got != 10 {
 		t.Errorf("got %d, want 10 (only the still-subscribed handler should fire)", got)
 	}
@@ -77,7 +77,7 @@ func TestUnsubscribe_OnlyAffectsTheReturnedHandler(t *testing.T) {
 	bus.Subscribe(MemoryPromoted, func(e Event) { bCount.Add(1) })
 
 	unsubA()
-	bus.Publish(MemoryPromoted, nil)
+	bus.Publish(Event{Type: MemoryPromoted})
 
 	if a := aCount.Load(); a != 0 {
 		t.Errorf("unsubscribed handler fired %d times", a)
@@ -97,7 +97,7 @@ func TestPublish_HandlerPanicDoesNotBlockOthers(t *testing.T) {
 
 	// Publish must not propagate the panic and must call handlers
 	// registered after the panicking one.
-	bus.Publish(Error, map[string]any{"msg": "test"})
+	bus.Publish(Event{Type: Error, Payload: map[string]any{"msg": "test"}})
 
 	if got := beforeCount.Load(); got != 1 {
 		t.Errorf("before-panic handler got %d, want 1", got)
@@ -118,7 +118,7 @@ func TestPublish_HandlerPanicAcrossMultiplePublishes(t *testing.T) {
 	})
 
 	for i := 0; i < 5; i++ {
-		bus.Publish(ConfigChanged, nil)
+		bus.Publish(Event{Type: ConfigChanged})
 	}
 
 	if got := fireCount.Load(); got != 5 {
@@ -140,7 +140,7 @@ func TestSubscribe_ConcurrentUnsubscribeIsRaceFree(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			bus.Publish(TurnComplete, nil)
+			bus.Publish(Event{Type: TurnComplete})
 		}()
 	}
 	wg.Wait()

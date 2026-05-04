@@ -65,8 +65,11 @@ func TestMomRecord_PublishesEventWithNormalizedTags(t *testing.T) {
 	if got.Type != MemoryRecordEventType {
 		t.Errorf("event type = %q, want %q", got.Type, MemoryRecordEventType)
 	}
-	if got.Payload["session_id"] != "s-1" {
-		t.Errorf("session_id = %v", got.Payload["session_id"])
+	if got.SessionID != "s-1" {
+		t.Errorf("session_id = %q, want s-1", got.SessionID)
+	}
+	if _, dup := got.Payload["session_id"]; dup {
+		t.Error("session_id was duplicated into payload bag; should live only on the envelope")
 	}
 	tags, _ := got.Payload["tags"].([]string)
 	want := []string{"v0-30", "mcp"} // normalised

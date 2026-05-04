@@ -419,12 +419,15 @@ func (w *Watcher) ingestFile(path string) int {
 
 	// Publish to Herald so downstream processors (Logbook, Drafter) run.
 	if len(entries) > 0 && w.cfg.Bus != nil {
-		w.cfg.Bus.Publish(herald.RecordAppended, map[string]any{
-			"transcript_path": path,
-			"session_id":      sessionID,
-			"count":           len(entries),
-			"mom_dir":         w.cfg.MomDir,
-			"runtime":         w.adapterForPath(path).Name(),
+		w.cfg.Bus.Publish(herald.Event{
+			Type:      herald.RecordAppended,
+			SessionID: sessionID,
+			Payload: map[string]any{
+				"transcript_path": path,
+				"count":           len(entries),
+				"mom_dir":         w.cfg.MomDir,
+				"runtime":         w.adapterForPath(path).Name(),
+			},
 		})
 	}
 
