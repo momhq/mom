@@ -63,7 +63,7 @@ var migrations = []migration{
 			summary                  TEXT,
 			content                  TEXT NOT NULL CHECK (json_valid(content)),
 			created_at               TEXT NOT NULL,
-			session_id               TEXT,
+			session_id               TEXT NOT NULL,
 			provenance_actor         TEXT,
 			provenance_source_type   TEXT,
 			provenance_trigger_event TEXT,
@@ -104,7 +104,7 @@ var migrations = []migration{
 			id         INTEGER PRIMARY KEY AUTOINCREMENT,
 			event_type TEXT NOT NULL,
 			timestamp  TEXT NOT NULL,
-			session_id TEXT,
+			session_id TEXT NOT NULL,
 			payload    TEXT
 		)`,
 		`CREATE TABLE IF NOT EXISTS filter_audit (

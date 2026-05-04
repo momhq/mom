@@ -80,7 +80,8 @@ func TestMemoryStore_Insert_MintsUUIDv4WhenIDEmpty(t *testing.T) {
 	ms, _, _ := newStore(t)
 
 	inserted, err := ms.Insert(store.Memory{
-		Content: map[string]any{"text": "x"},
+		Content:   map[string]any{"text": "x"},
+		SessionID: "test-session",
 	})
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -106,7 +107,8 @@ func TestMemoryStore_Insert_AppliesDefaults(t *testing.T) {
 
 	before := time.Now().UTC()
 	inserted, err := ms.Insert(store.Memory{
-		Content: map[string]any{"text": "x"},
+		Content:   map[string]any{"text": "x"},
+		SessionID: "test-session",
 	})
 	after := time.Now().UTC()
 	if err != nil {
@@ -132,6 +134,21 @@ func TestMemoryStore_Insert_AppliesDefaults(t *testing.T) {
 	}
 	if got.PromotionState != "draft" {
 		t.Errorf("PromotionState after Get: got %q, want %q", got.PromotionState, "draft")
+	}
+}
+
+// T8b: Insert rejects empty SessionID. Every memory must be
+// attributable to a session by design — agent UUID for live
+// sessions, mom-<uuid> for MOM-internal runs (cartographer, import).
+// Empty here is a programming error, not a user input.
+func TestMemoryStore_Insert_RejectsEmptySessionID(t *testing.T) {
+	ms, _, _ := newStore(t)
+
+	_, err := ms.Insert(store.Memory{
+		Content: map[string]any{"text": "x"},
+	})
+	if err == nil {
+		t.Errorf("expected Insert to reject empty SessionID")
 	}
 }
 
@@ -314,7 +331,7 @@ func TestGraphStore_UpsertTag_Idempotent(t *testing.T) {
 func TestGraphStore_LinkTag_MemoriesByTag(t *testing.T) {
 	ms, gs, _ := newStore(t)
 
-	m, err := ms.Insert(store.Memory{Content: map[string]any{"text": "x"}})
+	m, err := ms.Insert(store.Memory{Content: map[string]any{"text": "x"}, SessionID: "test-session"})
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
@@ -370,7 +387,7 @@ func TestGraphStore_UpsertEntity_LinkEntity(t *testing.T) {
 		t.Errorf("different display_name should produce different entity ID")
 	}
 
-	m, err := ms.Insert(store.Memory{Content: map[string]any{"text": "x"}})
+	m, err := ms.Insert(store.Memory{Content: map[string]any{"text": "x"}, SessionID: "test-session"})
 	if err != nil {
 		t.Fatalf("Insert memory: %v", err)
 	}
@@ -463,7 +480,7 @@ func TestGraphStore_MergeTags(t *testing.T) {
 
 	fixture := insertedFixture(t, ms)
 
-	m2, err := ms.Insert(store.Memory{Content: map[string]any{"text": "y"}})
+	m2, err := ms.Insert(store.Memory{Content: map[string]any{"text": "y"}, SessionID: "test-session"})
 	if err != nil {
 		t.Fatalf("Insert m2: %v", err)
 	}
@@ -616,7 +633,7 @@ func TestNormalizeTagName(t *testing.T) {
 func TestMemoryStore_Insert_CreatedAtIsByteIdenticalToGet(t *testing.T) {
 	ms, _, _ := newStore(t)
 
-	inserted, err := ms.Insert(store.Memory{Content: map[string]any{"text": "x"}})
+	inserted, err := ms.Insert(store.Memory{Content: map[string]any{"text": "x"}, SessionID: "test-session"})
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
 	}

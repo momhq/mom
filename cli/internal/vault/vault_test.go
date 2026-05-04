@@ -136,9 +136,9 @@ func insertSimpleMemory(t *testing.T, v *Vault, id, summary, contentText string)
 	}
 	err = v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
-			`INSERT INTO memories (id, type, summary, content, created_at)
-			 VALUES (?, 'untyped', ?, ?, ?)`,
-			id, summary, string(contentJSON), "2026-05-03T12:00:00Z",
+			`INSERT INTO memories (id, type, summary, content, created_at, session_id)
+			 VALUES (?, 'untyped', ?, ?, ?, ?)`,
+			id, summary, string(contentJSON), "2026-05-03T12:00:00Z", "test-session",
 		)
 		return err
 	})
@@ -216,9 +216,9 @@ func TestTx_RollsBackOnError(t *testing.T) {
 
 	err := v.Tx(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(
-			`INSERT INTO memories (id, type, content, created_at)
-			 VALUES (?, 'untyped', ?, ?)`,
-			"rollback1", contentJSON, "2026-05-03T12:00:00Z",
+			`INSERT INTO memories (id, type, content, created_at, session_id)
+			 VALUES (?, 'untyped', ?, ?, ?)`,
+			"rollback1", contentJSON, "2026-05-03T12:00:00Z", "test-session",
 		); err != nil {
 			return err
 		}
@@ -244,10 +244,10 @@ func TestProvenance_OpenVocabulary(t *testing.T) {
 	err := v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
 			`INSERT INTO memories (
-				id, type, content, created_at,
+				id, type, content, created_at, session_id,
 				provenance_actor, provenance_source_type, provenance_trigger_event
-			) VALUES (?, 'untyped', ?, ?, ?, ?, ?)`,
-			"novel1", `{"text":"x"}`, "2026-05-03T12:00:00Z",
+			) VALUES (?, 'untyped', ?, ?, ?, ?, ?, ?)`,
+			"novel1", `{"text":"x"}`, "2026-05-03T12:00:00Z", "test-session",
 			"future-harness-2027", "novel-source-type", "novel-trigger",
 		)
 		return err
@@ -265,9 +265,9 @@ func TestMemory_DefaultsToUntyped(t *testing.T) {
 
 	err := v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
-			`INSERT INTO memories (id, content, created_at)
-			 VALUES (?, ?, ?)`,
-			"default1", `{"text":"x"}`, "2026-05-03T12:00:00Z",
+			`INSERT INTO memories (id, content, created_at, session_id)
+			 VALUES (?, ?, ?, ?)`,
+			"default1", `{"text":"x"}`, "2026-05-03T12:00:00Z", "test-session",
 		)
 		return err
 	})
@@ -340,6 +340,41 @@ func TestMigrate_RollsBackOnPartialFailure(t *testing.T) {
 	}
 }
 
+// T18: memories.session_id and event_log.session_id are NOT NULL at
+// the schema layer. Every memory and every event must carry a
+// session_id by design — agent UUID for live sessions, mom-<uuid>
+// for MOM-internal runs. Defense-in-depth alongside the API-layer
+// validation in MemoryStore.Insert and EventLog.Log.
+func TestSchema_SessionIDIsNotNull(t *testing.T) {
+	v, _ := newVault(t)
+
+	// memories.session_id NOT NULL
+	err := v.Tx(func(tx *sql.Tx) error {
+		_, e := tx.Exec(
+			`INSERT INTO memories (id, content, created_at)
+			 VALUES (?, ?, ?)`,
+			"no-session-mem", `{"text":"x"}`, "2026-05-04T00:00:00Z",
+		)
+		return e
+	})
+	if err == nil {
+		t.Errorf("expected NOT NULL violation on memories.session_id")
+	}
+
+	// event_log.session_id NOT NULL
+	err = v.Tx(func(tx *sql.Tx) error {
+		_, e := tx.Exec(
+			`INSERT INTO event_log (event_type, timestamp)
+			 VALUES (?, ?)`,
+			"capture", "2026-05-04T00:00:00Z",
+		)
+		return e
+	})
+	if err == nil {
+		t.Errorf("expected NOT NULL violation on event_log.session_id")
+	}
+}
+
 // T17: entities enforces UNIQUE(type, display_name). Two rows with the
 // same type and same display_name cannot coexist — the database
 // guarantees the contract that GraphStore.UpsertEntity assumes.
@@ -381,9 +416,9 @@ func TestMemory_RejectsNonJSONContent(t *testing.T) {
 
 	err := v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
-			`INSERT INTO memories (id, type, content, created_at)
-			 VALUES (?, 'untyped', ?, ?)`,
-			"bad-json-1", "this is not valid json", "2026-05-03T12:00:00Z",
+			`INSERT INTO memories (id, type, content, created_at, session_id)
+			 VALUES (?, 'untyped', ?, ?, ?)`,
+			"bad-json-1", "this is not valid json", "2026-05-03T12:00:00Z", "test-session",
 		)
 		return err
 	})
@@ -505,9 +540,9 @@ func TestSmoke_RoundTripMemoryWithTagAndEntity(t *testing.T) {
 
 	err := v.Tx(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(
-			`INSERT INTO memories (id, type, summary, content, created_at)
-			 VALUES (?, 'untyped', ?, ?, ?)`,
-			memID, "smoke summary", `{"text":"smoke body"}`, ts,
+			`INSERT INTO memories (id, type, summary, content, created_at, session_id)
+			 VALUES (?, 'untyped', ?, ?, ?, ?)`,
+			memID, "smoke summary", `{"text":"smoke body"}`, ts, "smoke-session",
 		); err != nil {
 			return err
 		}

@@ -246,3 +246,96 @@ func TestEventLog_Counters_ReturnsAllCategories(t *testing.T) {
 		t.Errorf("github_pat count: got %d, want 1", c.RedactionCount)
 	}
 }
+
+// T8: Mixed-precision timestamps sort consistently in DESC order.
+// RFC3339Nano trims trailing zeros, which makes lexical sort
+// incorrect across mixed precisions ("." sorts before "Z" in ASCII).
+// The eventlog format is fixed-width nanoseconds so DESC ordering
+// matches actual chronology regardless of caller-supplied precision.
+func TestEventLog_Query_OrdersConsistentlyAcrossMixedPrecision(t *testing.T) {
+	el, _ := newEventLog(t)
+	base := time.Date(2026, 5, 4, 10, 0, 0, 0, time.UTC)
+
+	// Caller supplies whole-second timestamp.
+	logSimple(t, el, "whole-second", "s1", base)
+	// Caller supplies sub-second timestamp 500ms later.
+	logSimple(t, el, "half-second-later", "s1", base.Add(500*time.Millisecond))
+	// Caller supplies whole-second timestamp 1s later.
+	logSimple(t, el, "one-second-later", "s1", base.Add(time.Second))
+
+	rows, err := el.Query(eventlog.Filter{})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(rows))
+	}
+	want := []string{"one-second-later", "half-second-later", "whole-second"}
+	for i, w := range want {
+		if rows[i].EventType != w {
+			t.Errorf("position %d: got %q, want %q", i, rows[i].EventType, w)
+		}
+	}
+}
+
+// T9: Log rejects empty EventType, empty SessionID, and zero
+// timestamp is filled in. Locks the input contract documented on
+// Event.
+func TestEventLog_Log_RejectsMissingRequiredFields(t *testing.T) {
+	el, _ := newEventLog(t)
+
+	if err := el.Log(eventlog.Event{SessionID: "s1"}); err == nil {
+		t.Errorf("expected error for empty EventType")
+	}
+	if err := el.Log(eventlog.Event{EventType: "capture"}); err == nil {
+		t.Errorf("expected error for empty SessionID")
+	}
+}
+
+// T10: IncrementCounter rejects empty category.
+func TestEventLog_IncrementCounter_RejectsEmptyCategory(t *testing.T) {
+	el, _ := newEventLog(t)
+
+	if err := el.IncrementCounter(""); err == nil {
+		t.Errorf("expected error for empty category")
+	}
+}
+
+// T11: nil and empty-map payloads round-trip identically. Both
+// serialise to "null" at write time, both come back as nil from
+// Query. Removes a subtle distinction the caller would otherwise
+// see between "no payload" and "explicitly empty payload".
+func TestEventLog_Log_NormalisesEmptyPayload(t *testing.T) {
+	el, _ := newEventLog(t)
+	base := time.Date(2026, 5, 4, 10, 0, 0, 0, time.UTC)
+
+	if err := el.Log(eventlog.Event{
+		EventType: "nil-payload",
+		SessionID: "s1",
+		Timestamp: base,
+		Payload:   nil,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := el.Log(eventlog.Event{
+		EventType: "empty-map-payload",
+		SessionID: "s1",
+		Timestamp: base.Add(time.Second),
+		Payload:   map[string]any{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := el.Query(eventlog.Filter{})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+	for _, r := range rows {
+		if r.Payload != nil {
+			t.Errorf("event %q: expected Payload=nil, got %v", r.EventType, r.Payload)
+		}
+	}
+}

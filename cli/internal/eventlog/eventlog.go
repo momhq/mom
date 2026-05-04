@@ -62,14 +62,33 @@ type Counter struct {
 	LastFiredAt    time.Time
 }
 
+// timestampFormat is the fixed-width nanosecond format used for all
+// stored timestamps in event_log. RFC3339Nano trims trailing zeros and
+// would break lexical sort across mixed-precision values (e.g.
+// "12:00:00Z" vs "12:00:00.5Z" sort wrong because "." < "Z" in ASCII).
+// Always emitting 9 fractional digits keeps the strings sortable.
+const timestampFormat = "2006-01-02T15:04:05.000000000Z07:00"
+
 // Log appends an event to event_log. The row's auto-increment ID is
 // not surfaced to the caller — use Query to retrieve persisted events.
+//
+// EventType and SessionID are required (every event must be
+// attributable to a session, even MOM-internal runs which use a
+// synthetic mom-<uuid>).
 func (e *EventLog) Log(ev Event) error {
 	if ev.EventType == "" {
 		return fmt.Errorf("eventlog.Log: EventType is required")
 	}
+	if ev.SessionID == "" {
+		return fmt.Errorf("eventlog.Log: SessionID is required")
+	}
 	if ev.Timestamp.IsZero() {
 		ev.Timestamp = time.Now().UTC().Round(0)
+	}
+	// Normalise empty payloads to nil so they round-trip identically
+	// (both nil and an empty map serialise to the same "null").
+	if len(ev.Payload) == 0 {
+		ev.Payload = nil
 	}
 	payloadJSON, err := json.Marshal(ev.Payload)
 	if err != nil {
@@ -80,7 +99,7 @@ func (e *EventLog) Log(ev Event) error {
 			`INSERT INTO event_log (event_type, timestamp, session_id, payload)
 			 VALUES (?, ?, ?, ?)`,
 			ev.EventType,
-			ev.Timestamp.Format(time.RFC3339Nano),
+			ev.Timestamp.UTC().Format(timestampFormat),
 			ev.SessionID,
 			string(payloadJSON),
 		)
@@ -111,7 +130,7 @@ func (e *EventLog) Query(f Filter) ([]Row, error) {
 	}
 	if !f.Since.IsZero() {
 		sb.WriteString(` AND timestamp >= ?`)
-		args = append(args, f.Since.UTC().Format(time.RFC3339Nano))
+		args = append(args, f.Since.UTC().Format(timestampFormat))
 	}
 	sb.WriteString(` ORDER BY timestamp DESC, id DESC LIMIT ?`)
 	args = append(args, limit)
@@ -126,12 +145,18 @@ func (e *EventLog) Query(f Filter) ([]Row, error) {
 			if err := rs.Scan(&r.ID, &r.EventType, &ts, &r.SessionID, &payload); err != nil {
 				return err
 			}
-			t, err := time.Parse(time.RFC3339Nano, ts)
+			t, err := time.Parse(timestampFormat, ts)
 			if err != nil {
-				return fmt.Errorf("parse timestamp: %w", err)
+				// Fall back to RFC3339Nano for forward-compat with any
+				// rows written before the fixed-width migration.
+				t, err = time.Parse(time.RFC3339Nano, ts)
+				if err != nil {
+					return fmt.Errorf("parse timestamp %q: %w", ts, err)
+				}
 			}
 			r.Timestamp = t
-			if payload != "" && payload != "null" {
+			// json.Unmarshal of "null" sets target to nil — desired.
+			if payload != "" {
 				if err := json.Unmarshal([]byte(payload), &r.Payload); err != nil {
 					return fmt.Errorf("unmarshal payload: %w", err)
 				}
@@ -149,7 +174,7 @@ func (e *EventLog) IncrementCounter(category string) error {
 	if category == "" {
 		return fmt.Errorf("eventlog.IncrementCounter: category is required")
 	}
-	now := time.Now().UTC().Round(0).Format(time.RFC3339Nano)
+	now := time.Now().UTC().Round(0).Format(timestampFormat)
 	return e.v.Tx(func(tx *sql.Tx) error {
 		_, err := tx.Exec(
 			`INSERT INTO filter_audit (category, redaction_count, last_fired_at)
@@ -180,9 +205,12 @@ func (e *EventLog) Counters() ([]Counter, error) {
 					return err
 				}
 				if lastFiredText.Valid && lastFiredText.String != "" {
-					t, err := time.Parse(time.RFC3339Nano, lastFiredText.String)
+					t, err := time.Parse(timestampFormat, lastFiredText.String)
 					if err != nil {
-						return fmt.Errorf("parse last_fired_at: %w", err)
+						t, err = time.Parse(time.RFC3339Nano, lastFiredText.String)
+						if err != nil {
+							return fmt.Errorf("parse last_fired_at %q: %w", lastFiredText.String, err)
+						}
 					}
 					c.LastFiredAt = t
 				}

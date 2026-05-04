@@ -65,6 +65,13 @@ func nowTimestamp() string {
 // defaults to "untyped"; PromotionState defaults to "draft"; CreatedAt
 // defaults to time.Now().UTC().
 func (s *MemoryStore) Insert(m Memory) (Memory, error) {
+	if m.SessionID == "" {
+		// Every memory has a session_id by design — agent sessions
+		// pass through their UUID; MOM-internal runs (cartographer,
+		// import) supply a synthetic mom-<uuid>. Empty here is a
+		// programming error, never a user input.
+		return Memory{}, fmt.Errorf("MemoryStore.Insert: SessionID is required")
+	}
 	if m.ID == "" {
 		m.ID = uuid.NewString()
 	}
