@@ -17,6 +17,7 @@ import (
 
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/recall"
+	"github.com/momhq/mom/cli/internal/store"
 	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/momhq/mom/cli/internal/vault"
 )
@@ -59,20 +60,26 @@ type rpcError struct {
 
 // Server is the MCP server instance.
 type Server struct {
-	momDir string
-	idx    *storage.IndexedAdapter
-	engine *recall.Engine
-	vault  *vault.Vault
+	momDir      string
+	idx         *storage.IndexedAdapter
+	engine      *recall.Engine
+	vault       *vault.Vault
+	memoryStore *store.MemoryStore
+	graphStore  *store.GraphStore
 }
 
-// SetVault wires the v0.30 Vault into the Server. Required by tools
-// that target the central vault (mom_record, mom_recall, mom_get,
-// mom_landmarks). The recall Engine is constructed here so handlers
-// can call s.engine directly. Production callers always set this in
-// serve.go; tests for legacy-only tools may skip it.
+// SetVault wires the v0.30 Vault into the Server and constructs all
+// vault-backed components (recall.Engine, store.MemoryStore,
+// store.GraphStore) so handlers can call them directly without
+// re-wrapping the vault on every call. Required by tools that target
+// the central vault (mom_record, mom_recall, mom_get, mom_landmarks).
+// Production callers always set this in serve.go; tests for
+// legacy-only tools may skip it.
 func (s *Server) SetVault(v *vault.Vault) {
 	s.vault = v
 	s.engine = recall.NewEngine(v)
+	s.memoryStore = store.NewMemoryStore(v)
+	s.graphStore = store.NewGraphStore(v)
 }
 
 // New creates a new Server rooted at the given .mom/ directory.

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/momhq/mom/cli/internal/store"
 )
 
 // toolMomGet retrieves a single memory by ID from the central vault
@@ -21,8 +19,7 @@ func (s *Server) toolMomGet(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, fmt.Errorf("mom_get: id is required")
 	}
 
-	ms := store.NewMemoryStore(s.vault)
-	mem, err := ms.Get(id)
+	mem, err := s.memoryStore.Get(id)
 	if err != nil {
 		return toolCallResult{}, fmt.Errorf("mom_get: %w", err)
 	}

@@ -137,7 +137,13 @@ func (e *Engine) runFTS(ftsQuery string, curatedOnly bool, opts Options, limit i
 		args = append(args, tag)
 	}
 	sb.WriteString(` ORDER BY score ASC LIMIT ?`)
-	args = append(args, limit*4) // gather extras for tier merging
+	// TODO(post-v0.30): the limit*4 heuristic over-fetches when the
+	// caller's MaxResults is small. Each pass gathers up to 4× the
+	// final cap to leave headroom for tier merging across AND/OR and
+	// curated/draft passes. Fine at v0.30 alpha vault sizes; revisit
+	// when profiles show the over-fetch is a hotspot or when vaults
+	// get large enough that fetching 4× rows is expensive.
+	args = append(args, limit*4)
 
 	var results []Result
 	err := e.v.Query(sb.String(), args, func(rows *sql.Rows) error {

@@ -55,8 +55,7 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 		tags = append(tags, norm)
 	}
 
-	ms := store.NewMemoryStore(s.vault)
-	mem, err := ms.Insert(store.Memory{
+	mem, err := s.memoryStore.Insert(store.Memory{
 		Type:                   memType,
 		Summary:                summary,
 		Content:                content,
@@ -69,24 +68,22 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, fmt.Errorf("mom_record: %w", err)
 	}
 
-	gs := store.NewGraphStore(s.vault)
-
 	// created_by edge: upsert the user entity (idempotent on
 	// (type, display_name)) and link the new memory to it.
-	entityID, err := gs.UpsertEntity("user", createdBy)
+	entityID, err := s.graphStore.UpsertEntity("user", createdBy)
 	if err != nil {
 		return toolCallResult{}, fmt.Errorf("mom_record: upsert created_by entity %q: %w", createdBy, err)
 	}
-	if err := gs.LinkEntity(mem.ID, entityID, "created_by"); err != nil {
+	if err := s.graphStore.LinkEntity(mem.ID, entityID, "created_by"); err != nil {
 		return toolCallResult{}, fmt.Errorf("mom_record: link created_by entity: %w", err)
 	}
 
 	for _, tag := range tags {
-		tagID, err := gs.UpsertTag(tag)
+		tagID, err := s.graphStore.UpsertTag(tag)
 		if err != nil {
 			return toolCallResult{}, fmt.Errorf("mom_record: upsert tag %q: %w", tag, err)
 		}
-		if err := gs.LinkTag(mem.ID, tagID); err != nil {
+		if err := s.graphStore.LinkTag(mem.ID, tagID); err != nil {
 			return toolCallResult{}, fmt.Errorf("mom_record: link tag %q: %w", tag, err)
 		}
 	}
