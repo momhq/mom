@@ -99,6 +99,21 @@ func allTools() []toolDef {
 			},
 		},
 		{
+			Name:        "mom_record",
+			Description: "Explicit-write path: intentionally save a memory mid-session. Bypasses Drafter's content filters (the user override) and stamps trigger_event='record', source_type='manual-draft'. Required: session_id, content. Optional: summary, tags, actor.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"session_id", "content"},
+				"properties": map[string]any{
+					"session_id": map[string]any{"type": "string", "description": "Session ID this memory belongs to"},
+					"summary":    map[string]any{"type": "string", "description": "One-line summary"},
+					"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tag names (will be normalised; empty after normalisation rejects the request)"},
+					"content":    map[string]any{"type": "object", "description": "Memory content (must include $.text for FTS)"},
+					"actor":      map[string]any{"type": "string", "description": "Calling agent (claude-code, codex, …); defaults to 'mcp'"},
+				},
+			},
+		},
+		{
 			Name:        "mom_recall",
 			Description: "Search your memory for relevant context. Uses progressive scope escalation (repo→org→user) with AND→OR query relaxation and curated-first, draft-fallback quality tiers.",
 			InputSchema: map[string]any{
@@ -155,6 +170,8 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolMomStatus()
 	case "mom_record_turn":
 		result, err = s.toolRecordTurn(req.Arguments)
+	case "mom_record":
+		result, err = s.toolMomRecord(req.Arguments)
 	case "mom_recall":
 		result, err = s.toolMomRecall(req.Arguments)
 	default:
