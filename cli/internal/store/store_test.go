@@ -561,6 +561,53 @@ func TestGraphStore_MergeTags_RejectsSelfMerge(t *testing.T) {
 	}
 }
 
+// T17: NormalizeTagName produces canonical kebab-case while preserving
+// Unicode letters and digits. Lowercases, trims outer whitespace, and
+// collapses any run of non-alphanumeric characters into a single
+// hyphen. Trims leading/trailing hyphens. Empty input or input that
+// reduces to only separators returns empty string.
+func TestNormalizeTagName(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		// Casing
+		{"MCP", "mcp"},
+		{"GraphQL", "graphql"},
+		// Whitespace and underscores
+		{"My Tag", "my-tag"},
+		{"Foo_Bar", "foo-bar"},
+		{"  spaced  out  ", "spaced-out"},
+		{"Foo__Bar", "foo-bar"},
+		// Punctuation collapses (T2 model)
+		{"v0.30", "v0-30"},
+		{"recall/v2", "recall-v2"},
+		{"MOM!", "mom"},
+		{"foo.bar.baz", "foo-bar-baz"},
+		// Trim leading/trailing
+		{"-tag-", "tag"},
+		{"!!!tag!!!", "tag"},
+		// Already canonical
+		{"my-tag", "my-tag"},
+		// Unicode preserved
+		{"メモリ", "メモリ"},
+		{"メモリ test", "メモリ-test"},
+		{"über", "über"},
+		// Edge cases
+		{"", ""},
+		{"   ", ""},
+		{"---", ""},
+		{"!!!", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			got := store.NormalizeTagName(c.in)
+			if got != c.want {
+				t.Errorf("NormalizeTagName(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
 // T16: The Memory returned by Insert has a CreatedAt that is byte-
 // identical to what Get later returns. Without stripping the monotonic
 // clock from the stored time, struct equality (==) would silently

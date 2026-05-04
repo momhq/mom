@@ -349,3 +349,100 @@ func TestToolsCallMomRecord_CreatedByLinksUserEntity(t *testing.T) {
 		}
 	}
 }
+
+// T18a: mom_record normalizes tags before linking. Caller-supplied
+// variations of the same intent ("My Tag", "my-tag", "MY_TAG") all
+// resolve to the same canonical tag row.
+func TestToolsCallMomRecord_NormalizesTags(t *testing.T) {
+	v, _ := newTestVault(t)
+
+	doc := callMomRecord(t, v, map[string]any{
+		"summary":    "normalize test",
+		"content":    map[string]any{"text": "x"},
+		"session_id": "s1",
+		"actor":      "claude-code",
+		"created_by": "Vinicius",
+		"tags":       []any{"My Tag", "v0.30", "Foo_Bar"},
+	})
+	id, _ := doc["id"].(string)
+	if id == "" {
+		t.Fatalf("missing id: %v", doc)
+	}
+
+	gs := store.NewGraphStore(v)
+	for _, want := range []string{"my-tag", "v0-30", "foo-bar"} {
+		ids, err := gs.MemoriesByTag(want)
+		if err != nil {
+			t.Fatalf("MemoriesByTag(%q): %v", want, err)
+		}
+		found := false
+		for _, mid := range ids {
+			if mid == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected tag %q to link to %s, got %v", want, id, ids)
+		}
+	}
+}
+
+// T18b: When a tag normalizes to empty (e.g. "!!!" or "   "),
+// mom_record rejects the entire request before persisting anything.
+// No orphan memory or partial graph state.
+func TestToolsCallMomRecord_RejectsEmptyTagWithoutOrphans(t *testing.T) {
+	v, _ := newTestVault(t)
+	leoDir := newTestLeoDir(t)
+	inW, outR, _ := runServerWithVault(t, leoDir, v)
+	defer inW.Close()
+
+	sendRequest(t, inW, "initialize", 1, map[string]any{"protocolVersion": "2024-11-05"})
+	readResponse(t, outR)
+
+	sendRequest(t, inW, "tools/call", 2, map[string]any{
+		"name": "mom_record",
+		"arguments": map[string]any{
+			"summary":    "should not persist",
+			"content":    map[string]any{"text": "x"},
+			"session_id": "s1",
+			"actor":      "claude-code",
+			"created_by": "Vinicius",
+			"tags":       []any{"valid", "!!!"}, // "!!!" normalizes to ""
+		},
+	})
+	resp := readResponse(t, outR)
+	result, _ := resp["result"].(map[string]any)
+	isErr, _ := result["isError"].(bool)
+	if !isErr {
+		t.Errorf("expected isError=true for empty-after-normalization tag, got %v", result)
+	}
+
+	// No memory was persisted — fail-fast before Insert.
+	var memCount int
+	if err := v.Query(`SELECT COUNT(*) FROM memories`, nil, func(rows *sql.Rows) error {
+		if rows.Next() {
+			return rows.Scan(&memCount)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("count memories: %v", err)
+	}
+	if memCount != 0 {
+		t.Errorf("expected no memory persisted on rejected request, got %d", memCount)
+	}
+
+	// And no entities (created_by would have been upserted otherwise).
+	var entCount int
+	if err := v.Query(`SELECT COUNT(*) FROM entities`, nil, func(rows *sql.Rows) error {
+		if rows.Next() {
+			return rows.Scan(&entCount)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("count entities: %v", err)
+	}
+	if entCount != 0 {
+		t.Errorf("expected no entity persisted on rejected request, got %d", entCount)
+	}
+}

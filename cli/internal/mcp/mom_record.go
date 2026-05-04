@@ -39,7 +39,20 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, fmt.Errorf("mom_record: created_by is required")
 	}
 	memType := stringArg(args, "type")
-	tags := stringSliceArg(args, "tags")
+
+	// Pre-validate tags: normalize each (T2 model from ADR 0010) and
+	// reject the whole request if any tag reduces to an empty string.
+	// Doing this before any DB write avoids orphan memory + entity rows
+	// when a tag like "!!!" or "   " is passed.
+	rawTags := stringSliceArg(args, "tags")
+	tags := make([]string, 0, len(rawTags))
+	for _, raw := range rawTags {
+		norm := store.NormalizeTagName(raw)
+		if norm == "" {
+			return toolCallResult{}, fmt.Errorf("mom_record: tag %q normalises to empty; tags must contain at least one alphanumeric character", raw)
+		}
+		tags = append(tags, norm)
+	}
 
 	ms := store.NewMemoryStore(s.vault)
 	mem, err := ms.Insert(store.Memory{
