@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/momhq/mom/cli/internal/store"
 )
@@ -93,7 +94,7 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 	resultDoc := map[string]any{
 		"id":              mem.ID,
 		"promotion_state": mem.PromotionState,
-		"created_at":      mem.CreatedAt.Format("2006-01-02T15:04:05.000000000Z"),
+		"created_at":      mem.CreatedAt.Format(time.RFC3339Nano),
 		"message":         fmt.Sprintf("Memory created with id=%s", mem.ID),
 	}
 	text, _ := json.MarshalIndent(resultDoc, "", "  ")
