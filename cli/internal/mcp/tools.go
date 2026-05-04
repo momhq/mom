@@ -14,6 +14,7 @@ import (
 	"github.com/momhq/mom/cli/internal/recall"
 	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/store"
 )
 
 // toolDef describes one MCP tool for the tools/list response.
@@ -117,16 +118,36 @@ func allTools() []toolDef {
 		},
 		{
 			Name:        "mom_recall",
-			Description: "Search your memory for relevant context. Uses progressive scope escalation (repo→org→user) with AND→OR query relaxation and curated-first, draft-fallback quality tiers.",
+			Description: "Search the central vault. AND→OR query relaxation and curated→draft tier escalation. Returns ranked summary results; use mom_get for full content of selected memories.",
 			InputSchema: map[string]any{
 				"type":     "object",
 				"required": []string{"query"},
 				"properties": map[string]any{
 					"query":       map[string]any{"type": "string", "description": "Search query (keywords or natural language)"},
 					"max_results": map[string]any{"type": "integer", "description": "Maximum results (default 5)"},
-					"tags":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (AND logic)"},
+					"tags":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by tags (AND logic, normalised to canonical kebab-case)"},
 					"session_id":  map[string]any{"type": "string", "description": "Filter by source session"},
-					"scope":       map[string]any{"type": "string", "description": "Pin search to a single scope label (repo/org/user); omit to use full escalation chain"},
+				},
+			},
+		},
+		{
+			Name:        "mom_get",
+			Description: "Retrieve a memory by ID from the central vault. Returns full substance including content.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"id"},
+				"properties": map[string]any{
+					"id": map[string]any{"type": "string", "description": "Memory UUID"},
+				},
+			},
+		},
+		{
+			Name:        "mom_landmarks",
+			Description: "List landmark memories from the central vault, sorted by centrality_score descending.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"limit": map[string]any{"type": "integer", "description": "Maximum results (default 20)"},
 				},
 			},
 		},
@@ -176,6 +197,10 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolMomRecall(req.Arguments)
 	case "mom_record":
 		result, err = s.toolMomRecord(req.Arguments)
+	case "mom_get":
+		result, err = s.toolMomGet(req.Arguments)
+	case "mom_landmarks":
+		result, err = s.toolMomLandmarks(req.Arguments)
 	default:
 		return nil, &rpcError{Code: errCodeMethodNotFound, Message: "unknown tool: " + req.Name}
 	}
@@ -394,34 +419,27 @@ func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text2)}}}, nil
 }
 
-// toolMomRecall searches memories using the progressive escalation engine.
-// When scope is provided, the engine chain is pinned to that single scope.
+// toolMomRecall searches memories in the central vault using the v0.30
+// recall engine (FTS5 + AND→OR relaxation + curated→draft tier
+// escalation). Returns ranked summary results; agents fetch full
+// content via mom_get for selected results.
 func (s *Server) toolMomRecall(args map[string]any) (toolCallResult, error) {
+	if s.engine == nil {
+		return toolCallResult{}, fmt.Errorf("mom_recall: vault not configured on server")
+	}
+
 	query := stringArg(args, "query")
 	maxResults := intArg(args, "max_results", 5)
 	tags := stringSliceArg(args, "tags")
 	sessionID := stringArg(args, "session_id")
-	scopeLabel := stringArg(args, "scope")
 
-	engine := s.engine
-	// Pin to a single scope when the caller requests it.
-	if scopeLabel != "" {
-		scopes := scope.Walk(s.momDir)
-		if len(scopes) == 0 {
-			scopes = []scope.Scope{{Path: s.momDir, Label: "repo"}}
-		}
-		var chain []recall.Searcher
-		for _, sc := range scopes {
-			if sc.Label == scopeLabel {
-				chain = append(chain, recall.NewScopeSearcher(s.idx, sc.Path))
-			}
-		}
-		if len(chain) > 0 {
-			engine = recall.NewEngine(chain)
-		}
+	// Normalise tag filter inputs so they match the canonical form
+	// used at write time (store.NormalizeTagName).
+	for i, tag := range tags {
+		tags[i] = store.NormalizeTagName(tag)
 	}
 
-	results, err := engine.Search(recall.Options{
+	results, err := s.engine.Search(recall.Options{
 		Query:      query,
 		MaxResults: maxResults,
 		Tags:       tags,

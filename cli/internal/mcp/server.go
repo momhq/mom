@@ -17,7 +17,6 @@ import (
 
 	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/recall"
-	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
 	"github.com/momhq/mom/cli/internal/vault"
 )
@@ -67,32 +66,23 @@ type Server struct {
 }
 
 // SetVault wires the v0.30 Vault into the Server. Required by tools
-// that target the central vault (mom_record). Tools that still operate
-// against legacy per-folder storage do not require it. Production
-// callers always set this in serve.go; tests for legacy tools may
-// skip it.
+// that target the central vault (mom_record, mom_recall, mom_get,
+// mom_landmarks). The recall Engine is constructed here so handlers
+// can call s.engine directly. Production callers always set this in
+// serve.go; tests for legacy-only tools may skip it.
 func (s *Server) SetVault(v *vault.Vault) {
 	s.vault = v
+	s.engine = recall.NewEngine(v)
 }
 
 // New creates a new Server rooted at the given .mom/ directory.
-// It builds the recall Engine from the scope chain discovered at momDir.
+// The recall Engine is left nil until SetVault is called.
 func New(momDir string) *Server {
 	idx := storage.NewIndexedAdapter(momDir)
-
-	scopes := scope.Walk(momDir)
-	if len(scopes) == 0 {
-		scopes = []scope.Scope{{Path: momDir, Label: "repo"}}
-	}
-	chain := make([]recall.Searcher, len(scopes))
-	for i, sc := range scopes {
-		chain[i] = recall.NewScopeSearcher(idx, sc.Path)
-	}
 
 	return &Server{
 		momDir: momDir,
 		idx:    idx,
-		engine: recall.NewEngine(chain),
 	}
 }
 
