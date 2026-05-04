@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/adapters/storage"
+	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/recall"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
@@ -62,10 +63,14 @@ type Server struct {
 	momDir string
 	idx    *storage.IndexedAdapter
 	engine *recall.Engine
+	bus    *herald.Bus
 }
 
 // New creates a new Server rooted at the given .mom/ directory.
-// It builds the recall Engine from the scope chain discovered at momDir.
+// It builds the recall Engine from the scope chain discovered at momDir
+// and attaches a fresh v0.30 Herald bus for write tools (mom_record) to
+// publish on. Callers who want their own bus (e.g., to wire a Drafter
+// subscriber) can replace it via SetBus before Serve.
 func New(momDir string) *Server {
 	idx := storage.NewIndexedAdapter(momDir)
 
@@ -82,8 +87,19 @@ func New(momDir string) *Server {
 		momDir: momDir,
 		idx:    idx,
 		engine: recall.NewEngine(chain),
+		bus:    herald.NewBus(),
 	}
 }
+
+// Bus returns the v0.30 Herald bus this Server publishes on. Callers
+// that need to attach subscribers (e.g., Drafter for memory.record
+// events, Logbook for op.* events) take this reference before Serve.
+func (s *Server) Bus() *herald.Bus { return s.bus }
+
+// SetBus replaces the Server's bus with the given one. Useful when the
+// application root constructs a single shared bus across MCP +
+// watcher + Drafter; never call after Serve has started.
+func (s *Server) SetBus(b *herald.Bus) { s.bus = b }
 
 // Serve runs the JSON-RPC 2.0 stdio loop. It reads newline-delimited requests
 // from in and writes responses to out. Blocks until in is closed or returns an
