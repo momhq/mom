@@ -8,8 +8,8 @@ Migration runs through `mom upgrade`. When the installed version is older than 0
 
 ## Consequences
 
-- One database to back up, one database to query. Recall no longer walks a scope chain across the filesystem.
-- Raw transcripts are no longer retained. Capture writes directly to memory rows; if a turn is rejected by capture filtering (ADR 0014) it is dropped, not staged.
+- One database to back up, one database to query. Finder no longer walks a scope chain across the filesystem.
+- Raw transcripts are no longer retained. Drafter writes directly to memory rows; if a turn is rejected by Drafter's filtering (ADR 0014) it is dropped, not staged.
 - Multi-machine setups need an external sync mechanism (e.g. the user's existing dotfile sync, or a future explicit sync command). `$HOME/.mom/mom.db` is a single file, which makes this tractable.
 - The upgrade flow is the only path forward across the 0.30.0 boundary. `--dry-run` lets the user inspect the import plan before committing. The migration is non-destructive at the source: legacy directories remain readable until the user removes them.
 - Tooling that previously inspected `.mom/` directories on disk is replaced by `mom` CLI commands against the single database.
@@ -18,6 +18,6 @@ Migration runs through `mom upgrade`. When the installed version is older than 0
 
 - **Keep per-folder vaults, add a registry.** Rejected: duplicates the source-of-truth problem with an extra index to keep consistent.
 - **Multiple SQLite databases (one per former scope).** Rejected: cross-database queries require attaching files; the escalation logic this ADR is removing would come back as SQL plumbing.
-- **Retain `raw/` as an append-only audit log.** Rejected: substance is already in the memory row; the log is write-only and grows without bound. Capture filtering (ADR 0014) handles the cases where raw retention was previously useful.
+- **Retain `raw/` as an append-only audit log.** Rejected: substance is already in the memory row; the log is write-only and grows without bound. Drafter filtering (ADR 0014) handles the cases where raw retention was previously useful.
 - **Keep the JSON-file vault alongside SQLite as a human-readable mirror.** Rejected: two writers, two failure modes, and the JSON files are not actually read by humans in practice.
 - **A separate `mom migrate` command instead of folding migration into `mom upgrade`.** Rejected: the migration is a version-boundary event, not an ongoing operation. Coupling it to upgrade ensures no user crosses 0.30.0 without seeing the prompt.

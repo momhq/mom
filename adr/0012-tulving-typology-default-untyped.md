@@ -4,9 +4,9 @@ Memories vary in kind: a captured fact, a recurring pattern, a single-event reco
 
 MOM adopts a typology adapted from Tulving's memory taxonomy. The `type` enum on `memories` is `episodic | semantic | procedural | untyped`: `semantic` for facts, definitions, and stable knowledge; `episodic` for specific events, decisions, and single-occurrence recollections; `procedural` for how-to, recurring patterns, and rules; `untyped` for memories that have not been classified yet. The set is intentionally small; finer distinctions belong in tags.
 
-`type` is **operational metadata**, not substance (ADR 0011) — it is mutable and can be assigned post-hoc. **The default is `untyped`.** Defaulting to a real type would silently assert a classification that capture has no basis to make. `untyped` is honest: it says "no one has decided what this is yet," which makes it queryable ("show me everything that needs typing") and keeps the type field meaningful when it is set.
+`type` is **operational metadata**, not substance (ADR 0011) — it is mutable and can be assigned post-hoc. **The default is `untyped`.** Defaulting to a real type would silently assert a classification that Drafter has no basis to make. `untyped` is honest: it says "no one has decided what this is yet," which makes it queryable ("show me everything that needs typing") and keeps the type field meaningful when it is set.
 
-Type assignment happens in three places: (a) the user sets it explicitly when creating or curating; (b) wrap-up surfaces untyped drafts and suggests a type using deterministic heuristics, with the user picking; (c) external agents connected through MCP can suggest types programmatically, but the human (or wrap-up acting on their behalf) confirms. Capture itself never assigns a type.
+Type assignment happens in three places: (a) the user sets it explicitly when creating or curating; (b) wrap-up surfaces untyped drafts and suggests a type using deterministic heuristics, with the user picking; (c) external agents connected through MCP can suggest types programmatically, but the human (or wrap-up acting on their behalf) confirms. Drafter itself never assigns a type.
 
 ## Consequences
 
