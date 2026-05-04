@@ -19,6 +19,7 @@ import (
 	"github.com/momhq/mom/cli/internal/recall"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
+	"github.com/momhq/mom/cli/internal/vault"
 )
 
 // Version is set by the caller (cmd package) to match the CLI version.
@@ -62,6 +63,16 @@ type Server struct {
 	momDir string
 	idx    *storage.IndexedAdapter
 	engine *recall.Engine
+	vault  *vault.Vault
+}
+
+// SetVault wires the v0.30 Vault into the Server. Required by tools
+// that target the central vault (mom_record). Tools that still operate
+// against legacy per-folder storage do not require it. Production
+// callers always set this in serve.go; tests for legacy tools may
+// skip it.
+func (s *Server) SetVault(v *vault.Vault) {
+	s.vault = v
 }
 
 // New creates a new Server rooted at the given .mom/ directory.

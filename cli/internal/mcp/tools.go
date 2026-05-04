@@ -99,6 +99,23 @@ func allTools() []toolDef {
 			},
 		},
 		{
+			Name:        "mom_record",
+			Description: "Create a memory in the central vault ($HOME/.mom/mom.db). Bypasses capture filters — explicit user/agent write path. Stamps trigger_event='record', source_type='manual-draft'. All required substance fields must be provided.",
+			InputSchema: map[string]any{
+				"type":     "object",
+				"required": []string{"summary", "content", "session_id", "actor", "created_by"},
+				"properties": map[string]any{
+					"summary":    map[string]any{"type": "string", "description": "One-line distillation"},
+					"content":    map[string]any{"type": "object", "description": "Memory content; conventionally {text: ...}"},
+					"session_id": map[string]any{"type": "string", "description": "Session identifier"},
+					"actor":      map[string]any{"type": "string", "description": "Calling agent identity (e.g. claude-code, codex)"},
+					"created_by": map[string]any{"type": "string", "description": "Display name of the user entity to attribute as creator"},
+					"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Optional kebab-case tags"},
+					"type":       map[string]any{"type": "string", "description": "Optional memory type (episodic|semantic|procedural|untyped); defaults to untyped"},
+				},
+			},
+		},
+		{
 			Name:        "mom_recall",
 			Description: "Search your memory for relevant context. Uses progressive scope escalation (repo→org→user) with AND→OR query relaxation and curated-first, draft-fallback quality tiers.",
 			InputSchema: map[string]any{
@@ -157,6 +174,8 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolRecordTurn(req.Arguments)
 	case "mom_recall":
 		result, err = s.toolMomRecall(req.Arguments)
+	case "mom_record":
+		result, err = s.toolMomRecord(req.Arguments)
 	default:
 		return nil, &rpcError{Code: errCodeMethodNotFound, Message: "unknown tool: " + req.Name}
 	}
