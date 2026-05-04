@@ -1,0 +1,277 @@
+// Package librarian is the universal CRUD layer over the Vault. It is
+// the SOLE component that touches Vault — Drafter, Logbook,
+// Cartographer, Finder, MCP, Upgrade, and Lens all go through this
+// package. Librarian folds together what previous attempts split
+// across MemoryStore (memory CRUD) and GraphStore (tags, entities,
+// edges) into one module so a memory and its graph context are always
+// written and read through the same boundary.
+//
+// Substance-immutability (ADR 0011) is enforced at the API: substance
+// fields are write-once at Insert, operational fields are mutable via
+// UpdateOperational. Schema-level constraints (NOT NULL session_id,
+// CHECK json_valid(content), UNIQUE(type, display_name) on entities)
+// back the API checks as defense in depth.
+package librarian
+
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/momhq/mom/cli/internal/vault"
+)
+
+// Librarian wraps an open Vault and exposes the v0.30 CRUD surface.
+type Librarian struct {
+	v   *vault.Vault
+	now func() time.Time
+}
+
+// New returns a Librarian backed by the given vault. The caller must
+// have opened the vault with Migrations() included so the schema is
+// current.
+func New(v *vault.Vault) *Librarian {
+	return &Librarian{
+		v:   v,
+		now: func() time.Time { return time.Now().UTC() },
+	}
+}
+
+// timestampFormat is the fixed-width nanosecond format used for every
+// stored timestamp in Librarian-owned tables. RFC3339Nano trims
+// trailing zeros and breaks lexical sort across mixed-precision values
+// ("...:05Z" sorts before "...:05.5Z" because "." < "Z" in ASCII).
+// Always emitting 9 fractional digits keeps the strings sortable.
+const timestampFormat = "2006-01-02T15:04:05.000000000Z07:00"
+
+// formatTime renders a UTC time in the canonical Librarian format.
+func formatTime(t time.Time) string { return t.UTC().Format(timestampFormat) }
+
+// parseTime parses a stored timestamp, falling back to RFC3339Nano for
+// forward-compat with rows written by older code paths.
+func parseTime(s string) (time.Time, error) {
+	if t, err := time.Parse(timestampFormat, s); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("parse timestamp %q", s)
+}
+
+// ── memory CRUD ───────────────────────────────────────────────────────────────
+
+// Memory is the read shape returned by Get and the cross-package
+// projection of a row in the memories table.
+type Memory struct {
+	ID                     string
+	Type                   string
+	Summary                string
+	Content                string
+	CreatedAt              time.Time
+	SessionID              string
+	ProvenanceActor        string
+	ProvenanceSourceType   string
+	ProvenanceTriggerEvent string
+	PromotionState         string
+	Landmark               bool
+	CentralityScore        sql.NullFloat64
+}
+
+// InsertMemory is the write shape for Insert. Substance fields
+// (Content, SessionID, Provenance*) are write-once and copied verbatim.
+// ID is minted by Librarian per ADR 0013. CreatedAt defaults to now.
+// Type defaults to "untyped" per ADR 0012.
+type InsertMemory struct {
+	Type                   string
+	Summary                string
+	Content                string
+	CreatedAt              time.Time
+	SessionID              string
+	ProvenanceActor        string
+	ProvenanceSourceType   string
+	ProvenanceTriggerEvent string
+}
+
+// Insert appends a memory row. It mints a UUID v4 (ADR 0013), defaults
+// Type to "untyped" (ADR 0012), and validates required fields before
+// any DB write. Returns the minted ID.
+//
+// Substance fields rejected if empty or invalid: Content (must be
+// non-empty valid JSON), SessionID (must be non-empty). Schema-level
+// CHECK(json_valid(content)) and NOT NULL session_id back the
+// API-layer guard as defense in depth.
+func (l *Librarian) Insert(m InsertMemory) (string, error) {
+	if strings.TrimSpace(m.SessionID) == "" {
+		return "", fmt.Errorf("Insert: session_id: %w", ErrEmptyArg)
+	}
+	if strings.TrimSpace(m.Content) == "" {
+		return "", fmt.Errorf("Insert: content: %w", ErrEmptyArg)
+	}
+	t := m.Type
+	if t == "" {
+		t = "untyped"
+	}
+	createdAt := m.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = l.now()
+	}
+	id := uuid.NewString()
+
+	err := l.v.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`INSERT INTO memories
+			   (id, type, summary, content, created_at, session_id,
+			    provenance_actor, provenance_source_type, provenance_trigger_event)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, t, m.Summary, m.Content, formatTime(createdAt), m.SessionID,
+			nullableStr(m.ProvenanceActor),
+			nullableStr(m.ProvenanceSourceType),
+			nullableStr(m.ProvenanceTriggerEvent),
+		)
+		return err
+	})
+	if err != nil {
+		return "", fmt.Errorf("Insert: %w", err)
+	}
+	return id, nil
+}
+
+// Get returns the memory with the given id. Returns ErrNotFound only
+// when the query completed cleanly and produced no rows; a mid-
+// iteration scan or rows.Err is surfaced verbatim so callers can
+// distinguish corruption from a genuine miss.
+func (l *Librarian) Get(id string) (Memory, error) {
+	var m Memory
+	var found bool
+	var scanErr error
+
+	err := l.v.Query(
+		`SELECT id, type, summary, content, created_at, session_id,
+		        provenance_actor, provenance_source_type, provenance_trigger_event,
+		        promotion_state, landmark, centrality_score
+		 FROM memories WHERE id = ?`,
+		[]any{id},
+		func(rs *sql.Rows) error {
+			if !rs.Next() {
+				return nil
+			}
+			found = true
+			var (
+				summary, actor, sourceType, triggerEvent sql.NullString
+				createdAtStr                             string
+				landmarkInt                              int64
+			)
+			if err := rs.Scan(
+				&m.ID, &m.Type, &summary, &m.Content, &createdAtStr, &m.SessionID,
+				&actor, &sourceType, &triggerEvent,
+				&m.PromotionState, &landmarkInt, &m.CentralityScore,
+			); err != nil {
+				scanErr = err
+				return err
+			}
+			m.Summary = summary.String
+			m.ProvenanceActor = actor.String
+			m.ProvenanceSourceType = sourceType.String
+			m.ProvenanceTriggerEvent = triggerEvent.String
+			m.Landmark = landmarkInt != 0
+			t, err := parseTime(createdAtStr)
+			if err != nil {
+				scanErr = err
+				return err
+			}
+			m.CreatedAt = t
+			return nil
+		},
+	)
+	// Order matters: a scan-time error must surface even if the query
+	// returned rows, otherwise corruption is silently translated to
+	// ErrNotFound.
+	if scanErr != nil {
+		return Memory{}, fmt.Errorf("Get %s: scan: %w", id, scanErr)
+	}
+	if err != nil {
+		return Memory{}, fmt.Errorf("Get %s: %w", id, err)
+	}
+	if !found {
+		return Memory{}, ErrNotFound
+	}
+	return m, nil
+}
+
+// OperationalUpdate is the patch shape for UpdateOperational. Each
+// field is optional; a non-nil pointer marks a field for update. Any
+// substance field passed via this surface is rejected with
+// ErrSubstanceImmutable — callers cannot rewrite content, provenance,
+// or session attribution after Insert.
+type OperationalUpdate struct {
+	Type            *string
+	PromotionState  *string
+	Landmark        *bool
+	CentralityScore *float64
+}
+
+// UpdateOperational mutates only the operational columns of a memory.
+// Substance columns are unreachable through this API. Empty patches
+// are a no-op success.
+func (l *Librarian) UpdateOperational(id string, patch OperationalUpdate) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("UpdateOperational: id: %w", ErrEmptyArg)
+	}
+
+	var (
+		setParts []string
+		args     []any
+	)
+	if patch.Type != nil {
+		setParts = append(setParts, "type = ?")
+		args = append(args, *patch.Type)
+	}
+	if patch.PromotionState != nil {
+		setParts = append(setParts, "promotion_state = ?")
+		args = append(args, *patch.PromotionState)
+	}
+	if patch.Landmark != nil {
+		v := 0
+		if *patch.Landmark {
+			v = 1
+		}
+		setParts = append(setParts, "landmark = ?")
+		args = append(args, v)
+	}
+	if patch.CentralityScore != nil {
+		setParts = append(setParts, "centrality_score = ?")
+		args = append(args, *patch.CentralityScore)
+	}
+	if len(setParts) == 0 {
+		return nil
+	}
+
+	args = append(args, id)
+	stmt := "UPDATE memories SET " + strings.Join(setParts, ", ") + " WHERE id = ?"
+
+	return l.v.Tx(func(tx *sql.Tx) error {
+		res, err := tx.Exec(stmt, args...)
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
+}
+
+func nullableStr(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
