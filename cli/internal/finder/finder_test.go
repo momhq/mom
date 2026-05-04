@@ -2,11 +2,11 @@ package finder_test
 
 import (
 	"errors"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/momhq/mom/cli/internal/archtest"
 	"github.com/momhq/mom/cli/internal/finder"
 	"github.com/momhq/mom/cli/internal/librarian"
 	"github.com/momhq/mom/cli/internal/logbook"
@@ -282,16 +282,7 @@ func TestRecall_BM25HeavierOnContentThanSummary(t *testing.T) {
 // Librarian." Direct-import only — transitive through Librarian is
 // expected.
 func TestFinder_DoesNotImportVault(t *testing.T) {
-	cmd := exec.Command("go", "list",
-		"-f", "{{range .Imports}}{{.}}\n{{end}}",
-		"github.com/momhq/mom/cli/internal/finder")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go list failed: %v\n%s", err, out)
-	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line == "github.com/momhq/mom/cli/internal/vault" {
-			t.Errorf("finder imports vault directly; must go through librarian")
-		}
-	}
+	archtest.AssertNoDirectImport(t, ".",
+		"github.com/momhq/mom/cli/internal/vault",
+	)
 }

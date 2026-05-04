@@ -1,11 +1,11 @@
 package herald
 
 import (
-	"os/exec"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/momhq/mom/cli/internal/archtest"
 )
 
 // These tests lock the v0.30 Herald contract on top of the existing v1
@@ -146,29 +146,13 @@ func TestSubscribe_ConcurrentUnsubscribeIsRaceFree(t *testing.T) {
 	wg.Wait()
 }
 
-// TestHerald_NoVaultOrLibrarianDependency enforces the architectural rule
-// (PRD 0003): Herald is a pure pub/sub bus and must NEVER import the Vault
-// or Librarian packages. The dep is checked via `go list` so the test fails
-// fast when a future change introduces a forbidden import.
+// TestHerald_NoVaultOrLibrarianDependency enforces PRD 0003: Herald
+// is a pure pub/sub bus and must not import Vault or Librarian.
+// Herald's only imports are stdlib, so a direct-import check is
+// sufficient — there's no transitive path in production code.
 func TestHerald_NoVaultOrLibrarianDependency(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps",
-		"-f", "{{.ImportPath}}",
-		"github.com/momhq/mom/cli/internal/herald")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go list failed: %v\n%s", err, out)
-	}
-
-	forbidden := []string{
+	archtest.AssertNoDirectImport(t, ".",
 		"github.com/momhq/mom/cli/internal/vault",
 		"github.com/momhq/mom/cli/internal/librarian",
-	}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		for _, f := range forbidden {
-			if line == f {
-				t.Errorf("herald imports forbidden package: %s", f)
-			}
-		}
-	}
+	)
 }
