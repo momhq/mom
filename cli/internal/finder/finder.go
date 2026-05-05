@@ -46,9 +46,23 @@ type Options struct {
 	Limit         int
 }
 
+// Tier names the escalation pass that surfaced a Result. The four
+// values are the cross-product of {curated, draft} × {AND, OR}; the
+// AND tier name has no suffix, the OR tier name carries "-or."
+//
+// Constants centralise the labels so renaming or extending the
+// vocabulary stays a one-place edit instead of grep-and-replace
+// across pipeline + tests.
+const (
+	TierCurated   = "curated"
+	TierCuratedOR = "curated-or"
+	TierDraft     = "draft"
+	TierDraftOR   = "draft-or"
+)
+
 // Result is one ranked memory hit. Score is the BM25 score from FTS5
-// (lower = more relevant in SQLite's bm25 convention); Tier identifies
-// which escalation pass matched ("curated" / "draft" / "draft-or").
+// (lower = more relevant in SQLite's bm25 convention); Tier is one of
+// the package Tier* constants.
 type Result struct {
 	librarian.Memory
 	Score float64
@@ -99,33 +113,7 @@ func (f *Finder) Recall(opts Options) ([]Result, error) {
 		limit = 20
 	}
 
-	multiToken := tokenCount(opts.Query) > 1
-	andQ := normaliseFTSQuery(opts.Query)
-	orQ := buildORQuery(opts.Query)
-
-	type pass struct {
-		ftsQ  string
-		state string // "" = any
-		tier  string
-	}
-	passes := []pass{
-		{andQ, "curated", "curated"},
-	}
-	if multiToken {
-		passes = append(passes, pass{orQ, "curated", "curated-or"})
-	}
-	if !opts.IncludeDrafts {
-		passes = append(passes, pass{andQ, "", "draft"})
-		if multiToken {
-			passes = append(passes, pass{orQ, "", "draft-or"})
-		}
-	} else {
-		// IncludeDrafts skips the curated-only passes entirely.
-		passes = []pass{{andQ, "", "draft"}}
-		if multiToken {
-			passes = append(passes, pass{orQ, "", "draft-or"})
-		}
-	}
+	passes := buildPasses(opts)
 
 	// Track the most-recent (widest) results so we can return them on
 	// natural loop exit without re-running SearchMemories. The
@@ -154,6 +142,37 @@ func (f *Finder) Recall(opts Options) ([]Result, error) {
 		// path returns these last (widest) results.
 	}
 	return resultsFrom(lastHits, lastTier), nil
+}
+
+// pass describes one search invocation in the escalation pipeline.
+type pass struct {
+	ftsQ  string
+	state string // "" = any (drops the curated gate)
+	tier  string
+}
+
+// buildPasses returns the ordered list of search passes for opts.
+// Order is curated→draft (quality dim, ADR 0006) and within each tier
+// AND→OR (precision→recall, ADR 0008). Single-token queries skip OR
+// passes (the AND/OR distinction is meaningless for one term).
+// IncludeDrafts=true skips the curated-only passes entirely; the
+// caller is asking for the widest matrix.
+func buildPasses(opts Options) []pass {
+	multiToken := tokenCount(opts.Query) > 1
+	andQ := normaliseFTSQuery(opts.Query)
+
+	out := make([]pass, 0, 4)
+	if !opts.IncludeDrafts {
+		out = append(out, pass{andQ, "curated", TierCurated})
+		if multiToken {
+			out = append(out, pass{buildORQuery(opts.Query), "curated", TierCuratedOR})
+		}
+	}
+	out = append(out, pass{andQ, "", TierDraft})
+	if multiToken {
+		out = append(out, pass{buildORQuery(opts.Query), "", TierDraftOR})
+	}
+	return out
 }
 
 func resultsFrom(hits []librarian.SearchedMemory, tier string) []Result {

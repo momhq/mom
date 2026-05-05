@@ -12,9 +12,8 @@ import (
 // substance for `mom lens` activity timelines and the "what MOM did"
 // audit surface.
 //
-// CreatedAt is stored using the fixed-width nanosecond format Librarian
-// uses for every owned timestamp; reads tolerate RFC3339Nano for
-// forward-compat with legacy import paths.
+// CreatedAt is stored using the fixed-width nanosecond format
+// Librarian uses for every owned timestamp.
 type OpEvent struct {
 	ID        int64
 	EventType string

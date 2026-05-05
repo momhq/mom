@@ -119,7 +119,7 @@ func TestRecall_EscalatesToDraftsWhenCuratedThin(t *testing.T) {
 	ids := map[string]bool{}
 	for _, r := range got {
 		ids[r.ID] = true
-		if r.Tier == "curated" {
+		if r.Tier == finder.TierCurated {
 			t.Errorf("draft result tagged tier=curated: %v", r)
 		}
 	}
@@ -144,7 +144,7 @@ func TestRecall_PrefersCuratedWhenAvailable(t *testing.T) {
 
 	got, _ := f.Recall(finder.Options{Query: "deploy"})
 	for _, r := range got {
-		if r.Tier != "curated" {
+		if r.Tier != finder.TierCurated {
 			t.Errorf("unexpected tier %q on hit %q (curated tier should be sufficient)", r.Tier, r.ID)
 		}
 		if r.ID == draftID {
@@ -186,8 +186,8 @@ func TestRecall_ANDPassPrecisionMultiToken(t *testing.T) {
 	}
 	// Tier must be the AND tier, not the OR tier — proves the AND
 	// pass actually satisfied and we didn't fall through.
-	if got[0].Tier != "draft" {
-		t.Errorf("Tier = %q, want %q (AND pass for IncludeDrafts=true)", got[0].Tier, "draft")
+	if got[0].Tier != finder.TierDraft {
+		t.Errorf("Tier = %q, want %q (AND pass for IncludeDrafts=true)", got[0].Tier, finder.TierDraft)
 	}
 }
 
@@ -209,7 +209,7 @@ func TestRecall_IncludeDraftsTrue_SkipsCuratedTier(t *testing.T) {
 		t.Fatalf("Recall: %v", err)
 	}
 	for _, r := range got {
-		if r.Tier == "curated" || r.Tier == "curated-or" {
+		if r.Tier == finder.TierCurated || r.Tier == finder.TierCuratedOR {
 			t.Errorf("IncludeDrafts=true must skip curated passes; got tier=%q on %q", r.Tier, r.ID)
 		}
 	}

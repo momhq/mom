@@ -221,6 +221,32 @@ func TestOpen_rejectsNonMonotonicMigrations(t *testing.T) {
 	}
 }
 
+func TestOpen_rejectsZeroOrNegativeVersion(t *testing.T) {
+	for _, version := range []int{0, -1} {
+		bad := []vault.Migration{
+			{Version: version, Stmts: []string{`CREATE TABLE a(id INT)`}},
+		}
+		dir := t.TempDir()
+		path := filepath.Join(dir, "mom.db")
+		_, err := vault.Open(path, bad)
+		if err == nil {
+			t.Errorf("Version=%d: expected error, got nil", version)
+		}
+	}
+}
+
+func TestOpen_rejectsEmptyStatements(t *testing.T) {
+	bad := []vault.Migration{
+		{Version: 1, Stmts: nil},
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mom.db")
+	_, err := vault.Open(path, bad)
+	if err == nil {
+		t.Fatal("expected error for migration with no statements, got nil")
+	}
+}
+
 func TestOpen_rejectsDuplicateMigrationVersions(t *testing.T) {
 	bad := []vault.Migration{
 		{Version: 1, Stmts: []string{`CREATE TABLE a(id INT)`}},

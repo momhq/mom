@@ -151,6 +151,11 @@ func TestMomRecord_RejectsEmptyContent(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty content")
 	}
+	// Distinct message from the missing-content case so callers can
+	// tell "I forgot to pass content" from "I passed an empty object."
+	if !strings.Contains(err.Error(), "cannot be empty") {
+		t.Errorf("error %q should distinguish empty from missing", err)
+	}
 	if rs.count.Load() != 0 {
 		t.Errorf("event count = %d, want 0", rs.count.Load())
 	}
