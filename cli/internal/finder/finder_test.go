@@ -160,32 +160,95 @@ func TestRecall_PrefersCuratedWhenAvailable(t *testing.T) {
 // ── AND→OR relaxation ────────────────────────────────────────────────────────
 
 func TestRecall_ANDPassPrecisionMultiToken(t *testing.T) {
+	// Memory A contains both terms; B contains only one. The AND
+	// pass should match A and only A. Forcing thresholdLow=1 makes
+	// the AND pass satisfy on its own — without that, the OR pass
+	// runs too and B sneaks in, which would mask any AND-precision
+	// regression.
 	f, lib := openFinder(t)
-	// Memory A contains both terms; B contains only one. AND pass
-	// returns only A.
+	f = f.WithThresholdLow(1)
 	a := insertMemory(t, lib, "s", "deploy postgres canary")
-	_ = insertMemory(t, lib, "s", "deploy redis cluster")
+	b := insertMemory(t, lib, "s", "deploy redis cluster")
 
-	// Force IncludeDrafts so we can isolate the AND pass behavior.
-	got, _ := f.Recall(finder.Options{Query: "deploy postgres", IncludeDrafts: true, Limit: 10})
-	// AND first; if AND yields enough we shouldn't see only-deploy
-	// matches. Given thresholdLow=5 and only 1 matching row, the loop
-	// will continue to OR and pick up the other. The contract here:
-	// AND results come FIRST in the ordered chain; tier label
-	// distinguishes.
-	if len(got) == 0 {
-		t.Fatal("expected results, got none")
+	got, err := f.Recall(finder.Options{
+		Query:         "deploy postgres",
+		IncludeDrafts: true,
+		Limit:         10,
+	})
+	if err != nil {
+		t.Fatalf("Recall: %v", err)
 	}
-	// At least the AND-only match must be present.
-	found := false
+	if len(got) != 1 {
+		t.Fatalf("expected exactly one AND-precise match, got %d: %v", len(got), got)
+	}
+	if got[0].ID != a {
+		t.Fatalf("AND-precise match = %q, want %q (B=%q sneaked in via OR)", got[0].ID, a, b)
+	}
+	// Tier must be the AND tier, not the OR tier — proves the AND
+	// pass actually satisfied and we didn't fall through.
+	if got[0].Tier != "draft" {
+		t.Errorf("Tier = %q, want %q (AND pass for IncludeDrafts=true)", got[0].Tier, "draft")
+	}
+}
+
+// TestRecall_IncludeDraftsTrue_SkipsCuratedTier locks the contract
+// that IncludeDrafts=true bypasses the curated-only passes entirely.
+// Every result must carry a draft-tier label, never a curated one.
+func TestRecall_IncludeDraftsTrue_SkipsCuratedTier(t *testing.T) {
+	f, lib := openFinder(t)
+	curated := insertMemory(t, lib, "s", "deploy curated")
+	promote(t, lib, curated)
+	draft := insertMemory(t, lib, "s", "deploy draft")
+
+	got, err := f.Recall(finder.Options{
+		Query:         "deploy",
+		IncludeDrafts: true,
+		Limit:         10,
+	})
+	if err != nil {
+		t.Fatalf("Recall: %v", err)
+	}
 	for _, r := range got {
-		if r.ID == a {
-			found = true
-			break
+		if r.Tier == "curated" || r.Tier == "curated-or" {
+			t.Errorf("IncludeDrafts=true must skip curated passes; got tier=%q on %q", r.Tier, r.ID)
 		}
 	}
-	if !found {
-		t.Fatalf("AND-precise match %q missing from results", a)
+	// Both rows still surface — the curated row is still a memory,
+	// just queried under the draft tier (no promotion-state filter).
+	ids := map[string]bool{}
+	for _, r := range got {
+		ids[r.ID] = true
+	}
+	if !ids[curated] || !ids[draft] {
+		t.Errorf("expected both rows, got %v", ids)
+	}
+}
+
+// TestRecall_WithThresholdLow_StopsEscalationEarlier locks the
+// configurable-threshold contract: at thresholdLow=1, a single
+// curated match satisfies the first pass and the loop stops; lower
+// tiers (drafts) are not searched.
+func TestRecall_WithThresholdLow_StopsEscalationEarlier(t *testing.T) {
+	f, lib := openFinder(t)
+	f = f.WithThresholdLow(1)
+
+	curated := insertMemory(t, lib, "s", "deploy curated")
+	promote(t, lib, curated)
+	draft := insertMemory(t, lib, "s", "deploy draft")
+
+	got, err := f.Recall(finder.Options{Query: "deploy"})
+	if err != nil {
+		t.Fatalf("Recall: %v", err)
+	}
+	// thresholdLow=1 → curated AND yields 1 → satisfies → stop.
+	// The draft row must NOT appear.
+	for _, r := range got {
+		if r.ID == draft {
+			t.Errorf("draft %q surfaced despite thresholdLow=1 satisfying curated", draft)
+		}
+		if r.Tier != "curated" {
+			t.Errorf("Tier = %q, want curated (early stop)", r.Tier)
+		}
 	}
 }
 

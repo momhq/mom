@@ -99,13 +99,24 @@ func TestOpen_isIdempotent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "mom.db")
 
+	// First open: apply migration and write a row to the migrated
+	// table. The row + the table itself must survive close/re-open.
 	v1, err := vault.Open(path, migs)
 	if err != nil {
 		t.Fatalf("first Open: %v", err)
 	}
+	if err := v1.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(`INSERT INTO widgets (id) VALUES (42)`)
+		return err
+	}); err != nil {
+		t.Fatalf("seed widgets: %v", err)
+	}
 	_ = v1.Close()
 
-	// Re-open: must be a no-op for already-applied migrations.
+	// Re-open: must be a no-op for already-applied migrations AND
+	// must leave the previously-written data untouched. Checking
+	// only schema_migrations would miss a regression where the
+	// re-open path accidentally drops user tables.
 	v2, err := vault.Open(path, migs)
 	if err != nil {
 		t.Fatalf("second Open: %v", err)
@@ -118,10 +129,23 @@ func TestOpen_isIdempotent(t *testing.T) {
 		nil,
 		func(rs *sql.Rows) error { rs.Next(); return rs.Scan(&count) },
 	); err != nil {
-		t.Fatalf("query: %v", err)
+		t.Fatalf("query schema_migrations: %v", err)
 	}
 	if count != 1 {
 		t.Fatalf("schema_migrations count = %d after re-open, want 1", count)
+	}
+
+	// DDL from migration 1 still present and queryable.
+	var widgetID int
+	if err := v2.Query(
+		`SELECT id FROM widgets`,
+		nil,
+		func(rs *sql.Rows) error { rs.Next(); return rs.Scan(&widgetID) },
+	); err != nil {
+		t.Fatalf("query widgets after re-open: %v", err)
+	}
+	if widgetID != 42 {
+		t.Fatalf("widgets row = %d, want 42 (re-open dropped data?)", widgetID)
 	}
 }
 
