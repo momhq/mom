@@ -17,36 +17,34 @@ import (
 //
 // Comparison is case-sensitive at the storage layer; "MCP" and "mcp"
 // are different tags. Normalisation is a higher-level convention.
+//
+// The whole operation is one Tx with INSERT … ON CONFLICT(name) DO
+// NOTHING followed by SELECT id WHERE name = ?. Two concurrent calls
+// for the same name both succeed and both return the same id; neither
+// surfaces a UNIQUE constraint error. Atomicity is guaranteed by the
+// transaction, not by lookup-then-insert.
 func (l *Librarian) UpsertTag(name string) (string, error) {
 	if strings.TrimSpace(name) == "" {
 		return "", fmt.Errorf("UpsertTag: name: %w", ErrEmptyArg)
 	}
 	var id string
-	err := l.v.Query(
-		`SELECT id FROM tags WHERE name = ?`,
-		[]any{name},
-		func(rs *sql.Rows) error {
-			if rs.Next() {
-				return rs.Scan(&id)
-			}
-			return nil
-		},
-	)
+	err := l.v.Tx(func(tx *sql.Tx) error {
+		newID := uuid.NewString()
+		if _, err := tx.Exec(
+			`INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)
+			 ON CONFLICT(name) DO NOTHING`,
+			newID, name, formatTime(l.now()),
+		); err != nil {
+			return err
+		}
+		// Always SELECT — INSERT ON CONFLICT DO NOTHING does not
+		// reliably return last_insert_rowid for the conflict case,
+		// and either the just-inserted row or the pre-existing one
+		// is what we want.
+		return tx.QueryRow(`SELECT id FROM tags WHERE name = ?`, name).Scan(&id)
+	})
 	if err != nil {
-		return "", fmt.Errorf("UpsertTag lookup: %w", err)
-	}
-	if id != "" {
-		return id, nil
-	}
-	id = uuid.NewString()
-	if err := l.v.Tx(func(tx *sql.Tx) error {
-		_, err := tx.Exec(
-			`INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)`,
-			id, name, formatTime(l.now()),
-		)
-		return err
-	}); err != nil {
-		return "", fmt.Errorf("UpsertTag insert: %w", err)
+		return "", fmt.Errorf("UpsertTag: %w", err)
 	}
 	return id, nil
 }
@@ -179,6 +177,10 @@ func (l *Librarian) MergeTags(source, target string) error {
 // returns the id of an existing matching row. Both type and
 // display_name must be non-empty after trimming. The schema enforces
 // UNIQUE(type, display_name); the API enforces non-empty inputs.
+//
+// One Tx with INSERT … ON CONFLICT(type, display_name) DO NOTHING
+// followed by SELECT id. Concurrent calls for the same (type, name)
+// pair are safe — see UpsertTag for the atomicity rationale.
 func (l *Librarian) UpsertEntity(entityType, displayName string) (string, error) {
 	if strings.TrimSpace(entityType) == "" {
 		return "", fmt.Errorf("UpsertEntity: type: %w", ErrEmptyArg)
@@ -187,32 +189,23 @@ func (l *Librarian) UpsertEntity(entityType, displayName string) (string, error)
 		return "", fmt.Errorf("UpsertEntity: display_name: %w", ErrEmptyArg)
 	}
 	var id string
-	err := l.v.Query(
-		`SELECT id FROM entities WHERE type = ? AND display_name = ?`,
-		[]any{entityType, displayName},
-		func(rs *sql.Rows) error {
-			if rs.Next() {
-				return rs.Scan(&id)
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("UpsertEntity lookup: %w", err)
-	}
-	if id != "" {
-		return id, nil
-	}
-	id = uuid.NewString()
-	if err := l.v.Tx(func(tx *sql.Tx) error {
-		_, err := tx.Exec(
+	err := l.v.Tx(func(tx *sql.Tx) error {
+		newID := uuid.NewString()
+		if _, err := tx.Exec(
 			`INSERT INTO entities (id, type, display_name, created_at)
-			 VALUES (?, ?, ?, ?)`,
-			id, entityType, displayName, formatTime(l.now()),
-		)
-		return err
-	}); err != nil {
-		return "", fmt.Errorf("UpsertEntity insert: %w", err)
+			 VALUES (?, ?, ?, ?)
+			 ON CONFLICT(type, display_name) DO NOTHING`,
+			newID, entityType, displayName, formatTime(l.now()),
+		); err != nil {
+			return err
+		}
+		return tx.QueryRow(
+			`SELECT id FROM entities WHERE type = ? AND display_name = ?`,
+			entityType, displayName,
+		).Scan(&id)
+	})
+	if err != nil {
+		return "", fmt.Errorf("UpsertEntity: %w", err)
 	}
 	return id, nil
 }
