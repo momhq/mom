@@ -17,9 +17,11 @@ import (
 	"github.com/momhq/mom/cli/internal/daemon"
 	"github.com/momhq/mom/cli/internal/drafter"
 	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/librarian"
 	"github.com/momhq/mom/cli/internal/logbook"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
+	"github.com/momhq/mom/cli/internal/vault"
 	"github.com/momhq/mom/cli/internal/watcher"
 	"github.com/spf13/cobra"
 )
@@ -219,8 +221,22 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 // newProjectBus creates a Herald event bus with Logbook and Drafter subscribers
 // wired for a given momDir. Used by both single-project and global watch modes.
 // adapters maps Harness name → Adapter for Harness-specific logbook parsing.
+//
+// Two wiring tiers:
+//
+//  1. Legacy v1 path: v1 logbook.ParseTranscript + v1 drafter.Process,
+//     subscribed to RecordAppended. Writes session-*.json + draft
+//     memory files under momDir. Stays operational through #240.
+//  2. v0.30 path: v0.30 logbook.Worker subscribed to TurnObserved,
+//     persisting metadata projections through Librarian into the
+//     central vault at $HOME/.mom/mom.db. Drafter on the v0.30 side
+//     is wired in #240 PR 2.
+//
+// Failures opening the central vault log to stderr and degrade
+// gracefully — the legacy path keeps working.
 func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.Bus {
 	bus := herald.NewBus()
+	wireV030LogbookSubscriber(bus)
 
 	// Logbook: parse transcript → write session metrics to .mom/logs/.
 	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
@@ -515,4 +531,40 @@ func runWatchStatus(momDir string) error {
 		p.Chevron(fmt.Sprintf("%s: %s bytes", c.sid, c.offset))
 	}
 	return nil
+}
+
+// wireV030LogbookSubscriber attaches a v0.30 Logbook worker to the
+// given bus, persisting turn.observed events as op_events rows in the
+// central vault.
+//
+// Errors are logged to stderr and the bus is left without a v0.30
+// subscriber — the legacy path keeps working. Cobra's RunE flow
+// already routes runtime errors to stderr; this helper preserves the
+// "stdout is reserved for JSON-RPC and human output, stderr is for
+// operational signal" rule from PR #262 F6.
+func wireV030LogbookSubscriber(bus *herald.Bus) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "watch: cannot resolve $HOME for v0.30 vault: %v — Logbook subscriber not wired\n", err)
+		return
+	}
+	momHome := filepath.Join(home, ".mom")
+	if err := os.MkdirAll(momHome, 0o700); err != nil {
+		fmt.Fprintf(os.Stderr, "watch: cannot create %s: %v — Logbook subscriber not wired\n", momHome, err)
+		return
+	}
+	dbPath := filepath.Join(momHome, "mom.db")
+	migs := append(librarian.Migrations(), logbook.Migrations()...)
+	v, err := vault.Open(dbPath, migs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "watch: vault.Open %s: %v — Logbook subscriber not wired\n", dbPath, err)
+		return
+	}
+	lib := librarian.New(v)
+	w := logbook.New(lib)
+	w.SubscribeTurnObserved(bus)
+	// Vault stays open for the duration of the process. The watcher's
+	// lifecycle owns it; on shutdown the OS reclaims the handle. A
+	// future refactor should plumb a Close path through, but for
+	// alpha this is acceptable.
 }

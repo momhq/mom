@@ -66,6 +66,114 @@ func (w *Worker) Subscribe(bus *herald.Bus, eventType herald.EventType) func() {
 	})
 }
 
+// SubscribeTurnObserved wires the worker to the watcher's
+// `turn.observed` source-of-truth events. Unlike Subscribe (which
+// persists the full payload), this method projects the payload to a
+// metadata-only shape before persisting:
+//
+//	role             ("user" | "assistant")
+//	tool_categories  ([]string, derived from tool_calls[].category)
+//	usage            (token counts only, no text)
+//	model, provider
+//
+// Raw text and tool inputs from the bus event are NEVER persisted.
+// Drafter is responsible for capturing redacted memories from the
+// same bus event; Logbook only records the audit trail.
+//
+// Empty SessionID drops the event with a stderr log (programming-
+// error state). Persistence failures also log to stderr.
+func (w *Worker) SubscribeTurnObserved(bus *herald.Bus) func() {
+	return bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
+		if e.SessionID == "" {
+			fmt.Fprintf(os.Stderr, "logbook: drop %q event with empty session_id\n", e.Type)
+			return
+		}
+		projected := projectTurnObserved(e.Payload)
+		if err := w.Log(string(e.Type), e.SessionID, projected); err != nil {
+			fmt.Fprintf(os.Stderr, "logbook: persist %q failed: %v\n", e.Type, err)
+		}
+	})
+}
+
+// projectTurnObserved drops content (text, tool inputs) and keeps
+// only what Lens renders. Public for test access; the projection
+// shape is the contract op_events.payload follows.
+func projectTurnObserved(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	out := map[string]any{}
+	if role, _ := payload["role"].(string); role != "" {
+		out["role"] = role
+	}
+	if model, _ := payload["model"].(string); model != "" {
+		out["model"] = model
+	}
+	if provider, _ := payload["provider"].(string); provider != "" {
+		out["provider"] = provider
+	}
+
+	// tool_calls is []map[string]any in turn.ToPayload's output;
+	// tolerate []any too in case the value round-tripped through JSON.
+	if cats := extractToolCategories(payload["tool_calls"]); len(cats) > 0 {
+		out["tool_categories"] = cats
+	}
+
+	// Usage map: keep numeric fields only.
+	if usage, ok := payload["usage"].(map[string]any); ok && usage != nil {
+		out["usage"] = projectUsage(usage)
+	}
+	return out
+}
+
+func extractToolCategories(v any) []string {
+	switch tcs := v.(type) {
+	case []map[string]any:
+		out := make([]string, 0, len(tcs))
+		for _, tc := range tcs {
+			if cat, _ := tc["category"].(string); cat != "" {
+				out = append(out, cat)
+			}
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(tcs))
+		for _, item := range tcs {
+			tc, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if cat, _ := tc["category"].(string); cat != "" {
+				out = append(out, cat)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// projectUsage retains only numeric token-accounting fields and the
+// stop_reason string. Unknown keys are dropped.
+func projectUsage(usage map[string]any) map[string]any {
+	out := map[string]any{}
+	for _, key := range []string{
+		"input_tokens",
+		"output_tokens",
+		"cache_read_tokens",
+		"cache_write_tokens",
+		"total_tokens",
+		"cost_usd",
+	} {
+		if v, ok := usage[key]; ok {
+			out[key] = v
+		}
+	}
+	if reason, _ := usage["stop_reason"].(string); reason != "" {
+		out["stop_reason"] = reason
+	}
+	return out
+}
+
 // SubscribeAll wires the worker to every listed event type and returns
 // a single unsubscribe that detaches them all.
 func (w *Worker) SubscribeAll(bus *herald.Bus, eventTypes ...herald.EventType) func() {

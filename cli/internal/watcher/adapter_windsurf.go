@@ -143,6 +143,27 @@ type windsurfPlannerResponse struct {
 	Response string `json:"response"`
 }
 
+// ExtractTurn delegates to ParseLine for PR 1 and synthesises a thin
+// Turn from the resulting RawEntry. Windsurf-specific tool_use /
+// usage extraction lands in a follow-up slice.
+func (a *WindsurfAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
+	entry, ok := a.ParseLine(line, sessionID)
+	if !ok {
+		return Turn{}, false
+	}
+	role := "user"
+	if entry.Event == "watch-planner_response" || entry.Event == "watch-assistant" {
+		role = "assistant"
+	}
+	return Turn{
+		SessionID: entry.SessionID,
+		Timestamp: time.Now().UTC(),
+		Role:      role,
+		Text:      entry.Text,
+		Provider:  "codeium",
+	}, true
+}
+
 // ParseLine implements Adapter. It parses one JSONL line and returns a
 // RawEntry if the line contains user_input or planner_response content.
 func (a *WindsurfAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool) {
