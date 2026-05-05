@@ -127,6 +127,14 @@ func (f *Finder) Recall(opts Options) ([]Result, error) {
 		}
 	}
 
+	// Track the most-recent (widest) results so we can return them on
+	// natural loop exit without re-running SearchMemories. The
+	// previous shape ran the last pass twice in the all-thin case —
+	// wasted query plus a race window between the two calls.
+	var (
+		lastHits []librarian.SearchedMemory
+		lastTier string
+	)
 	for _, p := range passes {
 		hits, err := f.lib.SearchMemories(librarian.SearchFilter{
 			FTSQuery:       p.ftsQ,
@@ -141,24 +149,11 @@ func (f *Finder) Recall(opts Options) ([]Result, error) {
 		if len(hits) >= f.thresholdLow || len(hits) >= limit {
 			return resultsFrom(hits, p.tier), nil
 		}
-		// Keep going — this pass yielded too few. Last pass returns
-		// whatever it has even if below threshold.
+		lastHits, lastTier = hits, p.tier
+		// Keep going — this pass yielded too few. The natural exit
+		// path returns these last (widest) results.
 	}
-
-	// All passes exhausted; return the last (widest) result, even if
-	// short of the threshold. (We keep its tier label.)
-	last := passes[len(passes)-1]
-	hits, err := f.lib.SearchMemories(librarian.SearchFilter{
-		FTSQuery:       last.ftsQ,
-		Tags:           opts.Tags,
-		SessionID:      opts.SessionID,
-		PromotionState: last.state,
-		Limit:          limit,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resultsFrom(hits, last.tier), nil
+	return resultsFrom(lastHits, lastTier), nil
 }
 
 func resultsFrom(hits []librarian.SearchedMemory, tier string) []Result {

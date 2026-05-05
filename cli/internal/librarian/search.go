@@ -41,7 +41,17 @@ type SearchedMemory struct {
 // SearchMemories runs the filtered query and returns matching rows. It
 // is the SQL composition primitive for Finder; Finder layers
 // relaxation (AND→OR) and tier escalation (curated→draft) on top.
+//
+// Empty/whitespace tag names in f.Tags are rejected with ErrEmptyArg
+// — the previous behaviour silently produced WHERE name IN (..., '')
+// with COUNT(DISTINCT) = N+1, which always returned zero rows and
+// gave callers no signal that their input was malformed.
 func (l *Librarian) SearchMemories(f SearchFilter) ([]SearchedMemory, error) {
+	for i, t := range f.Tags {
+		if strings.TrimSpace(t) == "" {
+			return nil, fmt.Errorf("SearchMemories: tags[%d] (%q): %w", i, t, ErrEmptyArg)
+		}
+	}
 	limit := f.Limit
 	if limit <= 0 {
 		limit = 100
