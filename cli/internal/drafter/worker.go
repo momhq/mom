@@ -16,11 +16,12 @@ import (
 	"github.com/momhq/mom/cli/internal/librarian"
 )
 
-// MemoryRecordEventType mirrors the constant defined by the MCP
-// package so Drafter doesn't have to import mcp (which would create
-// an import cycle). Kept in sync by convention; if either side
-// changes the string, the integration test fails first.
-const MemoryRecordEventType herald.EventType = "memory.record"
+// MemoryRecordEventType is re-exported here so external callers that
+// need the constant don't have to think about which package owns it.
+// The canonical definition lives in herald — both Drafter (subscriber)
+// and MCP (publisher) use the same constant, so there is no drift
+// risk. Re-export kept for backwards compatibility with PR 2 callers.
+var MemoryRecordEventType = herald.MemoryRecord
 
 // Worker subscribes to turn.observed and memory.record on Herald,
 // runs the filter pipeline (turn.observed only), and persists memories
@@ -32,7 +33,6 @@ const MemoryRecordEventType herald.EventType = "memory.record"
 // boundary).
 type Worker struct {
 	lib *librarian.Librarian
-	now func() time.Time
 }
 
 // NewWorker returns a Worker bound to the given Librarian. Named
@@ -40,7 +40,7 @@ type Worker struct {
 // constructor is still alive in this package; it gets renamed to the
 // canonical drafter.New in #240 PR 3 once the v1 surface is deleted.
 func NewWorker(lib *librarian.Librarian) *Worker {
-	return &Worker{lib: lib, now: func() time.Time { return time.Now().UTC() }}
+	return &Worker{lib: lib}
 }
 
 // SubscribeAll wires the worker to both event types it consumes.
@@ -76,7 +76,7 @@ func (w *Worker) SubscribeTurnObserved(bus *herald.Bus) func() {
 // heuristics per ADR 0014. Provenance fields come from the event
 // payload (set by the MCP handler).
 func (w *Worker) SubscribeRecord(bus *herald.Bus) func() {
-	return bus.Subscribe(MemoryRecordEventType, func(e herald.Event) {
+	return bus.Subscribe(herald.MemoryRecord, func(e herald.Event) {
 		if e.SessionID == "" {
 			fmt.Fprintf(os.Stderr, "drafter: drop %q event with empty session_id\n", e.Type)
 			return
@@ -107,7 +107,7 @@ func (w *Worker) processTurn(bus *herald.Bus, e herald.Event) error {
 	}
 	if isNoise(soft) {
 		bus.Publish(herald.Event{
-			Type:      "op.memory.dropped",
+			Type:      herald.OpMemoryDropped,
 			SessionID: e.SessionID,
 			Payload: map[string]any{
 				"reason":  "soft_filter",
@@ -175,9 +175,9 @@ func (w *Worker) processTurn(bus *herald.Bus, e herald.Event) error {
 
 	// Emit op.memory.created or op.memory.redacted depending on
 	// whether the hard filter fired.
-	opType := herald.EventType("op.memory.created")
+	opType := herald.OpMemoryCreated
 	if len(categories) > 0 {
-		opType = "op.memory.redacted"
+		opType = herald.OpMemoryRedacted
 	}
 	bus.Publish(herald.Event{
 		Type:      opType,
@@ -222,33 +222,27 @@ func (w *Worker) processRecord(bus *herald.Bus, e herald.Event) error {
 		trigger = "record"
 	}
 
-	id, err := w.lib.Insert(librarian.InsertMemory{
+	// Atomic memory + tags. Any failure (memory insert OR any tag
+	// upsert/link) rolls the whole record back — no orphan memory,
+	// no half-tagged state. Matches the "validate-then-publish"
+	// discipline: the mom_record handler validated tags upfront,
+	// so failures here are exceptional infrastructure errors that
+	// should fail the whole event, not silently degrade.
+	tags := tagsFromPayload(e.Payload["tags"])
+	id, err := w.lib.InsertMemoryWithTags(librarian.InsertMemory{
 		Content:                string(contentBytes),
 		Summary:                summary,
 		SessionID:              e.SessionID,
 		ProvenanceActor:        actor,
 		ProvenanceSourceType:   source,
 		ProvenanceTriggerEvent: trigger,
-	})
+	}, tags)
 	if err != nil {
-		return fmt.Errorf("insert memory: %w", err)
-	}
-
-	// Tags: link each provided tag through Librarian. Tag names
-	// arrive already normalised (the mom_record handler does that).
-	for _, name := range tagsFromPayload(e.Payload["tags"]) {
-		tagID, err := w.lib.UpsertTag(name)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "drafter: UpsertTag %q for record %s: %v\n", name, id, err)
-			continue
-		}
-		if err := w.lib.LinkTag(id, tagID); err != nil {
-			fmt.Fprintf(os.Stderr, "drafter: LinkTag memory=%s tag=%s: %v\n", id, tagID, err)
-		}
+		return fmt.Errorf("insert memory with tags: %w", err)
 	}
 
 	bus.Publish(herald.Event{
-		Type:      "op.memory.created",
+		Type:      herald.OpMemoryCreated,
 		SessionID: e.SessionID,
 		Payload: map[string]any{
 			"memory_id": id,

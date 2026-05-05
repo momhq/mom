@@ -1,6 +1,9 @@
 package drafter
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // secretPattern is one rule in the hard filter library: a regex plus
 // a stable category name. When the regex matches, the matched
@@ -102,7 +105,7 @@ func redactSecrets(text string) (string, []string) {
 				}
 				matched = true
 				// Replace just the value within the matched span.
-				start := indexOf(s, m[1])
+				start := strings.Index(s, m[1])
 				if start < 0 {
 					return s
 				}
@@ -128,14 +131,3 @@ func redactSecrets(text string) (string, []string) {
 	return out, cats
 }
 
-// indexOf returns the byte offset of needle in haystack, or -1.
-// strings.Index has the same behaviour but importing strings here
-// would lengthen the file's import block for one call.
-func indexOf(haystack, needle string) int {
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return i
-		}
-	}
-	return -1
-}

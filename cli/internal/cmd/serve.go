@@ -86,14 +86,10 @@ func runServeMCP(_ *cobra.Command, _ []string) error {
 	// turn.observed events the MCP process generates (none today,
 	// but future hooks will) are recorded. Same workers as the
 	// watcher — opened against $HOME/.mom/mom.db with WAL-safe
-	// concurrent access.
-	workers := openCentralWorkers()
-	if workers.drafter != nil {
-		workers.drafter.SubscribeAll(srv.Bus())
-	}
-	if workers.logbook != nil {
-		workers.logbook.SubscribeTurnObserved(srv.Bus())
-	}
+	// concurrent access. AttachToBus encapsulates the topic set
+	// (Drafter on write events; Logbook on turn.observed +
+	// op.memory.* events).
+	openCentralWorkers().AttachToBus(srv.Bus())
 
 	// Blocks until stdin is closed.
 	srv.Serve(os.Stdin, os.Stdout)

@@ -243,12 +243,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 //     in #240 PR 2.
 func newProjectBus(momDir string, adapters map[string]watcher.Adapter, workers centralWorkers) *herald.Bus {
 	bus := herald.NewBus()
-	if workers.logbook != nil {
-		workers.logbook.SubscribeTurnObserved(bus)
-	}
-	if workers.drafter != nil {
-		workers.drafter.SubscribeAll(bus)
-	}
+	workers.AttachToBus(bus)
 
 	// Logbook: parse transcript → write session metrics to .mom/logs/.
 	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
@@ -558,6 +553,34 @@ func runWatchStatus(momDir string) error {
 type centralWorkers struct {
 	drafter *drafter.Worker
 	logbook *logbook.Worker
+}
+
+// AttachToBus subscribes both workers to the given bus with the
+// correct topic set:
+//
+//   - Drafter consumes turn.observed and memory.record (write path)
+//   - Logbook consumes turn.observed (privacy-projected audit) AND
+//     op.memory.created / op.memory.redacted / op.memory.dropped
+//     (Drafter's outcome events, persisted as audit rows)
+//
+// No-op when the workers are nil — openCentralWorkers returns a zero
+// value when vault.Open fails. The bus continues to function for
+// legacy v1 subscribers in that case.
+//
+// Encapsulating both subscriptions here is the single place a future
+// "what does Logbook record for this bus?" change needs to land.
+func (cw centralWorkers) AttachToBus(bus *herald.Bus) {
+	if cw.drafter != nil {
+		cw.drafter.SubscribeAll(bus)
+	}
+	if cw.logbook != nil {
+		cw.logbook.SubscribeTurnObserved(bus)
+		cw.logbook.SubscribeAll(bus,
+			herald.OpMemoryCreated,
+			herald.OpMemoryRedacted,
+			herald.OpMemoryDropped,
+		)
+	}
 }
 
 // openCentralWorkers opens the central vault at $HOME/.mom/mom.db,

@@ -263,6 +263,116 @@ func TestSubscribeRecord_BypassesFiltersAndStampsProvenance(t *testing.T) {
 	}
 }
 
+// TestOpMemoryEvents_PersistedThroughLogbook locks the F1 fix: when
+// Logbook subscribes to op.memory.* alongside Drafter, every Drafter
+// outcome lands as an op_events row. This is the audit-stream half
+// of the capture pipeline; without it Lens has no "memory was
+// created/redacted/dropped" timeline.
+func TestOpMemoryEvents_PersistedThroughLogbook(t *testing.T) {
+	w, lib := openWorker(t)
+	bus := herald.NewBus()
+	defer w.SubscribeAll(bus)()
+
+	// Logbook listens for op.memory.* events on the same bus.
+	lb := logbook.New(lib)
+	defer lb.SubscribeAll(bus,
+		herald.OpMemoryCreated,
+		herald.OpMemoryRedacted,
+		herald.OpMemoryDropped,
+	)()
+
+	// One clean turn → op.memory.created
+	bus.Publish(herald.Event{
+		Type:      herald.TurnObserved,
+		SessionID: "s",
+		Payload: map[string]any{
+			"role":    "assistant",
+			"text":    "deploy postgres canary, set the connection pool to 50",
+			"harness": "claude-code",
+		},
+	})
+	// One redacted turn → op.memory.redacted
+	bus.Publish(herald.Event{
+		Type:      herald.TurnObserved,
+		SessionID: "s",
+		Payload: map[string]any{
+			"role":    "assistant",
+			"text":    "AKIA1234567890ABCDEF leaked into the deploy step somehow",
+			"harness": "claude-code",
+		},
+	})
+	// One ack-noise turn → op.memory.dropped
+	bus.Publish(herald.Event{
+		Type:      herald.TurnObserved,
+		SessionID: "s",
+		Payload: map[string]any{
+			"role": "user",
+			"text": "ok",
+		},
+	})
+
+	rows, err := lib.QueryOpEvents(librarian.OpEventFilter{SessionID: "s", Limit: 100})
+	if err != nil {
+		t.Fatalf("QueryOpEvents: %v", err)
+	}
+	// Expect: 2 turn.observed (the non-noise ones) + 3 op.memory.*
+	// (created, redacted, dropped). The noise turn doesn't produce a
+	// turn.observed projection because Logbook subscribes to
+	// turn.observed too, but we publish all three turns and Logbook
+	// records every one as turn.observed AND every Drafter outcome.
+	gotTypes := map[string]int{}
+	for _, r := range rows {
+		gotTypes[r.EventType]++
+	}
+	if gotTypes["op.memory.created"] != 1 {
+		t.Errorf("op.memory.created count = %d, want 1", gotTypes["op.memory.created"])
+	}
+	if gotTypes["op.memory.redacted"] != 1 {
+		t.Errorf("op.memory.redacted count = %d, want 1", gotTypes["op.memory.redacted"])
+	}
+	if gotTypes["op.memory.dropped"] != 1 {
+		t.Errorf("op.memory.dropped count = %d, want 1", gotTypes["op.memory.dropped"])
+	}
+}
+
+// TestProcessRecord_AtomicMemoryAndTags locks the F5 fix: a record
+// event with valid tags persists the memory + every tag edge in one
+// transaction. Read-back asserts the memory exists AND every tag is
+// linked.
+func TestProcessRecord_AtomicMemoryAndTags(t *testing.T) {
+	w, lib := openWorker(t)
+	bus := herald.NewBus()
+	defer w.SubscribeRecord(bus)()
+
+	bus.Publish(herald.Event{
+		Type:      herald.MemoryRecord,
+		SessionID: "s",
+		Payload: map[string]any{
+			"content":                  map[string]any{"text": "deploy plan"},
+			"tags":                     []string{"deploy", "postgres", "canary"},
+			"provenance_actor":         "claude-code",
+			"provenance_source_type":   "manual-draft",
+			"provenance_trigger_event": "record",
+		},
+	})
+
+	rows, _ := lib.SearchMemories(librarian.SearchFilter{SessionID: "s", Limit: 10})
+	if len(rows) != 1 {
+		t.Fatalf("got %d memories, want 1", len(rows))
+	}
+	memID := rows[0].ID
+
+	for _, tag := range []string{"deploy", "postgres", "canary"} {
+		ids, err := lib.MemoriesByTag(tag)
+		if err != nil {
+			t.Fatalf("MemoriesByTag(%q): %v", tag, err)
+		}
+		if len(ids) != 1 || ids[0] != memID {
+			t.Errorf("MemoriesByTag(%q) = %v, want [%q]", tag, ids, memID)
+		}
+	}
+}
+
 func TestSubscribeAll_WiresBothEventTypes(t *testing.T) {
 	w, lib := openWorker(t)
 	bus := herald.NewBus()
