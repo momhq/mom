@@ -2,12 +2,11 @@ package logbook_test
 
 import (
 	"errors"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 
+	"github.com/momhq/mom/cli/internal/archtest"
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/librarian"
 	"github.com/momhq/mom/cli/internal/logbook"
@@ -165,24 +164,10 @@ func TestWorker_Subscribe_FanOutWithOtherSubscribers(t *testing.T) {
 
 // TestLogbook_DoesNotImportVault enforces the architectural rule:
 // Logbook is a worker that goes through Librarian; only Librarian
-// touches the Vault package.
-//
-// `go list` without `-deps` returns the package's DIRECT imports only;
-// vault appearing here would mean logbook reaches around librarian
-// instead of through it. Transitive imports (logbook → librarian →
-// vault) are expected and not flagged.
+// touches Vault. Direct-import only — transitive (logbook → librarian
+// → vault) is expected.
 func TestLogbook_DoesNotImportVault(t *testing.T) {
-	cmd := exec.Command("go", "list",
-		"-f", "{{range .Imports}}{{.}}\n{{end}}",
-		"github.com/momhq/mom/cli/internal/logbook")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go list failed: %v\n%s", err, out)
-	}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line == "github.com/momhq/mom/cli/internal/vault" {
-			t.Errorf("logbook imports vault directly; must go through librarian")
-		}
-	}
+	archtest.AssertNoDirectImport(t, ".",
+		"github.com/momhq/mom/cli/internal/vault",
+	)
 }
