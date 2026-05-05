@@ -167,6 +167,7 @@ func (a *ClaudeAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) 
 		Role:      tl.Type,
 		Model:     tl.Message.Model,
 		Provider:  "anthropic",
+		Harness:   "claude-code",
 	}
 	if turn.SessionID == "" {
 		turn.SessionID = sessionID

@@ -9,6 +9,7 @@ package logbook
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/librarian"
@@ -74,11 +75,17 @@ func (w *Worker) Subscribe(bus *herald.Bus, eventType herald.EventType) func() {
 //	role             ("user" | "assistant")
 //	tool_categories  ([]string, derived from tool_calls[].category)
 //	usage            (token counts only, no text)
-//	model, provider
+//	model, provider, harness
 //
 // Raw text and tool inputs from the bus event are NEVER persisted.
 // Drafter is responsible for capturing redacted memories from the
 // same bus event; Logbook only records the audit trail.
+//
+// The persisted row's `created_at` reflects when the turn HAPPENED,
+// not when the watcher saw it. The watcher parses the source
+// timestamp into the bus payload's `created_at` key; Logbook lifts
+// it onto the OpEvent.CreatedAt field so Lens timelines match the
+// transcript even when ingestion runs in catch-up sweep mode.
 //
 // Empty SessionID drops the event with a stderr log (programming-
 // error state). Persistence failures also log to stderr.
@@ -88,19 +95,26 @@ func (w *Worker) SubscribeTurnObserved(bus *herald.Bus) func() {
 			fmt.Fprintf(os.Stderr, "logbook: drop %q event with empty session_id\n", e.Type)
 			return
 		}
-		projected := projectTurnObserved(e.Payload)
-		if err := w.Log(string(e.Type), e.SessionID, projected); err != nil {
+		projected, createdAt := projectTurnObserved(e.Payload)
+		if _, err := w.lib.InsertOpEvent(librarian.OpEvent{
+			EventType: string(e.Type),
+			SessionID: e.SessionID,
+			CreatedAt: createdAt, // zero falls through to InsertOpEvent's now() default
+			Payload:   projected,
+		}); err != nil {
 			fmt.Fprintf(os.Stderr, "logbook: persist %q failed: %v\n", e.Type, err)
 		}
 	})
 }
 
 // projectTurnObserved drops content (text, tool inputs) and keeps
-// only what Lens renders. Public for test access; the projection
-// shape is the contract op_events.payload follows.
-func projectTurnObserved(payload map[string]any) map[string]any {
+// only what Lens renders. Returns the projection map and the
+// turn-occurred timestamp (zero if absent). The caller lifts the
+// timestamp onto OpEvent.CreatedAt so the persisted row reflects
+// when the turn happened, not when the watcher published the event.
+func projectTurnObserved(payload map[string]any) (map[string]any, time.Time) {
 	if payload == nil {
-		return nil
+		return nil, time.Time{}
 	}
 	out := map[string]any{}
 	if role, _ := payload["role"].(string); role != "" {
@@ -111,6 +125,9 @@ func projectTurnObserved(payload map[string]any) map[string]any {
 	}
 	if provider, _ := payload["provider"].(string); provider != "" {
 		out["provider"] = provider
+	}
+	if harness, _ := payload["harness"].(string); harness != "" {
+		out["harness"] = harness
 	}
 
 	// tool_calls is []map[string]any in turn.ToPayload's output;
@@ -123,7 +140,16 @@ func projectTurnObserved(payload map[string]any) map[string]any {
 	if usage, ok := payload["usage"].(map[string]any); ok && usage != nil {
 		out["usage"] = projectUsage(usage)
 	}
-	return out
+
+	// created_at is consumed by the caller (lifted onto
+	// OpEvent.CreatedAt); it does NOT appear in the persisted payload.
+	var createdAt time.Time
+	if v, ok := payload["created_at"]; ok {
+		if t, ok := v.(time.Time); ok {
+			createdAt = t
+		}
+	}
+	return out, createdAt
 }
 
 func extractToolCategories(v any) []string {

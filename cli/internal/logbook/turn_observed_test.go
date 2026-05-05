@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/librarian"
@@ -33,14 +34,17 @@ func TestSubscribeTurnObserved_PersistsMetadataProjection(t *testing.T) {
 	bus := herald.NewBus()
 	defer w.SubscribeTurnObserved(bus)()
 
+	turnedAt := time.Date(2026, 5, 4, 10, 0, 0, 0, time.UTC)
+
 	// Publish a turn that contains raw text AND a tool input with a
 	// secret-shaped string that Drafter would normally redact.
 	bus.Publish(herald.Event{
 		Type:      herald.TurnObserved,
 		SessionID: "s-test",
 		Payload: map[string]any{
-			"role": "assistant",
-			"text": "I'll deploy now using AKIA1234567890ABCDEF",
+			"role":       "assistant",
+			"created_at": turnedAt,
+			"text":       "I'll deploy now using AKIA1234567890ABCDEF",
 			"tool_calls": []map[string]any{
 				{
 					"name":     "Read",
@@ -64,6 +68,7 @@ func TestSubscribeTurnObserved_PersistsMetadataProjection(t *testing.T) {
 			},
 			"model":    "claude-sonnet-4-6",
 			"provider": "anthropic",
+			"harness":  "claude-code",
 		},
 	})
 
@@ -88,6 +93,20 @@ func TestSubscribeTurnObserved_PersistsMetadataProjection(t *testing.T) {
 	}
 	if got, _ := row.Payload["provider"].(string); got != "anthropic" {
 		t.Errorf("provider = %v", row.Payload["provider"])
+	}
+	if got, _ := row.Payload["harness"].(string); got != "claude-code" {
+		t.Errorf("harness = %v, want claude-code", row.Payload["harness"])
+	}
+
+	// CreatedAt: the persisted row's created_at must reflect the
+	// turn-occurred time, not the bus publish time.
+	gap := row.CreatedAt.Sub(turnedAt)
+	if gap < -time.Second || gap > time.Second {
+		t.Errorf("row.CreatedAt = %v, want close to %v (turn-occurred)", row.CreatedAt, turnedAt)
+	}
+	// created_at must NOT appear in the persisted payload.
+	if _, present := row.Payload["created_at"]; present {
+		t.Error("created_at leaked into the persisted payload; should be on OpEvent.CreatedAt only")
 	}
 	cats, _ := row.Payload["tool_categories"].([]any)
 	if len(cats) != 2 {

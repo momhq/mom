@@ -155,7 +155,10 @@ func sweepTranscripts(momDir string) {
 	for _, src := range sources {
 		adapterMap[src.Harness] = src.Adapter
 	}
-	bus := newProjectBus(momDir, adapterMap)
+	// Best-effort sweep — open the central vault on the spot. The
+	// helper is short-lived so leaving the vault uncloned is fine
+	// for this one-shot path.
+	bus := newProjectBus(momDir, adapterMap, openCentralLogbook())
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
 		MomDir:     momDir,

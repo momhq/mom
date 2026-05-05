@@ -160,7 +160,7 @@ func (a *WindsurfAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool
 		Timestamp: time.Now().UTC(),
 		Role:      role,
 		Text:      entry.Text,
-		Provider:  "codeium",
+		Harness:   "windsurf",
 	}, true
 }
 

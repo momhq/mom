@@ -19,8 +19,13 @@ type Turn struct {
 	Text      string
 	ToolCalls []ToolCall
 	Usage     *Usage
-	Model     string // empty when the harness does not surface it
-	Provider  string // empty when the harness does not surface it
+
+	// Three orthogonal identity fields, each answering a different
+	// question. Any may be empty when the source transcript does not
+	// surface the data.
+	Model    string // "the model": e.g. "claude-sonnet-4-6", "gpt-4o"
+	Provider string // "provided by whom": model vendor — "anthropic", "openai", …
+	Harness  string // "used in which client": "claude-code", "codex", "windsurf", "pi"
 }
 
 // ToolCall is one tool invocation observed in an assistant turn.

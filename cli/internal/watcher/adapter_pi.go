@@ -298,7 +298,7 @@ func (a *PiAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 		Timestamp: time.Now().UTC(),
 		Role:      strings.TrimPrefix(entry.Event, "watch-"),
 		Text:      entry.Text,
-		Provider:  "pi",
+		Harness:   "pi",
 	}, true
 }
 
