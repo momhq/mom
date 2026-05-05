@@ -214,6 +214,32 @@ type OperationalUpdate struct {
 	CentralityScore *float64
 }
 
+// Delete removes a memory by id. ON DELETE CASCADE on memory_tags
+// and memory_entities (per migration 2) cleans up edges
+// automatically; tag and entity rows themselves are untouched.
+//
+// Returns ErrNotFound if no memory matches. Substance is gone after
+// this call — there is no recovery.
+func (l *Librarian) Delete(id string) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("Delete: id: %w", ErrEmptyArg)
+	}
+	return l.v.Tx(func(tx *sql.Tx) error {
+		res, err := tx.Exec(`DELETE FROM memories WHERE id = ?`, id)
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
+}
+
 // UpdateOperational mutates only the operational columns of a memory.
 // Substance columns are unreachable through this API. Empty patches
 // are a no-op success.
