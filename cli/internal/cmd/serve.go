@@ -80,6 +80,17 @@ func runServeMCP(_ *cobra.Command, _ []string) error {
 
 	mcp.Version = Version
 	srv := mcp.New(sc.Path)
+
+	// Wire central-vault workers (Drafter + Logbook) onto the MCP
+	// server's bus so mom_record events are persisted, and so any
+	// turn.observed events the MCP process generates (none today,
+	// but future hooks will) are recorded. Same workers as the
+	// watcher — opened against $HOME/.mom/mom.db with WAL-safe
+	// concurrent access. AttachToBus encapsulates the topic set
+	// (Drafter on write events; Logbook on turn.observed +
+	// op.memory.* events).
+	openCentralWorkers().AttachToBus(srv.Bus())
+
 	// Blocks until stdin is closed.
 	srv.Serve(os.Stdin, os.Stdout)
 	return nil

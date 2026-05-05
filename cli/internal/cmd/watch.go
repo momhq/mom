@@ -113,7 +113,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	// Open the central vault once for this watch process. Worker is
 	// shared across the per-project buses below.
-	centralLogbook := openCentralLogbook()
+	workers := openCentralWorkers()
 
 	// Build watcher sources: if --harness is explicitly set, use single source;
 	// otherwise read config and watch all enabled harnesses.
@@ -162,7 +162,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		for _, src := range sources {
 			adapterMap[src.Harness] = src.Adapter
 		}
-		bus := newProjectBus(momDir, adapterMap, centralLogbook)
+		bus := newProjectBus(momDir, adapterMap, workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projectDir,
 			MomDir:     momDir,
@@ -190,7 +190,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	for _, src := range sources {
 		adapterMap[src.Harness] = src.Adapter
 	}
-	bus := newProjectBus(momDir, adapterMap, centralLogbook)
+	bus := newProjectBus(momDir, adapterMap, workers)
 
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
@@ -241,11 +241,9 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 //     persisting metadata projections through Librarian into the
 //     central vault at $HOME/.mom/mom.db. Drafter joins this path
 //     in #240 PR 2.
-func newProjectBus(momDir string, adapters map[string]watcher.Adapter, lb *logbook.Worker) *herald.Bus {
+func newProjectBus(momDir string, adapters map[string]watcher.Adapter, workers centralWorkers) *herald.Bus {
 	bus := herald.NewBus()
-	if lb != nil {
-		lb.SubscribeTurnObserved(bus)
-	}
+	workers.AttachToBus(bus)
 
 	// Logbook: parse transcript → write session metrics to .mom/logs/.
 	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
@@ -320,7 +318,7 @@ func runWatchGlobal(sweepOnly bool) error {
 	// Open the central vault ONCE for the entire global daemon. The
 	// same Logbook worker is shared across every per-project bus
 	// below — no N-vault-handle leak in multi-project mode.
-	centralLogbook := openCentralLogbook()
+	workers := openCentralWorkers()
 
 	if sweepOnly {
 		p := ux.NewPrinter(os.Stderr)
@@ -340,7 +338,7 @@ func runWatchGlobal(sweepOnly bool) error {
 			for _, src := range sources {
 				adapterMap[src.Harness] = src.Adapter
 			}
-			bus := newProjectBus(entry.MomDir, adapterMap, centralLogbook)
+			bus := newProjectBus(entry.MomDir, adapterMap, workers)
 			w, err := watcher.New(watcher.Config{
 				ProjectDir: projDir,
 				MomDir:     entry.MomDir,
@@ -392,7 +390,7 @@ func runWatchGlobal(sweepOnly bool) error {
 		for _, src := range sources {
 			adapterMap[src.Harness] = src.Adapter
 		}
-		bus := newProjectBus(entry.MomDir, adapterMap, centralLogbook)
+		bus := newProjectBus(entry.MomDir, adapterMap, workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projDir,
 			MomDir:     entry.MomDir,
@@ -547,13 +545,51 @@ func runWatchStatus(momDir string) error {
 	return nil
 }
 
-// openCentralLogbook opens the central vault at $HOME/.mom/mom.db,
-// runs migrations, and constructs a Logbook worker bound to it.
-// Returns nil + logs to stderr on any failure (HOME resolution,
-// MkdirAll, vault.Open) — the caller can still use the bus for
-// legacy subscribers.
+// centralWorkers bundles the two Herald subscribers that need a
+// Librarian: Drafter (filter pipeline + memory persistence) and
+// Logbook (operational stream). Returned together because they share
+// the same Vault — we open the vault once per process and use it for
+// both.
+type centralWorkers struct {
+	drafter *drafter.Worker
+	logbook *logbook.Worker
+}
+
+// AttachToBus subscribes both workers to the given bus with the
+// correct topic set:
 //
-// Called once per process, NOT per project. The same worker is
+//   - Drafter consumes turn.observed and memory.record (write path)
+//   - Logbook consumes turn.observed (privacy-projected audit) AND
+//     op.memory.created / op.memory.redacted / op.memory.dropped
+//     (Drafter's outcome events, persisted as audit rows)
+//
+// No-op when the workers are nil — openCentralWorkers returns a zero
+// value when vault.Open fails. The bus continues to function for
+// legacy v1 subscribers in that case.
+//
+// Encapsulating both subscriptions here is the single place a future
+// "what does Logbook record for this bus?" change needs to land.
+func (cw centralWorkers) AttachToBus(bus *herald.Bus) {
+	if cw.drafter != nil {
+		cw.drafter.SubscribeAll(bus)
+	}
+	if cw.logbook != nil {
+		cw.logbook.SubscribeTurnObserved(bus)
+		cw.logbook.SubscribeAll(bus,
+			herald.OpMemoryCreated,
+			herald.OpMemoryRedacted,
+			herald.OpMemoryDropped,
+		)
+	}
+}
+
+// openCentralWorkers opens the central vault at $HOME/.mom/mom.db,
+// runs migrations, and constructs the workers bound to it. Returns
+// zero values + logs to stderr on any failure (HOME resolution,
+// MkdirAll, vault.Open) — callers can still use the bus for legacy
+// subscribers.
+//
+// Called once per process, NOT per project. The same workers are
 // subscribed to every project's bus by newProjectBus; SQLite WAL +
 // the librarian/vault concurrency contract keep this safe across
 // goroutines.
@@ -562,23 +598,27 @@ func runWatchStatus(momDir string) error {
 // the lifecycle; on shutdown the OS reclaims the handle. A future
 // refactor should plumb an explicit Close, but for alpha this is
 // acceptable.
-func openCentralLogbook() *logbook.Worker {
+func openCentralWorkers() centralWorkers {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "watch: cannot resolve $HOME: %v — central Logbook not wired\n", err)
-		return nil
+		fmt.Fprintf(os.Stderr, "watch: cannot resolve $HOME: %v — central workers not wired\n", err)
+		return centralWorkers{}
 	}
 	momHome := filepath.Join(home, ".mom")
 	if err := os.MkdirAll(momHome, 0o700); err != nil {
-		fmt.Fprintf(os.Stderr, "watch: cannot create %s: %v — central Logbook not wired\n", momHome, err)
-		return nil
+		fmt.Fprintf(os.Stderr, "watch: cannot create %s: %v — central workers not wired\n", momHome, err)
+		return centralWorkers{}
 	}
 	dbPath := filepath.Join(momHome, "mom.db")
 	migs := append(librarian.Migrations(), logbook.Migrations()...)
 	v, err := vault.Open(dbPath, migs)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "watch: vault.Open %s: %v — central Logbook not wired\n", dbPath, err)
-		return nil
+		fmt.Fprintf(os.Stderr, "watch: vault.Open %s: %v — central workers not wired\n", dbPath, err)
+		return centralWorkers{}
 	}
-	return logbook.New(librarian.New(v))
+	lib := librarian.New(v)
+	return centralWorkers{
+		drafter: drafter.NewWorker(lib),
+		logbook: logbook.New(lib),
+	}
 }

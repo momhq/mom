@@ -9,15 +9,14 @@ import (
 	"github.com/momhq/mom/cli/internal/librarian"
 )
 
-// MemoryRecordEventType is the v0.30 Herald event type the mom_record
-// MCP handler publishes. Drafter subscribes to this type, applies the
-// explicit-write filter bypass (per ADR 0014), stamps provenance, and
-// persists the memory through Librarian.
-//
-// Producers other than mom_record SHOULD NOT publish this type — it
-// represents the "user intentionally saved" path that bypasses
-// content-shaped filters. Watcher-driven captures use a different type.
-const MemoryRecordEventType herald.EventType = "memory.record"
+// MemoryRecordEventType is re-exported from herald for backwards
+// compatibility. The canonical definition lives in herald —
+// herald.MemoryRecord — and both Drafter (subscriber) and this MCP
+// handler (publisher) use it. Producers other than mom_record SHOULD
+// NOT publish this type; it represents the "user intentionally saved"
+// path that bypasses content-shaped filters. Watcher-driven captures
+// use herald.TurnObserved instead.
+var MemoryRecordEventType = herald.MemoryRecord
 
 // MemoryRecordPayload is the canonical payload shape for memory.record
 // events. Drafter reads these fields verbatim; nothing else inspects
@@ -92,7 +91,7 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 	}
 
 	s.bus.Publish(herald.Event{
-		Type:      MemoryRecordEventType,
+		Type:      herald.MemoryRecord,
 		SessionID: payload.SessionID,
 		Payload:   payloadAsMap(payload),
 	})

@@ -107,37 +107,118 @@ type InsertMemory struct {
 // CHECK(json_valid(content)) and NOT NULL session_id back the
 // API-layer guard as defense in depth.
 func (l *Librarian) Insert(m InsertMemory) (string, error) {
+	id, err := l.validateInsert(&m)
+	if err != nil {
+		return "", err
+	}
+	if err := l.v.Tx(func(tx *sql.Tx) error {
+		return l.insertMemoryRow(tx, id, m)
+	}); err != nil {
+		return "", fmt.Errorf("Insert: %w", err)
+	}
+	return id, nil
+}
+
+// InsertMemoryWithTags appends a memory row AND links it to every
+// named tag in one transaction. Any failure (memory insert, tag
+// upsert, edge link) rolls the whole operation back — there is no
+// orphan-memory state.
+//
+// Tags are upserted atomically with INSERT … ON CONFLICT(name) DO
+// NOTHING; concurrent calls for the same tag name see the same id
+// regardless of which one inserted. Empty/whitespace tag names are
+// rejected with ErrEmptyArg before any DB I/O. Callers should
+// normalise tag names via NormalizeTagName before calling.
+//
+// Returns the minted memory ID. On error, no rows have been written.
+func (l *Librarian) InsertMemoryWithTags(m InsertMemory, tags []string) (string, error) {
+	id, err := l.validateInsert(&m)
+	if err != nil {
+		return "", err
+	}
+	for i, name := range tags {
+		if strings.TrimSpace(name) == "" {
+			return "", fmt.Errorf("InsertMemoryWithTags: tags[%d]: %w", i, ErrEmptyArg)
+		}
+	}
+
+	if err := l.v.Tx(func(tx *sql.Tx) error {
+		if err := l.insertMemoryRow(tx, id, m); err != nil {
+			return err
+		}
+		for _, name := range tags {
+			tagID, err := l.upsertTagInTx(tx, name)
+			if err != nil {
+				return fmt.Errorf("upsert tag %q: %w", name, err)
+			}
+			if _, err := tx.Exec(
+				`INSERT OR IGNORE INTO memory_tags (memory_id, tag_id, created_at)
+				 VALUES (?, ?, ?)`,
+				id, tagID, formatTime(l.now()),
+			); err != nil {
+				return fmt.Errorf("link tag %q: %w", name, err)
+			}
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("InsertMemoryWithTags: %w", err)
+	}
+	return id, nil
+}
+
+// validateInsert mints the memory ID and applies the v0.30 input
+// rules (non-empty session_id, non-empty content). Pure — no DB I/O.
+// Defaults Type to "untyped" and CreatedAt to now() in place on the
+// passed pointer so callers see the resolved values when they
+// inspect after the call.
+func (l *Librarian) validateInsert(m *InsertMemory) (string, error) {
 	if strings.TrimSpace(m.SessionID) == "" {
-		return "", fmt.Errorf("Insert: session_id: %w", ErrEmptyArg)
+		return "", fmt.Errorf("validate: session_id: %w", ErrEmptyArg)
 	}
 	if strings.TrimSpace(m.Content) == "" {
-		return "", fmt.Errorf("Insert: content: %w", ErrEmptyArg)
+		return "", fmt.Errorf("validate: content: %w", ErrEmptyArg)
 	}
-	t := m.Type
-	if t == "" {
-		t = "untyped"
+	if m.Type == "" {
+		m.Type = "untyped"
 	}
-	createdAt := m.CreatedAt
-	if createdAt.IsZero() {
-		createdAt = l.now()
+	if m.CreatedAt.IsZero() {
+		m.CreatedAt = l.now()
 	}
-	id := uuid.NewString()
+	return uuid.NewString(), nil
+}
 
-	err := l.v.Tx(func(tx *sql.Tx) error {
-		_, err := tx.Exec(
-			`INSERT INTO memories
-			   (id, type, summary, content, created_at, session_id,
-			    provenance_actor, provenance_source_type, provenance_trigger_event)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, t, m.Summary, m.Content, formatTime(createdAt), m.SessionID,
-			nullableStr(m.ProvenanceActor),
-			nullableStr(m.ProvenanceSourceType),
-			nullableStr(m.ProvenanceTriggerEvent),
-		)
-		return err
-	})
-	if err != nil {
-		return "", fmt.Errorf("Insert: %w", err)
+// insertMemoryRow runs the core INSERT INTO memories statement on an
+// existing transaction. Used by both Insert and InsertMemoryWithTags
+// so the SQL lives in one place.
+func (l *Librarian) insertMemoryRow(tx *sql.Tx, id string, m InsertMemory) error {
+	_, err := tx.Exec(
+		`INSERT INTO memories
+		   (id, type, summary, content, created_at, session_id,
+		    provenance_actor, provenance_source_type, provenance_trigger_event)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, m.Type, m.Summary, m.Content, formatTime(m.CreatedAt), m.SessionID,
+		nullableStr(m.ProvenanceActor),
+		nullableStr(m.ProvenanceSourceType),
+		nullableStr(m.ProvenanceTriggerEvent),
+	)
+	return err
+}
+
+// upsertTagInTx runs the same atomic upsert as UpsertTag but inside
+// an existing transaction. Tag names must be non-empty (caller's
+// responsibility — InsertMemoryWithTags validates upfront).
+func (l *Librarian) upsertTagInTx(tx *sql.Tx, name string) (string, error) {
+	newID := uuid.NewString()
+	if _, err := tx.Exec(
+		`INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)
+		 ON CONFLICT(name) DO NOTHING`,
+		newID, name, formatTime(l.now()),
+	); err != nil {
+		return "", err
+	}
+	var id string
+	if err := tx.QueryRow(`SELECT id FROM tags WHERE name = ?`, name).Scan(&id); err != nil {
+		return "", err
 	}
 	return id, nil
 }
