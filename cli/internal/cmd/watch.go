@@ -12,7 +12,6 @@ import (
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/momhq/mom/cli/internal/adapters/storage"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/daemon"
 	"github.com/momhq/mom/cli/internal/drafter"
@@ -277,33 +276,9 @@ func newProjectBus(momDir string, adapters map[string]watcher.Adapter, workers c
 		_ = os.WriteFile(outPath, append(data, '\n'), 0644)
 	})
 
-	// Drafter: process raw → write draft memories to .mom/memory/.
-	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
-		md, _ := e.Payload["mom_dir"].(string)
-		if md == "" {
-			return
-		}
-		rawDir := filepath.Join(md, "raw")
-		memDir := filepath.Join(md, "memory")
-		_ = os.MkdirAll(memDir, 0755)
-
-		since := lastDraftTime(md)
-		vocabFn := func() []string { return collectVocab(memDir) }
-
-		d := drafter.New(rawDir, memDir, vocabFn)
-		drafts, err := d.Process(since)
-		if err != nil || len(drafts) == 0 {
-			return
-		}
-
-		idx := storage.NewIndexedAdapter(md)
-		defer idx.Close()
-
-		for _, dr := range drafts {
-			_ = writeDraftDoc(idx, memDir, dr)
-		}
-		updateDraftMarker(md)
-	})
+	// v1 file-based drafter (RecordAppended → .mom/memory/*.json) was
+	// retired in #240 PR 3. Drafter now consumes turn.observed via
+	// centralWorkers.AttachToBus and persists into the central vault.
 
 	return bus
 }
@@ -551,7 +526,7 @@ func runWatchStatus(momDir string) error {
 // the same Vault — we open the vault once per process and use it for
 // both.
 type centralWorkers struct {
-	drafter *drafter.Worker
+	drafter *drafter.Drafter
 	logbook *logbook.Worker
 }
 
@@ -618,7 +593,7 @@ func openCentralWorkers() centralWorkers {
 	}
 	lib := librarian.New(v)
 	return centralWorkers{
-		drafter: drafter.NewWorker(lib),
+		drafter: drafter.New(lib),
 		logbook: logbook.New(lib),
 	}
 }
