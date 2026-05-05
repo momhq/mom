@@ -3,6 +3,7 @@ package librarian_test
 import (
 	"errors"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -236,30 +237,49 @@ func TestUpdateOperational_RejectsEmptyID(t *testing.T) {
 
 // ── Substance immutability — locked by the API surface ────────────────────────
 
-// TestSubstanceImmutability documents which struct fields on
-// OperationalUpdate exist and which substance fields cannot be reached
-// through it. If a future maintainer adds a substance field to the
-// patch type (Content *string, SessionID *string, etc.), this test
-// fails — guarding the API contract from drift.
-func TestSubstanceImmutability_OperationalUpdateFieldsAreOperationalOnly(t *testing.T) {
-	// Reflection-free check: the public fields on OperationalUpdate
-	// must be exactly the operational-mutable set per ADR 0011.
+// TestSubstanceImmutability_OperationalUpdateShape uses reflect to
+// enforce that OperationalUpdate has EXACTLY the four operational-
+// mutable fields per ADR 0011 — Type, PromotionState, Landmark,
+// CentralityScore. Adding a substance field (Content, SessionID,
+// CreatedAt, Provenance*) to the struct then fails this test, even
+// if no caller uses the new field. This is the actual contract guard
+// — reflection over the type, not behaviour over an instance.
+func TestSubstanceImmutability_OperationalUpdateShape(t *testing.T) {
 	allowed := map[string]bool{
-		"Type": true, "PromotionState": true, "Landmark": true, "CentralityScore": true,
+		"Type":            true,
+		"PromotionState":  true,
+		"Landmark":        true,
+		"CentralityScore": true,
 	}
-	// Round-trip through Insert + Get to confirm substance fields are
-	// not re-write-able through any public path on Librarian. The only
-	// post-Insert mutator is UpdateOperational, which lacks the
-	// substance fields on its struct entirely. (See type definition.)
+	tt := reflect.TypeOf(librarian.OperationalUpdate{})
+	if tt.Kind() != reflect.Struct {
+		t.Fatalf("OperationalUpdate is %v, want struct", tt.Kind())
+	}
+	for i := 0; i < tt.NumField(); i++ {
+		f := tt.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		if !allowed[f.Name] {
+			t.Errorf("OperationalUpdate has unexpected field %q — substance field leaked into the patch type, violating ADR 0011", f.Name)
+		}
+		delete(allowed, f.Name)
+	}
+	for missing := range allowed {
+		t.Errorf("OperationalUpdate is missing the operational field %q", missing)
+	}
+}
+
+// TestSubstanceImmutability_RoundTripDoesNotMutateSubstance is the
+// behavioural complement to the shape test above: even with every
+// operational field exercised through UpdateOperational, the
+// substance columns on the row stay byte-identical.
+func TestSubstanceImmutability_RoundTripDoesNotMutateSubstance(t *testing.T) {
 	l := openLib(t)
 	id, _ := l.Insert(validInsert())
 	got1, _ := l.Get(id)
 
-	// Apply every legal operational field once to exercise the path.
-	t1 := "episodic"
-	st := "curated"
-	lm := true
-	sc := 1.0
+	t1, st, lm, sc := "episodic", "curated", true, 1.0
 	if err := l.UpdateOperational(id, librarian.OperationalUpdate{
 		Type: &t1, PromotionState: &st, Landmark: &lm, CentralityScore: &sc,
 	}); err != nil {
@@ -281,5 +301,4 @@ func TestSubstanceImmutability_OperationalUpdateFieldsAreOperationalOnly(t *test
 		got2.ProvenanceTriggerEvent != got1.ProvenanceTriggerEvent {
 		t.Error("Provenance changed despite only operational update")
 	}
-	_ = allowed // intentionally held in scope for documentation
 }

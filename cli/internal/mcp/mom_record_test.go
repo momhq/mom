@@ -228,13 +228,45 @@ func TestServer_BusIsAccessibleAndDistinctPerInstance(t *testing.T) {
 	if a.Bus() == b.Bus() {
 		t.Fatal("two Servers share the same Bus pointer")
 	}
+	// Same-instance idempotence: Bus() must return the same pointer
+	// across calls. A future refactor that allocates a fresh bus per
+	// call silently breaks every subscribe/publish test that uses
+	// srv.Bus() then publishes via toolMomRecord.
+	if a.Bus() != a.Bus() {
+		t.Fatal("Server.Bus() not idempotent on same instance")
+	}
 }
 
 func TestServer_SetBusReplacesTheBus(t *testing.T) {
 	srv := New(t.TempDir())
+	old := srv.Bus()
+
+	// Subscribe on the OLD bus before swapping.
+	var oldBusFires atomic.Int64
+	old.Subscribe(MemoryRecordEventType, func(e herald.Event) { oldBusFires.Add(1) })
+
 	custom := herald.NewBus()
 	srv.SetBus(custom)
 	if srv.Bus() != custom {
 		t.Fatal("SetBus did not replace the bus")
+	}
+
+	// Subscribe on the NEW bus.
+	var newBusFires atomic.Int64
+	custom.Subscribe(MemoryRecordEventType, func(e herald.Event) { newBusFires.Add(1) })
+
+	// Publish via the handler — should hit ONLY the new bus.
+	if _, err := srv.toolMomRecord(map[string]any{
+		"session_id": "s",
+		"content":    map[string]any{"text": "x"},
+	}); err != nil {
+		t.Fatalf("toolMomRecord: %v", err)
+	}
+
+	if got := oldBusFires.Load(); got != 0 {
+		t.Errorf("old bus subscriber fired %d times after SetBus; want 0 (publish should not leak)", got)
+	}
+	if got := newBusFires.Load(); got != 1 {
+		t.Errorf("new bus subscriber fired %d times; want 1", got)
 	}
 }

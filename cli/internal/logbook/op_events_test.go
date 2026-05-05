@@ -165,17 +165,35 @@ func TestQueryOpEvents_FilterBySinceUntilWindow(t *testing.T) {
 
 func TestQueryOpEvents_DefaultLimit_100(t *testing.T) {
 	l := openLibWithLogbook(t)
+	// Insert 105 rows with ascending timestamps so ID order matches
+	// time order. The contract is "return the most recent 100 rows
+	// in DESC order" — len==100 alone doesn't lock that, an ASC
+	// regression would still pass len==100 but return the OLDEST
+	// 100 instead.
+	t0 := time.Date(2026, 5, 5, 12, 0, 0, 0, time.UTC)
+	ids := make([]int64, 105)
 	for i := 0; i < 105; i++ {
-		_, err := l.InsertOpEvent(librarian.OpEvent{
-			EventType: "op.x", SessionID: "s",
+		id, err := l.InsertOpEvent(librarian.OpEvent{
+			EventType: "op.x",
+			SessionID: "s",
+			CreatedAt: t0.Add(time.Duration(i) * time.Second),
 		})
 		if err != nil {
 			t.Fatalf("Insert %d: %v", i, err)
 		}
+		ids[i] = id
 	}
 	rows, _ := l.QueryOpEvents(librarian.OpEventFilter{})
 	if len(rows) != 100 {
 		t.Fatalf("default limit: got %d rows, want 100", len(rows))
+	}
+	// Ordering: most recent first. rows[0] must be the row with the
+	// LAST id (= 105th insert); rows[99] must be the 6th insert.
+	if rows[0].ID != ids[104] {
+		t.Errorf("rows[0].ID = %d, want %d (most recent)", rows[0].ID, ids[104])
+	}
+	if rows[99].ID != ids[5] {
+		t.Errorf("rows[99].ID = %d, want %d (the 6th-oldest survives the limit)", rows[99].ID, ids[5])
 	}
 }
 
