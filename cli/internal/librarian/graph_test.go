@@ -243,18 +243,11 @@ func TestLinkEntity_AndQueryByEntity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MemoriesByEntity: %v", err)
 	}
-	// Even though there are two edges (created_by + mentions), the
-	// memory should appear at least once (DISTINCT semantics may vary;
-	// here we only assert the memory is reachable).
-	found := false
-	for _, id := range ids {
-		if id == mid {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("MemoriesByEntity = %v, missing %q", ids, mid)
+	// Two edges (created_by + mentions) on the same memory must yield
+	// ONE result, not two. The contract is "memories referencing this
+	// entity," not "edges." Locked by SELECT DISTINCT in the query.
+	if len(ids) != 1 || ids[0] != mid {
+		t.Fatalf("MemoriesByEntity = %v, want exactly one entry [%q] (DISTINCT contract)", ids, mid)
 	}
 }
 

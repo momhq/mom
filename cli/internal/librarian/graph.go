@@ -238,8 +238,13 @@ func (l *Librarian) MemoriesByEntity(entityType, displayName string) ([]string, 
 		return nil, fmt.Errorf("MemoriesByEntity: %w", ErrEmptyArg)
 	}
 	ids := []string{}
+	// SELECT DISTINCT — a memory linked to one entity under multiple
+	// relationships ("created_by" + "mentions") would otherwise appear
+	// once per edge. The contract of MemoriesByEntity is "memories that
+	// reference this entity," not "edges to this entity," so dedupe at
+	// the SQL level.
 	err := l.v.Query(
-		`SELECT m.id FROM memories m
+		`SELECT DISTINCT m.id FROM memories m
 		   JOIN memory_entities me ON me.memory_id = m.id
 		   JOIN entities e         ON e.id        = me.entity_id
 		  WHERE e.type = ? AND e.display_name = ?

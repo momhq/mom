@@ -120,14 +120,26 @@ func (v *Vault) Close() error {
 	return err
 }
 
-// validateMigrations enforces strictly increasing versions with no
-// duplicates. Pure function, called before any DB I/O so a bad slice
-// fails fast and leaves no half-initialised vault.
+// validateMigrations enforces strictly increasing positive versions
+// with no duplicates and at least one statement per migration. Pure
+// function, called before any DB I/O so a bad slice fails fast and
+// leaves no half-initialised vault.
+//
+// Rejecting Version <= 0 reserves zero/negative version space; future
+// internal bookkeeping can use it without ambiguity. Rejecting empty
+// Stmts catches the placeholder-migration footgun where a caller
+// forgets to fill in the body.
 func validateMigrations(ms []Migration) error {
-	for i := 1; i < len(ms); i++ {
-		if ms[i].Version <= ms[i-1].Version {
+	for i, m := range ms {
+		if m.Version <= 0 {
+			return fmt.Errorf("migration version %d is non-positive (must be > 0)", m.Version)
+		}
+		if len(m.Stmts) == 0 {
+			return fmt.Errorf("migration version %d has no statements", m.Version)
+		}
+		if i > 0 && m.Version <= ms[i-1].Version {
 			return fmt.Errorf("migration version %d follows %d (must be strictly increasing)",
-				ms[i].Version, ms[i-1].Version)
+				m.Version, ms[i-1].Version)
 		}
 	}
 	return nil

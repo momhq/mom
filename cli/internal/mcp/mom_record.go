@@ -122,11 +122,13 @@ func normaliseTagsOrReject(raw []string) ([]string, error) {
 	return out, nil
 }
 
-// requireMapArg returns the named argument as a map[string]any. Empty
-// or missing maps are rejected.
+// requireMapArg returns the named argument as a map[string]any. Each
+// failure mode gets its own message so callers can tell "I forgot to
+// pass it" from "I passed something but the wrong shape" from "I
+// passed an object but it had no fields."
 func requireMapArg(args map[string]any, key string) (map[string]any, error) {
 	v, ok := args[key]
-	if !ok {
+	if !ok || v == nil {
 		return nil, fmt.Errorf("%s is required", key)
 	}
 	m, ok := v.(map[string]any)
@@ -134,7 +136,7 @@ func requireMapArg(args map[string]any, key string) (map[string]any, error) {
 		return nil, fmt.Errorf("%s must be an object", key)
 	}
 	if len(m) == 0 {
-		return nil, fmt.Errorf("%s is required", key)
+		return nil, fmt.Errorf("%s cannot be empty (must contain at least one field)", key)
 	}
 	return m, nil
 }

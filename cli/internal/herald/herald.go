@@ -75,10 +75,18 @@ func NewBus() *Bus {
 // handlers per type are supported; each receives its own copy of the
 // event when Publish fires.
 //
+// An empty eventType is rejected with a stderr log and returns a no-op
+// unsubscribe — empty is always a programming-error producer typo, and
+// silently registering against the empty key would be a black hole.
+//
 // The returned function deregisters this specific handler. It is
 // idempotent — calling it more than once is a no-op and does not affect
 // other subscribers.
 func (b *Bus) Subscribe(eventType EventType, handler Handler) func() {
+	if eventType == "" {
+		fmt.Fprintln(os.Stderr, "herald: Subscribe called with empty eventType — ignored")
+		return func() {}
+	}
 	b.mu.Lock()
 	id := b.nextID
 	b.nextID++
@@ -108,6 +116,11 @@ func (b *Bus) Subscribe(eventType EventType, handler Handler) func() {
 // one handler is recovered and logged to stderr; the remaining
 // handlers still fire. The panicking handler stays registered.
 //
+// An empty Type is rejected with a stderr log and the publish is a
+// no-op — empty is always a producer typo. Without the guard it
+// silently routes to the empty-key bucket and reaches no real
+// subscriber.
+//
 // Publish always stamps Timestamp with wall-clock UTC, overwriting any
 // value the caller may have set. The bus is the sole authority for
 // event timing.
@@ -115,6 +128,10 @@ func (b *Bus) Subscribe(eventType EventType, handler Handler) func() {
 // stdout is reserved for JSON-RPC output by the MCP server, so all
 // recovered-panic logging goes to stderr.
 func (b *Bus) Publish(e Event) {
+	if e.Type == "" {
+		fmt.Fprintln(os.Stderr, "herald: Publish called with empty Event.Type — dropped")
+		return
+	}
 	b.mu.RLock()
 	hs := b.entries[e.Type]
 	if len(hs) == 0 {

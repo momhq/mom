@@ -50,16 +50,18 @@ const timestampFormat = "2006-01-02T15:04:05.000000000Z07:00"
 // formatTime renders a UTC time in the canonical Librarian format.
 func formatTime(t time.Time) string { return t.UTC().Format(timestampFormat) }
 
-// parseTime parses a stored timestamp, falling back to RFC3339Nano for
-// forward-compat with rows written by older code paths.
+// parseTime parses a stored timestamp using Librarian's canonical
+// fixed-width format. v0.30 has never written any other format on
+// these tables, so there's no RFC3339Nano fallback to defend against.
+// If a future import path ingests legacy rows, this is the place to
+// add format tolerance — narrowly scoped to the import boundary, not
+// the read path.
 func parseTime(s string) (time.Time, error) {
-	if t, err := time.Parse(timestampFormat, s); err == nil {
-		return t, nil
+	t, err := time.Parse(timestampFormat, s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse timestamp %q: %w", s, err)
 	}
-	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return t, nil
-	}
-	return time.Time{}, fmt.Errorf("parse timestamp %q", s)
+	return t, nil
 }
 
 // ── memory CRUD ───────────────────────────────────────────────────────────────

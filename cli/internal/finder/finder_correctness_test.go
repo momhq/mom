@@ -38,8 +38,8 @@ func TestRecall_AllPassesThinReturnsLastTier(t *testing.T) {
 			t.Fatalf("got %v, want [%q]", got, mid)
 		}
 		// Last pass is draft-or for multi-token + IncludeDrafts=false.
-		if got[0].Tier != "draft-or" {
-			t.Errorf("Tier = %q, want draft-or (last pass for multi-token)", got[0].Tier)
+		if got[0].Tier != finder.TierDraftOR {
+			t.Errorf("Tier = %q, want %q (last pass for multi-token)", got[0].Tier, finder.TierDraftOR)
 		}
 	})
 
@@ -55,8 +55,8 @@ func TestRecall_AllPassesThinReturnsLastTier(t *testing.T) {
 			t.Fatalf("got %v, want [%q]", got, mid)
 		}
 		// Single-token skips OR passes; last pass is "draft".
-		if got[0].Tier != "draft" {
-			t.Errorf("Tier = %q, want draft (last pass for single-token)", got[0].Tier)
+		if got[0].Tier != finder.TierDraft {
+			t.Errorf("Tier = %q, want %q (last pass for single-token)", got[0].Tier, finder.TierDraft)
 		}
 	})
 }
