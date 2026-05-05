@@ -11,7 +11,16 @@ import (
 // ListenWithFallback binds a TCP listener on host:preferred. If the port is
 // taken, it tries up to `attempts` consecutive ports (preferred+1, preferred+2, ...).
 // attempts=0 disables fallback (use when the user explicitly chose the port).
+//
+// An empty host defaults to "localhost" (loopback). This is a fail-closed
+// default — the lens dashboard exposes session history with no
+// authentication, and an empty-host listen ":port" would bind on all
+// interfaces (0.0.0.0 / ::) and expose that data to anyone on the same
+// network. Callers wanting a non-loopback bind must say so explicitly.
 func ListenWithFallback(host string, preferred, attempts int) (net.Listener, error) {
+	if host == "" {
+		host = "localhost"
+	}
 	addr := net.JoinHostPort(host, strconv.Itoa(preferred))
 	ln, err := net.Listen("tcp", addr)
 	if err == nil {
