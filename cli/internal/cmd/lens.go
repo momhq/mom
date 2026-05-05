@@ -62,7 +62,10 @@ func runLens(cmd *cobra.Command, _ []string) error {
 	if portExplicit {
 		fallbacks = 0
 	}
-	ln, err := lens.ListenWithFallback("", port, fallbacks)
+	// Loopback-only bind: lens has no authentication, and the dashboard
+	// exposes the full session history. A non-loopback bind would put
+	// that data on any network the host is connected to.
+	ln, err := lens.ListenWithFallback("localhost", port, fallbacks)
 	if err != nil {
 		return fmt.Errorf("listening on port %d: %w", port, err)
 	}
