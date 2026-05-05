@@ -17,7 +17,23 @@ type Adapter interface {
 	// ParseLine parses a single JSONL line from a transcript file.
 	// Returns (entry, true) if the line yields a recordable entry,
 	// (zero, false) if the line should be skipped (tool_use, metadata, etc.).
+	//
+	// Used by the legacy .mom/raw/ writer path; will retire alongside
+	// the raw writer in a follow-up cleanup once Drafter consumes
+	// turn.observed events.
 	ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool)
+
+	// ExtractTurn parses a single JSONL line and returns the rich
+	// per-turn shape consumed by Drafter (filter pipeline) and
+	// Logbook (metadata projection). Returns (zero, false) for lines
+	// that do not produce a meaningful turn (tool_result, system
+	// messages, sidechain entries, malformed JSON).
+	//
+	// The returned Turn carries raw text and tool inputs. Drafter
+	// applies the redaction pipeline; Logbook projects to a
+	// privacy-safe metadata shape (no text, no inputs) before
+	// persisting. The full Turn never lands on disk.
+	ExtractTurn(line []byte, sessionID string) (Turn, bool)
 }
 
 // SessionParser is optionally implemented by adapters that provide

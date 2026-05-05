@@ -31,6 +31,22 @@ func (m *mockAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntr
 	}, true
 }
 
+// ExtractTurn returns a minimal Turn for the watcher's bus emission
+// tests. Does NOT call ParseLine (would double-count m.calls in tests
+// that assert on parse-call frequency). Rich-content adapter tests
+// exercise the real ClaudeAdapter.
+func (m *mockAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
+	if len(strings.TrimSpace(string(line))) == 0 {
+		return Turn{}, false
+	}
+	return Turn{
+		SessionID: sessionID,
+		Timestamp: time.Now().UTC(),
+		Role:      "assistant",
+		Text:      "mock: " + string(line),
+	}, true
+}
+
 // TestSessionIDFromPath verifies that the session ID is derived from the filename.
 func TestSessionIDFromPath(t *testing.T) {
 	cases := []struct {

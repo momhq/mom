@@ -371,8 +371,10 @@ func (w *Watcher) ingestFile(path string) int {
 	// Read new content. Use ReadBytes('\n') instead of Scanner to distinguish
 	// complete lines (terminated by \n) from truncated trailing data (#153).
 	var entries []recorder.RawEntry
+	var turns []Turn
 	var committedBytes int64
 	reader := bufio.NewReaderSize(f, 2*1024*1024)
+	adapter := w.adapterForPath(path)
 
 	for {
 		line, err := reader.ReadBytes('\n')
@@ -386,11 +388,17 @@ func (w *Watcher) ingestFile(path string) int {
 			continue
 		}
 
-		entry, ok := w.adapterForPath(path).ParseLine(raw, sessionID)
-		if !ok {
-			continue
+		// Legacy path: collect RawEntry for the .mom/raw/ writer (retired
+		// in #240 PR 3).
+		if entry, ok := adapter.ParseLine(raw, sessionID); ok {
+			entries = append(entries, entry)
 		}
-		entries = append(entries, entry)
+		// v0.30 path: collect Turn for the turn.observed bus event
+		// consumed by Drafter (filter pipeline) and Logbook (metadata
+		// projection).
+		if turn, ok := adapter.ExtractTurn(raw, sessionID); ok {
+			turns = append(turns, turn)
+		}
 	}
 
 	if committedBytes == 0 {
@@ -429,6 +437,20 @@ func (w *Watcher) ingestFile(path string) int {
 				"runtime":         w.adapterForPath(path).Name(),
 			},
 		})
+	}
+
+	// v0.30 emission: one turn.observed event per parsed Turn. Carries
+	// the full structured payload Drafter needs for filter decisions.
+	// Logbook subscribes and persists a metadata projection; Drafter
+	// (lands in #240 PR 2) subscribes and persists redacted memories.
+	if w.cfg.Bus != nil {
+		for _, t := range turns {
+			w.cfg.Bus.Publish(herald.Event{
+				Type:      herald.TurnObserved,
+				SessionID: t.SessionID,
+				Payload:   t.ToPayload(),
+			})
+		}
 	}
 
 	return len(entries)

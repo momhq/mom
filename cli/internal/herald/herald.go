@@ -25,6 +25,15 @@ const (
 	RecordAppended   EventType = "record-appended"
 	ConfigChanged    EventType = "config-changed"
 	Error            EventType = "error"
+
+	// TurnObserved is the v0.30 source-of-truth event published by the
+	// watcher for every parsed turn. Carries the full structured turn
+	// (role, text, tool_calls with input, usage, model, provider) on
+	// the bus only — never persisted in raw form. Drafter consumes it
+	// for filter decisions; Logbook consumes it and persists a
+	// metadata-only projection (no text, no tool inputs) per ADR
+	// 0014's privacy contract.
+	TurnObserved EventType = "turn.observed"
 )
 
 // Event is a single message on the bus.

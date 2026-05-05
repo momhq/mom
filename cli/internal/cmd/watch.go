@@ -17,9 +17,11 @@ import (
 	"github.com/momhq/mom/cli/internal/daemon"
 	"github.com/momhq/mom/cli/internal/drafter"
 	"github.com/momhq/mom/cli/internal/herald"
+	"github.com/momhq/mom/cli/internal/librarian"
 	"github.com/momhq/mom/cli/internal/logbook"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
+	"github.com/momhq/mom/cli/internal/vault"
 	"github.com/momhq/mom/cli/internal/watcher"
 	"github.com/spf13/cobra"
 )
@@ -109,6 +111,10 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	projectDir := filepath.Dir(momDir)
 
+	// Open the central vault once for this watch process. Worker is
+	// shared across the per-project buses below.
+	centralLogbook := openCentralLogbook()
+
 	// Build watcher sources: if --harness is explicitly set, use single source;
 	// otherwise read config and watch all enabled harnesses.
 	var sources []watcher.Source
@@ -156,7 +162,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		for _, src := range sources {
 			adapterMap[src.Harness] = src.Adapter
 		}
-		bus := newProjectBus(momDir, adapterMap)
+		bus := newProjectBus(momDir, adapterMap, centralLogbook)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projectDir,
 			MomDir:     momDir,
@@ -184,7 +190,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	for _, src := range sources {
 		adapterMap[src.Harness] = src.Adapter
 	}
-	bus := newProjectBus(momDir, adapterMap)
+	bus := newProjectBus(momDir, adapterMap, centralLogbook)
 
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
@@ -216,11 +222,30 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// newProjectBus creates a Herald event bus with Logbook and Drafter subscribers
-// wired for a given momDir. Used by both single-project and global watch modes.
-// adapters maps Harness name → Adapter for Harness-specific logbook parsing.
-func newProjectBus(momDir string, adapters map[string]watcher.Adapter) *herald.Bus {
+// newProjectBus creates a Herald event bus with Logbook and Drafter
+// subscribers wired for a given momDir. Used by both single-project
+// and global watch modes. adapters maps Harness name → Adapter for
+// Harness-specific logbook parsing.
+//
+// `lb` is the central-vault Logbook worker (one per process); if
+// non-nil, it is subscribed to TurnObserved events on this bus. nil
+// means the central vault could not be opened — the bus still
+// functions for the legacy RecordAppended subscribers below.
+//
+// Two wiring tiers coexist while #240 is in flight:
+//
+//  1. Legacy path: v1 logbook.ParseTranscript + v1 drafter.Process,
+//     subscribed to RecordAppended. Writes session-*.json + draft
+//     memory files under momDir. Stays operational through #240.
+//  2. New path: logbook.Worker subscribed to TurnObserved,
+//     persisting metadata projections through Librarian into the
+//     central vault at $HOME/.mom/mom.db. Drafter joins this path
+//     in #240 PR 2.
+func newProjectBus(momDir string, adapters map[string]watcher.Adapter, lb *logbook.Worker) *herald.Bus {
 	bus := herald.NewBus()
+	if lb != nil {
+		lb.SubscribeTurnObserved(bus)
+	}
 
 	// Logbook: parse transcript → write session metrics to .mom/logs/.
 	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
@@ -292,6 +317,11 @@ func runWatchGlobal(sweepOnly bool) error {
 		return fmt.Errorf("loading registry: %w", err)
 	}
 
+	// Open the central vault ONCE for the entire global daemon. The
+	// same Logbook worker is shared across every per-project bus
+	// below — no N-vault-handle leak in multi-project mode.
+	centralLogbook := openCentralLogbook()
+
 	if sweepOnly {
 		p := ux.NewPrinter(os.Stderr)
 		totalSessions, totalTurns := 0, 0
@@ -310,7 +340,7 @@ func runWatchGlobal(sweepOnly bool) error {
 			for _, src := range sources {
 				adapterMap[src.Harness] = src.Adapter
 			}
-			bus := newProjectBus(entry.MomDir, adapterMap)
+			bus := newProjectBus(entry.MomDir, adapterMap, centralLogbook)
 			w, err := watcher.New(watcher.Config{
 				ProjectDir: projDir,
 				MomDir:     entry.MomDir,
@@ -362,7 +392,7 @@ func runWatchGlobal(sweepOnly bool) error {
 		for _, src := range sources {
 			adapterMap[src.Harness] = src.Adapter
 		}
-		bus := newProjectBus(entry.MomDir, adapterMap)
+		bus := newProjectBus(entry.MomDir, adapterMap, centralLogbook)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projDir,
 			MomDir:     entry.MomDir,
@@ -515,4 +545,40 @@ func runWatchStatus(momDir string) error {
 		p.Chevron(fmt.Sprintf("%s: %s bytes", c.sid, c.offset))
 	}
 	return nil
+}
+
+// openCentralLogbook opens the central vault at $HOME/.mom/mom.db,
+// runs migrations, and constructs a Logbook worker bound to it.
+// Returns nil + logs to stderr on any failure (HOME resolution,
+// MkdirAll, vault.Open) — the caller can still use the bus for
+// legacy subscribers.
+//
+// Called once per process, NOT per project. The same worker is
+// subscribed to every project's bus by newProjectBus; SQLite WAL +
+// the librarian/vault concurrency contract keep this safe across
+// goroutines.
+//
+// The vault stays open for the process's lifetime. The runtime owns
+// the lifecycle; on shutdown the OS reclaims the handle. A future
+// refactor should plumb an explicit Close, but for alpha this is
+// acceptable.
+func openCentralLogbook() *logbook.Worker {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "watch: cannot resolve $HOME: %v — central Logbook not wired\n", err)
+		return nil
+	}
+	momHome := filepath.Join(home, ".mom")
+	if err := os.MkdirAll(momHome, 0o700); err != nil {
+		fmt.Fprintf(os.Stderr, "watch: cannot create %s: %v — central Logbook not wired\n", momHome, err)
+		return nil
+	}
+	dbPath := filepath.Join(momHome, "mom.db")
+	migs := append(librarian.Migrations(), logbook.Migrations()...)
+	v, err := vault.Open(dbPath, migs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "watch: vault.Open %s: %v — central Logbook not wired\n", dbPath, err)
+		return nil
+	}
+	return logbook.New(librarian.New(v))
 }
