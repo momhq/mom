@@ -27,7 +27,7 @@ def main():
   mem=(a.memory_required=='true')
   concise='Answer briefly. Prioritize speed. Use MOM tools only for memory-dependent claims.'
   with tempfile.TemporaryDirectory(prefix='pi-sess-') as td:
-    t0=time.time(); p=subprocess.run(['pi','--print','--mode','text','--session-dir',td,'--append-system-prompt',concise,a.prompt],capture_output=True,text=True,timeout=a.timeout); lat=(time.time()-t0)*1000.0
+    t0=time.time(); p=subprocess.run(['pi','--print','--mode','text','--session-dir',td,'--no-context-files','--append-system-prompt',concise,a.prompt],capture_output=True,text=True,timeout=a.timeout); lat=(time.time()-t0)*1000.0
     sf=latest_jsonl(td)
     if p.returncode!=0 or sf is None:
       print(json.dumps({"mom_status_called_at_start":False,"memory_claim_made":mem,"mom_recall_before_claim":False,"citation_present":False,"fabricated_claim":False,"user_outcome_score":0.0,"latency_ms":round(lat,4),"tokens":0.0,"unnecessary_mom_calls":0.0}))
