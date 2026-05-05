@@ -76,7 +76,7 @@ func TestFlushAll_PersistsBufferedChunk(t *testing.T) {
 		SessionID: "s",
 		Payload:   substantiveTurn("deploy postgres canary, set the connection pool to 50", "claude-code"),
 	})
-	d.FlushAll(bus)
+	d.FlushAll()
 
 	if got := created.Load(); got != 1 {
 		t.Fatalf("op.memory.created fired %d times, want 1", got)
@@ -120,7 +120,7 @@ func TestFlushAll_ClustersCorrelatedTurns(t *testing.T) {
 			Payload:   substantiveTurn(txt, "claude-code"),
 		})
 	}
-	d.FlushAll(bus)
+	d.FlushAll()
 
 	rows, _ := lib.SearchMemories(librarian.SearchFilter{SessionID: "s", Limit: 10})
 	if len(rows) != 1 {
@@ -154,7 +154,7 @@ func TestFlushAll_RedactedTurnEmitsRedactedOp(t *testing.T) {
 		SessionID: "s",
 		Payload:   substantiveTurn("Why isn't AKIA1234567890ABCDEF working in this region?", "claude-code"),
 	})
-	d.FlushAll(bus)
+	d.FlushAll()
 
 	if got := redacted.Load(); got != 1 {
 		t.Fatalf("op.memory.redacted fired %d times, want 1", got)
@@ -198,7 +198,7 @@ func TestObserveTurn_DropsNoise(t *testing.T) {
 			"text": "ok",
 		},
 	})
-	d.FlushAll(bus)
+	d.FlushAll()
 
 	if got := dropped.Load(); got != 1 {
 		t.Errorf("op.memory.dropped fired %d times, want 1", got)
@@ -268,7 +268,7 @@ func TestTick_FlushesIdleSession(t *testing.T) {
 
 	// Tick well past the idle window — 10 minutes is comfortably
 	// beyond the 90s default.
-	d.Tick(bus, time.Now().Add(10*time.Minute))
+	d.Tick(time.Now().Add(10*time.Minute))
 
 	rows, _ := lib.SearchMemories(librarian.SearchFilter{SessionID: "s", Limit: 10})
 	if len(rows) != 1 {
@@ -309,7 +309,7 @@ func TestOpMemoryEvents_PersistedThroughLogbook(t *testing.T) {
 			"text": "ok",
 		},
 	})
-	d.FlushAll(bus)
+	d.FlushAll()
 
 	rows, err := lib.QueryOpEvents(librarian.OpEventFilter{SessionID: "s", Limit: 100})
 	if err != nil {

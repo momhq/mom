@@ -68,6 +68,12 @@ type Drafter struct {
 type sessionBuffer struct {
 	turns    []bufferedTurn
 	lastSeen time.Time
+	// bus is the Herald bus the most recent turn for this session
+	// arrived on. flushSession publishes op events on it. Stored
+	// per-session because in global watch mode one Drafter is shared
+	// across many project buses, and Tick / FlushAll have no per-call
+	// bus context.
+	bus *herald.Bus
 }
 
 // bufferedTurn carries the post-redaction text plus the metadata
@@ -198,19 +204,24 @@ func (d *Drafter) observeTurn(bus *herald.Bus, e herald.Event) error {
 	}
 	sb.turns = append(sb.turns, bt)
 	sb.lastSeen = d.now()
+	sb.bus = bus
+	// Between this Unlock and flushSession's Lock another turn can
+	// arrive on the same session and append; flushSession will then
+	// drain it too — correct, just non-obvious.
 	if len(sb.turns) >= d.flushAtTurnCount {
 		flush = true
 	}
 	d.mu.Unlock()
 
 	if flush {
-		d.flushSession(bus, e.SessionID)
+		d.flushSession(e.SessionID)
 	}
 	return nil
 }
 
-// FlushAll flushes every pending session. Called on shutdown.
-func (d *Drafter) FlushAll(bus *herald.Bus) {
+// FlushAll flushes every pending session. Called on shutdown so the
+// in-memory buffer never silently drops on clean exit.
+func (d *Drafter) FlushAll() {
 	d.mu.Lock()
 	sids := make([]string, 0, len(d.pending))
 	for sid := range d.pending {
@@ -218,14 +229,15 @@ func (d *Drafter) FlushAll(bus *herald.Bus) {
 	}
 	d.mu.Unlock()
 	for _, sid := range sids {
-		d.flushSession(bus, sid)
+		d.flushSession(sid)
 	}
 }
 
 // Tick checks pending buffers and flushes any session whose lastSeen
 // is older than idleFlushAfter relative to now. Production wires
-// this from a periodic ticker; tests pass an advanced timestamp.
-func (d *Drafter) Tick(bus *herald.Bus, now time.Time) {
+// this from a periodic ticker (see cmd.startDrafterTicker); tests
+// pass an advanced timestamp directly.
+func (d *Drafter) Tick(now time.Time) {
 	var toFlush []string
 	d.mu.Lock()
 	for sid, sb := range d.pending {
@@ -235,13 +247,14 @@ func (d *Drafter) Tick(bus *herald.Bus, now time.Time) {
 	}
 	d.mu.Unlock()
 	for _, sid := range toFlush {
-		d.flushSession(bus, sid)
+		d.flushSession(sid)
 	}
 }
 
 // flushSession drains the per-session buffer and persists one memory
-// per chunk emitted by boundary detection.
-func (d *Drafter) flushSession(bus *herald.Bus, sessionID string) {
+// per chunk emitted by boundary detection. Op events publish on the
+// bus stored on the buffer (the bus the most recent turn arrived on).
+func (d *Drafter) flushSession(sessionID string) {
 	d.mu.Lock()
 	sb, ok := d.pending[sessionID]
 	if !ok || len(sb.turns) == 0 {
@@ -250,6 +263,7 @@ func (d *Drafter) flushSession(bus *herald.Bus, sessionID string) {
 		return
 	}
 	turns := sb.turns
+	bus := sb.bus
 	delete(d.pending, sessionID)
 	d.mu.Unlock()
 

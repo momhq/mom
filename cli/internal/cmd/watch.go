@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/momhq/mom/cli/internal/config"
@@ -215,10 +216,57 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	p.Muted("press Ctrl-C to stop")
 	p.Blank()
 
+	// Start the Drafter idle-flush ticker and ensure FlushAll runs
+	// when the watcher exits. Without these, sessions under
+	// flushAtTurnCount turns never persist; clean shutdown loses
+	// every pending buffer.
+	tickCtx, tickCancel := context.WithCancel(context.Background())
+	tickDone := startDrafterTicker(tickCtx, workers)
+	defer func() {
+		tickCancel()
+		<-tickDone
+		if workers.drafter != nil {
+			workers.drafter.FlushAll()
+		}
+	}()
+
 	if err := w.Run(); err != nil {
 		return fmt.Errorf("watcher stopped: %w", err)
 	}
 	return nil
+}
+
+// drafterTickInterval is the cadence at which the global daemon
+// invokes Drafter.Tick. Sessions whose lastSeen is older than the
+// drafter's idleFlushAfter (default 90s) are flushed at the next
+// tick — so the worst-case persistence delay is
+// idleFlushAfter + drafterTickInterval. 30s keeps that sub-2-minute.
+const drafterTickInterval = 30 * time.Second
+
+// startDrafterTicker spawns a goroutine that calls drafter.Tick on a
+// fixed cadence until ctx is done. Returns a channel that closes
+// when the goroutine has exited so callers can sequence FlushAll
+// after Tick has stopped.
+func startDrafterTicker(ctx context.Context, workers centralWorkers) <-chan struct{} {
+	done := make(chan struct{})
+	if workers.drafter == nil {
+		close(done)
+		return done
+	}
+	go func() {
+		defer close(done)
+		t := time.NewTicker(drafterTickInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case now := <-t.C:
+				workers.drafter.Tick(now)
+			}
+		}
+	}()
+	return done
 }
 
 // newProjectBus creates a Herald event bus with Logbook and Drafter
@@ -226,20 +274,16 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 // and global watch modes. adapters maps Harness name → Adapter for
 // Harness-specific logbook parsing.
 //
-// `lb` is the central-vault Logbook worker (one per process); if
-// non-nil, it is subscribed to TurnObserved events on this bus. nil
-// means the central vault could not be opened — the bus still
-// functions for the legacy RecordAppended subscribers below.
+// Two subscriber tiers coexist on this bus:
 //
-// Two wiring tiers coexist while #240 is in flight:
-//
-//  1. Legacy path: v1 logbook.ParseTranscript + v1 drafter.Process,
-//     subscribed to RecordAppended. Writes session-*.json + draft
-//     memory files under momDir. Stays operational through #240.
-//  2. New path: logbook.Worker subscribed to TurnObserved,
-//     persisting metadata projections through Librarian into the
-//     central vault at $HOME/.mom/mom.db. Drafter joins this path
-//     in #240 PR 2.
+//  1. Central path (v0.30): centralWorkers.AttachToBus subscribes
+//     the shared Drafter and Logbook to turn.observed,
+//     memory.record, and op.memory.* — persisting into the central
+//     vault at $HOME/.mom/mom.db.
+//  2. Legacy path: a RecordAppended subscriber writes session-*.json
+//     under momDir/logs via logbook.ParseTranscript. The drafter
+//     half of this pair retired in #240 PR 3; the session-log
+//     writer follows in #240 PR 4 alongside the .mom/raw/ writer.
 func newProjectBus(momDir string, adapters map[string]watcher.Adapter, workers centralWorkers) *herald.Bus {
 	bus := herald.NewBus()
 	workers.AttachToBus(bus)
@@ -344,6 +388,17 @@ func runWatchGlobal(sweepOnly bool) error {
 	// Persistent watch mode: one watcher per registered project.
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	// Drafter idle-flush ticker + shutdown FlushAll. Without these,
+	// sessions under flushAtTurnCount turns never persist and clean
+	// shutdown loses every pending buffer.
+	tickDone := startDrafterTicker(ctx, workers)
+	defer func() {
+		<-tickDone
+		if workers.drafter != nil {
+			workers.drafter.FlushAll()
+		}
+	}()
 
 	type runningWatcher struct {
 		cancel context.CancelFunc
