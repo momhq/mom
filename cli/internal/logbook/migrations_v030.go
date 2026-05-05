@@ -22,9 +22,16 @@ func Migrations() []librarian.Migration {
 					created_at  TEXT NOT NULL,
 					payload     TEXT
 				)`,
-				`CREATE INDEX idx_op_events_type    ON op_events(event_type)`,
-				`CREATE INDEX idx_op_events_session ON op_events(session_id)`,
-				`CREATE INDEX idx_op_events_created ON op_events(created_at)`,
+				// idx_op_events_type serves cross-session queries
+				// ("all events of type X"). idx_op_events_session_time
+				// is composite — its leading column matches "events
+				// for session X" alone, and the trailing created_at
+				// DESC matches "events for session X in last N hours,"
+				// the most common mom lens query. Single-column
+				// indexes on session_id and created_at would each be
+				// subsumed by this composite or rarely queried alone.
+				`CREATE INDEX idx_op_events_type         ON op_events(event_type)`,
+				`CREATE INDEX idx_op_events_session_time ON op_events(session_id, created_at DESC)`,
 			},
 		},
 	}

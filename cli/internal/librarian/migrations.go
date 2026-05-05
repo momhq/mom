@@ -30,9 +30,19 @@ func Migrations() []vault.Migration {
 		{
 			Version: 2,
 			Stmts: []string{
+				// type is locked to the Tulving typology (ADR 0012). The
+				// set is intentionally small — adding a fifth value is a
+				// deliberate ADR amendment, not a typo. Defense in depth:
+				// API rejects invalid types; schema rejects again.
+				//
+				// promotion_state is locked to the v0.30 lifecycle
+				// (ADR 0011). 'archived', 'deprecated', and any other
+				// future states need a deliberate schema change. Same
+				// defense.
 				`CREATE TABLE memories (
 					id                       TEXT PRIMARY KEY,
-					type                     TEXT NOT NULL DEFAULT 'untyped',
+					type                     TEXT NOT NULL DEFAULT 'untyped'
+					                         CHECK (type IN ('episodic','semantic','procedural','untyped')),
 					summary                  TEXT,
 					content                  TEXT NOT NULL CHECK (json_valid(content)),
 					created_at               TEXT NOT NULL,
@@ -40,10 +50,18 @@ func Migrations() []vault.Migration {
 					provenance_actor         TEXT,
 					provenance_source_type   TEXT,
 					provenance_trigger_event TEXT,
-					promotion_state          TEXT NOT NULL DEFAULT 'draft',
+					promotion_state          TEXT NOT NULL DEFAULT 'draft'
+					                         CHECK (promotion_state IN ('draft','curated')),
 					landmark                 INTEGER NOT NULL DEFAULT 0,
 					centrality_score         REAL
 				)`,
+				// session_id is the most-filtered dimension after id
+				// (PK). created_at is the natural sort key for tag /
+				// entity listings — composite (created_at DESC, id DESC)
+				// matches MemoriesByTag / MemoriesByEntity ORDER BY
+				// exactly.
+				`CREATE INDEX idx_memories_session ON memories(session_id)`,
+				`CREATE INDEX idx_memories_created ON memories(created_at DESC, id DESC)`,
 				`CREATE TABLE tags (
 					id         TEXT PRIMARY KEY,
 					name       TEXT NOT NULL UNIQUE,
@@ -56,12 +74,22 @@ func Migrations() []vault.Migration {
 					created_at   TEXT NOT NULL,
 					UNIQUE (type, display_name)
 				)`,
+				// ON DELETE CASCADE on memory_id columns: deleting a
+				// memory cleans up its edges automatically. The semantic
+				// of "delete the memory" includes its associations —
+				// they cease to exist when the memory does. Cartographer
+				// regen and Upgrade rollback rely on this.
+				//
+				// Tag/entity rows do NOT cascade — deleting a tag with
+				// edges should be an explicit MergeTags or a deliberate
+				// orphan cleanup, never a silent edge-wipe. Default
+				// RESTRICT is correct.
 				`CREATE TABLE memory_tags (
 					memory_id  TEXT NOT NULL,
 					tag_id     TEXT NOT NULL,
 					created_at TEXT NOT NULL,
 					PRIMARY KEY (memory_id, tag_id),
-					FOREIGN KEY (memory_id) REFERENCES memories(id),
+					FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE,
 					FOREIGN KEY (tag_id)    REFERENCES tags(id)
 				)`,
 				`CREATE TABLE memory_entities (
@@ -70,7 +98,7 @@ func Migrations() []vault.Migration {
 					relationship TEXT NOT NULL,
 					created_at   TEXT NOT NULL,
 					PRIMARY KEY (memory_id, entity_id, relationship),
-					FOREIGN KEY (memory_id) REFERENCES memories(id),
+					FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE,
 					FOREIGN KEY (entity_id) REFERENCES entities(id)
 				)`,
 				`CREATE TABLE filter_audit (
@@ -79,12 +107,12 @@ func Migrations() []vault.Migration {
 					last_fired_at   TEXT
 				)`,
 				// FTS5 over memories. content_text is extracted from the
-				// JSON content's $.text field by the sync triggers below.
-				// Per ADR 0007 the column weights apply at query time:
-				// bm25(memories_fts, 0, 2, 10) — zero on id (opaque UUID),
-				// light on summary, heavy on content. Tags are not in
-				// FTS5 in v0.30; tag-based recall uses SQL joins on
-				// memory_tags (ADR 0010).
+				// JSON content's $.text field by the sync triggers
+				// below. Per ADR 0007 the column weights apply at query
+				// time: bm25(memories_fts, 0, 2, 10) — zero on id
+				// (opaque UUID), light on summary, heavy on content.
+				// Tags are not in FTS5 in v0.30; tag-based recall uses
+				// SQL joins on memory_tags (ADR 0010).
 				`CREATE VIRTUAL TABLE memories_fts USING fts5(
 					id UNINDEXED,
 					summary,
