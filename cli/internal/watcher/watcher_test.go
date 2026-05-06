@@ -8,34 +8,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/momhq/mom/cli/internal/recorder"
 )
 
-// mockAdapter records every call to ParseLine for inspection.
+// mockAdapter records every call to ExtractTurn for inspection.
 type mockAdapter struct {
 	calls []string
 }
 
 func (m *mockAdapter) Name() string { return "mock" }
-func (m *mockAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool) {
-	m.calls = append(m.calls, string(line))
-	// Accept any non-empty line as a user turn.
-	if len(strings.TrimSpace(string(line))) == 0 {
-		return recorder.RawEntry{}, false
-	}
-	return recorder.RawEntry{
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Event:     "mock-user",
-		Text:      "mock: " + string(line),
-		SessionID: sessionID,
-	}, true
-}
 
-// ExtractTurn returns a minimal Turn for the watcher's bus emission
-// tests. Does NOT call ParseLine (would double-count m.calls in tests
-// that assert on parse-call frequency). Rich-content adapter tests
-// exercise the real ClaudeAdapter.
+// ExtractTurn records the line and returns a minimal Turn for any
+// non-empty input. Rich-content adapter tests exercise the real
+// ClaudeAdapter / PiAdapter / WindsurfAdapter.
 func (m *mockAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
+	m.calls = append(m.calls, string(line))
 	if len(strings.TrimSpace(string(line))) == 0 {
 		return Turn{}, false
 	}
@@ -106,8 +92,8 @@ func TestExpandTilde(t *testing.T) {
 	}
 }
 
-// TestIngestFile_NewSession verifies that a new transcript file is ingested
-// and entries are written to .mom/raw/.
+// TestIngestFile_NewSession verifies that a new transcript file is ingested,
+// turns are returned, and the cursor is advanced.
 func TestIngestFile_NewSession(t *testing.T) {
 	transcriptDir := t.TempDir()
 	momDir := t.TempDir()
@@ -120,10 +106,10 @@ func TestIngestFile_NewSession(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	// Write a transcript file with two lines.
 	sessionID := "test-session-001"
@@ -143,27 +129,17 @@ func TestIngestFile_NewSession(t *testing.T) {
 		t.Fatalf("writing transcript: %v", err)
 	}
 
-	w.ingestFile(transcriptPath)
-
-	// Check that a daily raw file was created.
-	today := time.Now().UTC().Format("2006-01-02")
-	rawFile := filepath.Join(momDir, "raw", today+".jsonl")
-	data, err := os.ReadFile(rawFile)
-	if err != nil {
-		t.Fatalf("reading raw file: %v", err)
+	n := w.ingestFile(transcriptPath)
+	if n != 2 {
+		t.Errorf("expected 2 turns ingested, got %d", n)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 2 {
-		t.Errorf("expected 2 raw entries, got %d: %s", len(lines), string(data))
-	}
-
-	// Check cursor was written.
-	cursorFile := filepath.Join(momDir, "raw", ".watch-cursor-"+sessionID)
+	// Cursor was written under .mom/cache/, advanced past both lines.
+	cursorFile := filepath.Join(momDir, "cache", ".watch-cursor-"+sessionID)
 	offset := readWatchCursor(cursorFile)
 	expectedBytes := int64(len(line1) + 1 + len(line2) + 1) // +1 per newline
 	if offset != expectedBytes {
-		t.Errorf("expected cursor=%d, got %d", expectedBytes, offset)
+		t.Errorf("expected cursor=%d, got %d", offset, expectedBytes)
 	}
 }
 
@@ -181,10 +157,10 @@ func TestIngestFile_IncrementalRead(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	sessionID := "incremental-session"
 	transcriptPath := filepath.Join(transcriptDir, sessionID+".jsonl")
@@ -246,10 +222,10 @@ func TestIngestFile_TruncatedLine(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	sessionID := "truncated-session"
 	transcriptPath := filepath.Join(transcriptDir, sessionID+".jsonl")
@@ -266,7 +242,7 @@ func TestIngestFile_TruncatedLine(t *testing.T) {
 	w.ingestFile(transcriptPath)
 
 	// Cursor should only cover the complete line (len + \n), NOT the partial.
-	cursorFile := filepath.Join(momDir, "raw", ".watch-cursor-"+sessionID)
+	cursorFile := filepath.Join(momDir, "cache", ".watch-cursor-"+sessionID)
 	cursor := readWatchCursor(cursorFile)
 	expectedCursor := int64(len(completeLine) + 1) // complete line + \n
 	if cursor != expectedCursor {
@@ -307,10 +283,10 @@ func TestIngestFile_FileShrink(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	sessionID := "shrink-session"
 	transcriptPath := filepath.Join(transcriptDir, sessionID+".jsonl")
@@ -329,7 +305,7 @@ func TestIngestFile_FileShrink(t *testing.T) {
 	_ = os.WriteFile(transcriptPath, []byte(line1+"\n"+line2+"\n"), 0644)
 	w.ingestFile(transcriptPath)
 
-	cursorFile := filepath.Join(momDir, "raw", ".watch-cursor-"+sessionID)
+	cursorFile := filepath.Join(momDir, "cache", ".watch-cursor-"+sessionID)
 	cursorBefore := readWatchCursor(cursorFile)
 	if cursorBefore == 0 {
 		t.Fatal("cursor should be > 0 after first ingest")

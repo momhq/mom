@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -274,56 +273,18 @@ func startDrafterTicker(ctx context.Context, workers centralWorkers) <-chan stru
 // and global watch modes. adapters maps Harness name → Adapter for
 // Harness-specific logbook parsing.
 //
-// Two subscriber tiers coexist on this bus:
+// All subscribers wire through centralWorkers.AttachToBus: the shared
+// Drafter and Logbook consume turn.observed, memory.record, and
+// op.memory.* and persist into the central vault at
+// $HOME/.mom/mom.db. The legacy RecordAppended subscribers (v1
+// drafter writing .mom/memory/*.json, v1 logbook writing
+// session-*.json) retired in #240 PR 3 and PR 4.
 //
-//  1. Central path (v0.30): centralWorkers.AttachToBus subscribes
-//     the shared Drafter and Logbook to turn.observed,
-//     memory.record, and op.memory.* — persisting into the central
-//     vault at $HOME/.mom/mom.db.
-//  2. Legacy path: a RecordAppended subscriber writes session-*.json
-//     under momDir/logs via logbook.ParseTranscript. The drafter
-//     half of this pair retired in #240 PR 3; the session-log
-//     writer follows in #240 PR 4 alongside the .mom/raw/ writer.
-func newProjectBus(momDir string, adapters map[string]watcher.Adapter, workers centralWorkers) *herald.Bus {
+// adapters is reserved for future Harness-specific extensions; it is
+// currently unused.
+func newProjectBus(_ string, _ map[string]watcher.Adapter, workers centralWorkers) *herald.Bus {
 	bus := herald.NewBus()
 	workers.AttachToBus(bus)
-
-	// Logbook: parse transcript → write session metrics to .mom/logs/.
-	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
-		tp, _ := e.Payload["transcript_path"].(string)
-		sid, _ := e.Payload["session_id"].(string)
-		md, _ := e.Payload["mom_dir"].(string)
-		if tp == "" || sid == "" || md == "" {
-			return
-		}
-		logsDir := filepath.Join(md, "logs")
-		_ = os.MkdirAll(logsDir, 0755)
-
-		// Use Harness-specific parser when available, fall back to Claude format.
-		var sessionLog *logbook.SessionLog
-		var err error
-		if rt, ok := e.Payload["runtime"].(string); ok {
-			if adapter, ok := adapters[rt]; ok {
-				if sp, ok := adapter.(watcher.SessionParser); ok {
-					sessionLog, err = sp.ParseSession(tp, sid)
-				}
-			}
-		}
-		if sessionLog == nil && err == nil {
-			sessionLog, err = logbook.ParseTranscript(tp, sid)
-		}
-		if err != nil || sessionLog == nil {
-			return
-		}
-		outPath := filepath.Join(logsDir, fmt.Sprintf("session-%s.json", sid))
-		data, _ := json.MarshalIndent(sessionLog, "", "  ")
-		_ = os.WriteFile(outPath, append(data, '\n'), 0644)
-	})
-
-	// v1 file-based drafter (RecordAppended → .mom/memory/*.json) was
-	// retired in #240 PR 3. Drafter now consumes turn.observed via
-	// centralWorkers.AttachToBus and persists into the central vault.
-
 	return bus
 }
 

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/logbook"
-	"github.com/momhq/mom/cli/internal/recorder"
 )
 
 // ClaudeAdapter parses Claude Code JSONL transcript lines.
@@ -53,56 +52,6 @@ type claudeUsage struct {
 	OutputTokens             int `json:"output_tokens"`
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-}
-
-// ParseLine implements Adapter. It parses one JSONL line and returns a
-// RawEntry if the line contains user or assistant conversational content.
-func (a *ClaudeAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool) {
-	line = trimLine(line)
-	if len(line) == 0 {
-		return recorder.RawEntry{}, false
-	}
-
-	var tl claudeTranscriptLine
-	if err := json.Unmarshal(line, &tl); err != nil {
-		return recorder.RawEntry{}, false
-	}
-
-	// Only keep user and assistant turns; drop everything else.
-	if tl.Type != "user" && tl.Type != "assistant" {
-		return recorder.RawEntry{}, false
-	}
-
-	// Skip subagent turns (isSidechain == true) — too noisy for Phase 1.
-	if tl.IsSidechain {
-		return recorder.RawEntry{}, false
-	}
-
-	// Extract text from message.content.
-	text := extractClaudeContent(tl.Message.Content)
-	if text == "" {
-		return recorder.RawEntry{}, false
-	}
-
-	// Resolve session ID: prefer the line's sessionId field, fall back to
-	// the filename-derived sessionID passed by the watcher.
-	sid := tl.SessionID
-	if sid == "" {
-		sid = sessionID
-	}
-
-	// Resolve timestamp: prefer the line's timestamp, fall back to now.
-	ts := tl.Timestamp
-	if ts == "" {
-		ts = time.Now().UTC().Format(time.RFC3339)
-	}
-
-	return recorder.RawEntry{
-		Timestamp: ts,
-		Event:     "watch-" + tl.Type,
-		Text:      text,
-		SessionID: sid,
-	}, true
 }
 
 // extractClaudeContent converts message.content (string or []contentItem) to plain text.

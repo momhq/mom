@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/logbook"
-	"github.com/momhq/mom/cli/internal/recorder"
 )
 
 // WindsurfAdapter parses Windsurf JSONL transcript lines.
@@ -143,75 +142,53 @@ type windsurfPlannerResponse struct {
 	Response string `json:"response"`
 }
 
-// ExtractTurn delegates to ParseLine for PR 1 and synthesises a thin
-// Turn from the resulting RawEntry. Windsurf-specific tool_use /
-// usage extraction lands in a follow-up slice.
+// ExtractTurn parses a Windsurf transcript line into the structured
+// Turn shape consumed by Drafter and Logbook. Windsurf-specific
+// tool_use / usage extraction lands in a follow-up slice.
 func (a *WindsurfAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
-	entry, ok := a.ParseLine(line, sessionID)
-	if !ok {
-		return Turn{}, false
-	}
-	role := "user"
-	if entry.Event == "watch-planner_response" || entry.Event == "watch-assistant" {
-		role = "assistant"
-	}
-	return Turn{
-		SessionID: entry.SessionID,
-		Timestamp: time.Now().UTC(),
-		Role:      role,
-		Text:      entry.Text,
-		Harness:   "windsurf",
-	}, true
-}
-
-// ParseLine implements Adapter. It parses one JSONL line and returns a
-// RawEntry if the line contains user_input or planner_response content.
-func (a *WindsurfAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool) {
 	line = trimLine(line)
 	if len(line) == 0 {
-		return recorder.RawEntry{}, false
+		return Turn{}, false
 	}
 
 	var tl windsurfTranscriptLine
 	if err := json.Unmarshal(line, &tl); err != nil {
-		return recorder.RawEntry{}, false
+		return Turn{}, false
 	}
 
+	var role, text string
 	switch tl.Type {
 	case "user_input":
 		if tl.UserInput == nil {
-			return recorder.RawEntry{}, false
+			return Turn{}, false
 		}
-		text := strings.TrimSpace(tl.UserInput.UserResponse)
+		text = strings.TrimSpace(tl.UserInput.UserResponse)
 		if text == "" {
-			return recorder.RawEntry{}, false
+			return Turn{}, false
 		}
-		return recorder.RawEntry{
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
-			Event:     "watch-user",
-			Text:      text,
-			SessionID: sessionID,
-		}, true
-
+		role = "user"
 	case "planner_response":
 		if tl.PlannerResponse == nil {
-			return recorder.RawEntry{}, false
+			return Turn{}, false
 		}
-		text := strings.TrimSpace(tl.PlannerResponse.Response)
+		text = strings.TrimSpace(tl.PlannerResponse.Response)
 		if text == "" {
-			return recorder.RawEntry{}, false
+			return Turn{}, false
 		}
-		return recorder.RawEntry{
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
-			Event:     "watch-assistant",
-			Text:      text,
-			SessionID: sessionID,
-		}, true
-
+		role = "assistant"
 	default:
-		// Drop: code_action, command_action, file-history-snapshot, hook_progress, etc.
-		return recorder.RawEntry{}, false
+		// Drop: code_action, command_action, file-history-snapshot,
+		// hook_progress, etc.
+		return Turn{}, false
 	}
+
+	return Turn{
+		SessionID: sessionID,
+		Timestamp: time.Now().UTC(),
+		Role:      role,
+		Text:      text,
+		Harness:   "windsurf",
+	}, true
 }
 
 // ParseSession implements SessionParser for Windsurf transcripts.

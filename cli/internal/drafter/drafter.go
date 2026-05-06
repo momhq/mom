@@ -294,7 +294,15 @@ func (d *Drafter) persistChunk(bus *herald.Bus, sessionID string, turns []buffer
 	content := strings.Join(texts, "\n")
 	tagContent := strings.Join(tagSrc, "\n")
 
-	tags := buildTags(allPaths, tagContent, allKeywords)
+	// Snapshot the existing tag corpus once per chunk for BM25 ranking.
+	// Failures here are non-fatal — buildTags falls back to RAKE order
+	// when the vocab slice is empty, which is the same behaviour we
+	// had before this PR wired the vocabulary in.
+	vocab, vocabErr := d.lib.AllTagNames()
+	if vocabErr != nil {
+		fmt.Fprintf(os.Stderr, "drafter: AllTagNames: %v\n", vocabErr)
+	}
+	tags := buildTags(allPaths, tagContent, allKeywords, vocab)
 
 	contentBytes, err := json.Marshal(map[string]any{"text": content})
 	if err != nil {
@@ -414,7 +422,12 @@ func (d *Drafter) processRecord(bus *herald.Bus, e herald.Event) error {
 // compounds; POS-noun filter; cap at maxTagsPerMemory; final
 // normalization through librarian.NormalizeTagName for parity with
 // mom_record's input pipeline.
-func buildTags(paths []string, tagContent string, candidates []RakeCandidate) []string {
+//
+// vocab is the existing tag corpus (Librarian.AllTagNames()). BM25
+// uses it to rank RAKE candidates — phrases already saturated as tags
+// score lower, novel phrases score higher. Empty vocab is fine; BM25
+// returns input order unchanged in that case.
+func buildTags(paths []string, tagContent string, candidates []RakeCandidate, vocab []string) []string {
 	tags := map[string]bool{}
 	for _, t := range ExtractFileTags(paths) {
 		tags[t] = true
@@ -424,7 +437,7 @@ func buildTags(paths []string, tagContent string, candidates []RakeCandidate) []
 			tags[t] = true
 		}
 	}
-	bm := newBM25Index(nil)
+	bm := newBM25Index(vocab)
 	for _, t := range bm.rankCandidates(candidates) {
 		if len(t) > 2 && len(t) <= 40 {
 			tags[t] = true

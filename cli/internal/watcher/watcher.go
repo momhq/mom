@@ -2,7 +2,6 @@ package watcher
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/momhq/mom/cli/internal/herald"
-	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/ux"
 )
 
@@ -39,7 +37,9 @@ type Config struct {
 	// Used to scope ingestion to the matching transcript subdirectory.
 	// If empty, all transcripts are ingested (legacy behavior).
 	ProjectDir string
-	// MomDir is the path to .mom/ where raw/ and cursor files are written.
+	// MomDir is the path to .mom/. Cursor files (.watch-cursor) and the
+	// watcher log live under .mom/logs/. The legacy .mom/raw/ writer
+	// retired in #240 PR 4.
 	MomDir string
 	// Adapter parses Harness-specific JSONL lines.
 	//
@@ -51,9 +51,10 @@ type Config struct {
 	// DebounceMs is how long to wait after a Write event before reading.
 	// Defaults to 300ms if zero.
 	DebounceMs int
-	// Bus is the Herald event bus. When set, the watcher publishes
-	// RecordAppended events after each ingestion so Herald can trigger
-	// downstream processors (Logbook, Drafter). May be nil.
+	// Bus is the Herald event bus. When set, the watcher publishes one
+	// turn.observed event per parsed Turn so downstream subscribers
+	// (Drafter, Logbook) can run. May be nil; the watcher still
+	// advances cursors and writes its log either way.
 	Bus *herald.Bus
 	// SweepOnly when true skips fsnotify setup. The watcher can only be
 	// used for one-shot Sweep() calls, not Run().
@@ -67,15 +68,16 @@ type resolvedSource struct {
 	adapter Adapter
 }
 
-// Watcher watches Harness transcript directories and ingests new entries
-// into .mom/raw/ using cursor-based incremental reads.
+// Watcher tails Harness transcript directories with cursor-based
+// incremental reads and emits one turn.observed event per parsed
+// turn on the Herald bus.
 type Watcher struct {
 	cfg        Config
 	sources    []resolvedSource // resolved transcript sources
 	fw         *fsnotify.Watcher
 	mu         sync.Mutex
 	timers     map[string]*time.Timer // debounce timers keyed by file path
-	rawDir     string
+	cursorDir  string                 // .mom/cache/ — per-session offset markers
 	logFile    string
 	p          *ux.Printer
 	catchingUp bool // true during catchUp phase — suppresses per-file output
@@ -135,21 +137,18 @@ func New(cfg Config) (*Watcher, error) {
 		cfg.TranscriptDir = resolved[0].dir
 	}
 
-	rawDir := filepath.Join(cfg.MomDir, "raw")
-	if err := os.MkdirAll(rawDir, 0755); err != nil {
-		return nil, fmt.Errorf("creating raw dir: %w", err)
-	}
-
 	logsDir := filepath.Join(cfg.MomDir, "logs")
 	_ = os.MkdirAll(logsDir, 0755)
+	cursorDir := filepath.Join(cfg.MomDir, "cache")
+	_ = os.MkdirAll(cursorDir, 0755)
 
 	w := &Watcher{
-		cfg:     cfg,
-		sources: resolved,
-		timers:  make(map[string]*time.Timer),
-		rawDir:  rawDir,
-		logFile: filepath.Join(logsDir, "watch.log"),
-		p:       ux.NewPrinter(os.Stderr),
+		cfg:       cfg,
+		sources:   resolved,
+		timers:    make(map[string]*time.Timer),
+		cursorDir: cursorDir,
+		logFile:   filepath.Join(logsDir, "watch.log"),
+		p:         ux.NewPrinter(os.Stderr),
 	}
 
 	if !cfg.SweepOnly {
@@ -335,12 +334,13 @@ func (w *Watcher) catchUp() (sessions int, turns int) {
 	return
 }
 
-// ingestFile reads new lines from the transcript file since the last cursor,
-// normalizes them via the adapter, and appends to .mom/raw/.
-// Returns the number of entries ingested.
+// ingestFile reads new lines from the transcript file since the last
+// cursor, normalizes them via the adapter, and emits one
+// turn.observed event per parsed Turn. Returns the number of turns
+// ingested.
 func (w *Watcher) ingestFile(path string) int {
 	sessionID := sessionIDFromPath(path)
-	cursorFile := filepath.Join(w.rawDir, ".watch-cursor-"+sessionID)
+	cursorFile := filepath.Join(w.cursorDir, ".watch-cursor-"+sessionID)
 
 	// Read cursor offset.
 	offset := readWatchCursor(cursorFile)
@@ -370,7 +370,6 @@ func (w *Watcher) ingestFile(path string) int {
 
 	// Read new content. Use ReadBytes('\n') instead of Scanner to distinguish
 	// complete lines (terminated by \n) from truncated trailing data (#153).
-	var entries []recorder.RawEntry
 	var turns []Turn
 	var committedBytes int64
 	reader := bufio.NewReaderSize(f, 2*1024*1024)
@@ -388,14 +387,6 @@ func (w *Watcher) ingestFile(path string) int {
 			continue
 		}
 
-		// Legacy path: collect RawEntry for the .mom/raw/ writer (retired
-		// in #240 PR 3).
-		if entry, ok := adapter.ParseLine(raw, sessionID); ok {
-			entries = append(entries, entry)
-		}
-		// v0.30 path: collect Turn for the turn.observed bus event
-		// consumed by Drafter (filter pipeline) and Logbook (metadata
-		// projection).
 		if turn, ok := adapter.ExtractTurn(raw, sessionID); ok {
 			turns = append(turns, turn)
 		}
@@ -405,44 +396,22 @@ func (w *Watcher) ingestFile(path string) int {
 		return 0
 	}
 
-	// Write entries to .mom/raw/<YYYY-MM-DD>.jsonl.
-	if len(entries) > 0 {
-		if err := w.writeEntries(entries); err != nil {
-			w.logf("writing entries from %s: %v", path, err)
-			return 0
-		}
-		if w.p != nil && !w.catchingUp {
-			sid := sessionIDFromPath(path)
-			short := sid
-			if len(short) > 8 {
-				short = short[:8]
-			}
-			rt := w.adapterForPath(path).Name()
-			w.p.Checkf("ingested %d turns from %s — %s", len(entries), w.p.HighlightValue(rt), w.p.HighlightValue(short))
-		}
-	}
-
 	// Advance cursor only past complete lines (#153).
 	writeWatchCursor(cursorFile, offset+committedBytes)
 
-	// Publish to Herald so downstream processors (Logbook, Drafter) run.
-	if len(entries) > 0 && w.cfg.Bus != nil {
-		w.cfg.Bus.Publish(herald.Event{
-			Type:      herald.RecordAppended,
-			SessionID: sessionID,
-			Payload: map[string]any{
-				"transcript_path": path,
-				"count":           len(entries),
-				"mom_dir":         w.cfg.MomDir,
-				"runtime":         w.adapterForPath(path).Name(),
-			},
-		})
+	if len(turns) > 0 && w.p != nil && !w.catchingUp {
+		sid := sessionIDFromPath(path)
+		short := sid
+		if len(short) > 8 {
+			short = short[:8]
+		}
+		rt := adapter.Name()
+		w.p.Checkf("ingested %d turns from %s — %s", len(turns), w.p.HighlightValue(rt), w.p.HighlightValue(short))
 	}
 
-	// v0.30 emission: one turn.observed event per parsed Turn. Carries
-	// the full structured payload Drafter needs for filter decisions.
-	// Logbook subscribes and persists a metadata projection; Drafter
-	// (lands in #240 PR 2) subscribes and persists redacted memories.
+	// Emit one turn.observed event per parsed Turn. Drafter consumes
+	// these for the filter + cluster + persist pipeline; Logbook
+	// projects to a privacy-safe metadata row.
 	if w.cfg.Bus != nil {
 		for _, t := range turns {
 			w.cfg.Bus.Publish(herald.Event{
@@ -453,30 +422,7 @@ func (w *Watcher) ingestFile(path string) int {
 		}
 	}
 
-	return len(entries)
-}
-
-// writeEntries appends normalized entries to today's raw JSONL file.
-func (w *Watcher) writeEntries(entries []recorder.RawEntry) error {
-	now := time.Now().UTC()
-	dailyFile := filepath.Join(w.rawDir, now.Format("2006-01-02")+".jsonl")
-
-	f, err := os.OpenFile(dailyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("opening daily file: %w", err)
-	}
-	defer f.Close()
-
-	for _, e := range entries {
-		line, err := json.Marshal(e)
-		if err != nil {
-			continue
-		}
-		if _, err := f.Write(append(line, '\n')); err != nil {
-			return err
-		}
-	}
-	return nil
+	return len(turns)
 }
 
 // addDir adds a directory and all its subdirectories to the fsnotify watcher.

@@ -37,10 +37,10 @@ func TestIngestFile_PublishesTurnObserved(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	// Two real Claude transcript lines: one user, one assistant with
 	// usage + a tool_use block.
@@ -116,10 +116,10 @@ func TestIngestFile_PublishesNothingWithoutBus(t *testing.T) {
 			// Bus intentionally nil
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	transcriptPath := filepath.Join(transcriptDir, "s-no-bus.jsonl")
 	if err := os.WriteFile(transcriptPath, []byte(claudeUserTurn+"\n"), 0o644); err != nil {
@@ -152,10 +152,10 @@ func TestIngestFile_PublishesOneEventPerTurn(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	transcriptPath := filepath.Join(transcriptDir, "s-three.jsonl")
 	body := claudeUserTurn + "\n" + claudeAssistantTextTurn + "\n" + claudeAssistantToolUseTurn + "\n"
