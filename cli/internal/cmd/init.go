@@ -63,25 +63,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 			propagateInit(cmd, installDir, result)
 		}
 
-		// Run bootstrap inline if the user opted in (non-interactive -y always skips).
-		if result.BootstrapChoice != "" && result.BootstrapChoice != "skip" {
-			p := ux.NewPrinter(cmd.OutOrStdout())
-			p.Blank()
-			if result.ScopeLabel == "user" || result.ScopeLabel == "org" {
-				// Multi-repo: bootstrap each child repo that has .mom/.
-				if err := bootstrapAllChildRepos(cmd, installDir); err != nil {
-					p.Warnf("multi-repo bootstrap error: %v", err)
-				}
-			} else {
-				scanDir := installDir
-				if result.BootstrapChoice == "repo" {
-					scanDir = cwd
-				}
-				if err := runBootstrapInline(cmd, scanDir, filepath.Join(installDir, ".mom")); err != nil {
-					p.Warnf("bootstrap scan error: %v", err)
-				}
-			}
-		}
+		// Cartographer-driven seeding was retired from `mom init` once
+		// MOM became global — the central vault aggregates memories
+		// from sessions across every project, so per-project bootstrap
+		// scanning no longer fits the model. The `mom map` command
+		// stays callable (hidden) for users with existing scripts;
+		// quality work lives in the v0.40 redesign.
 		return nil
 	}
 
@@ -507,42 +494,6 @@ func runReinit(cmd *cobra.Command, cwd, leoDir string, result OnboardingResult, 
 	return nil
 }
 
-// bootstrapAllChildRepos walks rootDir recursively, finds every directory that
-// has .mom/, and runs bootstrapInline for each one. Org folders (scope: org)
-// are skipped because they don't contain source code directly.
-func bootstrapAllChildRepos(cmd *cobra.Command, rootDir string) error {
-	entries, err := os.ReadDir(rootDir)
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
-			continue
-		}
-		childPath := filepath.Join(rootDir, e.Name())
-		childLeo := filepath.Join(childPath, ".mom")
-
-		// If this child has .mom/ and .git/, it's a repo — bootstrap it.
-		gitPath := filepath.Join(childPath, ".git")
-		if _, err := os.Stat(childLeo); err == nil {
-			bp := ux.NewPrinter(cmd.OutOrStdout())
-			if _, err := os.Stat(gitPath); err == nil {
-				bp.Blank()
-				bp.Textf("Bootstrapping %s...", e.Name())
-				if err := runBootstrapInline(cmd, childPath, childLeo); err != nil {
-					bp.Warnf("%s: %v", e.Name(), err)
-				}
-			} else {
-				// Org folder — recurse into its children.
-				if err := bootstrapAllChildRepos(cmd, childPath); err != nil {
-					bp.Warnf("%s: %v", e.Name(), err)
-				}
-			}
-		}
-	}
-	return nil
-}
-
 // propagateInit initializes .mom/ in child directories when the parent scope
 // is user or org. Org folders (dirs containing repos) get scope "org", and
 // repos (dirs with .git/) get scope "repo". Already-initialized dirs are skipped.
@@ -576,7 +527,6 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 			childResult := parentResult
 			childResult.InstallDir = childPath
 			childResult.ScopeLabel = "org"
-			childResult.BootstrapChoice = "" // bootstrap handled separately
 			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
 				pp.Warnf("failed to init %s: %v", childPath, err)
 				continue
@@ -590,7 +540,6 @@ func propagateInit(cmd *cobra.Command, rootDir string, parentResult OnboardingRe
 			childResult := parentResult
 			childResult.InstallDir = childPath
 			childResult.ScopeLabel = "repo"
-			childResult.BootstrapChoice = "" // bootstrap handled separately
 			if err := runInitWithConfig(cmd, childPath, false, childResult); err != nil {
 				pp.Warnf("failed to init %s: %v", childPath, err)
 				continue

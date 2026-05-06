@@ -26,9 +26,6 @@ type OnboardingResult struct {
 	// ScopeLabel is the value written to config.yaml scope: field.
 	// Defaults to "repo".
 	ScopeLabel string
-	// BootstrapChoice is the user's answer to the bootstrap question.
-	// Values: "full" | "repo" | "skip". Empty means skip (non-interactive path).
-	BootstrapChoice string
 }
 
 // runOnboarding executes the interactive wizard and returns the chosen config.
@@ -69,7 +66,6 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	// Language is fixed to "en"; the prompt was removed in v0.9.
 	lang := "en"
 	mode := "concise"
-	bootstrapChoice := "skip" // default: skip
 
 	// Scope installation choice: "cwd" (repo), a detected parent dir, or "custom".
 	// scopeChoice maps to an install directory; scopeLabel tracks the config value.
@@ -138,20 +134,6 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				Value(&scopeChoice),
 		),
 
-		// Group 5: Bootstrap
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Scan existing content to seed your memory?").
-				Description(
-					"Reads code, markdown, and commit messages to create initial memories.\n"+
-						"You can skip and let memory build from sessions only.",
-				).
-				Options(
-					huh.NewOption("Yes — scan this repo", "repo"),
-					huh.NewOption("No — start empty", "skip"),
-				).
-				Value(&bootstrapChoice),
-		),
 	).WithAccessible(accessible).
 		WithInput(r).
 		WithOutput(w).
@@ -204,13 +186,12 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}
 
 	return OnboardingResult{
-		Harnesses:       selectedHarnesses,
-		Language:        lang,
-		Mode:            mode,
-		CoreSource:      "",
-		InstallDir:      installDir,
-		ScopeLabel:      scopeLabel,
-		BootstrapChoice: bootstrapChoice,
+		Harnesses:  selectedHarnesses,
+		Language:   lang,
+		Mode:       mode,
+		CoreSource: "",
+		InstallDir: installDir,
+		ScopeLabel: scopeLabel,
 	}, nil
 }
 
