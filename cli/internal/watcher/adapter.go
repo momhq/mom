@@ -1,27 +1,17 @@
 // Package watcher provides filesystem-based transcript ingestion for MOM.
-// It watches Claude Code transcript directories and normalizes entries to
-// RawEntry format compatible with the existing drafter pipeline.
+// It watches Harness transcript directories and emits structured Turn
+// events on Herald for downstream Drafter and Logbook subscribers.
 package watcher
 
 import (
 	"github.com/momhq/mom/cli/internal/logbook"
-	"github.com/momhq/mom/cli/internal/recorder"
 )
 
-// Adapter parses Harness-specific transcript lines into RawEntry values.
+// Adapter parses Harness-specific transcript lines into Turn values.
 // Each Harness (Claude Code, Windsurf, Pi) has its own adapter.
 type Adapter interface {
 	// Name returns the adapter's Harness identifier.
 	Name() string
-
-	// ParseLine parses a single JSONL line from a transcript file.
-	// Returns (entry, true) if the line yields a recordable entry,
-	// (zero, false) if the line should be skipped (tool_use, metadata, etc.).
-	//
-	// Used by the legacy .mom/raw/ writer path; will retire alongside
-	// the raw writer in a follow-up cleanup once Drafter consumes
-	// turn.observed events.
-	ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool)
 
 	// ExtractTurn parses a single JSONL line and returns the rich
 	// per-turn shape consumed by Drafter (filter pipeline) and

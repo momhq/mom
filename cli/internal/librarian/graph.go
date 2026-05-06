@@ -97,6 +97,34 @@ func (l *Librarian) MemoriesByTag(name string) ([]string, error) {
 	return ids, nil
 }
 
+// AllTagNames returns every tag name in the corpus, in lexical order.
+// Used by Drafter to seed BM25 ranking when extracting per-chunk
+// tags — phrases already saturated as tags get downranked, novel
+// phrases get upranked. Returns an empty slice (not nil) when the
+// corpus is empty so callers can pass the result straight into
+// newBM25Index without nil-handling.
+func (l *Librarian) AllTagNames() ([]string, error) {
+	names := []string{}
+	err := l.v.Query(
+		`SELECT name FROM tags ORDER BY name`,
+		nil,
+		func(rs *sql.Rows) error {
+			for rs.Next() {
+				var n string
+				if err := rs.Scan(&n); err != nil {
+					return err
+				}
+				names = append(names, n)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("AllTagNames: %w", err)
+	}
+	return names, nil
+}
+
 // RenameTag renames a tag in place. The comparison is case-sensitive
 // so "mcp" → "MCP" works as expected. Renames mutate the single tags
 // row; no memory or edge row is rewritten — locked by ADR 0010.

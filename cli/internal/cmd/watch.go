@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -41,7 +40,8 @@ var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Watch runtime transcripts and ingest turns automatically",
 	Long: `Starts a filesystem watcher on a runtime transcript directory and
-ingests new conversation turns into .mom/raw/ without MCP calls or hook overhead.
+ingests new conversation turns into the central vault at $HOME/.mom/mom.db
+without MCP calls or hook overhead.
 
 Supported runtimes:
   claude    — ~/.claude/projects/ (default)
@@ -49,7 +49,7 @@ Supported runtimes:
   pi        — ~/.pi/agent/sessions/
 
 Each session's JSONL transcript is tailed incrementally.
-Cursor files in .mom/raw/ track the last ingested byte offset per session,
+Cursor files in .mom/cache/ track the last ingested byte offset per session,
 so restarts are safe and idempotent.
 
 The watcher runs in the foreground. Use Ctrl-C to stop.`,
@@ -158,11 +158,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	// Sweep mode: one-shot catch-up and exit.
 	if watchSweep {
-		adapterMap := make(map[string]watcher.Adapter, len(sources))
-		for _, src := range sources {
-			adapterMap[src.Harness] = src.Adapter
-		}
-		bus := newProjectBus(momDir, adapterMap, workers)
+		bus := newProjectBus(workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projectDir,
 			MomDir:     momDir,
@@ -184,13 +180,10 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Herald event bus: watcher publishes RecordAppended events,
-	// Logbook and Drafter subscribe as downstream processors.
-	adapterMap := make(map[string]watcher.Adapter, len(sources))
-	for _, src := range sources {
-		adapterMap[src.Harness] = src.Adapter
-	}
-	bus := newProjectBus(momDir, adapterMap, workers)
+	// Herald event bus: watcher publishes turn.observed events,
+	// Logbook and Drafter (via centralWorkers) subscribe as
+	// downstream processors.
+	bus := newProjectBus(workers)
 
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
@@ -212,7 +205,9 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	for rt, dir := range w.TranscriptDirs() {
 		p.Chevron(fmt.Sprintf("%s: %s", rt, dir))
 	}
-	p.Chevron(fmt.Sprintf("target: %s/raw/", momDir))
+	if home, err := os.UserHomeDir(); err == nil {
+		p.Chevron(fmt.Sprintf("vault: %s", filepath.Join(home, ".mom", "mom.db")))
+	}
 	p.Muted("press Ctrl-C to stop")
 	p.Blank()
 
@@ -269,61 +264,16 @@ func startDrafterTicker(ctx context.Context, workers centralWorkers) <-chan stru
 	return done
 }
 
-// newProjectBus creates a Herald event bus with Logbook and Drafter
-// subscribers wired for a given momDir. Used by both single-project
-// and global watch modes. adapters maps Harness name → Adapter for
-// Harness-specific logbook parsing.
-//
-// Two subscriber tiers coexist on this bus:
-//
-//  1. Central path (v0.30): centralWorkers.AttachToBus subscribes
-//     the shared Drafter and Logbook to turn.observed,
-//     memory.record, and op.memory.* — persisting into the central
-//     vault at $HOME/.mom/mom.db.
-//  2. Legacy path: a RecordAppended subscriber writes session-*.json
-//     under momDir/logs via logbook.ParseTranscript. The drafter
-//     half of this pair retired in #240 PR 3; the session-log
-//     writer follows in #240 PR 4 alongside the .mom/raw/ writer.
-func newProjectBus(momDir string, adapters map[string]watcher.Adapter, workers centralWorkers) *herald.Bus {
+// newProjectBus creates a Herald event bus with the central Drafter
+// and Logbook attached. Used by both single-project and global watch
+// modes. The shared workers consume turn.observed, memory.record,
+// and op.memory.* and persist into the central vault at
+// $HOME/.mom/mom.db. The legacy RecordAppended subscribers (v1
+// drafter writing .mom/memory/*.json, v1 logbook writing
+// session-*.json) retired in #240 PR 3 and PR 4.
+func newProjectBus(workers centralWorkers) *herald.Bus {
 	bus := herald.NewBus()
 	workers.AttachToBus(bus)
-
-	// Logbook: parse transcript → write session metrics to .mom/logs/.
-	bus.Subscribe(herald.RecordAppended, func(e herald.Event) {
-		tp, _ := e.Payload["transcript_path"].(string)
-		sid, _ := e.Payload["session_id"].(string)
-		md, _ := e.Payload["mom_dir"].(string)
-		if tp == "" || sid == "" || md == "" {
-			return
-		}
-		logsDir := filepath.Join(md, "logs")
-		_ = os.MkdirAll(logsDir, 0755)
-
-		// Use Harness-specific parser when available, fall back to Claude format.
-		var sessionLog *logbook.SessionLog
-		var err error
-		if rt, ok := e.Payload["runtime"].(string); ok {
-			if adapter, ok := adapters[rt]; ok {
-				if sp, ok := adapter.(watcher.SessionParser); ok {
-					sessionLog, err = sp.ParseSession(tp, sid)
-				}
-			}
-		}
-		if sessionLog == nil && err == nil {
-			sessionLog, err = logbook.ParseTranscript(tp, sid)
-		}
-		if err != nil || sessionLog == nil {
-			return
-		}
-		outPath := filepath.Join(logsDir, fmt.Sprintf("session-%s.json", sid))
-		data, _ := json.MarshalIndent(sessionLog, "", "  ")
-		_ = os.WriteFile(outPath, append(data, '\n'), 0644)
-	})
-
-	// v1 file-based drafter (RecordAppended → .mom/memory/*.json) was
-	// retired in #240 PR 3. Drafter now consumes turn.observed via
-	// centralWorkers.AttachToBus and persists into the central vault.
-
 	return bus
 }
 
@@ -353,11 +303,7 @@ func runWatchGlobal(sweepOnly bool) error {
 			if len(sources) == 0 {
 				continue
 			}
-			adapterMap := make(map[string]watcher.Adapter, len(sources))
-			for _, src := range sources {
-				adapterMap[src.Harness] = src.Adapter
-			}
-			bus := newProjectBus(entry.MomDir, adapterMap, workers)
+			bus := newProjectBus(workers)
 			w, err := watcher.New(watcher.Config{
 				ProjectDir: projDir,
 				MomDir:     entry.MomDir,
@@ -416,11 +362,7 @@ func runWatchGlobal(sweepOnly bool) error {
 		if len(sources) == 0 {
 			return
 		}
-		adapterMap := make(map[string]watcher.Adapter, len(sources))
-		for _, src := range sources {
-			adapterMap[src.Harness] = src.Adapter
-		}
-		bus := newProjectBus(entry.MomDir, adapterMap, workers)
+		bus := newProjectBus(workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projDir,
 			MomDir:     entry.MomDir,
@@ -629,26 +571,40 @@ func (cw centralWorkers) AttachToBus(bus *herald.Bus) {
 // refactor should plumb an explicit Close, but for alpha this is
 // acceptable.
 func openCentralWorkers() centralWorkers {
+	lib, _, err := openCentralLibrarian()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "watch: %v — central workers not wired\n", err)
+		return centralWorkers{}
+	}
+	return centralWorkers{
+		drafter: drafter.New(lib),
+		logbook: logbook.New(lib),
+	}
+}
+
+// openCentralLibrarian opens the central vault at $HOME/.mom/mom.db
+// (creating the directory and running migrations as needed) and
+// returns a Librarian bound to it plus a closer the caller can run on
+// shutdown. Used by surfaces that need direct vault access without
+// the Drafter/Logbook subscribers — currently only the `mom record`
+// CLI command. Failures return a wrapped error; the watch-mode
+// helper turns those into stderr warnings and falls back to a
+// no-central-workers shape, while the record CLI turns them into
+// hook-friendly silent exits.
+func openCentralLibrarian() (*librarian.Librarian, func() error, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "watch: cannot resolve $HOME: %v — central workers not wired\n", err)
-		return centralWorkers{}
+		return nil, nil, fmt.Errorf("cannot resolve $HOME: %w", err)
 	}
 	momHome := filepath.Join(home, ".mom")
 	if err := os.MkdirAll(momHome, 0o700); err != nil {
-		fmt.Fprintf(os.Stderr, "watch: cannot create %s: %v — central workers not wired\n", momHome, err)
-		return centralWorkers{}
+		return nil, nil, fmt.Errorf("cannot create %s: %w", momHome, err)
 	}
 	dbPath := filepath.Join(momHome, "mom.db")
 	migs := append(librarian.Migrations(), logbook.Migrations()...)
 	v, err := vault.Open(dbPath, migs)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "watch: vault.Open %s: %v — central workers not wired\n", dbPath, err)
-		return centralWorkers{}
+		return nil, nil, fmt.Errorf("vault.Open %s: %w", dbPath, err)
 	}
-	lib := librarian.New(v)
-	return centralWorkers{
-		drafter: drafter.New(lib),
-		logbook: logbook.New(lib),
-	}
+	return librarian.New(v), v.Close, nil
 }

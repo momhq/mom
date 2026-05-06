@@ -267,13 +267,23 @@ func (d *Drafter) flushSession(sessionID string) {
 	delete(d.pending, sessionID)
 	d.mu.Unlock()
 
+	// Snapshot the existing tag corpus ONCE per flush, not per chunk.
+	// A long session can produce many chunks; querying AllTagNames N
+	// times means N full scans of the tags table for the same data.
+	// Failures are non-fatal — an empty vocab makes buildTags fall
+	// back to RAKE order, which matches pre-PR-4 behaviour.
+	vocab, vocabErr := d.lib.AllTagNames()
+	if vocabErr != nil {
+		fmt.Fprintf(os.Stderr, "drafter: AllTagNames: %v\n", vocabErr)
+	}
+
 	chunks := detectChunks(turns, d.boundaryThreshold)
 	for _, ch := range chunks {
-		d.persistChunk(bus, sessionID, turns[ch.StartIdx:ch.EndIdx])
+		d.persistChunk(bus, sessionID, turns[ch.StartIdx:ch.EndIdx], vocab)
 	}
 }
 
-func (d *Drafter) persistChunk(bus *herald.Bus, sessionID string, turns []bufferedTurn) {
+func (d *Drafter) persistChunk(bus *herald.Bus, sessionID string, turns []bufferedTurn, vocab []string) {
 	if len(turns) == 0 {
 		return
 	}
@@ -294,7 +304,7 @@ func (d *Drafter) persistChunk(bus *herald.Bus, sessionID string, turns []buffer
 	content := strings.Join(texts, "\n")
 	tagContent := strings.Join(tagSrc, "\n")
 
-	tags := buildTags(allPaths, tagContent, allKeywords)
+	tags := buildTags(allPaths, tagContent, allKeywords, vocab)
 
 	contentBytes, err := json.Marshal(map[string]any{"text": content})
 	if err != nil {
@@ -414,7 +424,12 @@ func (d *Drafter) processRecord(bus *herald.Bus, e herald.Event) error {
 // compounds; POS-noun filter; cap at maxTagsPerMemory; final
 // normalization through librarian.NormalizeTagName for parity with
 // mom_record's input pipeline.
-func buildTags(paths []string, tagContent string, candidates []RakeCandidate) []string {
+//
+// vocab is the existing tag corpus (Librarian.AllTagNames()). BM25
+// uses it to rank RAKE candidates — phrases already saturated as tags
+// score lower, novel phrases score higher. Empty vocab is fine; BM25
+// returns input order unchanged in that case.
+func buildTags(paths []string, tagContent string, candidates []RakeCandidate, vocab []string) []string {
 	tags := map[string]bool{}
 	for _, t := range ExtractFileTags(paths) {
 		tags[t] = true
@@ -424,7 +439,7 @@ func buildTags(paths []string, tagContent string, candidates []RakeCandidate) []
 			tags[t] = true
 		}
 	}
-	bm := newBM25Index(nil)
+	bm := newBM25Index(vocab)
 	for _, t := range bm.rankCandidates(candidates) {
 		if len(t) > 2 && len(t) <= 40 {
 			tags[t] = true

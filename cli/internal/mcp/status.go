@@ -42,9 +42,9 @@ type statusOperatingRulesBlock struct {
 }
 
 type statusToolsBlock struct {
-	MomStatus     string `json:"mom_status"`
-	MomRecall     string `json:"mom_recall"`
-	MomRecordTurn string `json:"mom_record_turn"`
+	MomStatus string `json:"mom_status"`
+	MomRecall string `json:"mom_recall"`
+	MomRecord string `json:"mom_record"`
 }
 
 type statusModesBlock struct {
@@ -99,7 +99,7 @@ func statusOperatingRules() statusOperatingRulesBlock {
 	return statusOperatingRulesBlock{
 		OnStart:   "After receiving this protocol, call mom_recall with context relevant to the user's current request to surface prior work.",
 		Recall:    "Call mom_recall before answering from memory or asserting past decisions. Cite source memory IDs in every answer drawn from recall.",
-		Recording: "Continuous recording is active — your conversation is automatically persisted via hooks. No action needed from you.",
+		Recording: "Continuous recording is active — your conversation is automatically persisted by the watcher daemon. No action needed from you.",
 		WrapUp:    "User-invoked only. Run the session-wrap-up skill only when the user explicitly asks.",
 	}
 }
@@ -117,9 +117,9 @@ func statusBoundaries() []string {
 // statusTools returns the static tools block.
 func statusTools() statusToolsBlock {
 	return statusToolsBlock{
-		MomStatus:     "Returns this protocol. Call at session start.",
-		MomRecall:     "Search memories by query, tags, or session. Use before asserting past context.",
-		MomRecordTurn: "Fallback for runtimes without hooks. Skip if record_mode is continuous.",
+		MomStatus: "Returns this protocol. Call at session start.",
+		MomRecall: "Search memories by query, tags, or session. Use before asserting past context.",
+		MomRecord: "Explicit-write path: intentionally save a memory mid-session. Bypasses Drafter's content filters per ADR 0014.",
 	}
 }
 

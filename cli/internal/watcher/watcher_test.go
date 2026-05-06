@@ -8,34 +8,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/momhq/mom/cli/internal/recorder"
 )
 
-// mockAdapter records every call to ParseLine for inspection.
+// mockAdapter records every call to ExtractTurn for inspection.
 type mockAdapter struct {
 	calls []string
 }
 
 func (m *mockAdapter) Name() string { return "mock" }
-func (m *mockAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool) {
-	m.calls = append(m.calls, string(line))
-	// Accept any non-empty line as a user turn.
-	if len(strings.TrimSpace(string(line))) == 0 {
-		return recorder.RawEntry{}, false
-	}
-	return recorder.RawEntry{
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Event:     "mock-user",
-		Text:      "mock: " + string(line),
-		SessionID: sessionID,
-	}, true
-}
 
-// ExtractTurn returns a minimal Turn for the watcher's bus emission
-// tests. Does NOT call ParseLine (would double-count m.calls in tests
-// that assert on parse-call frequency). Rich-content adapter tests
-// exercise the real ClaudeAdapter.
+// ExtractTurn records the line and returns a minimal Turn for any
+// non-empty input. Rich-content adapter tests exercise the real
+// ClaudeAdapter / PiAdapter / WindsurfAdapter.
 func (m *mockAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
+	m.calls = append(m.calls, string(line))
 	if len(strings.TrimSpace(string(line))) == 0 {
 		return Turn{}, false
 	}
@@ -62,6 +48,85 @@ func TestSessionIDFromPath(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("sessionIDFromPath(%q) = %q, want %q", tc.path, got, tc.want)
 		}
+	}
+}
+
+// TestMigrateLegacyCursors locks the upgrade-papercut fix from PR 4:
+// pre-existing cursor files written by the v0.30-dev watcher into
+// .mom/raw/ get copied into .mom/cache/ on first run after upgrade
+// so the watcher resumes from the right offset instead of
+// re-ingesting every historical turn. Read-only on the old path,
+// non-clobbering on the new.
+func TestMigrateLegacyCursors(t *testing.T) {
+	oldDir := t.TempDir()
+	newDir := t.TempDir()
+
+	// Two legacy cursors and one unrelated file (must NOT be copied).
+	if err := os.WriteFile(filepath.Join(oldDir, ".watch-cursor-sess-A"), []byte("1234"), 0644); err != nil {
+		t.Fatalf("seed cursor A: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, ".watch-cursor-sess-B"), []byte("5678"), 0644); err != nil {
+		t.Fatalf("seed cursor B: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, "unrelated.jsonl"), []byte("noise"), 0644); err != nil {
+		t.Fatalf("seed unrelated file: %v", err)
+	}
+
+	// Pre-existing cursor in newDir for sess-C — migration must NOT
+	// clobber it (new path wins).
+	if err := os.WriteFile(filepath.Join(newDir, ".watch-cursor-sess-C"), []byte("9999"), 0644); err != nil {
+		t.Fatalf("seed pre-existing new cursor: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, ".watch-cursor-sess-C"), []byte("0000"), 0644); err != nil {
+		t.Fatalf("seed conflicting old cursor: %v", err)
+	}
+
+	migrateLegacyCursors(oldDir, newDir)
+
+	// Both new cursors copied with their original content.
+	for _, c := range []struct {
+		name string
+		want string
+	}{
+		{".watch-cursor-sess-A", "1234"},
+		{".watch-cursor-sess-B", "5678"},
+	} {
+		got, err := os.ReadFile(filepath.Join(newDir, c.name))
+		if err != nil {
+			t.Errorf("missing migrated cursor %q: %v", c.name, err)
+			continue
+		}
+		if string(got) != c.want {
+			t.Errorf("cursor %q content = %q, want %q", c.name, string(got), c.want)
+		}
+	}
+
+	// Conflicting cursor was NOT overwritten — new path wins.
+	got, _ := os.ReadFile(filepath.Join(newDir, ".watch-cursor-sess-C"))
+	if string(got) != "9999" {
+		t.Errorf("pre-existing cursor was clobbered: got %q, want 9999", string(got))
+	}
+
+	// Originals remain on the old path (read-only migration).
+	if _, err := os.Stat(filepath.Join(oldDir, ".watch-cursor-sess-A")); err != nil {
+		t.Errorf("original cursor A removed: %v", err)
+	}
+
+	// Unrelated file must not have been copied.
+	if _, err := os.Stat(filepath.Join(newDir, "unrelated.jsonl")); err == nil {
+		t.Error("unrelated file copied — migration should match .watch-cursor-* only")
+	}
+}
+
+// TestMigrateLegacyCursors_NoOldDir is a no-op on fresh installs
+// where .mom/raw/ never existed.
+func TestMigrateLegacyCursors_NoOldDir(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "does-not-exist")
+	newDir := t.TempDir()
+	migrateLegacyCursors(missing, newDir) // must not panic, must not error
+	entries, _ := os.ReadDir(newDir)
+	if len(entries) != 0 {
+		t.Errorf("expected newDir empty after no-op migration, got %d entries", len(entries))
 	}
 }
 
@@ -106,8 +171,8 @@ func TestExpandTilde(t *testing.T) {
 	}
 }
 
-// TestIngestFile_NewSession verifies that a new transcript file is ingested
-// and entries are written to .mom/raw/.
+// TestIngestFile_NewSession verifies that a new transcript file is ingested,
+// turns are returned, and the cursor is advanced.
 func TestIngestFile_NewSession(t *testing.T) {
 	transcriptDir := t.TempDir()
 	momDir := t.TempDir()
@@ -120,10 +185,10 @@ func TestIngestFile_NewSession(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	// Write a transcript file with two lines.
 	sessionID := "test-session-001"
@@ -143,27 +208,17 @@ func TestIngestFile_NewSession(t *testing.T) {
 		t.Fatalf("writing transcript: %v", err)
 	}
 
-	w.ingestFile(transcriptPath)
-
-	// Check that a daily raw file was created.
-	today := time.Now().UTC().Format("2006-01-02")
-	rawFile := filepath.Join(momDir, "raw", today+".jsonl")
-	data, err := os.ReadFile(rawFile)
-	if err != nil {
-		t.Fatalf("reading raw file: %v", err)
+	n := w.ingestFile(transcriptPath)
+	if n != 2 {
+		t.Errorf("expected 2 turns ingested, got %d", n)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 2 {
-		t.Errorf("expected 2 raw entries, got %d: %s", len(lines), string(data))
-	}
-
-	// Check cursor was written.
-	cursorFile := filepath.Join(momDir, "raw", ".watch-cursor-"+sessionID)
+	// Cursor was written under .mom/cache/, advanced past both lines.
+	cursorFile := filepath.Join(momDir, "cache", ".watch-cursor-"+sessionID)
 	offset := readWatchCursor(cursorFile)
 	expectedBytes := int64(len(line1) + 1 + len(line2) + 1) // +1 per newline
 	if offset != expectedBytes {
-		t.Errorf("expected cursor=%d, got %d", expectedBytes, offset)
+		t.Errorf("expected cursor=%d, got %d", offset, expectedBytes)
 	}
 }
 
@@ -181,10 +236,10 @@ func TestIngestFile_IncrementalRead(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	sessionID := "incremental-session"
 	transcriptPath := filepath.Join(transcriptDir, sessionID+".jsonl")
@@ -246,10 +301,10 @@ func TestIngestFile_TruncatedLine(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	sessionID := "truncated-session"
 	transcriptPath := filepath.Join(transcriptDir, sessionID+".jsonl")
@@ -266,7 +321,7 @@ func TestIngestFile_TruncatedLine(t *testing.T) {
 	w.ingestFile(transcriptPath)
 
 	// Cursor should only cover the complete line (len + \n), NOT the partial.
-	cursorFile := filepath.Join(momDir, "raw", ".watch-cursor-"+sessionID)
+	cursorFile := filepath.Join(momDir, "cache", ".watch-cursor-"+sessionID)
 	cursor := readWatchCursor(cursorFile)
 	expectedCursor := int64(len(completeLine) + 1) // complete line + \n
 	if cursor != expectedCursor {
@@ -307,10 +362,10 @@ func TestIngestFile_FileShrink(t *testing.T) {
 			DebounceMs:    300,
 		},
 		timers:  make(map[string]*time.Timer),
-		rawDir:  filepath.Join(momDir, "raw"),
+		cursorDir: filepath.Join(momDir, "cache"),
 		logFile: filepath.Join(momDir, "watch.log"),
 	}
-	_ = os.MkdirAll(w.rawDir, 0755)
+	_ = os.MkdirAll(w.cursorDir, 0755)
 
 	sessionID := "shrink-session"
 	transcriptPath := filepath.Join(transcriptDir, sessionID+".jsonl")
@@ -329,7 +384,7 @@ func TestIngestFile_FileShrink(t *testing.T) {
 	_ = os.WriteFile(transcriptPath, []byte(line1+"\n"+line2+"\n"), 0644)
 	w.ingestFile(transcriptPath)
 
-	cursorFile := filepath.Join(momDir, "raw", ".watch-cursor-"+sessionID)
+	cursorFile := filepath.Join(momDir, "cache", ".watch-cursor-"+sessionID)
 	cursorBefore := readWatchCursor(cursorFile)
 	if cursorBefore == 0 {
 		t.Fatal("cursor should be > 0 after first ingest")

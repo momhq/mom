@@ -368,3 +368,61 @@ func TestProcessRecord_AtomicMemoryAndTags(t *testing.T) {
 		}
 	}
 }
+
+// TestObserveTurn_TurnCountCapTriggersAutoFlush locks the
+// flushAtTurnCount=50 trigger: hitting the cap drains the buffer
+// without an explicit FlushAll call. Identical body keeps boundary
+// detection from splitting, so the 50 turns flush as one chunk → one
+// memory. Without this trigger, sessions under-the-cap-but-busy
+// never persist between idle ticks.
+func TestObserveTurn_TurnCountCapTriggersAutoFlush(t *testing.T) {
+	d, lib := openDrafter(t)
+	bus := herald.NewBus()
+	defer d.SubscribeAll(bus)()
+
+	body := "working on the drafter buffer in cli/internal/drafter/drafter.go — the drafter clustering pipeline buffers turns and flushes them as memory chunks"
+	for i := 0; i < 50; i++ {
+		bus.Publish(herald.Event{
+			Type:      herald.TurnObserved,
+			SessionID: "s",
+			Payload:   substantiveTurn(body, "claude-code"),
+		})
+	}
+
+	// No FlushAll here — the cap is the only trigger.
+	rows, _ := lib.SearchMemories(librarian.SearchFilter{SessionID: "s", Limit: 10})
+	if len(rows) != 1 {
+		t.Fatalf("got %d memories after 50-turn cap, want 1 (auto-flush)", len(rows))
+	}
+}
+
+// TestObserveTurn_BufferReCreatedAfterFlush locks the post-flush
+// recovery path: after a session's buffer drains (cap, idle, or
+// FlushAll), a new turn for the same session must be admitted into
+// a fresh buffer and the next flush must produce a second memory.
+// Without this guarantee, every session would be limited to one
+// memory across its whole lifetime.
+func TestObserveTurn_BufferReCreatedAfterFlush(t *testing.T) {
+	d, lib := openDrafter(t)
+	bus := herald.NewBus()
+	defer d.SubscribeAll(bus)()
+
+	bus.Publish(herald.Event{
+		Type:      herald.TurnObserved,
+		SessionID: "s",
+		Payload:   substantiveTurn("first batch — deploy postgres canary, set the connection pool to 50", "claude-code"),
+	})
+	d.FlushAll()
+
+	bus.Publish(herald.Event{
+		Type:      herald.TurnObserved,
+		SessionID: "s",
+		Payload:   substantiveTurn("second batch — review the canary metrics and roll forward to 100 percent", "claude-code"),
+	})
+	d.FlushAll()
+
+	rows, _ := lib.SearchMemories(librarian.SearchFilter{SessionID: "s", Limit: 10})
+	if len(rows) != 2 {
+		t.Fatalf("got %d memories after two flush cycles, want 2", len(rows))
+	}
+}

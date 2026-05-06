@@ -5,132 +5,121 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/momhq/mom/cli/internal/recorder"
-	"github.com/momhq/mom/cli/internal/scope"
+	"github.com/momhq/mom/cli/internal/librarian"
 	"github.com/spf13/cobra"
 )
 
-var recordRaw bool
+var (
+	recordSession string
+	recordSummary string
+	recordTags    []string
+	recordActor   string
+)
 
 var recordCmd = &cobra.Command{
-	Use:   "record",
-	Short:  "Record raw conversation data from hook stdin",
+	Use:    "record",
+	Short:  "Save an explicit memory from CLI input (CLI mirror of the mom_record MCP tool)",
 	Hidden: true,
-	Long: `Reads hook JSON from stdin, extracts transcript_path, and appends
-new turns to .mom/raw/ as JSONL. Idempotent — safe to call multiple times.
+	Long: `Reads memory text from stdin and persists it to the central vault
+($HOME/.mom/mom.db) as an explicit-write memory — bypassing Drafter's
+content filters per ADR 0014. Tags are normalised before insert; if
+any tag normalises to empty the request is dropped without persisting.
 
-With --raw, reads plain text from stdin instead of Claude Code hook JSON.
-This mode is used by runtimes that don't provide transcript_path (e.g. Cline).
+This command is the CLI mirror of the mom_record MCP tool. It is the
+human-driven path for recording a memory from a shell pipeline:
 
-Used as a hook command. Not typically called directly.`,
+  echo "decided to use Postgres for the canary deploy" | \
+    mom record --session "$SID" --tags decision,deploy
+
+Hook-friendly behaviour: legacy hook configs that pipe JSON to this
+command silently exit 0 — the JSON shape is detected and discarded
+rather than persisted as memory text.`,
 	RunE:          runRecord,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
 
 func init() {
-	recordCmd.Flags().BoolVar(&recordRaw, "raw", false, "Read plain text from stdin instead of Claude Code hook JSON")
+	recordCmd.Flags().StringVar(&recordSession, "session", "", "Session ID this memory belongs to (required)")
+	recordCmd.Flags().StringVar(&recordSummary, "summary", "", "One-line summary")
+	recordCmd.Flags().StringSliceVar(&recordTags, "tags", nil, "Tag names (comma-separated; normalised before insert)")
+	recordCmd.Flags().StringVar(&recordActor, "actor", "cli", "Calling agent / human label (defaults to 'cli')")
 }
 
 func runRecord(cmd *cobra.Command, _ []string) error {
-	// Read stdin.
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		logRecordError(err)
-		return nil // never fail the hook
-	}
-
-	// Find nearest .mom/
-	cwd, _ := os.Getwd()
-	if envDir := os.Getenv("MOM_PROJECT_DIR"); envDir != "" {
-		cwd = envDir
-	}
-
-	if recordRaw {
-		return runRecordRaw(data, cwd)
-	}
-
-	var input recorder.HookInput
-	if err := json.Unmarshal(data, &input); err != nil {
-		logRecordError(err)
+		// Hooks pipe whatever they have; never fail at the read step.
 		return nil
 	}
-
-	// Windsurf puts transcript_path inside tool_info, not at the root.
-	if input.TranscriptPath == "" {
-		var wrapper struct {
-			ToolInfo struct {
-				TranscriptPath string `json:"transcript_path"`
-			} `json:"tool_info"`
-			TrajectoryID string `json:"trajectory_id"`
-		}
-		if json.Unmarshal(data, &wrapper) == nil && wrapper.ToolInfo.TranscriptPath != "" {
-			input.TranscriptPath = wrapper.ToolInfo.TranscriptPath
-			if input.SessionID == "" {
-				input.SessionID = wrapper.TrajectoryID
-			}
-		}
-	}
-
-	if input.Cwd != "" {
-		cwd = input.Cwd
-	}
-	sc, ok := scope.NearestWritable(cwd)
-	if !ok {
-		logRecordError(fmt.Errorf("no .mom/ found from %q", cwd))
-		return nil
-	}
-
-	if err := recorder.Record(sc.Path, input); err != nil {
-		logRecordError(err)
-	}
-	return nil // always exit 0
-}
-
-// runRecordRaw handles --raw mode: plain text from stdin written directly to
-// .mom/raw/ as a JSONL entry. Used by runtimes that don't provide
-// transcript_path (Cline, Windsurf, etc.).
-func runRecordRaw(data []byte, cwd string) error {
 	text := strings.TrimSpace(string(data))
-	if text == "" {
-		return nil // nothing to record
-	}
 
-	sc, ok := scope.NearestWritable(cwd)
-	if !ok {
-		logRecordError(fmt.Errorf("no .mom/ found from %q", cwd))
+	// Hook-friendly bail-outs: missing --session, empty input, or
+	// JSON-shaped input (legacy hook payload from old Claude/Codex
+	// configs) all exit 0 without writing. The CLI was previously
+	// the entry point for those hooks; old configs that still fire
+	// it must not pollute the vault with JSON-as-memory-text.
+	if recordSession == "" {
+		fmt.Fprintln(os.Stderr, "mom record: --session is required (skipping)")
+		return nil
+	}
+	if text == "" {
+		return nil
+	}
+	if strings.HasPrefix(text, "{") {
+		fmt.Fprintln(os.Stderr, "mom record: input looks like JSON (legacy hook payload?) — skipping")
 		return nil
 	}
 
-	if err := recorder.RecordText(sc.Path, text, ""); err != nil {
-		logRecordError(err)
+	// From here on we are on the human path: --session was set, stdin
+	// is non-empty and non-JSON. Failures are real errors that should
+	// propagate to the user with a non-zero exit; they no longer fit
+	// the hook-friendly silent-bail contract.
+	tags, err := normaliseRecordTags(recordTags)
+	if err != nil {
+		return fmt.Errorf("mom record: %w", err)
 	}
+
+	lib, closeFn, err := openCentralLibrarian()
+	if err != nil {
+		return fmt.Errorf("mom record: %w", err)
+	}
+	defer func() { _ = closeFn() }()
+
+	contentBytes, err := json.Marshal(map[string]any{"text": text})
+	if err != nil {
+		return fmt.Errorf("mom record: marshal content: %w", err)
+	}
+
+	id, err := lib.InsertMemoryWithTags(librarian.InsertMemory{
+		Content:                string(contentBytes),
+		Summary:                recordSummary,
+		SessionID:              recordSession,
+		ProvenanceActor:        recordActor,
+		ProvenanceSourceType:   "manual-draft",
+		ProvenanceTriggerEvent: "record",
+	}, tags)
+	if err != nil {
+		return fmt.Errorf("mom record: insert: %w", err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "recorded: id=%s session=%s tags=%v\n", id, recordSession, tags)
 	return nil
 }
 
-// logRecordError appends an error to .mom/logs/record.log, best-effort.
-// It uses os.Getwd() to find .mom/ if available; otherwise discards.
-func logRecordError(err error) {
-	cwd, werr := os.Getwd()
-	if werr != nil {
-		return
+// normaliseRecordTags mirrors mcp.normaliseTagsOrReject: every input
+// tag is normalised; if any normalises to empty the whole list is
+// rejected so we never persist a partial-tag memory.
+func normaliseRecordTags(raw []string) ([]string, error) {
+	out := make([]string, 0, len(raw))
+	for i, t := range raw {
+		n := librarian.NormalizeTagName(t)
+		if n == "" {
+			return nil, fmt.Errorf("tag %d (%q) normalises to empty; reject the request rather than persist a partial memory", i, t)
+		}
+		out = append(out, n)
 	}
-	sc, ok := scope.NearestWritable(cwd)
-	if !ok {
-		return
-	}
-	logsDir := filepath.Join(sc.Path, "logs")
-	_ = os.MkdirAll(logsDir, 0755)
-	logFile := filepath.Join(logsDir, "record.log")
-	f, ferr := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if ferr != nil {
-		return
-	}
-	defer f.Close()
-	ts := time.Now().UTC().Format(time.RFC3339)
-	fmt.Fprintf(f, "%s record cmd error: %v\n", ts, err)
+	return out, nil
 }

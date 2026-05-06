@@ -135,7 +135,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			filepath.Join(leoDir, "constraints"),
 			filepath.Join(leoDir, "logs"),
 			filepath.Join(leoDir, "cache"),
-			filepath.Join(leoDir, "raw"),
 		}
 		for _, d := range dirs {
 			if err := os.MkdirAll(d, 0755); err != nil {

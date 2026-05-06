@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/momhq/mom/cli/internal/logbook"
-	"github.com/momhq/mom/cli/internal/recorder"
 )
 
 // PiAdapter parses pi (https://github.com/mariozechner/pi) JSONL session files.
@@ -283,63 +282,57 @@ type piMessage struct {
 	Content any    `json:"content"` // string or []map[string]any
 }
 
-// ExtractTurn delegates to ParseLine for now and synthesises a thin
-// Turn from the resulting RawEntry. Pi-specific tool_use / usage
-// extraction will land in a follow-up slice; the legacy Pi
+// ExtractTurn parses a Pi transcript line into the structured Turn
+// shape consumed by Drafter and Logbook. Pi-specific tool_use /
+// usage extraction will land in a follow-up slice; the Pi
 // SessionParser already covers session-end aggregates so the
 // metadata projection has fallback data.
 func (a *PiAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
-	entry, ok := a.ParseLine(line, sessionID)
-	if !ok {
-		return Turn{}, false
-	}
-	return Turn{
-		SessionID: entry.SessionID,
-		Timestamp: time.Now().UTC(),
-		Role:      strings.TrimPrefix(entry.Event, "watch-"),
-		Text:      entry.Text,
-		Harness:   "pi",
-	}, true
-}
-
-// ParseLine parses one JSONL line. Returns a RawEntry only for user/assistant
-// message entries with non-empty text content.
-func (a *PiAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntry, bool) {
 	line = trimLine(line)
 	if len(line) == 0 {
-		return recorder.RawEntry{}, false
+		return Turn{}, false
 	}
 
 	var tl piTranscriptLine
 	if err := json.Unmarshal(line, &tl); err != nil {
-		return recorder.RawEntry{}, false
+		return Turn{}, false
 	}
 
 	// Drop everything except conversational message lines.
 	if tl.Type != "message" {
-		return recorder.RawEntry{}, false
+		return Turn{}, false
 	}
 	if tl.Message.Role != "user" && tl.Message.Role != "assistant" {
-		return recorder.RawEntry{}, false
+		return Turn{}, false
 	}
 
 	text := extractPiContent(tl.Message.Content)
 	if text == "" {
-		return recorder.RawEntry{}, false
+		return Turn{}, false
 	}
 
-	ts := tl.Timestamp
-	if ts == "" {
-		ts = time.Now().UTC().Format(time.RFC3339)
+	// Timestamp: prefer the line's timestamp so catch-up reads
+	// preserve the turn's real time. Fall back to now only when
+	// the line carries no timestamp at all. Mirrors the Claude
+	// adapter so all three harnesses agree on the rule.
+	ts := time.Time{}
+	if tl.Timestamp != "" {
+		if t, err := time.Parse(time.RFC3339Nano, tl.Timestamp); err == nil {
+			ts = t
+		} else if t, err := time.Parse(time.RFC3339, tl.Timestamp); err == nil {
+			ts = t
+		}
+	}
+	if ts.IsZero() {
+		ts = time.Now().UTC()
 	}
 
-	// Pi messages don't carry a session id at the line level — use the
-	// filename-derived one passed by the watcher.
-	return recorder.RawEntry{
-		Timestamp: ts,
-		Event:     "watch-" + tl.Message.Role,
-		Text:      text,
+	return Turn{
 		SessionID: sessionID,
+		Timestamp: ts,
+		Role:      tl.Message.Role,
+		Text:      text,
+		Harness:   "pi",
 	}, true
 }
 
@@ -350,9 +343,10 @@ func (a *PiAdapter) ParseLine(line []byte, sessionID string) (recorder.RawEntry,
 //   - an array of blocks: {type:"text",text:"..."}, {type:"tool_use",...},
 //     {type:"tool_result",...}, {type:"thinking",...}, {type:"image",...}
 //
-// We keep only "text" blocks. Everything else (tool I/O, thinking, images)
-// is intentionally dropped to match the Claude adapter's behavior and keep
-// .mom/raw/ focused on conversational signal.
+// We keep only "text" blocks. Everything else (tool I/O, thinking,
+// images) is intentionally dropped to match the Claude adapter's
+// behaviour and keep the central vault focused on conversational
+// signal.
 func extractPiContent(content any) string {
 	if content == nil {
 		return ""
