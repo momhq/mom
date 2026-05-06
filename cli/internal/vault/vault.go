@@ -1,9 +1,11 @@
-// Package vault is the private SQLite primitive for v0.30. It owns the
-// connection at $HOME/.mom/mom.db, runs schema migrations registered by
-// callers, and mediates every read and write so other packages never
-// touch *sql.DB directly.
+// Package vault is the private SQLite primitive for v0.30. It owns a
+// SQLite connection, runs schema migrations registered by callers, and
+// mediates every read and write so other packages never touch *sql.DB
+// directly. Canonical $HOME/.mom/mom.db path resolution lives in the
+// centralvault package.
 //
-// Vault is the bottom of the v0.30 stack. Only Librarian touches it;
+// Vault is the bottom of the v0.30 stack. Librarian is the domain-facing
+// API over it; centralvault is the shared opener for production surfaces.
 // Drafter, Logbook, Cartographer, Finder, MCP, Upgrade, and Lens go
 // through Librarian. Vault has no knowledge of memories, tags, entities,
 // or any other domain table — those tables and their migrations are
