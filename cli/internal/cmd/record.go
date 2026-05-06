@@ -51,13 +51,16 @@ func init() {
 func runRecord(cmd *cobra.Command, _ []string) error {
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		// Hooks pipe whatever they have; never fail.
+		// Hooks pipe whatever they have; never fail at the read step.
 		return nil
 	}
 	text := strings.TrimSpace(string(data))
 
-	// Hook-friendly bail-outs: missing session, empty input, or JSON
-	// (legacy hook payload) all exit 0 without writing.
+	// Hook-friendly bail-outs: missing --session, empty input, or
+	// JSON-shaped input (legacy hook payload from old Claude/Codex
+	// configs) all exit 0 without writing. The CLI was previously
+	// the entry point for those hooks; old configs that still fire
+	// it must not pollute the vault with JSON-as-memory-text.
 	if recordSession == "" {
 		fmt.Fprintln(os.Stderr, "mom record: --session is required (skipping)")
 		return nil
@@ -70,23 +73,24 @@ func runRecord(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
+	// From here on we are on the human path: --session was set, stdin
+	// is non-empty and non-JSON. Failures are real errors that should
+	// propagate to the user with a non-zero exit; they no longer fit
+	// the hook-friendly silent-bail contract.
 	tags, err := normaliseRecordTags(recordTags)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "mom record: %v\n", err)
-		return nil
+		return fmt.Errorf("mom record: %w", err)
 	}
 
 	lib, closeFn, err := openCentralLibrarian()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "mom record: %v\n", err)
-		return nil
+		return fmt.Errorf("mom record: %w", err)
 	}
 	defer func() { _ = closeFn() }()
 
 	contentBytes, err := json.Marshal(map[string]any{"text": text})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "mom record: marshal content: %v\n", err)
-		return nil
+		return fmt.Errorf("mom record: marshal content: %w", err)
 	}
 
 	id, err := lib.InsertMemoryWithTags(librarian.InsertMemory{
@@ -98,8 +102,7 @@ func runRecord(cmd *cobra.Command, _ []string) error {
 		ProvenanceTriggerEvent: "record",
 	}, tags)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "mom record: insert: %v\n", err)
-		return nil
+		return fmt.Errorf("mom record: insert: %w", err)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "recorded: id=%s session=%s tags=%v\n", id, recordSession, tags)

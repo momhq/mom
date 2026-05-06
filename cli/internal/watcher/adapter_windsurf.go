@@ -182,6 +182,12 @@ func (a *WindsurfAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool
 		return Turn{}, false
 	}
 
+	// Windsurf JSONL carries no per-line timestamp field (see
+	// ParseSession's comment on line 252 — it falls back to file
+	// ModTime for the session-level Started time). time.Now() is the
+	// best signal we have at the per-turn grain; for catch-up reads
+	// this means historical turns get a wall-clock "now" — accept as
+	// a known harness gap until Windsurf publishes per-line stamps.
 	return Turn{
 		SessionID: sessionID,
 		Timestamp: time.Now().UTC(),

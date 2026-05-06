@@ -40,7 +40,8 @@ var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Watch runtime transcripts and ingest turns automatically",
 	Long: `Starts a filesystem watcher on a runtime transcript directory and
-ingests new conversation turns into .mom/raw/ without MCP calls or hook overhead.
+ingests new conversation turns into the central vault at $HOME/.mom/mom.db
+without MCP calls or hook overhead.
 
 Supported runtimes:
   claude    — ~/.claude/projects/ (default)
@@ -48,7 +49,7 @@ Supported runtimes:
   pi        — ~/.pi/agent/sessions/
 
 Each session's JSONL transcript is tailed incrementally.
-Cursor files in .mom/raw/ track the last ingested byte offset per session,
+Cursor files in .mom/cache/ track the last ingested byte offset per session,
 so restarts are safe and idempotent.
 
 The watcher runs in the foreground. Use Ctrl-C to stop.`,
@@ -157,11 +158,7 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	// Sweep mode: one-shot catch-up and exit.
 	if watchSweep {
-		adapterMap := make(map[string]watcher.Adapter, len(sources))
-		for _, src := range sources {
-			adapterMap[src.Harness] = src.Adapter
-		}
-		bus := newProjectBus(momDir, adapterMap, workers)
+		bus := newProjectBus(workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projectDir,
 			MomDir:     momDir,
@@ -183,13 +180,10 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Herald event bus: watcher publishes RecordAppended events,
-	// Logbook and Drafter subscribe as downstream processors.
-	adapterMap := make(map[string]watcher.Adapter, len(sources))
-	for _, src := range sources {
-		adapterMap[src.Harness] = src.Adapter
-	}
-	bus := newProjectBus(momDir, adapterMap, workers)
+	// Herald event bus: watcher publishes turn.observed events,
+	// Logbook and Drafter (via centralWorkers) subscribe as
+	// downstream processors.
+	bus := newProjectBus(workers)
 
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
@@ -211,7 +205,9 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	for rt, dir := range w.TranscriptDirs() {
 		p.Chevron(fmt.Sprintf("%s: %s", rt, dir))
 	}
-	p.Chevron(fmt.Sprintf("target: %s/raw/", momDir))
+	if home, err := os.UserHomeDir(); err == nil {
+		p.Chevron(fmt.Sprintf("vault: %s", filepath.Join(home, ".mom", "mom.db")))
+	}
 	p.Muted("press Ctrl-C to stop")
 	p.Blank()
 
@@ -268,21 +264,14 @@ func startDrafterTicker(ctx context.Context, workers centralWorkers) <-chan stru
 	return done
 }
 
-// newProjectBus creates a Herald event bus with Logbook and Drafter
-// subscribers wired for a given momDir. Used by both single-project
-// and global watch modes. adapters maps Harness name → Adapter for
-// Harness-specific logbook parsing.
-//
-// All subscribers wire through centralWorkers.AttachToBus: the shared
-// Drafter and Logbook consume turn.observed, memory.record, and
-// op.memory.* and persist into the central vault at
+// newProjectBus creates a Herald event bus with the central Drafter
+// and Logbook attached. Used by both single-project and global watch
+// modes. The shared workers consume turn.observed, memory.record,
+// and op.memory.* and persist into the central vault at
 // $HOME/.mom/mom.db. The legacy RecordAppended subscribers (v1
 // drafter writing .mom/memory/*.json, v1 logbook writing
 // session-*.json) retired in #240 PR 3 and PR 4.
-//
-// adapters is reserved for future Harness-specific extensions; it is
-// currently unused.
-func newProjectBus(_ string, _ map[string]watcher.Adapter, workers centralWorkers) *herald.Bus {
+func newProjectBus(workers centralWorkers) *herald.Bus {
 	bus := herald.NewBus()
 	workers.AttachToBus(bus)
 	return bus
@@ -314,11 +303,7 @@ func runWatchGlobal(sweepOnly bool) error {
 			if len(sources) == 0 {
 				continue
 			}
-			adapterMap := make(map[string]watcher.Adapter, len(sources))
-			for _, src := range sources {
-				adapterMap[src.Harness] = src.Adapter
-			}
-			bus := newProjectBus(entry.MomDir, adapterMap, workers)
+			bus := newProjectBus(workers)
 			w, err := watcher.New(watcher.Config{
 				ProjectDir: projDir,
 				MomDir:     entry.MomDir,
@@ -377,11 +362,7 @@ func runWatchGlobal(sweepOnly bool) error {
 		if len(sources) == 0 {
 			return
 		}
-		adapterMap := make(map[string]watcher.Adapter, len(sources))
-		for _, src := range sources {
-			adapterMap[src.Harness] = src.Adapter
-		}
-		bus := newProjectBus(entry.MomDir, adapterMap, workers)
+		bus := newProjectBus(workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projDir,
 			MomDir:     entry.MomDir,

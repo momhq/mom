@@ -311,9 +311,25 @@ func (a *PiAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 		return Turn{}, false
 	}
 
+	// Timestamp: prefer the line's timestamp so catch-up reads
+	// preserve the turn's real time. Fall back to now only when
+	// the line carries no timestamp at all. Mirrors the Claude
+	// adapter so all three harnesses agree on the rule.
+	ts := time.Time{}
+	if tl.Timestamp != "" {
+		if t, err := time.Parse(time.RFC3339Nano, tl.Timestamp); err == nil {
+			ts = t
+		} else if t, err := time.Parse(time.RFC3339, tl.Timestamp); err == nil {
+			ts = t
+		}
+	}
+	if ts.IsZero() {
+		ts = time.Now().UTC()
+	}
+
 	return Turn{
 		SessionID: sessionID,
-		Timestamp: time.Now().UTC(),
+		Timestamp: ts,
 		Role:      tl.Message.Role,
 		Text:      text,
 		Harness:   "pi",
@@ -327,9 +343,10 @@ func (a *PiAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 //   - an array of blocks: {type:"text",text:"..."}, {type:"tool_use",...},
 //     {type:"tool_result",...}, {type:"thinking",...}, {type:"image",...}
 //
-// We keep only "text" blocks. Everything else (tool I/O, thinking, images)
-// is intentionally dropped to match the Claude adapter's behavior and keep
-// .mom/raw/ focused on conversational signal.
+// We keep only "text" blocks. Everything else (tool I/O, thinking,
+// images) is intentionally dropped to match the Claude adapter's
+// behaviour and keep the central vault focused on conversational
+// signal.
 func extractPiContent(content any) string {
 	if content == nil {
 		return ""

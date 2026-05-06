@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"testing"
+	"time"
 )
 
 const piUserMessage = `{"type":"message","timestamp":"2026-05-05T12:00:00Z","message":{"role":"user","content":"deploy postgres canary"}}`
@@ -55,5 +56,22 @@ func TestPiAdapter_ExtractTurn_RejectsMalformedJSON(t *testing.T) {
 	a := NewPiAdapter()
 	if _, ok := a.ExtractTurn([]byte(`not-json`), "s-pi"); ok {
 		t.Error("expected ok=false for malformed JSON")
+	}
+}
+
+// TestPiAdapter_ExtractTurn_PrefersLineTimestamp locks the catch-up
+// correctness rule: when the transcript line carries a timestamp,
+// the resulting Turn carries that exact value, not wall-clock now.
+// Drafter persists it as memories.created_at, so a regression here
+// would corrupt memory ordering on every startup catch-up read.
+func TestPiAdapter_ExtractTurn_PrefersLineTimestamp(t *testing.T) {
+	a := NewPiAdapter()
+	turn, ok := a.ExtractTurn([]byte(piUserMessage), "s-pi")
+	if !ok {
+		t.Fatal("expected ok=true")
+	}
+	want := "2026-05-05T12:00:00Z"
+	if got := turn.Timestamp.UTC().Format(time.RFC3339); got != want {
+		t.Errorf("Timestamp = %q, want %q (line timestamp must win over time.Now())", got, want)
 	}
 }

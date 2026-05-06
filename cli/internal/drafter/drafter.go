@@ -267,13 +267,23 @@ func (d *Drafter) flushSession(sessionID string) {
 	delete(d.pending, sessionID)
 	d.mu.Unlock()
 
+	// Snapshot the existing tag corpus ONCE per flush, not per chunk.
+	// A long session can produce many chunks; querying AllTagNames N
+	// times means N full scans of the tags table for the same data.
+	// Failures are non-fatal — an empty vocab makes buildTags fall
+	// back to RAKE order, which matches pre-PR-4 behaviour.
+	vocab, vocabErr := d.lib.AllTagNames()
+	if vocabErr != nil {
+		fmt.Fprintf(os.Stderr, "drafter: AllTagNames: %v\n", vocabErr)
+	}
+
 	chunks := detectChunks(turns, d.boundaryThreshold)
 	for _, ch := range chunks {
-		d.persistChunk(bus, sessionID, turns[ch.StartIdx:ch.EndIdx])
+		d.persistChunk(bus, sessionID, turns[ch.StartIdx:ch.EndIdx], vocab)
 	}
 }
 
-func (d *Drafter) persistChunk(bus *herald.Bus, sessionID string, turns []bufferedTurn) {
+func (d *Drafter) persistChunk(bus *herald.Bus, sessionID string, turns []bufferedTurn, vocab []string) {
 	if len(turns) == 0 {
 		return
 	}
@@ -294,14 +304,6 @@ func (d *Drafter) persistChunk(bus *herald.Bus, sessionID string, turns []buffer
 	content := strings.Join(texts, "\n")
 	tagContent := strings.Join(tagSrc, "\n")
 
-	// Snapshot the existing tag corpus once per chunk for BM25 ranking.
-	// Failures here are non-fatal — buildTags falls back to RAKE order
-	// when the vocab slice is empty, which is the same behaviour we
-	// had before this PR wired the vocabulary in.
-	vocab, vocabErr := d.lib.AllTagNames()
-	if vocabErr != nil {
-		fmt.Fprintf(os.Stderr, "drafter: AllTagNames: %v\n", vocabErr)
-	}
 	tags := buildTags(allPaths, tagContent, allKeywords, vocab)
 
 	contentBytes, err := json.Marshal(map[string]any{"text": content})
