@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/momhq/mom/cli/internal/config"
-	"github.com/momhq/mom/cli/internal/recorder"
 )
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -360,76 +359,10 @@ func TestIntegration_AddRuntimesViaUpgrade(t *testing.T) {
 	assertMCPEntry(t, filepath.Join(dir, ".mcp.json"))
 }
 
-// ── Test 5: Record + Draft pipeline ─────────────────────────────────────────
-
-func TestIntegration_RecordDraftPipeline(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-
-	initProject(t, dir, []string{"claude"})
-
-	momDir := filepath.Join(dir, ".mom")
-	rawDir := filepath.Join(momDir, "raw")
-	memDir := filepath.Join(momDir, "memory")
-
-	// Use RecordText to write raw entries directly (avoids transcript file complexity).
-	recorder.RecordText(momDir, "User: How does the auth middleware work?\nAssistant: The auth middleware validates JWT tokens from the Authorization header.", "test-session")
-	recorder.RecordText(momDir, "User: What about refresh tokens?\nAssistant: Refresh tokens are stored in HTTP-only cookies and rotated on each use.", "test-session")
-
-	// Verify raw JSONL was created.
-	rawEntries, err := os.ReadDir(rawDir)
-	if err != nil {
-		t.Fatalf("reading raw dir: %v", err)
-	}
-	var jsonlCount int
-	for _, e := range rawEntries {
-		if filepath.Ext(e.Name()) == ".jsonl" {
-			jsonlCount++
-		}
-	}
-	if jsonlCount == 0 {
-		t.Fatal("no .jsonl files created in .mom/raw/")
-	}
-
-	// Set draft cursor to the past so drafter picks up our entries.
-	cursorFile := filepath.Join(rawDir, ".draft-cursor")
-	os.WriteFile(cursorFile, []byte("2020-01-01T00:00:00Z"), 0644)
-
-	// Run draft command.
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"draft"})
-	// Draft reads from stdin for hook input; provide empty input.
-	oldStdin := os.Stdin
-	r, w, _ := os.Pipe()
-	w.Close()
-	os.Stdin = r
-	defer func() { os.Stdin = oldStdin }()
-
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("draft failed: %v\noutput: %s", err, buf.String())
-	}
-
-	// Verify memory drafts were created (drafter output stays as draft).
-	memEntries, err := os.ReadDir(memDir)
-	if err != nil {
-		t.Fatalf("reading memory dir: %v", err)
-	}
-	var draftCount int
-	for _, e := range memEntries {
-		if filepath.Ext(e.Name()) == ".json" {
-			data, _ := os.ReadFile(filepath.Join(memDir, e.Name()))
-			if strings.Contains(string(data), `"promotion_state":"draft"`) ||
-				strings.Contains(string(data), `"promotion_state": "draft"`) {
-				draftCount++
-			}
-		}
-	}
-	if draftCount == 0 {
-		t.Error("no draft memory docs created in .mom/memory/")
-	}
-}
+// Test 5 (Record + Draft pipeline) was retired in #240 PR 3. The
+// `mom draft` CLI command and its batch-processor surface are gone;
+// drafting now happens via the watcher → bus → drafter clustering
+// pipeline, which is integration-tested in cli/internal/drafter.
 
 // ── Test 6: MCP config correctness ──────────────────────────────────────────
 

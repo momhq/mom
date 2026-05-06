@@ -45,7 +45,6 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(recordCmd)
 	rootCmd.AddCommand(logCmd)
-	rootCmd.AddCommand(draftCmd)
 	rootCmd.AddCommand(diagnoseCmd)
 	rootCmd.AddCommand(sweepCmd)
 	rootCmd.AddCommand(reindexCmd)
