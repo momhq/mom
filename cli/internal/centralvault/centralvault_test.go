@@ -14,6 +14,7 @@ import (
 func TestPathUsesHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("MOM_VAULT", "")
 
 	got, err := centralvault.Path()
 	if err != nil {
@@ -26,9 +27,33 @@ func TestPathUsesHome(t *testing.T) {
 	}
 }
 
+func TestPathUsesMomVaultOverride(t *testing.T) {
+	home := t.TempDir()
+	override := filepath.Join(t.TempDir(), "custom", "mom-v030.db")
+	t.Setenv("HOME", home)
+	t.Setenv("MOM_VAULT", override)
+
+	got, err := centralvault.Path()
+	if err != nil {
+		t.Fatalf("Path returned error: %v", err)
+	}
+	if got != override {
+		t.Fatalf("Path = %q, want MOM_VAULT override %q", got, override)
+	}
+
+	dir, err := centralvault.Dir()
+	if err != nil {
+		t.Fatalf("Dir returned error: %v", err)
+	}
+	if dir != filepath.Dir(override) {
+		t.Fatalf("Dir = %q, want %q", dir, filepath.Dir(override))
+	}
+}
+
 func TestOpenLibrarianCreatesOnlyTempHomeVault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("MOM_VAULT", "")
 
 	lib, closeFn, err := centralvault.OpenLibrarian()
 	if err != nil {
@@ -55,6 +80,7 @@ func TestOpenLibrarianCreatesOnlyTempHomeVault(t *testing.T) {
 func TestOpenRunsFullCentralMigrations(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("MOM_VAULT", "")
 
 	v, err := centralvault.Open()
 	if err != nil {
@@ -87,6 +113,27 @@ func TestOpenRunsFullCentralMigrations(t *testing.T) {
 	}
 }
 
+func TestOpenCreatesMomVaultOverrideParent(t *testing.T) {
+	home := t.TempDir()
+	override := filepath.Join(t.TempDir(), "nested", "mom-v030.db")
+	t.Setenv("HOME", home)
+	t.Setenv("MOM_VAULT", override)
+
+	v, err := centralvault.Open()
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer func() { _ = v.Close() }()
+
+	if _, err := os.Stat(override); err != nil {
+		t.Fatalf("MOM_VAULT database not created at %s: %v", override, err)
+	}
+	defaultPath := filepath.Join(home, ".mom", "mom.db")
+	if _, err := os.Stat(defaultPath); !os.IsNotExist(err) {
+		t.Fatalf("default HOME vault should not be touched when MOM_VAULT is set: %s", defaultPath)
+	}
+}
+
 func TestNoCentralVaultPathAssemblyOutsideHelper(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -98,6 +145,7 @@ func TestNoCentralVaultPathAssemblyOutsideHelper(t *testing.T) {
 	patterns := []string{
 		`filepath.Join(home, ".mom", "mom.db")`,
 		`filepath.Join(momHome, "mom.db")`,
+		`os.Getenv("MOM_VAULT")`,
 	}
 
 	err := filepath.WalkDir(internalDir, func(path string, d os.DirEntry, err error) error {

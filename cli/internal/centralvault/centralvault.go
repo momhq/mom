@@ -11,10 +11,18 @@ import (
 	"github.com/momhq/mom/cli/internal/vault"
 )
 
-const dbName = "mom.db"
+const (
+	dbName       = "mom.db"
+	envVaultPath = "MOM_VAULT"
+)
 
-// Dir returns MOM's canonical central vault directory: $HOME/.mom.
+// Dir returns the directory containing MOM's canonical central vault.
+// If MOM_VAULT is set, Dir returns that file's parent directory.
+// Otherwise it returns $HOME/.mom.
 func Dir() (string, error) {
+	if override := os.Getenv(envVaultPath); override != "" {
+		return filepath.Dir(override), nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("cannot resolve $HOME: %w", err)
@@ -22,8 +30,13 @@ func Dir() (string, error) {
 	return filepath.Join(home, ".mom"), nil
 }
 
-// Path returns MOM's canonical central vault path: $HOME/.mom/mom.db.
+// Path returns MOM's canonical central vault path. MOM_VAULT overrides
+// the default $HOME/.mom/mom.db location for local testing and contributor
+// workflows.
 func Path() (string, error) {
+	if override := os.Getenv(envVaultPath); override != "" {
+		return override, nil
+	}
 	dir, err := Dir()
 	if err != nil {
 		return "", err
@@ -41,14 +54,14 @@ func Migrations() []vault.Migration {
 // Open opens the central vault, creating $HOME/.mom when needed and
 // applying all registered v0.30 migrations.
 func Open() (*vault.Vault, error) {
-	dir, err := Dir()
+	path, err := Path()
 	if err != nil {
 		return nil, err
 	}
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("cannot create %s: %w", dir, err)
 	}
-	path := filepath.Join(dir, dbName)
 	v, err := vault.Open(path, Migrations())
 	if err != nil {
 		return nil, fmt.Errorf("vault.Open %s: %w", path, err)
