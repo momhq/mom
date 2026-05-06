@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/momhq/mom/cli/internal/centralvault"
 	"github.com/momhq/mom/cli/internal/librarian"
 	"github.com/spf13/cobra"
 )
@@ -82,7 +83,7 @@ func runRecord(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("mom record: %w", err)
 	}
 
-	lib, closeFn, err := openCentralLibrarian()
+	lib, closeFn, err := centralvault.OpenLibrarian()
 	if err != nil {
 		return fmt.Errorf("mom record: %w", err)
 	}

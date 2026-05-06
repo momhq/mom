@@ -12,15 +12,14 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/momhq/mom/cli/internal/centralvault"
 	"github.com/momhq/mom/cli/internal/config"
 	"github.com/momhq/mom/cli/internal/daemon"
 	"github.com/momhq/mom/cli/internal/drafter"
 	"github.com/momhq/mom/cli/internal/herald"
-	"github.com/momhq/mom/cli/internal/librarian"
 	"github.com/momhq/mom/cli/internal/logbook"
 	"github.com/momhq/mom/cli/internal/scope"
 	"github.com/momhq/mom/cli/internal/ux"
-	"github.com/momhq/mom/cli/internal/vault"
 	"github.com/momhq/mom/cli/internal/watcher"
 	"github.com/spf13/cobra"
 )
@@ -205,8 +204,8 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	for rt, dir := range w.TranscriptDirs() {
 		p.Chevron(fmt.Sprintf("%s: %s", rt, dir))
 	}
-	if home, err := os.UserHomeDir(); err == nil {
-		p.Chevron(fmt.Sprintf("vault: %s", filepath.Join(home, ".mom", "mom.db")))
+	if path, err := centralvault.Path(); err == nil {
+		p.Chevron(fmt.Sprintf("vault: %s", path))
 	}
 	p.Muted("press Ctrl-C to stop")
 	p.Blank()
@@ -571,7 +570,7 @@ func (cw centralWorkers) AttachToBus(bus *herald.Bus) {
 // refactor should plumb an explicit Close, but for alpha this is
 // acceptable.
 func openCentralWorkers() centralWorkers {
-	lib, _, err := openCentralLibrarian()
+	lib, _, err := centralvault.OpenLibrarian()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "watch: %v — central workers not wired\n", err)
 		return centralWorkers{}
@@ -580,31 +579,4 @@ func openCentralWorkers() centralWorkers {
 		drafter: drafter.New(lib),
 		logbook: logbook.New(lib),
 	}
-}
-
-// openCentralLibrarian opens the central vault at $HOME/.mom/mom.db
-// (creating the directory and running migrations as needed) and
-// returns a Librarian bound to it plus a closer the caller can run on
-// shutdown. Used by surfaces that need direct vault access without
-// the Drafter/Logbook subscribers — currently only the `mom record`
-// CLI command. Failures return a wrapped error; the watch-mode
-// helper turns those into stderr warnings and falls back to a
-// no-central-workers shape, while the record CLI turns them into
-// hook-friendly silent exits.
-func openCentralLibrarian() (*librarian.Librarian, func() error, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot resolve $HOME: %w", err)
-	}
-	momHome := filepath.Join(home, ".mom")
-	if err := os.MkdirAll(momHome, 0o700); err != nil {
-		return nil, nil, fmt.Errorf("cannot create %s: %w", momHome, err)
-	}
-	dbPath := filepath.Join(momHome, "mom.db")
-	migs := append(librarian.Migrations(), logbook.Migrations()...)
-	v, err := vault.Open(dbPath, migs)
-	if err != nil {
-		return nil, nil, fmt.Errorf("vault.Open %s: %w", dbPath, err)
-	}
-	return librarian.New(v), v.Close, nil
 }

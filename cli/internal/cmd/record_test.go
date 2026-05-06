@@ -3,13 +3,11 @@ package cmd
 import (
 	"bytes"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/momhq/mom/cli/internal/centralvault"
 	"github.com/momhq/mom/cli/internal/librarian"
-	"github.com/momhq/mom/cli/internal/logbook"
-	"github.com/momhq/mom/cli/internal/vault"
 )
 
 // resetRecordFlags must run before each test that drives runRecord —
@@ -52,17 +50,12 @@ func openCentralVaultForTest(t *testing.T) *librarian.Librarian {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	momHome := filepath.Join(home, ".mom")
-	if err := os.MkdirAll(momHome, 0o700); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	migs := append(librarian.Migrations(), logbook.Migrations()...)
-	v, err := vault.Open(filepath.Join(momHome, "mom.db"), migs)
+	lib, closeFn, err := centralvault.OpenLibrarian()
 	if err != nil {
-		t.Fatalf("vault.Open: %v", err)
+		t.Fatalf("centralvault.OpenLibrarian: %v", err)
 	}
-	t.Cleanup(func() { _ = v.Close() })
-	return librarian.New(v)
+	t.Cleanup(func() { _ = closeFn() })
+	return lib
 }
 
 // TestRunRecord_PersistsToCentralVault locks the human-path contract:
