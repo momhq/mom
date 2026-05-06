@@ -12,7 +12,6 @@ import (
 	"github.com/momhq/mom/cli/internal/herald"
 	"github.com/momhq/mom/cli/internal/memory"
 	"github.com/momhq/mom/cli/internal/recall"
-	"github.com/momhq/mom/cli/internal/recorder"
 	"github.com/momhq/mom/cli/internal/scope"
 )
 
@@ -87,18 +86,6 @@ func allTools() []toolDef {
 			InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		},
 		{
-			Name:        "mom_record_turn",
-			Description: "Fallback recording for runtimes without hooks. Appends a turn to .mom/raw/.",
-			InputSchema: map[string]any{
-				"type":     "object",
-				"required": []string{"text"},
-				"properties": map[string]any{
-					"text":       map[string]any{"type": "string", "description": "The conversation turn text to record"},
-					"session_id": map[string]any{"type": "string", "description": "Optional session ID"},
-				},
-			},
-		},
-		{
 			Name:        "mom_record",
 			Description: "Explicit-write path: intentionally save a memory mid-session. Bypasses Drafter's content filters (the user override) and stamps trigger_event='record', source_type='manual-draft'. Required: session_id, content. Optional: summary, tags, actor.",
 			InputSchema: map[string]any{
@@ -168,8 +155,6 @@ func (s *Server) handleToolsCall(params json.RawMessage) (any, *rpcError) {
 		result, err = s.toolListLandmarks(req.Arguments)
 	case "mom_status":
 		result, err = s.toolMomStatus()
-	case "mom_record_turn":
-		result, err = s.toolRecordTurn(req.Arguments)
 	case "mom_record":
 		result, err = s.toolMomRecord(req.Arguments)
 	case "mom_recall":
@@ -359,37 +344,6 @@ func (s *Server) toolListLandmarks(args map[string]any) (toolCallResult, error) 
 
 	text, _ := json.MarshalIndent(items, "", "  ")
 	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text)}}}, nil
-}
-
-// toolRecordTurn is the MCP fallback for runtimes that don't support hooks.
-// It appends a turn to .mom/raw/<YYYY-MM-DD>.jsonl.
-func (s *Server) toolRecordTurn(args map[string]any) (toolCallResult, error) {
-	text := stringArg(args, "text")
-	if text == "" {
-		return toolCallResult{}, fmt.Errorf("text is required")
-	}
-	sessionID := stringArg(args, "session_id")
-
-	targetDir := s.momDir
-	if sc, ok := scope.NearestWritable(s.momDir); ok {
-		targetDir = sc.Path
-	}
-
-	// Write directly without a transcript path using RecordText (handles locking).
-	rawDir := filepath.Join(targetDir, "raw")
-	now := time.Now().UTC()
-	dailyFile := filepath.Join(rawDir, now.Format("2006-01-02")+".jsonl")
-
-	if err := recorder.RecordText(targetDir, text, sessionID); err != nil {
-		return toolCallResult{}, fmt.Errorf("recording text: %w", err)
-	}
-
-	result := map[string]any{
-		"status":   "recorded",
-		"raw_file": dailyFile,
-	}
-	text2, _ := json.MarshalIndent(result, "", "  ")
-	return toolCallResult{Content: []toolContent{{Type: "text", Text: string(text2)}}}, nil
 }
 
 // toolMomRecall searches memories using the progressive escalation engine.

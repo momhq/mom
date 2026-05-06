@@ -590,26 +590,40 @@ func (cw centralWorkers) AttachToBus(bus *herald.Bus) {
 // refactor should plumb an explicit Close, but for alpha this is
 // acceptable.
 func openCentralWorkers() centralWorkers {
+	lib, _, err := openCentralLibrarian()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "watch: %v — central workers not wired\n", err)
+		return centralWorkers{}
+	}
+	return centralWorkers{
+		drafter: drafter.New(lib),
+		logbook: logbook.New(lib),
+	}
+}
+
+// openCentralLibrarian opens the central vault at $HOME/.mom/mom.db
+// (creating the directory and running migrations as needed) and
+// returns a Librarian bound to it plus a closer the caller can run on
+// shutdown. Used by surfaces that need direct vault access without
+// the Drafter/Logbook subscribers — currently only the `mom record`
+// CLI command. Failures return a wrapped error; the watch-mode
+// helper turns those into stderr warnings and falls back to a
+// no-central-workers shape, while the record CLI turns them into
+// hook-friendly silent exits.
+func openCentralLibrarian() (*librarian.Librarian, func() error, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "watch: cannot resolve $HOME: %v — central workers not wired\n", err)
-		return centralWorkers{}
+		return nil, nil, fmt.Errorf("cannot resolve $HOME: %w", err)
 	}
 	momHome := filepath.Join(home, ".mom")
 	if err := os.MkdirAll(momHome, 0o700); err != nil {
-		fmt.Fprintf(os.Stderr, "watch: cannot create %s: %v — central workers not wired\n", momHome, err)
-		return centralWorkers{}
+		return nil, nil, fmt.Errorf("cannot create %s: %w", momHome, err)
 	}
 	dbPath := filepath.Join(momHome, "mom.db")
 	migs := append(librarian.Migrations(), logbook.Migrations()...)
 	v, err := vault.Open(dbPath, migs)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "watch: vault.Open %s: %v — central workers not wired\n", dbPath, err)
-		return centralWorkers{}
+		return nil, nil, fmt.Errorf("vault.Open %s: %w", dbPath, err)
 	}
-	lib := librarian.New(v)
-	return centralWorkers{
-		drafter: drafter.New(lib),
-		logbook: logbook.New(lib),
-	}
+	return librarian.New(v), v.Close, nil
 }
