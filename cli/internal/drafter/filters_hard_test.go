@@ -102,6 +102,79 @@ func TestRedactSecrets_PatternFixture(t *testing.T) {
 			wantCategory: "env_assignment",
 			wantSurvives: "JWT_SECRET",
 		},
+		{
+			// OpenAI legacy key shape — `sk-` followed by an opaque
+			// alnum/dash/underscore body. Chosen body length 30 so the
+			// regex's 20-char floor is comfortably exceeded.
+			name:         "openai-legacy-key",
+			input:        `curl -H "Authorization: Bearer sk-AbCdEfGhIjKlMnOpQrStUvWxYz0123" https://api.openai.com/v1/chat`,
+			secret:       "sk-AbCdEfGhIjKlMnOpQrStUvWxYz0123",
+			wantCategory: "openai_anthropic_key",
+			wantSurvives: "https://api.openai.com",
+		},
+		{
+			// Project-scoped OpenAI key — `sk-proj-` prefix.
+			name:         "openai-proj-key",
+			input:        "client = OpenAI(api_key='sk-proj-aB12cD34eF56gH78iJ90kLmNoPqRsTuVwXyZ')",
+			secret:       "sk-proj-aB12cD34eF56gH78iJ90kLmNoPqRsTuVwXyZ",
+			wantCategory: "openai_anthropic_key",
+			wantSurvives: "client = OpenAI",
+		},
+		{
+			// Anthropic console key — `sk-ant-api03-` shape.
+			name:         "anthropic-key",
+			input:        "ANTHROPIC: sk-ant-api03-aB12cD34eF56gH78iJ90kLmNoPqRsTu",
+			secret:       "sk-ant-api03-aB12cD34eF56gH78iJ90kLmNoPqRsTu",
+			wantCategory: "openai_anthropic_key",
+			wantSurvives: "ANTHROPIC:",
+		},
+		{
+			// Slack bot token shape `xoxb-...`. Synthetic placeholder
+			// (literal "x" body) so GitHub secret scanning does not
+			// false-positive the test corpus on push — same approach
+			// as the Stripe fixture above.
+			name:         "slack-bot-token",
+			input:        "webhook config: xoxb-" + strings.Repeat("x", 30) + " landed",
+			secret:       "xoxb-" + strings.Repeat("x", 30),
+			wantCategory: "slack_token",
+			wantSurvives: "webhook config:",
+		},
+		{
+			// Google API key — fixed AIza prefix + 35 char body.
+			name:         "google-api-key",
+			input:        "GOOGLE_MAPS=AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz0123456 in config",
+			secret:       "AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz0123456",
+			wantCategory: "google_api_key",
+			wantSurvives: "in config",
+		},
+		{
+			// Postgres connection URL with embedded credentials.
+			// Only the userinfo (user:pass) is redacted; scheme + host
+			// + path stay so the URL still reads as memory context.
+			name:         "postgres-url-creds",
+			input:        "DSN: postgres://admin:hunter2@db.internal:5432/orders",
+			secret:       "admin:hunter2",
+			wantCategory: "db_url_credentials",
+			wantSurvives: "db.internal:5432/orders",
+		},
+		{
+			// MongoDB SRV URL with credentials.
+			name:         "mongodb-srv-url-creds",
+			input:        "uri = mongodb+srv://serviceUser:topsecretpw@cluster0.mongodb.net/prod",
+			secret:       "serviceUser:topsecretpw",
+			wantCategory: "db_url_credentials",
+			wantSurvives: "cluster0.mongodb.net",
+		},
+		{
+			// Bare bearer token in an Authorization header that is
+			// neither JWT-shaped nor a recognized provider shape. The
+			// generic auth_header rule must still redact the value.
+			name:         "auth-header-opaque-bearer",
+			input:        "request: Authorization: Bearer abcDEF123-_456ghiJKLmnopqrstUVWXyz then",
+			secret:       "abcDEF123-_456ghiJKLmnopqrstUVWXyz",
+			wantCategory: "auth_header",
+			wantSurvives: "request:",
+		},
 	}
 
 	for _, c := range cases {
