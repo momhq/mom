@@ -142,6 +142,14 @@ func New(cfg Config) (*Watcher, error) {
 	cursorDir := filepath.Join(cfg.MomDir, "cache")
 	_ = os.MkdirAll(cursorDir, 0755)
 
+	// Migration: PR 4 moved cursors from .mom/raw/.watch-cursor-* to
+	// .mom/cache/.watch-cursor-*. Copy any pre-existing cursors so
+	// first-run after upgrade resumes from the right transcript
+	// offset instead of re-reading the whole file. Read-only on the
+	// old path; the original is left in place so a botched migration
+	// doesn't lose data.
+	migrateLegacyCursors(filepath.Join(cfg.MomDir, "raw"), cursorDir)
+
 	w := &Watcher{
 		cfg:       cfg,
 		sources:   resolved,
@@ -465,6 +473,34 @@ func readWatchCursor(cursorFile string) int64 {
 // writeWatchCursor persists a byte offset to the cursor file.
 func writeWatchCursor(cursorFile string, offset int64) {
 	_ = os.WriteFile(cursorFile, []byte(fmt.Sprintf("%d", offset)), 0644)
+}
+
+// migrateLegacyCursors copies any .watch-cursor-* files from oldDir
+// (.mom/raw/) to newDir (.mom/cache/) when the cache equivalent does
+// not yet exist. Read-only on the old path — the original is left
+// in place so a botched migration doesn't lose data; cleanup of
+// .mom/raw/ as a whole is a separate concern. Best-effort: any
+// individual failure is silent so a permission error on one cursor
+// doesn't prevent the rest of the watcher from starting.
+func migrateLegacyCursors(oldDir, newDir string) {
+	entries, err := os.ReadDir(oldDir)
+	if err != nil {
+		return // .mom/raw/ doesn't exist on a fresh install, that's fine
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), ".watch-cursor-") {
+			continue
+		}
+		dst := filepath.Join(newDir, e.Name())
+		if _, err := os.Stat(dst); err == nil {
+			continue // new cursor already in place; new path wins
+		}
+		data, err := os.ReadFile(filepath.Join(oldDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		_ = os.WriteFile(dst, data, 0644)
+	}
 }
 
 // projectSlug converts an absolute project path to the Claude Code project

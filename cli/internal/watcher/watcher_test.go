@@ -51,6 +51,85 @@ func TestSessionIDFromPath(t *testing.T) {
 	}
 }
 
+// TestMigrateLegacyCursors locks the upgrade-papercut fix from PR 4:
+// pre-existing cursor files written by the v0.30-dev watcher into
+// .mom/raw/ get copied into .mom/cache/ on first run after upgrade
+// so the watcher resumes from the right offset instead of
+// re-ingesting every historical turn. Read-only on the old path,
+// non-clobbering on the new.
+func TestMigrateLegacyCursors(t *testing.T) {
+	oldDir := t.TempDir()
+	newDir := t.TempDir()
+
+	// Two legacy cursors and one unrelated file (must NOT be copied).
+	if err := os.WriteFile(filepath.Join(oldDir, ".watch-cursor-sess-A"), []byte("1234"), 0644); err != nil {
+		t.Fatalf("seed cursor A: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, ".watch-cursor-sess-B"), []byte("5678"), 0644); err != nil {
+		t.Fatalf("seed cursor B: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, "unrelated.jsonl"), []byte("noise"), 0644); err != nil {
+		t.Fatalf("seed unrelated file: %v", err)
+	}
+
+	// Pre-existing cursor in newDir for sess-C — migration must NOT
+	// clobber it (new path wins).
+	if err := os.WriteFile(filepath.Join(newDir, ".watch-cursor-sess-C"), []byte("9999"), 0644); err != nil {
+		t.Fatalf("seed pre-existing new cursor: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, ".watch-cursor-sess-C"), []byte("0000"), 0644); err != nil {
+		t.Fatalf("seed conflicting old cursor: %v", err)
+	}
+
+	migrateLegacyCursors(oldDir, newDir)
+
+	// Both new cursors copied with their original content.
+	for _, c := range []struct {
+		name string
+		want string
+	}{
+		{".watch-cursor-sess-A", "1234"},
+		{".watch-cursor-sess-B", "5678"},
+	} {
+		got, err := os.ReadFile(filepath.Join(newDir, c.name))
+		if err != nil {
+			t.Errorf("missing migrated cursor %q: %v", c.name, err)
+			continue
+		}
+		if string(got) != c.want {
+			t.Errorf("cursor %q content = %q, want %q", c.name, string(got), c.want)
+		}
+	}
+
+	// Conflicting cursor was NOT overwritten — new path wins.
+	got, _ := os.ReadFile(filepath.Join(newDir, ".watch-cursor-sess-C"))
+	if string(got) != "9999" {
+		t.Errorf("pre-existing cursor was clobbered: got %q, want 9999", string(got))
+	}
+
+	// Originals remain on the old path (read-only migration).
+	if _, err := os.Stat(filepath.Join(oldDir, ".watch-cursor-sess-A")); err != nil {
+		t.Errorf("original cursor A removed: %v", err)
+	}
+
+	// Unrelated file must not have been copied.
+	if _, err := os.Stat(filepath.Join(newDir, "unrelated.jsonl")); err == nil {
+		t.Error("unrelated file copied — migration should match .watch-cursor-* only")
+	}
+}
+
+// TestMigrateLegacyCursors_NoOldDir is a no-op on fresh installs
+// where .mom/raw/ never existed.
+func TestMigrateLegacyCursors_NoOldDir(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "does-not-exist")
+	newDir := t.TempDir()
+	migrateLegacyCursors(missing, newDir) // must not panic, must not error
+	entries, _ := os.ReadDir(newDir)
+	if len(entries) != 0 {
+		t.Errorf("expected newDir empty after no-op migration, got %d entries", len(entries))
+	}
+}
+
 // TestWatchCursorRoundTrip verifies write/read of byte offsets.
 func TestWatchCursorRoundTrip(t *testing.T) {
 	dir := t.TempDir()
