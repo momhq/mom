@@ -52,9 +52,8 @@ If the user agrees, run that command. If the user declines, stop. Do not install
      ⚠ Capture-pipeline misconfiguration detected.
      Drafts exist for this session but carry no project_id — they cannot be
      project-scoped and will not be curated. This typically means the MOM
-     watcher was not project-bound when these turns were captured (see the
-     #386 fix family: adapter cwd extraction + mom project bind registry).
-     Fix capture configuration and re-run /mom-wrap-up.
+     watcher was not project-bound when these turns were captured.
+     Run /mom-project to bind the project first and try re-run /mom-wrap-up.
      ```
 
    Do **not** widen the search to other projects on your own.
