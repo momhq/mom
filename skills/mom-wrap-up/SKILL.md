@@ -95,7 +95,7 @@ If the user agrees, run that command. If the user declines, stop. Do not install
 
 - Always include `--strict-project` on every `mom drafts` call. Zero results **does not** mean "try a wider search" — it means "run the sanity check" (see Flow step 1).
 - If `mom drafts --strict-project` fails with `unknown flag: --strict-project`, the installed MOM is too old. Tell the user to upgrade with `brew upgrade mom` (or `mom self-update`) and stop. **Do not** fall back to a bare `mom drafts` — that would leak drafts from other projects.
-- **CLI flag surface — never invent flags.** The only valid flags for `mom drafts` are those listed in `mom drafts --help`: `--strict-project`, `--all-projects`, `--harness`, `--session`, `--since`. Do not issue any other flag (e.g. `--json`, `--format`, `--output`). If you are unsure whether a flag exists, run `mom drafts --help` and verify before using it. Piping or parsing `mom drafts` output assumes plain text — no JSON mode exists.
+- **CLI flag surface — never invent flags.** Before using any flag on any `mom` subcommand, run `<subcommand> --help` and confirm the flag appears in the output. If it is not listed, do not use it. Never assume a flag exists based on convention or analogy with other CLIs.
 - Never curate without user approval.
 - Never skip `--type` or `--summary`.
 - Do not rewrite draft content.
