@@ -39,7 +39,25 @@ If the user agrees, run that command. If the user declines, stop. Do not install
    mom drafts --strict-project --since 1h
    ```
 
-   If the command returns zero drafts, report "no drafts in this project for the requested window" and stop. Do **not** retry without `--strict-project`. Do **not** widen the search to other projects on your own.
+   **If the command returns zero drafts**, do not stop yet — perform a capture-pipeline sanity check. Re-run the same query without `--strict-project` (keep `--harness` and `--since` if you used them):
+
+   ```bash
+   mom drafts [--harness <name>] [--since <duration>]
+   ```
+
+   - If the unscoped query **also returns zero**: report "no drafts in this project for the requested window" and stop.
+   - If the unscoped query **returns results**: report the following and stop — do **not** curate:
+
+     ```
+     ⚠ Capture-pipeline misconfiguration detected.
+     Drafts exist for this session but carry no project_id — they cannot be
+     project-scoped and will not be curated. This typically means the MOM
+     watcher was not project-bound when these turns were captured (see the
+     #386 fix family: adapter cwd extraction + mom project bind registry).
+     Fix capture configuration and re-run /mom-wrap-up.
+     ```
+
+   Do **not** widen the search to other projects on your own.
 
    Only add `--all-projects` if the user explicitly asks for a cross-project wrap-up. In that case, replace `--strict-project` with `--all-projects` (never run without one of the two).
 
@@ -75,12 +93,29 @@ If the user agrees, run that command. If the user declines, stop. Do not install
 
 ## Rules
 
-- Always include `--strict-project` on every `mom drafts` call. Zero results means "no drafts in this project" — it does **not** mean "try a wider search". Only the user can opt into `--all-projects`.
+- Always include `--strict-project` on every `mom drafts` call. Zero results **does not** mean "try a wider search" — it means "run the sanity check" (see Flow step 1).
 - If `mom drafts --strict-project` fails with `unknown flag: --strict-project`, the installed MOM is too old. Tell the user to upgrade with `brew upgrade mom` (or `mom self-update`) and stop. **Do not** fall back to a bare `mom drafts` — that would leak drafts from other projects.
+- **CLI flag surface — never invent flags.** The only valid flags for `mom drafts` are those listed in `mom drafts --help`: `--strict-project`, `--all-projects`, `--harness`, `--session`, `--since`. Do not issue any other flag (e.g. `--json`, `--format`, `--output`). If you are unsure whether a flag exists, run `mom drafts --help` and verify before using it. Piping or parsing `mom drafts` output assumes plain text — no JSON mode exists.
 - Never curate without user approval.
 - Never skip `--type` or `--summary`.
 - Do not rewrite draft content.
 - Do not use MCP or run ad hoc database queries — only the commands above.
+
+## Rehearsal scenarios
+
+Use these to verify the skill behaves correctly without a live session.
+
+**Scenario A — genuinely empty session**
+Both `mom drafts --strict-project` and `mom drafts` return zero rows.
+Expected skill output: `"no drafts in this project for the requested window"` → stop.
+
+**Scenario B — capture-pipeline misconfiguration**
+`mom drafts --strict-project` returns zero rows. `mom drafts` (without `--strict-project`) returns rows whose `Project` column is blank/empty.
+Expected skill output: `"⚠ Capture-pipeline misconfiguration detected …"` → stop, do not curate.
+
+**Scenario C — normal session**
+`mom drafts --strict-project` returns rows with populated `Project` column.
+Expected skill output: curation plan proposal → wait for user approval → curate.
 
 ## Postflight (version hint)
 
