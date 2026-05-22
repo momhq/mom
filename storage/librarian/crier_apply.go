@@ -125,6 +125,30 @@ func (l *Librarian) ApplyLedgerEvent(
 	return applied, nil
 }
 
+// SetCrierCheckpoint overwrites crier_state.checkpoint to offset and
+// stamps updated_at. Used by the v0.50 "skip backfill" startup path:
+// when Crier is first wired into production its checkpoint is -1, but
+// the op_events table already contains rows projected through the
+// legacy bus path (no ledger_offset). Re-projecting them would create
+// duplicates. SkipBackfill jumps the checkpoint to the current Ledger
+// head so live operation continues without replay.
+//
+// This call is unconditional: callers must guard against overwriting
+// a valid forward checkpoint. The Crier.SkipBackfill helper performs
+// that guard.
+func (l *Librarian) SetCrierCheckpoint(offset int64) error {
+	return l.v.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`UPDATE crier_state SET checkpoint = ?, updated_at = datetime('now') WHERE id = 1`,
+			offset,
+		)
+		if err != nil {
+			return fmt.Errorf("SetCrierCheckpoint: %w", err)
+		}
+		return nil
+	})
+}
+
 // ErrNoCheckpoint is returned by GetCrierCheckpoint when the
 // crier_state row is missing — indicates an aborted migration or
 // schema corruption.

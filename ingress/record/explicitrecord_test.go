@@ -5,7 +5,31 @@ import (
 	"testing"
 
 	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/editor"
 )
+
+// editorRecorder captures Editor.Publish calls so tests can assert
+// what reached the canonicalization gateway without standing up a
+// real Ledger.
+type editorRecorder struct {
+	calls []recordedCall
+	err   error
+}
+
+type recordedCall struct {
+	eventType herald.EventType
+	payload   map[string]any
+	source    editor.Source
+}
+
+func (r *editorRecorder) Publish(in editor.Canonicalizer, src editor.Source) error {
+	if r.err != nil {
+		return r.err
+	}
+	t, p := in.Canonical()
+	r.calls = append(r.calls, recordedCall{eventType: t, payload: p, source: src})
+	return nil
+}
 
 func TestLooksLikeHarnessSessionID(t *testing.T) {
 	cases := []struct {
@@ -106,16 +130,14 @@ func TestResolveSessionIDRejectsMissing(t *testing.T) {
 	}
 }
 
-func TestPublishNormalizesAndPublishesMemoryRecord(t *testing.T) {
-	bus := herald.NewBus()
-	var got herald.Event
-	var count int
-	bus.Subscribe(herald.MemoryRecord, func(e herald.Event) {
-		got = e
-		count++
-	})
-
-	res, err := Publish(bus, Request{
+// TestPublishNormalizesAndRoutesThroughEditor asserts the architecture
+// v3 contract: record.Publish hands the canonical MemoryRecord event to
+// the Editor (so it lands on the Ledger), and never publishes directly
+// to Herald. Crier is the live publisher; if record bypassed Editor,
+// the event would not be replayable and would not show up in the Vault.
+func TestPublishNormalizesAndRoutesThroughEditor(t *testing.T) {
+	pub := &editorRecorder{}
+	res, err := Publish(pub, Request{
 		SessionID: "11111111-1111-4111-8111-111111111111",
 		Summary:   "summary",
 		Content:   map[string]any{"text": "remember this"},
@@ -125,34 +147,36 @@ func TestPublishNormalizesAndPublishesMemoryRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("count = %d, want 1", count)
+	if len(pub.calls) != 1 {
+		t.Fatalf("editor.Publish calls = %d, want 1", len(pub.calls))
 	}
-	if got.Type != herald.MemoryRecord || got.SessionID != "11111111-1111-4111-8111-111111111111" {
-		t.Fatalf("event = %+v", got)
+	got := pub.calls[0]
+	if got.eventType != herald.MemoryRecord {
+		t.Fatalf("eventType = %q, want %q", got.eventType, herald.MemoryRecord)
 	}
-	if _, dup := got.Payload["session_id"]; dup {
-		t.Fatal("session_id must stay on the event envelope")
+	if got.payload["session_id"] != "11111111-1111-4111-8111-111111111111" {
+		t.Fatalf("payload session_id = %v", got.payload["session_id"])
+	}
+	if got.source.Adapter != "pi" {
+		t.Fatalf("source.Adapter = %q, want pi", got.source.Adapter)
 	}
 	if res.SessionID != "11111111-1111-4111-8111-111111111111" || res.Actor != "pi" {
 		t.Fatalf("result = %+v", res)
 	}
-	tags, _ := got.Payload["tags"].([]string)
+	tags, _ := got.payload["tags"].([]string)
 	if len(tags) != 2 || tags[0] != "mcp" || tags[1] != "v0-30" {
 		t.Fatalf("tags = %v", tags)
 	}
 }
 
 func TestPublishRejectsMissingSessionWithoutPublishing(t *testing.T) {
-	bus := herald.NewBus()
-	var count int
-	bus.Subscribe(herald.MemoryRecord, func(e herald.Event) { count++ })
+	pub := &editorRecorder{}
 
-	_, err := Publish(bus, Request{Content: map[string]any{"text": "x"}})
+	_, err := Publish(pub, Request{Content: map[string]any{"text": "x"}})
 	if !errors.Is(err, ErrMissingSessionID) {
 		t.Fatalf("err = %v, want ErrMissingSessionID", err)
 	}
-	if count != 0 {
-		t.Fatalf("published %d events, want 0", count)
+	if len(pub.calls) != 0 {
+		t.Fatalf("editor saw %d events on rejection, want 0", len(pub.calls))
 	}
 }

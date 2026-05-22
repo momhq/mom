@@ -98,7 +98,7 @@ func TestReplay_AllRegisteredSchemas(t *testing.T) {
 	lib := librarian.New(v)
 	led2, _ := ledger.Open(ledDir)
 	defer led2.Close()
-	c := crier.New(led2, lib)
+	c := crier.New(led2, lib, nil)
 
 	stats, err := c.Replay()
 	if err != nil {
@@ -139,7 +139,7 @@ func TestReplay_AllRegisteredSchemas(t *testing.T) {
 	}
 	defer v2.Close()
 	lib2 := librarian.New(v2)
-	c2 := crier.New(led2, lib2)
+	c2 := crier.New(led2, lib2, nil)
 	stats3, err := c2.Replay()
 	if err != nil {
 		t.Fatalf("Replay after rm: %v", err)

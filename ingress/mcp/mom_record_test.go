@@ -76,10 +76,17 @@ func TestMomRecord_PublishesEventWithNormalizedTags(t *testing.T) {
 	if got.SessionID != "11111111-1111-4111-8111-111111111111" {
 		t.Errorf("session_id = %q, want 11111111-1111-4111-8111-111111111111", got.SessionID)
 	}
-	if _, dup := got.Payload["session_id"]; dup {
-		t.Error("session_id was duplicated into payload bag; should live only on the envelope")
+	// Per architecture v3, the canonical event flows through Editor,
+	// which lifts payload[session_id] to the envelope. Producers stamp
+	// session_id into the payload; subscribers prefer the envelope.
+	// The payload copy is the canonical source for Editor and survives
+	// the Ledger's JSON round-trip into the bus.
+	if got.Payload["session_id"] != "11111111-1111-4111-8111-111111111111" {
+		t.Errorf("payload session_id = %v", got.Payload["session_id"])
 	}
-	tags, _ := got.Payload["tags"].([]string)
+	// Tags come back as []any after the Ledger's JSON round-trip; in
+	// production Drafter normalises both shapes via tagsFromPayload.
+	tags := payloadTags(t, got.Payload["tags"])
 	want := []string{"v0-30", "mcp"} // normalised
 	if len(tags) != len(want) {
 		t.Fatalf("tags = %v, want %v", tags, want)
@@ -397,5 +404,29 @@ func TestServer_SetBusReplacesTheBus(t *testing.T) {
 	}
 	if got := newBusFires.Load(); got != 1 {
 		t.Errorf("new bus subscriber fired %d times; want 1", got)
+	}
+}
+
+
+// payloadTags coerces a payload tags slice (which arrives as []any
+// after the Ledger's JSON round-trip) back to []string. Mirrors the
+// helper in workers/drafter so tests assert against the same canonical
+// shape Drafter sees in production.
+func payloadTags(t *testing.T, v any) []string {
+	t.Helper()
+	switch s := v.(type) {
+	case []string:
+		return s
+	case []any:
+		out := make([]string, 0, len(s))
+		for _, x := range s {
+			if str, ok := x.(string); ok {
+				out = append(out, str)
+			}
+		}
+		return out
+	default:
+		t.Fatalf("payload tags: unexpected type %T", v)
+		return nil
 	}
 }

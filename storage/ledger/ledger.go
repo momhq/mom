@@ -205,6 +205,19 @@ func (l *Ledger) Append(e herald.Event) (uint64, error) {
 	return offset, nil
 }
 
+// HeadOffset returns the offset of the most recently appended record
+// and true if the Ledger has any records, or (0, false) if empty. It
+// is the cursor Crier's "skip-backfill" startup path uses to advance
+// its checkpoint past pre-existing entries.
+func (l *Ledger) HeadOffset() (uint64, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.nextID == 0 {
+		return 0, false
+	}
+	return l.nextID - 1, true
+}
+
 // Read returns the record at offset, if present. Returns os.ErrNotExist
 // when the offset is beyond the head of the ledger.
 func (l *Ledger) Read(offset uint64) (Record, error) {
