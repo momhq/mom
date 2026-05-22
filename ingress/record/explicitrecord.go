@@ -8,8 +8,28 @@ import (
 	"unicode"
 
 	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/editor"
 	"github.com/momhq/mom/storage/librarian"
 )
+
+// Publisher is the canonicalization gateway record.Publish hands the
+// explicit-write event to. Implemented by *editor.Editor in production.
+// Defined as an interface so tests can substitute a recorder without
+// standing up a real Ledger.
+type Publisher interface {
+	Publish(in editor.Canonicalizer, src editor.Source) error
+}
+
+// recordCanonical adapts a prepared MemoryRecord payload to the
+// editor.Canonicalizer contract. SessionID lives on the envelope
+// (extracted by Editor.Canonicalize from payload["session_id"]).
+type recordCanonical struct {
+	payload map[string]any
+}
+
+func (r recordCanonical) Canonical() (herald.EventType, map[string]any) {
+	return herald.MemoryRecord, r.payload
+}
 
 var ErrMissingSessionID = errors.New("session_id is required; do not invent one")
 
@@ -52,9 +72,14 @@ type Result struct {
 	Actor     string
 }
 
-func Publish(bus *herald.Bus, req Request) (Result, error) {
-	if bus == nil {
-		return Result{}, errors.New("event bus is required")
+// Publish builds the canonical explicit-write event and hands it to
+// the Editor. Per architecture v3, Editor appends to the Ledger; Crier
+// projects and republishes onto Herald, where Drafter persists. record
+// no longer touches the bus directly — that path silently bypassed the
+// Ledger and would not be replayable.
+func Publish(pub Publisher, req Request) (Result, error) {
+	if pub == nil {
+		return Result{}, errors.New("editor publisher is required")
 	}
 	if len(req.Content) == 0 {
 		return Result{}, errors.New("content cannot be empty (must contain at least one field)")
@@ -73,6 +98,7 @@ func Publish(bus *herald.Bus, req Request) (Result, error) {
 	}
 
 	payload := map[string]any{
+		"session_id":               sessionID,
 		"content":                  req.Content,
 		"summary":                  req.Summary,
 		"tags":                     tags,
@@ -83,11 +109,9 @@ func Publish(bus *herald.Bus, req Request) (Result, error) {
 	if req.ProjectId != "" {
 		payload["project_id"] = req.ProjectId
 	}
-	bus.Publish(herald.Event{
-		Type:      herald.MemoryRecord,
-		SessionID: sessionID,
-		Payload:   payload,
-	})
+	if err := pub.Publish(recordCanonical{payload: payload}, editor.Source{Adapter: actor}); err != nil {
+		return Result{}, fmt.Errorf("record: editor publish: %w", err)
+	}
 
 	return Result{SessionID: sessionID, Summary: req.Summary, Tags: tags, Actor: actor}, nil
 }

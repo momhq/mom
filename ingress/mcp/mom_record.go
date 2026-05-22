@@ -40,7 +40,10 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 		return toolCallResult{}, err
 	}
 
-	result, err := record.Publish(s.bus, record.Request{
+	if s.editor == nil {
+		return toolCallResult{}, fmt.Errorf("mom_record: editor not wired (ledger unavailable)")
+	}
+	result, err := record.Publish(s.editor, record.Request{
 		SessionID: stringArg(args, "session_id"),
 		Summary:   stringArg(args, "summary"),
 		Tags:      rawTags,
@@ -49,6 +52,16 @@ func (s *Server) toolMomRecord(args map[string]any) (toolCallResult, error) {
 	})
 	if err != nil {
 		return toolCallResult{}, err
+	}
+
+	// Drain the Ledger synchronously: Crier projects the just-appended
+	// event into the vault and republishes onto the server bus so
+	// Drafter (subscribed via openCentralWorkers().AttachToBus) sees
+	// the MemoryRecord event before this tool call returns.
+	if s.crier != nil {
+		if _, err := s.crier.Replay(); err != nil {
+			return toolCallResult{}, fmt.Errorf("mom_record: crier replay: %w", err)
+		}
 	}
 
 	return toolCallResult{

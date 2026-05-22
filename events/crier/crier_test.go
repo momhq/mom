@@ -1,7 +1,9 @@
 package crier_test
 
 import (
+	"context"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -60,7 +62,7 @@ func TestReplay_AppliesNewEvents(t *testing.T) {
 		}
 	}
 
-	c := crier.New(led, lib)
+	c := crier.New(led, lib, nil)
 	stats, err := c.Replay()
 	if err != nil {
 		t.Fatalf("Replay: %v", err)
@@ -84,7 +86,7 @@ func TestReplay_IsIdempotentOnRerun(t *testing.T) {
 		_, _ = led.Append(ev(herald.TurnObserved, "session"))
 	}
 
-	c := crier.New(led, lib)
+	c := crier.New(led, lib, nil)
 	first, err := c.Replay()
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +113,7 @@ func TestReplay_ResumesAfterCheckpoint(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		_, _ = led.Append(ev(herald.TurnObserved, "session"))
 	}
-	c := crier.New(led, lib)
+	c := crier.New(led, lib, nil)
 	if _, err := c.Replay(); err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +139,7 @@ func TestReplay_EmptyLedgerIsOk(t *testing.T) {
 	defer closeFn()
 	led := openLedger(t)
 
-	c := crier.New(led, lib)
+	c := crier.New(led, lib, nil)
 	stats, err := c.Replay()
 	if err != nil {
 		t.Fatal(err)
@@ -155,7 +157,7 @@ func TestReplay_ProjectsCorrectVaultState(t *testing.T) {
 	// Append one event.
 	_, _ = led.Append(ev(herald.OpMemoryCreated, "session-vault-state"))
 
-	c := crier.New(led, lib)
+	c := crier.New(led, lib, nil)
 	if _, err := c.Replay(); err != nil {
 		t.Fatal(err)
 	}
@@ -172,6 +174,213 @@ func TestReplay_ProjectsCorrectVaultState(t *testing.T) {
 	}
 	if rows[0].EventType != string(herald.OpMemoryCreated) {
 		t.Errorf("EventType = %q, want %q", rows[0].EventType, herald.OpMemoryCreated)
+	}
+}
+
+// heraldAdapter wraps *herald.Bus so it satisfies crier.Publisher
+// without forcing crier.go to import the bus package (archtest
+// invariant: events/crier does not import bus/herald).
+type heraldAdapter struct{ b *herald.Bus }
+
+func (h heraldAdapter) Publish(eventType, sessionID string, ts time.Time, payload map[string]any) {
+	h.b.Publish(herald.Event{
+		Type:      herald.EventType(eventType),
+		SessionID: sessionID,
+		Timestamp: ts,
+		Payload:   payload,
+	})
+}
+
+func TestReplay_PublishesToHeraldOnApply(t *testing.T) {
+	lib, closeFn := openLibrarian(t)
+	defer closeFn()
+	led := openLedger(t)
+
+	bus := herald.NewBus()
+	var received []herald.Event
+	stop := bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
+		received = append(received, e)
+	})
+	defer stop()
+
+	if _, err := led.Append(ev(herald.TurnObserved, "s-pub")); err != nil {
+		t.Fatal(err)
+	}
+
+	c := crier.New(led, lib, heraldAdapter{b: bus})
+	if _, err := c.Replay(); err != nil {
+		t.Fatal(err)
+	}
+	if len(received) != 1 {
+		t.Fatalf("herald received %d events, want 1", len(received))
+	}
+	if received[0].SessionID != "s-pub" {
+		t.Errorf("SessionID = %q, want s-pub", received[0].SessionID)
+	}
+	if received[0].Type != herald.TurnObserved {
+		t.Errorf("Type = %q, want %q", received[0].Type, herald.TurnObserved)
+	}
+}
+
+func TestReplay_IdempotentRerunDoesNotRepublish(t *testing.T) {
+	lib, closeFn := openLibrarian(t)
+	defer closeFn()
+	led := openLedger(t)
+
+	bus := herald.NewBus()
+	var received []herald.Event
+	stop := bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
+		received = append(received, e)
+	})
+	defer stop()
+
+	_, _ = led.Append(ev(herald.TurnObserved, "s-once"))
+
+	c := crier.New(led, lib, heraldAdapter{b: bus})
+	if _, err := c.Replay(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Replay(); err != nil {
+		t.Fatal(err)
+	}
+	if len(received) != 1 {
+		t.Fatalf("herald received %d events across two Replays, want 1 (republish guarded by applied bool)", len(received))
+	}
+}
+
+// TestSkipBackfill_AdvancesCheckpointPastLedgerHead is the v0.50
+// cutover behaviour: when Crier first wakes up against a Ledger that
+// already contains records (those events were projected by the legacy
+// bus path), it must NOT re-replay them. SkipBackfill jumps the
+// checkpoint to the current head so live operation continues without
+// duplicate op_events rows or duplicate Herald publishes.
+func TestSkipBackfill_AdvancesCheckpointPastLedgerHead(t *testing.T) {
+	lib, closeFn := openLibrarian(t)
+	defer closeFn()
+	led := openLedger(t)
+
+	// Pre-populate three Ledger records — simulating the production
+	// ledger that already has thousands.
+	for _, s := range []string{"old-1", "old-2", "old-3"} {
+		if _, err := led.Append(ev(herald.TurnObserved, s)); err != nil {
+			t.Fatalf("Append: %v", err)
+		}
+	}
+
+	c := crier.New(led, lib, nil)
+	skipped, head, err := c.SkipBackfill()
+	if err != nil {
+		t.Fatalf("SkipBackfill: %v", err)
+	}
+	if !skipped {
+		t.Fatal("SkipBackfill returned skipped=false on a fresh checkpoint with non-empty ledger")
+	}
+	if head != 2 {
+		t.Errorf("head = %d, want 2 (zero-indexed last offset of 3 records)", head)
+	}
+
+	// Replay must NOT apply the three pre-existing records.
+	stats, err := c.Replay()
+	if err != nil {
+		t.Fatalf("Replay after SkipBackfill: %v", err)
+	}
+	if stats.Applied != 0 {
+		t.Fatalf("Applied = %d, want 0 (SkipBackfill should make the pre-existing records invisible)", stats.Applied)
+	}
+}
+
+func TestSkipBackfill_EmptyLedgerLeavesCheckpointFresh(t *testing.T) {
+	lib, closeFn := openLibrarian(t)
+	defer closeFn()
+	led := openLedger(t)
+
+	c := crier.New(led, lib, nil)
+	skipped, _, err := c.SkipBackfill()
+	if err != nil {
+		t.Fatalf("SkipBackfill: %v", err)
+	}
+	if skipped {
+		t.Fatal("SkipBackfill returned skipped=true on an empty ledger")
+	}
+
+	// Append one record AFTER SkipBackfill — it must project normally.
+	_, _ = led.Append(ev(herald.TurnObserved, "first"))
+	stats, err := c.Replay()
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	if stats.Applied != 1 {
+		t.Errorf("Applied = %d, want 1 (skip on empty ledger must not block first record)", stats.Applied)
+	}
+}
+
+func TestSkipBackfill_IdempotentOnSecondCall(t *testing.T) {
+	lib, closeFn := openLibrarian(t)
+	defer closeFn()
+	led := openLedger(t)
+	for i := 0; i < 2; i++ {
+		_, _ = led.Append(ev(herald.TurnObserved, "x"))
+	}
+	c := crier.New(led, lib, nil)
+
+	if _, _, err := c.SkipBackfill(); err != nil {
+		t.Fatal(err)
+	}
+	// Second call is a no-op — checkpoint already past head.
+	skipped, _, err := c.SkipBackfill()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skipped {
+		t.Fatal("second SkipBackfill rolled the checkpoint back (must be a no-op)")
+	}
+}
+
+// TestRun_PollsAndShutsDown asserts Crier.Run polls the Ledger on the
+// supplied interval and republishes new events onto Herald, then
+// returns cleanly when ctx is cancelled. The contract is the daemon
+// loop production wiring uses (long-lived watcher daemon, MCP server).
+func TestRun_PollsAndShutsDown(t *testing.T) {
+	lib, closeFn := openLibrarian(t)
+	defer closeFn()
+	led := openLedger(t)
+
+	bus := herald.NewBus()
+	var received atomic.Int64
+	stop := bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
+		received.Add(1)
+	})
+	defer stop()
+
+	c := crier.New(led, lib, heraldAdapter{b: bus})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- c.Run(ctx, 5*time.Millisecond)
+	}()
+
+	// Append after Run has started — daemon loop must pick it up.
+	if _, err := led.Append(ev(herald.TurnObserved, "s-runtime")); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for received.Load() < 1 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if received.Load() < 1 {
+		t.Fatalf("Run did not republish appended event within 2s (received=%d)", received.Load())
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil && err != context.Canceled {
+			t.Fatalf("Run returned %v, want nil or context.Canceled", err)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Run did not return within 1s of ctx.Cancel")
 	}
 }
 
@@ -202,7 +411,7 @@ func TestReplay_FullReprojectionFromOffsetZero(t *testing.T) {
 	}
 	defer led2.Close()
 
-	c := crier.New(led2, lib)
+	c := crier.New(led2, lib, nil)
 	stats, err := c.Replay()
 	if err != nil {
 		t.Fatal(err)

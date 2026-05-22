@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/momhq/mom/events/editor"
 	"github.com/momhq/mom/storage/canonical"
 
 	"github.com/momhq/mom/ingress/harness"
@@ -132,20 +131,25 @@ func sweepTranscripts(projectDir, momDir string) {
 	// Best-effort sweep — open the central vault on the spot. The
 	// helper is short-lived so leaving the vault uncloned is fine
 	// for this one-shot path.
-	bus := newProjectBus(openCentralWorkers())
+	pipe := openWritePipeline(openCentralWorkers())
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
 		MomDir:     momDir,
 		Sources:    sources,
 		SweepOnly:  true,
-		Bus:        bus,
-		Editor:     editor.New(bus, nil, nil).WithLedger(openCentralLedger()),
+		Bus:        pipe.bus,
+		Editor:     pipe.ed,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[mom] sweep: %v\n", err)
 		return
 	}
 	w.Sweep()
+	if pipe.crier != nil {
+		if _, err := pipe.crier.Replay(); err != nil {
+			fmt.Fprintf(os.Stderr, "[mom] sweep: crier replay: %v\n", err)
+		}
+	}
 }
 
 // buildWatcherSources builds watcher.Source entries from config for all

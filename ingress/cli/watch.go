@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/momhq/mom/events/editor"
 	"github.com/momhq/mom/storage/canonical"
 	"github.com/momhq/mom/storage/ledger"
+	"github.com/momhq/mom/storage/librarian"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/momhq/mom/bus/herald"
@@ -101,21 +101,34 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("no watcher-capable harnesses enabled in config")
 	}
 
+	// Build the v0.50 write pipeline once: Ledger + Editor + bus +
+	// Crier are shared across this watch process. Sweep and persistent
+	// modes diverge only in how they drive Crier (one-shot Replay vs
+	// daemon Run).
+	pipe := openWritePipeline(workers)
+
 	// Sweep mode: one-shot catch-up and exit.
 	if watchSweep {
-		bus := newProjectBus(workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projectDir,
 			MomDir:     momDir,
 			Sources:    sources,
 			SweepOnly:  true,
-			Bus:        bus,
-			Editor:     editor.New(bus, nil, nil).WithLedger(openCentralLedger()),
+			Bus:        pipe.bus,
+			Editor:     pipe.ed,
 		})
 		if err != nil {
 			return fmt.Errorf("creating watcher: %w", err)
 		}
 		sessions, turns := w.Sweep()
+		// Drain the Ledger synchronously — sweep mode exits after this
+		// call, so Crier.Run is unnecessary. SkipBackfill is also
+		// skipped: sweep is meant to catch up on un-projected events.
+		if pipe.crier != nil {
+			if _, err := pipe.crier.Replay(); err != nil {
+				return fmt.Errorf("crier replay: %w", err)
+			}
+		}
 		if sessions > 0 {
 			p.Checkf("sweep: %s sessions, %s turns",
 				p.HighlightValue(fmt.Sprintf("%d", sessions)),
@@ -126,18 +139,13 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Herald event bus: watcher publishes turn.observed events,
-	// Logbook and Drafter (via centralWorkers) subscribe as
-	// downstream processors.
-	bus := newProjectBus(workers)
-
 	w, err := watcher.New(watcher.Config{
 		ProjectDir: projectDir,
 		MomDir:     momDir,
 		Sources:    sources,
 		DebounceMs: 300,
-		Bus:        bus,
-		Editor:     editor.New(bus, nil, nil).WithLedger(openCentralLedger()),
+		Bus:        pipe.bus,
+		Editor:     pipe.ed,
 	})
 	if err != nil {
 		return fmt.Errorf("creating watcher: %w", err)
@@ -164,9 +172,15 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 	// every pending buffer.
 	tickCtx, tickCancel := context.WithCancel(context.Background())
 	tickDone := startDrafterTicker(tickCtx, workers)
+	crierDone := startCrierDaemon(tickCtx, pipe.crier)
 	defer func() {
 		tickCancel()
 		<-tickDone
+		// Crier shutdown sequenced AFTER drafter Tick stops: the last
+		// projection round must finish before FlushAll runs, otherwise
+		// the in-flight buffer can lose its tail of just-projected
+		// events.
+		<-crierDone
 		if workers.drafter != nil {
 			workers.drafter.FlushAll()
 		}
@@ -211,19 +225,6 @@ func startDrafterTicker(ctx context.Context, workers centralWorkers) <-chan stru
 	return done
 }
 
-// newProjectBus creates a Herald event bus with the central Drafter
-// and Logbook attached. Used by both single-project and global watch
-// modes. The shared workers consume turn.observed, memory.record,
-// and op.memory.* and persist into the central vault at
-// $HOME/.mom/mom.db. The legacy RecordAppended subscribers (v1
-// drafter writing .mom/memory/*.json, v1 logbook writing
-// session-*.json) retired in #240 PR 3 and PR 4.
-func newProjectBus(workers centralWorkers) *herald.Bus {
-	bus := herald.NewBus()
-	workers.AttachToBus(bus)
-	return bus
-}
-
 // runWatchGlobal runs the global watch daemon: watches all registered projects.
 func runWatchGlobal(sweepOnly bool) error {
 	if _, err := daemon.PruneInvalidRegistry(); err != nil {
@@ -235,14 +236,22 @@ func runWatchGlobal(sweepOnly bool) error {
 	}
 
 	// Open the central vault ONCE for the entire global daemon. The
-	// same Logbook worker is shared across every per-project bus
-	// below — no N-vault-handle leak in multi-project mode.
+	// same Logbook worker is shared across every project — no
+	// N-vault-handle leak in multi-project mode.
 	workers := openCentralWorkers()
+
+	// Open the v0.50 write pipeline ONCE: Ledger, Editor, bus, and
+	// Crier are all shared across every project. Per-project buses
+	// (the v0.40 design) would have produced N copies of every event
+	// on the bus — one per Crier — because all projects write to the
+	// same central Ledger. One shared pipeline guarantees Drafter +
+	// Logbook see every event exactly once.
+	pipe := openWritePipeline(workers)
 
 	if sweepOnly {
 		p := ux.NewPrinter(os.Stderr)
 		totalSessions, totalTurns := 0, 0
-		// Sweep all registered projects and exit.
+		// Sweep all registered projects, then drain the Ledger once.
 		for projDir, entry := range reg {
 			cfg, err := config.Load(entry.MomDir)
 			if err != nil {
@@ -253,14 +262,13 @@ func runWatchGlobal(sweepOnly bool) error {
 			if len(sources) == 0 {
 				continue
 			}
-			bus := newProjectBus(workers)
 			w, err := watcher.New(watcher.Config{
 				ProjectDir: projDir,
 				MomDir:     entry.MomDir,
 				Sources:    sources,
 				SweepOnly:  true,
-				Bus:        bus,
-				Editor:     editor.New(bus, nil, nil).WithLedger(openCentralLedger()),
+				Bus:        pipe.bus,
+				Editor:     pipe.ed,
 			})
 			if err != nil {
 				p.Warn(fmt.Sprintf("sweep %s: %v", projDir, err))
@@ -276,22 +284,32 @@ func runWatchGlobal(sweepOnly bool) error {
 					p.HighlightValue(fmt.Sprintf("%d", turns)))
 			}
 		}
+		if pipe.crier != nil {
+			if _, err := pipe.crier.Replay(); err != nil {
+				return fmt.Errorf("crier replay: %w", err)
+			}
+		}
 		if totalSessions == 0 {
 			p.Muted("sweep: nothing new across all projects")
 		}
 		return nil
 	}
 
-	// Persistent watch mode: one watcher per registered project.
+	// Persistent watch mode: one watcher per registered project, all
+	// sharing the daemon-wide pipeline.
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// Drafter idle-flush ticker + shutdown FlushAll. Without these,
-	// sessions under flushAtTurnCount turns never persist and clean
-	// shutdown loses every pending buffer.
+	// Drafter idle-flush ticker + Crier daemon. Order at shutdown:
+	// ctx cancel → tickDone → crierDone → FlushAll. Drafter's tick
+	// stops before Crier's last projection round; FlushAll runs after
+	// Crier has handed off the final batch, so no in-flight buffer
+	// is lost.
 	tickDone := startDrafterTicker(ctx, workers)
+	crierDone := startCrierDaemon(ctx, pipe.crier)
 	defer func() {
 		<-tickDone
+		<-crierDone
 		if workers.drafter != nil {
 			workers.drafter.FlushAll()
 		}
@@ -313,14 +331,13 @@ func runWatchGlobal(sweepOnly bool) error {
 		if len(sources) == 0 {
 			return
 		}
-		bus := newProjectBus(workers)
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projDir,
 			MomDir:     entry.MomDir,
 			Sources:    sources,
 			DebounceMs: 300,
-			Bus:        bus,
-			Editor:     editor.New(bus, nil, nil).WithLedger(openCentralLedger()),
+			Bus:        pipe.bus,
+			Editor:     pipe.ed,
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[mom] watch %s: %v\n", projDir, err)
@@ -475,6 +492,7 @@ func runWatchStatus(momDir string) error {
 // the same Vault — we open the vault once per process and use it for
 // both.
 type centralWorkers struct {
+	lib     *librarian.Librarian
 	drafter *drafter.Drafter
 	logbook *logbook.Worker
 }
@@ -514,9 +532,9 @@ func (cw centralWorkers) AttachToBus(bus *herald.Bus) {
 // subscribers.
 //
 // Called once per process, NOT per project. The same workers are
-// subscribed to every project's bus by newProjectBus; SQLite WAL +
-// the librarian/vault concurrency contract keep this safe across
-// goroutines.
+// attached to the single daemon-wide bus by openWritePipeline; SQLite
+// WAL + the librarian/vault concurrency contract keep this safe
+// across goroutines.
 //
 // The vault stays open for the process's lifetime. The harness owns
 // the lifecycle; on shutdown the OS reclaims the handle. A future
@@ -529,16 +547,18 @@ func openCentralWorkers() centralWorkers {
 		return centralWorkers{}
 	}
 	return centralWorkers{
+		lib:     lib,
 		drafter: drafter.New(lib),
 		logbook: logbook.New(lib),
 	}
 }
 
 // openCentralLedger opens the Ledger at $HOME/.mom/ledger/ (per
-// ADR 0021). The Editor uses it for durable-append before bus
-// publish. Returns nil on failure so callers fall back to bus-only
-// publish without erroring out the watcher.
-func openCentralLedger() editor.LedgerAppender {
+// ADR 0021). Returns the concrete *ledger.Ledger so callers can use
+// it both for Editor's append path (LedgerAppender) and Crier's read
+// path (LedgerReader). Returns nil on failure so callers degrade
+// gracefully without aborting startup.
+func openCentralLedger() *ledger.Ledger {
 	dir, err := canonical.Dir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "watch: canonical.Dir: %v — ledger not wired\n", err)

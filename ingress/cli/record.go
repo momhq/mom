@@ -9,6 +9,7 @@ import (
 	"github.com/momhq/mom/storage/canonical"
 
 	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/editor"
 	"github.com/momhq/mom/ingress/record"
 	"github.com/momhq/mom/shared/project"
 	"github.com/momhq/mom/workers/drafter"
@@ -91,8 +92,14 @@ func runRecord(cmd *cobra.Command, _ []string) error {
 	})
 	defer stopCapture()
 
+	// Build the canonicalization gateway. Editor appends to the central
+	// Ledger; Crier (started below) projects + republishes onto the bus
+	// so Drafter sees the MemoryRecord event and persists.
+	led := openCentralLedger()
+	ed := editor.New(nil, nil).WithLedger(led)
+
 	projectId, _ := project.IdForCwd()
-	result, err := record.Publish(bus, record.Request{
+	result, err := record.Publish(ed, record.Request{
 		SessionID: recordSession,
 		Summary:   recordSummary,
 		Tags:      recordTags,
@@ -101,6 +108,14 @@ func runRecord(cmd *cobra.Command, _ []string) error {
 		ProjectId: projectId,
 	})
 	if err != nil {
+		return fmt.Errorf("mom record: %w", err)
+	}
+
+	// Drain the Ledger synchronously so Drafter sees the event before
+	// this CLI process exits. Idempotent — re-running `mom record`
+	// re-uses the same checkpoint and only newly-appended offsets
+	// project.
+	if err := drainLedgerToBus(led, lib, bus); err != nil {
 		return fmt.Errorf("mom record: %w", err)
 	}
 

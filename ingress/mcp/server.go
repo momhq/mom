@@ -13,13 +13,17 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/momhq/mom/storage/canonical"
 
 	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/crier"
+	"github.com/momhq/mom/events/editor"
 	"github.com/momhq/mom/services/finder"
 	"github.com/momhq/mom/shared/ux"
+	"github.com/momhq/mom/storage/ledger"
 	"github.com/momhq/mom/storage/librarian"
 )
 
@@ -67,13 +71,18 @@ type Server struct {
 	closeFn func() error
 	openErr error
 	bus     *herald.Bus
+	editor  *editor.Editor
+	ledger  *ledger.Ledger
+	crier   *crier.Crier
 }
 
 // New creates a new Server rooted at the given .mom/ directory.
 // Read tools use the v0.30 central vault through Librarian/Finder.
-// The server also attaches a fresh Herald bus for write tools
-// (mom_record) to publish on. Callers who want their own bus (e.g.,
-// to wire a Drafter subscriber) can replace it via SetBus before Serve.
+// Write tools (mom_record) hand the canonical event to Editor; Editor
+// appends to the central Ledger; Crier projects + republishes onto the
+// server's Herald bus, where Drafter (attached by the application
+// root) reacts and persists. Callers who want a shared bus across MCP
+// + watcher + Drafter replace the default via SetBus before Serve.
 func New(momDir string) *Server {
 	lib, closeFn, err := canonical.OpenLibrarian()
 	s := &Server{
@@ -85,8 +94,56 @@ func New(momDir string) *Server {
 	if err == nil {
 		s.lib = lib
 		s.finder = finder.New(lib)
+		s.ledger = openServerLedger()
+		// Only wire the Editor when the Ledger opened successfully.
+		// editor.WithLedger(nil) produces an Editor whose Publish is a
+		// silent no-op — leaving s.editor nil makes mom_record fail
+		// loudly instead of swallowing the write.
+		if s.ledger != nil {
+			s.editor = editor.New(nil, nil).WithLedger(s.ledger)
+		}
+		s.crier = newCrierFor(s.ledger, s.lib, s.bus)
 	}
 	return s
+}
+
+// openServerLedger opens the central Ledger at $HOME/.mom/ledger/. On
+// failure the MCP server still starts (read tools work); writes via
+// mom_record return a useful error per call.
+func openServerLedger() *ledger.Ledger {
+	dir, err := canonical.Dir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mcp: canonical.Dir: %v — ledger not wired\n", err)
+		return nil
+	}
+	led, err := ledger.Open(filepath.Join(dir, "ledger"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mcp: ledger.Open: %v — ledger not wired\n", err)
+		return nil
+	}
+	return led
+}
+
+// newCrierFor constructs a Crier wired to the MCP server's bus. The
+// Publisher closure is the architectural bridge between Crier
+// (herald-free) and the Herald bus that subscribers (Drafter) listen
+// on. Returns nil when led or lib is nil.
+func newCrierFor(led *ledger.Ledger, lib *librarian.Librarian, bus *herald.Bus) *crier.Crier {
+	if led == nil || lib == nil {
+		return nil
+	}
+	pub := crier.PublisherFunc(func(eventType, sessionID string, ts time.Time, payload map[string]any) {
+		if bus == nil {
+			return
+		}
+		bus.Publish(herald.Event{
+			Type:      herald.EventType(eventType),
+			SessionID: sessionID,
+			Timestamp: ts,
+			Payload:   payload,
+		})
+	})
+	return crier.New(led, lib, pub)
 }
 
 // Close releases the central vault handle opened by New. Serve calls it
@@ -108,7 +165,15 @@ func (s *Server) Bus() *herald.Bus { return s.bus }
 // SetBus replaces the Server's bus with the given one. Useful when the
 // application root constructs a single shared bus across MCP +
 // watcher + Drafter; never call after Serve has started.
-func (s *Server) SetBus(b *herald.Bus) { s.bus = b }
+//
+// SetBus also rebuilds the Crier so its Publisher closure points at
+// the new bus. Without this rebuild, mom_record would project events
+// into the new bus's checkpoint accounting but republish onto the
+// abandoned old bus — silently delivering to no subscribers.
+func (s *Server) SetBus(b *herald.Bus) {
+	s.bus = b
+	s.crier = newCrierFor(s.ledger, s.lib, s.bus)
+}
 
 // Serve runs the JSON-RPC 2.0 stdio loop. It reads newline-delimited requests
 // from in and writes responses to out. Blocks until in is closed or returns an

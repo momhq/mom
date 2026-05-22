@@ -12,13 +12,6 @@ import (
 	"github.com/momhq/mom/events/registry"
 )
 
-// recordingBus is a test double for editor.Bus that captures published events.
-type recordingBus struct {
-	events []herald.Event
-}
-
-func (r *recordingBus) Publish(e herald.Event) { r.events = append(r.events, e) }
-
 // staticInput is a minimal Canonicalizer for testing — declares its own
 // (type, payload) so the test controls both sides of the contract.
 type staticInput struct {
@@ -31,8 +24,7 @@ func (s staticInput) Canonical() (herald.EventType, map[string]any) {
 }
 
 func TestCanonicalize_StampsProvenanceWhenMissing(t *testing.T) {
-	bus := &recordingBus{}
-	e := editor.New(bus, nil, nil)
+	e := editor.New(nil, nil)
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": "abc"},
@@ -43,7 +35,7 @@ func TestCanonicalize_StampsProvenanceWhenMissing(t *testing.T) {
 }
 
 func TestCanonicalize_PreservesExistingProvenance(t *testing.T) {
-	e := editor.New(&recordingBus{}, nil, nil)
+	e := editor.New(nil, nil)
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.memory.recorded",
 		payload:   map[string]any{"provenance_actor": "cli", "session_id": "s"},
@@ -59,7 +51,7 @@ func TestCanonicalize_ResolvesProjectIDFromCwd(t *testing.T) {
 		[]byte("# MOM project binding\nversion: \"1\"\nid: editor-test\n"), 0o644); err != nil {
 		t.Fatalf("write binding: %v", err)
 	}
-	e := editor.New(&recordingBus{}, nil, nil)
+	e := editor.New(nil, nil)
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": "abc"},
@@ -75,35 +67,13 @@ func TestCanonicalize_PreservesExistingProjectID(t *testing.T) {
 		[]byte("version: \"1\"\nid: from-disk\n"), 0o644); err != nil {
 		t.Fatalf("write binding: %v", err)
 	}
-	e := editor.New(&recordingBus{}, nil, nil)
+	e := editor.New(nil, nil)
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"project_id": "from-payload", "session_id": "abc"},
 	}, editor.Source{Adapter: "claude-code", Cwd: dir})
 	if got := ev.Payload["project_id"]; got != "from-payload" {
 		t.Fatalf("project_id = %v, want from-payload (payload value wins)", got)
-	}
-}
-
-func TestPublish_EmitsThroughBus(t *testing.T) {
-	bus := &recordingBus{}
-	e := editor.New(bus, nil, nil)
-	e.Publish(staticInput{
-		eventType: "capture.turn.observed",
-		payload:   map[string]any{"session_id": "s1", "text": "hi"},
-	}, editor.Source{Adapter: "codex"})
-	if len(bus.events) != 1 {
-		t.Fatalf("bus.events len = %d, want 1", len(bus.events))
-	}
-	got := bus.events[0]
-	if got.Type != "capture.turn.observed" {
-		t.Errorf("Type = %q, want capture.turn.observed", got.Type)
-	}
-	if got.SessionID != "s1" {
-		t.Errorf("SessionID = %q, want s1", got.SessionID)
-	}
-	if got.Payload["text"] != "hi" {
-		t.Errorf("Payload[text] = %v, want hi", got.Payload["text"])
 	}
 }
 
@@ -121,7 +91,7 @@ func TestCanonicalize_NoSchemaViolation_NoMarker(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	e := editor.New(&recordingBus{}, reg, log.New(&bytes.Buffer{}, "", 0))
+	e := editor.New(reg, log.New(&bytes.Buffer{}, "", 0))
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": "abc", "text": "hi", "actor": "user"},
@@ -141,7 +111,7 @@ func TestCanonicalize_MissingRequired_AttachesMarker(t *testing.T) {
 		}
 	}`)
 	reg, _ := registry.Load(dir)
-	e := editor.New(&recordingBus{}, reg, log.New(&bytes.Buffer{}, "", 0))
+	e := editor.New(reg, log.New(&bytes.Buffer{}, "", 0))
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": "abc"}, // text missing
@@ -170,7 +140,7 @@ func TestCanonicalize_TypeMismatch_AttachesMarker(t *testing.T) {
 		}
 	}`)
 	reg, _ := registry.Load(dir)
-	e := editor.New(&recordingBus{}, reg, log.New(&bytes.Buffer{}, "", 0))
+	e := editor.New(reg, log.New(&bytes.Buffer{}, "", 0))
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": 42, "text": "hi"}, // wrong type
@@ -194,7 +164,7 @@ func TestCanonicalize_UnknownField_NoMarker(t *testing.T) {
 		}
 	}`)
 	reg, _ := registry.Load(dir)
-	e := editor.New(&recordingBus{}, reg, log.New(&bytes.Buffer{}, "", 0))
+	e := editor.New(reg, log.New(&bytes.Buffer{}, "", 0))
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": "s", "text": "hi", "extra": "tolerated"},
@@ -202,7 +172,6 @@ func TestCanonicalize_UnknownField_NoMarker(t *testing.T) {
 	if _, has := ev.Payload["_schema_violation"]; has {
 		t.Fatal("unknown field should not attach _schema_violation (level B)")
 	}
-	// And the unknown field survives.
 	if ev.Payload["extra"] != "tolerated" {
 		t.Fatalf("extra = %v, want tolerated (pass-through)", ev.Payload["extra"])
 	}
@@ -210,7 +179,7 @@ func TestCanonicalize_UnknownField_NoMarker(t *testing.T) {
 
 func TestCanonicalize_UnregisteredType_NoMarker(t *testing.T) {
 	reg, _ := registry.Load(t.TempDir())
-	e := editor.New(&recordingBus{}, reg, log.New(&bytes.Buffer{}, "", 0))
+	e := editor.New(reg, log.New(&bytes.Buffer{}, "", 0))
 	ev := e.Canonicalize(staticInput{
 		eventType: "capture.never.registered",
 		payload:   map[string]any{"session_id": "x"},
@@ -234,7 +203,7 @@ func writeSchemaDir(t *testing.T, family, filename, body string) string {
 	return dir
 }
 
-// recordingLedger captures Append calls for Editor → Ledger ordering tests.
+// recordingLedger captures Append calls.
 type recordingLedger struct {
 	events []herald.Event
 	failOn int // 1-indexed call number on which to return an error; 0 = never fail
@@ -254,10 +223,12 @@ type ledgerErr string
 
 func (e ledgerErr) Error() string { return string(e) }
 
-func TestPublish_AppendsToLedgerBeforeBus(t *testing.T) {
-	bus := &recordingBus{}
+// TestPublish_AppendsToLedger asserts the canonical event lands on
+// Layer 1 durably. Per architecture v3, that is now Editor's only
+// side effect — Crier handles the fan-out onto Herald.
+func TestPublish_AppendsToLedger(t *testing.T) {
 	led := &recordingLedger{}
-	e := editor.New(bus, nil, nil).WithLedger(led)
+	e := editor.New(nil, nil).WithLedger(led)
 	if err := e.Publish(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": "s1", "text": "hi"},
@@ -267,41 +238,33 @@ func TestPublish_AppendsToLedgerBeforeBus(t *testing.T) {
 	if len(led.events) != 1 {
 		t.Fatalf("ledger.events len = %d, want 1", len(led.events))
 	}
-	if len(bus.events) != 1 {
-		t.Fatalf("bus.events len = %d, want 1", len(bus.events))
+	got := led.events[0]
+	if got.Type != "capture.turn.observed" {
+		t.Errorf("Type = %q, want capture.turn.observed", got.Type)
 	}
-	// Same payload reaches both layers.
-	if led.events[0].SessionID != bus.events[0].SessionID {
-		t.Errorf("session diverged: ledger=%q bus=%q", led.events[0].SessionID, bus.events[0].SessionID)
+	if got.SessionID != "s1" {
+		t.Errorf("SessionID = %q, want s1", got.SessionID)
+	}
+	if got.Payload["text"] != "hi" {
+		t.Errorf("Payload[text] = %v, want hi", got.Payload["text"])
+	}
+	if got.Payload["provenance_actor"] != "claude-code" {
+		t.Errorf("Payload[provenance_actor] = %v, want claude-code", got.Payload["provenance_actor"])
 	}
 }
 
-func TestPublish_LedgerFailure_AbortsBus(t *testing.T) {
-	bus := &recordingBus{}
+// TestPublish_LedgerFailure_PropagatesError: when the Ledger refuses
+// the append, Editor surfaces the error. Nothing escapes downstream
+// — there is no second side effect to abort because Editor no longer
+// touches the bus.
+func TestPublish_LedgerFailure_PropagatesError(t *testing.T) {
 	led := &recordingLedger{failOn: 1}
-	e := editor.New(bus, nil, nil).WithLedger(led)
+	e := editor.New(nil, nil).WithLedger(led)
 	err := e.Publish(staticInput{
 		eventType: "capture.turn.observed",
 		payload:   map[string]any{"session_id": "s1"},
 	}, editor.Source{Adapter: "claude-code"})
 	if err == nil {
 		t.Fatal("expected error from ledger failure, got nil")
-	}
-	if len(bus.events) != 0 {
-		t.Fatalf("bus.events len = %d, want 0 (publish must abort on ledger failure)", len(bus.events))
-	}
-}
-
-func TestPublish_NoLedger_StillPublishesToBus(t *testing.T) {
-	bus := &recordingBus{}
-	e := editor.New(bus, nil, nil) // no WithLedger
-	if err := e.Publish(staticInput{
-		eventType: "capture.turn.observed",
-		payload:   map[string]any{"session_id": "s1"},
-	}, editor.Source{Adapter: "claude-code"}); err != nil {
-		t.Fatal(err)
-	}
-	if len(bus.events) != 1 {
-		t.Fatalf("bus.events len = %d, want 1 (no-ledger build still publishes)", len(bus.events))
 	}
 }
