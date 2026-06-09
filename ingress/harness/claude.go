@@ -39,12 +39,7 @@ func (a *ClaudeAdapter) GenerateContextFile(config Config, constraints []Constra
 		return fmt.Errorf("creating .claude dir: %w", err)
 	}
 
-	var body string
-	if config.Delivery == "context-file" {
-		body = BuildContextContent(config, constraints, skills, identity)
-	} else {
-		body = BuildMinimalContextContent()
-	}
+	body := BuildContextContent(config, constraints, skills, identity)
 	content := a.Watermark() + "\n\n" + body
 
 	contextFile := filepath.Join(claudeDir, "CLAUDE.md")
@@ -113,10 +108,6 @@ func (a *ClaudeAdapter) GenerateGlobalContextFile(config Config, constraints []C
 	return upsertManagedBlock(path, buildGlobalContext(a.Watermark(), config, constraints, skills, identity))
 }
 
-func (a *ClaudeAdapter) RegisterGlobalMCP() error {
-	return upsertClaudeUserMCP()
-}
-
 func (a *ClaudeAdapter) RegisterGlobalHooks() error {
 	settingsPath, err := homePath(".claude", "settings.json")
 	if err != nil {
@@ -141,47 +132,10 @@ func (a *ClaudeAdapter) RegisterGlobalHooks() error {
 	return os.WriteFile(settingsPath, data, 0644)
 }
 
-// RegisterMCP writes or updates .mcp.json at the project root, injecting the
-// MOM MCP server entry. Existing entries for other servers are preserved.
-func (a *ClaudeAdapter) RegisterMCP() error {
-	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
-
-	// Load existing .mcp.json or start fresh.
-	root := make(map[string]any)
-	if data, err := os.ReadFile(mcpPath); err == nil {
-		if err := json.Unmarshal(data, &root); err != nil {
-			return fmt.Errorf("parsing .mcp.json: %w", err)
-		}
-	}
-
-	servers, _ := root["mcpServers"].(map[string]any)
-	if servers == nil {
-		servers = make(map[string]any)
-	}
-
-	servers["mom"] = map[string]any{
-		"command": "mom",
-		"args":    []string{"serve", "mcp"},
-	}
-	root["mcpServers"] = servers
-
-	data, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling .mcp.json: %w", err)
-	}
-	data = append(data, '\n')
-	if err := os.WriteFile(mcpPath, data, 0644); err != nil {
-		return fmt.Errorf("writing .mcp.json: %w", err)
-	}
-
-	return nil
-}
-
 func (a *ClaudeAdapter) GeneratedFiles() []string {
 	return []string{
 		filepath.Join(".claude", "CLAUDE.md"),
 		filepath.Join(".claude", "settings.json"),
-		".mcp.json",
 	}
 }
 
@@ -273,39 +227,4 @@ func BackupIfNeeded(path string) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// upsertMCPEntry writes or updates the MOM MCP server entry in the JSON file
-// at path. Existing entries for other servers are preserved.
-func upsertMCPEntry(path string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return fmt.Errorf("creating %s: %w", filepath.Dir(path), err)
-	}
-	root := make(map[string]any)
-	if data, err := os.ReadFile(path); err == nil {
-		if err := json.Unmarshal(data, &root); err != nil {
-			return fmt.Errorf("parsing %s: %w", filepath.Base(path), err)
-		}
-	}
-
-	servers, _ := root["mcpServers"].(map[string]any)
-	if servers == nil {
-		servers = make(map[string]any)
-	}
-
-	servers["mom"] = map[string]any{
-		"command": "mom",
-		"args":    []string{"serve", "mcp"},
-	}
-	root["mcpServers"] = servers
-
-	data, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling %s: %w", filepath.Base(path), err)
-	}
-	data = append(data, '\n')
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("writing %s: %w", filepath.Base(path), err)
-	}
-	return nil
 }

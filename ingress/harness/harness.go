@@ -3,10 +3,8 @@ package harness
 
 // Config represents the user's .mom/config.yaml configuration.
 type Config struct {
-	Version  string
-	User     UserConfig
-	HasMCP   bool
-	Delivery string // "mcp" (default) or "context-file"
+	Version string
+	User    UserConfig
 }
 
 // UserConfig holds user preferences.
@@ -116,9 +114,6 @@ type Adapter interface {
 	// Capabilities returns the MRP v0 capability declaration for this adapter.
 	// Loaded from the embedded YAML file in capabilities/.
 	Capabilities() AdapterCapability
-
-	// RegisterMCP registers the MOM MCP server config for this Harness.
-	RegisterMCP() error
 }
 
 // HookInstaller is optionally implemented by adapters whose Harness has a

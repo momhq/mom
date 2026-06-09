@@ -26,17 +26,17 @@ If the user agrees, run that command. If the user declines, stop. Do not install
 ## Run
 
 ```bash
-mom status --json
+mom status
 ```
 
-Parse the JSON and report a short summary: health, vault location, memory counts, watcher state, and the project binding for the current directory (if any).
+Report a short summary of: the bound project for the current directory (or that it is unbound), Ledger stats (total events and time span), the vault fold watermark (folded-to offset and last fold time), and watcher state.
 
 Rules:
 
 - Never print the raw output verbatim. Summarize.
 - If any field looks like a secret (key, token, password, cookie, auth header), replace its value with `[REDACTED]` before showing it.
 - If `mom` is not on PATH, say MOM is not installed and stop.
-- If `--json` is not supported by the installed version, fall back to `mom status` and still produce a short summary — never dump the raw text.
+- If the directory is unbound, say so and mention `/mom-project` binds it — nothing is captured until then.
 
 ## Postflight (version hint)
 

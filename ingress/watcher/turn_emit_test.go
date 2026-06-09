@@ -18,6 +18,12 @@ import (
 func TestIngestFile_PublishesTurnObserved(t *testing.T) {
 	transcriptDir := t.TempDir()
 	momDir := t.TempDir()
+	projectDir := t.TempDir()
+	// Capture only happens for a bound project (privacy gate).
+	if err := os.WriteFile(filepath.Join(projectDir, ".mom-project.yaml"),
+		[]byte("version: \"1\"\nid: alpha\n"), 0o644); err != nil {
+		t.Fatalf("write bind file: %v", err)
+	}
 	bus := herald.NewBus()
 
 	var mu sync.Mutex
@@ -31,6 +37,7 @@ func TestIngestFile_PublishesTurnObserved(t *testing.T) {
 	w := &Watcher{
 		cfg: Config{
 			TranscriptDir: transcriptDir,
+			ProjectDir:    projectDir,
 			MomDir:        momDir,
 			Adapter:       NewClaudeAdapter(),
 			Bus:           bus,
@@ -138,6 +145,12 @@ func TestIngestFile_PublishesNothingWithoutBus(t *testing.T) {
 func TestIngestFile_PublishesOneEventPerTurn(t *testing.T) {
 	transcriptDir := t.TempDir()
 	momDir := t.TempDir()
+	projectDir := t.TempDir()
+	// Capture only happens for a bound project (privacy gate).
+	if err := os.WriteFile(filepath.Join(projectDir, ".mom-project.yaml"),
+		[]byte("version: \"1\"\nid: alpha\n"), 0o644); err != nil {
+		t.Fatalf("write bind file: %v", err)
+	}
 	bus := herald.NewBus()
 
 	var fires atomic.Int64
@@ -146,6 +159,7 @@ func TestIngestFile_PublishesOneEventPerTurn(t *testing.T) {
 	w := &Watcher{
 		cfg: Config{
 			TranscriptDir: transcriptDir,
+			ProjectDir:    projectDir,
 			MomDir:        momDir,
 			Adapter:       NewClaudeAdapter(),
 			Bus:           bus,
@@ -305,9 +319,12 @@ func TestIngestFile_StampsProjectIdFromPerTurnCwd_Claude(t *testing.T) {
 	}
 }
 
-// When the watcher's ProjectDir has no bind file, payloads omit
-// project_id (NULL stamps downstream).
-func TestIngestFile_OmitsProjectIdWhenUnbound(t *testing.T) {
+// When no project is bound (no .mom-project.yaml resolvable from the
+// watcher's ProjectDir or the turn's cwd), the watcher SKIPS capture
+// entirely to protect privacy — nothing is published to the bus. The
+// user is told about binding status at session start via the context
+// block.
+func TestIngestFile_SkipsTurnWhenUnbound(t *testing.T) {
 	transcriptDir := t.TempDir()
 	momDir := t.TempDir()
 	projectDir := t.TempDir() // no .mom-project.yaml
@@ -341,11 +358,8 @@ func TestIngestFile_OmitsProjectIdWhenUnbound(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(captured) != 1 {
-		t.Fatalf("got %d events, want 1", len(captured))
-	}
-	if _, ok := captured[0].Payload["project_id"]; ok {
-		t.Errorf("payload should omit project_id when unbound, got %v", captured[0].Payload["project_id"])
+	if len(captured) != 0 {
+		t.Fatalf("got %d events, want 0 (unbound capture must be skipped)", len(captured))
 	}
 }
 

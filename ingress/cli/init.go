@@ -10,12 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/momhq/mom/bus/herald"
 	"github.com/momhq/mom/ingress/harness"
 	"github.com/momhq/mom/shared/config"
 	"github.com/momhq/mom/shared/ux"
+	"github.com/momhq/mom/storage/librarian"
 	"github.com/spf13/cobra"
 )
 
@@ -80,7 +79,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	harnessesFlag, _ := cmd.Flags().GetString("harnesses")
 	harnesses := parseHarnessList(harnessesFlag)
 	if len(harnesses) == 0 {
-		harnesses = []string{"claude"}
+		harnesses = []string{"all"}
 	}
 	if err := rejectRetiredHarnesses(harnesses); err != nil {
 		return err
@@ -128,7 +127,7 @@ func resolveInitHarnesses(cwd string, requested []string) []string {
 // always the central vault dir ($HOME/.mom or MOM_VAULT's parent for tests/local
 // runs).
 func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result OnboardingResult) error {
-	momDir, err := canonical.Dir()
+	momDir, err := librarian.Dir()
 	if err != nil {
 		return err
 	}
@@ -162,21 +161,13 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 			filepath.Join(momDir, "constraints"),
 			filepath.Join(momDir, "logs"),
 			filepath.Join(momDir, "cache"),
+			filepath.Join(momDir, "ledger"),
 		}
 		for _, d := range dirs {
 			if err := os.MkdirAll(d, 0755); err != nil {
 				scaffoldErr = fmt.Errorf("creating %s: %w", d, err)
 				return
 			}
-		}
-		v, err := canonical.Open()
-		if err != nil {
-			scaffoldErr = err
-			return
-		}
-		if err := v.Close(); err != nil {
-			scaffoldErr = err
-			return
 		}
 	}
 
@@ -441,10 +432,6 @@ func buildHarnessConfig(cfg *config.Config) harness.Config {
 	if commMode == "" {
 		commMode = "concise"
 	}
-	delivery := cfg.Delivery
-	if delivery == "" {
-		delivery = "mcp"
-	}
 	return harness.Config{
 		Version: cfg.Version,
 		User: harness.UserConfig{
@@ -452,7 +439,6 @@ func buildHarnessConfig(cfg *config.Config) harness.Config {
 			Autonomy:          "balanced",
 			CommunicationMode: commMode,
 		},
-		Delivery: delivery,
 	}
 }
 
@@ -531,9 +517,6 @@ func installGlobalHarness(adapter harness.Adapter, rt string, harnessCfg harness
 	}
 	if err := global.GenerateGlobalContextFile(harnessCfg, constraints, skills, identity); err != nil {
 		return fmt.Errorf("generating context: %w", err)
-	}
-	if err := global.RegisterGlobalMCP(); err != nil {
-		return fmt.Errorf("registering tools: %w", err)
 	}
 	if h, ok := adapter.(harness.GlobalHookInstaller); ok {
 		if err := h.RegisterGlobalHooks(); err != nil {

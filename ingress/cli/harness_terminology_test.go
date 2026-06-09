@@ -9,7 +9,6 @@ func TestUserFacingCommandTextUsesHarnessTerminology(t *testing.T) {
 	commands := map[string]string{
 		"watch short":    watchCmd.Short,
 		"watch long":     watchCmd.Long,
-		"record session": recordCmd.Flags().Lookup("session").Usage,
 		"uninstall long": uninstallCmd.Long,
 	}
 	for name, text := range commands {

@@ -76,7 +76,7 @@ Then open your agent and work normally. _Mom_ runs in the background, watches su
 ```text
 /mom-status
 /mom-recall the decision about the auth boundary
-/mom-wrap-up
+/mom-fold
 ```
 
 ## How it works
@@ -106,13 +106,13 @@ $HOME/.mom/mom.db
 
 After installing _mom_, open your agent and work normally.
 
-_Mom_ watches supported transcript sources in the background. Useful turns become draft memories. After a long session, or whenever you want to preserve recent context, ask your agent to run:
+_Mom_ watches supported transcript sources in the background and records them to its Ledger. After a long session, or whenever you want to preserve recent context, ask your agent to run:
 
 ```text
-/mom-wrap-up
+/mom-fold
 ```
 
-The skill reviews recent drafts with you and helps curate the memories worth keeping.
+The skill folds newly captured sessions into a navigable markdown vault under `.mom/vault/`.
 
 Later, when you need something _mom_ has seen before, ask your agent:
 
@@ -120,7 +120,7 @@ Later, when you need something _mom_ has seen before, ask your agent:
 /mom-recall deployment rollback procedure
 ```
 
-_Mom_ searches both draft and curated memory so the agent can recover decisions, conventions, and context without you re-explaining them.
+The skill navigates the markdown vault so the agent can recover decisions, conventions, and context without you re-explaining them.
 
 To check that _mom_ is connected:
 

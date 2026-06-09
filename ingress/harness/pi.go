@@ -2,7 +2,6 @@ package harness
 
 import (
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -54,12 +53,7 @@ func (a *PiAdapter) Name() string { return "pi" }
 func (a *PiAdapter) Tier() Tier { return Native }
 
 func (a *PiAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
-	var body string
-	if config.Delivery == "context-file" {
-		body = BuildContextContent(config, constraints, skills, identity)
-	} else {
-		body = BuildMinimalContextContent()
-	}
+	body := BuildContextContent(config, constraints, skills, identity)
 	content := a.Watermark() + "\n\n" + body
 
 	// AGENTS.md is shared with Codex; both Harnesses produce identical content
@@ -94,10 +88,6 @@ func (a *PiAdapter) GenerateGlobalContextFile(config Config, constraints []Const
 	return upsertManagedBlock(path, buildGlobalContext(a.Watermark(), config, constraints, skills, identity))
 }
 
-func (a *PiAdapter) RegisterGlobalMCP() error {
-	return nil
-}
-
 // RegisterGlobalExtension installs the pi-mom extension through the Pi
 // marketplace (`pi install npm:pi-mom`). Pi places the extension at
 // ~/.pi/agent/extensions/ where every Pi session picks it up; updates
@@ -117,26 +107,13 @@ func (a *PiAdapter) RegisterGlobalExtension() error {
 	return nil
 }
 
-// RegisterMCP writes the MOM MCP server entry to the project-level .mcp.json,
-// which is the file pi reads for MCP server config (verified empirically:
-// pi's MCP gateway picks up servers from <projectRoot>/.mcp.json).
-//
-// MOM_PROJECT_DIR is set so the MCP server resolves the correct scope when pi
-// spawns it from a different cwd (which it does — pi launches MCP children
-// from its own working directory, not necessarily the project root).
-func (a *PiAdapter) RegisterMCP() error {
-	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
-	return upsertMCPEntryWithEnv(mcpPath, a.projectRoot)
-}
-
 func (a *PiAdapter) GeneratedFiles() []string {
 	// The pi-mom extension is installed by Pi itself into
-	// ~/.pi/agent/extensions/ and is not a MOM-generated file from
-	// the project's perspective. AGENTS.md and .mcp.json are the only
-	// files MOM puts down in the project root.
+	// ~/.pi/agent/extensions/ and is not a MOM-generated file from the
+	// project's perspective. AGENTS.md is the only file MOM puts down in
+	// the project root.
 	return []string{
 		"AGENTS.md",
-		".mcp.json",
 	}
 }
 
@@ -161,37 +138,3 @@ var (
 	_ GlobalExtensionInstaller = (*PiAdapter)(nil)
 	_ TranscriptSource         = (*PiAdapter)(nil)
 )
-
-// upsertMCPEntryWithEnv writes the MOM MCP server entry to path while
-// preserving any other mcpServers entries. MOM_PROJECT_DIR is set so
-// the MCP server resolves the correct scope when pi spawns it from a
-// different cwd.
-func upsertMCPEntryWithEnv(path, projectRoot string) error {
-	root := make(map[string]any)
-	if data, err := os.ReadFile(path); err == nil {
-		if err := json.Unmarshal(data, &root); err != nil {
-			return fmt.Errorf("parsing %s: %w", filepath.Base(path), err)
-		}
-	}
-	servers, _ := root["mcpServers"].(map[string]any)
-	if servers == nil {
-		servers = make(map[string]any)
-	}
-	servers["mom"] = map[string]any{
-		"command": "mom",
-		"args":    []string{"serve", "mcp"},
-		"env": map[string]string{
-			"MOM_PROJECT_DIR": projectRoot,
-		},
-	}
-	root["mcpServers"] = servers
-	data, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling %s: %w", filepath.Base(path), err)
-	}
-	data = append(data, '\n')
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("writing %s: %w", filepath.Base(path), err)
-	}
-	return nil
-}

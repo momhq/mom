@@ -7,14 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/momhq/mom/ingress/harness"
 	"github.com/momhq/mom/ops/daemon"
 	"github.com/momhq/mom/shared/config"
 	"github.com/momhq/mom/shared/pathutil"
 	"github.com/momhq/mom/shared/scope"
 	"github.com/momhq/mom/shared/ux"
+	"github.com/momhq/mom/storage/librarian"
 	"github.com/spf13/cobra"
 )
 
@@ -141,7 +140,7 @@ func removeGlobalHarnessContext(p *ux.Printer) error {
 }
 
 func removeCentralVault(p *ux.Printer) error {
-	path, err := canonical.Path()
+	path, err := librarian.Path()
 	if err != nil {
 		return err
 	}

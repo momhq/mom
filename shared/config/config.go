@@ -24,11 +24,6 @@ type Config struct {
 	RawMemories   RawMemoriesConfig        `yaml:"raw_memories"`
 	Telemetry     TelemetryConfig          `yaml:"telemetry,omitempty"`
 	Bootstrap     BootstrapConfig          `yaml:"bootstrap,omitempty"`
-	// Delivery controls how the behavioral protocol is delivered to the runtime.
-	// Valid values: "mcp" (default) or "context-file".
-	// "mcp" generates a slim boot file; the protocol is fetched via mom_status.
-	// "context-file" generates the full legacy boot file inline.
-	Delivery string `yaml:"delivery,omitempty"`
 	// Watcher controls the filesystem transcript watcher (mom watch).
 	Watcher WatcherConfig `yaml:"watcher,omitempty"`
 }
@@ -134,7 +129,6 @@ func Default() Config {
 		},
 		Memory:      MemoryConfig{},
 		RawMemories: RawMemoriesConfig{RetentionDays: 30, AutoClean: false},
-		Delivery:    "mcp",
 	}
 }
 

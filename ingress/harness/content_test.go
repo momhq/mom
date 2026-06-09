@@ -5,32 +5,9 @@ import (
 	"testing"
 )
 
-// TestBuildMinimalContextContent verifies the slim MCP-first boot content.
-func TestBuildMinimalContextContent(t *testing.T) {
-	content := BuildMinimalContextContent()
-
-	for _, want := range []string{"mom_status", "/mom-status", "/mom-recall", "/mom-project", "/mom-wrap-up", "CLI", "MCP fallback"} {
-		if !strings.Contains(content, want) {
-			t.Errorf("minimal content must mention %q", want)
-		}
-	}
-
-	words := strings.Fields(content)
-	if len(words) >= 100 {
-		t.Errorf("minimal content should be <100 words, got %d", len(words))
-	}
-
-	forbidden := []string{"## Voice", "## Constraints", "## Skills", "## During work", "mom" + "_" + "record", "recording", "install"}
-	for _, f := range forbidden {
-		if strings.Contains(content, f) {
-			t.Errorf("minimal content must not contain %q", f)
-		}
-	}
-}
-
-// TestBuildContextContent_StillWorks verifies the legacy full-content function
-// continues to produce expected output after the minimal variant was added.
-func TestBuildContextContent_StillWorks(t *testing.T) {
+// TestBuildContextContent_VaultFirst verifies the context block delivers the
+// vault-first, MCP-free session-start protocol.
+func TestBuildContextContent_VaultFirst(t *testing.T) {
 	cfg := Config{
 		Version: "1",
 		User: UserConfig{
@@ -40,28 +17,50 @@ func TestBuildContextContent_StillWorks(t *testing.T) {
 		},
 	}
 
-	constraints := []Constraint{
-		{ID: "anti-hallucination", Summary: "When unsure, say you don't know."},
-	}
-	skills := []Skill{
-		{ID: "session-wrap-up", Summary: "End-of-session knowledge propagation."},
-	}
-	identity := &Identity{What: "MOM — a living knowledge infrastructure."}
+	content := BuildContextContent(cfg, nil, nil, nil)
 
-	content := BuildContextContent(cfg, constraints, skills, identity)
-
-	checks := []string{
+	for _, want := range []string{
 		"MOM — Memory Oriented Machine",
-		"## Constraints",
-		"## Skills",
-		"anti-hallucination",
-		"session-wrap-up",
-		"## Voice",
-		"## Memory",
-	}
-	for _, check := range checks {
-		if !strings.Contains(content, check) {
-			t.Errorf("BuildContextContent missing %q", check)
+		"mom project",
+		".mom/vault/INDEX.md",
+		"mom vault fold",
+		"/mom-status",
+		"/mom-project",
+		"/mom-fold",
+		"/mom-rebuild",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("context content must mention %q", want)
 		}
+	}
+
+	// MCP and the retired JSON-memory model must be gone.
+	forbidden := []string{
+		"mom_status", "mom_recall", "mom_get", "mom_landmarks",
+		"MCP", "mcp", "## Voice", "## Memory", ".mom/memory/", "schema.json",
+		"mom recall", "mom record",
+	}
+	for _, f := range forbidden {
+		if strings.Contains(content, f) {
+			t.Errorf("context content must not contain %q", f)
+		}
+	}
+}
+
+// TestBuildContextContent_KeepsUserDirectives verifies language and
+// communication-mode directives still render (they are orthogonal to memory
+// delivery).
+func TestBuildContextContent_KeepsUserDirectives(t *testing.T) {
+	cfg := Config{
+		Version: "1",
+		User: UserConfig{
+			Language:          "es",
+			CommunicationMode: "concise",
+		},
+	}
+
+	content := BuildContextContent(cfg, nil, nil, nil)
+	if !strings.Contains(content, LanguageInstructions("es")) {
+		t.Error("context content missing language directive")
 	}
 }

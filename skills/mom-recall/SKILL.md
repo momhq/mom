@@ -1,60 +1,45 @@
 ---
 name: mom-recall
-description: Search MOM's persistent memory. Use when user asks what was decided, discussed, preferred, tried, learned, or remembered about a specific topic.
+description: Recall what was decided, tried, preferred, or learned on this project by reading MOM's markdown vault. Use when the user asks what was decided, discussed, preferred, tried, or remembered about a topic.
 user-invocable: true
-allowed-tools: Bash(mom recall*), Bash(command -v mom*), Bash(brew install momhq/tap/mom*)
-argument-hint: <query>
+allowed-tools: Read, Grep, Glob, Bash(command -v mom*), Bash(brew install momhq/tap/mom*)
+argument-hint: <topic or question>
 ---
 
-## Preflight
+MOM's memory for this project lives as plain markdown under `.mom/vault/`. There is no search command — you navigate the files directly.
 
-Check that `mom` is on PATH:
+## Flow
 
-```bash
-command -v mom
-```
+1. Confirm the vault exists by checking for `.mom/vault/INDEX.md`.
 
-If it is missing, tell the user MOM is not installed and ask permission to install it:
+   - If it exists → continue.
+   - If it is missing → the vault has not been built yet. Tell the user to run `/mom-fold` (or `mom vault fold`), then stop.
 
-```text
-MOM is not installed. Install it now with Homebrew?
-  brew install momhq/tap/mom
-Source: https://github.com/momhq/mom
-```
+2. Read `.mom/vault/INDEX.md`. It maps topics to vault files.
 
-If the user agrees, run that command. If the user declines, stop. Do not install MOM without explicit permission.
+3. From the index, open the file(s) that match the user's topic. If the index is large or the match is unclear, grep the vault for keywords:
 
-## Run
+   ```bash
+   grep -ril "<keyword>" .mom/vault/
+   ```
 
-Ask the user for a natural-language query if one was not provided. Then run:
-
-```bash
-mom recall "<query>"
-```
-
-Behavior:
-
-- If the user asked to show, find, or list memories, print the recalled items.
-- If the user asked a question, answer it using only the recalled items.
-- If nothing is returned, say no matching memories were found.
+4. Answer from what you read.
 
 Output format when there are matches:
 
 ```text
-Recalled <N> memories:
-
 <direct answer in 2–6 lines>
 
 Sources:
-- memoryId: <id-1>
-- memoryId: <id-2>
+- .mom/vault/<file>.md
 ```
 
-Rules:
+## Rules
 
-- Never run `mom recall` without a query.
-- Do not pass extra flags.
-- Do not invent content beyond what `mom recall` returned.
+- Answer only from the vault files you actually read — never from prior-session memory or guesswork.
+- If no vault file matches the topic, say so plainly. Do not invent past decisions.
+- Cite the vault file paths you used as sources.
+- This skill only reads the vault — never fold or rebuild from here.
 
 ## Postflight (version hint)
 

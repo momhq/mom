@@ -510,9 +510,12 @@ func TestUpgradeCmd_GeneratedCLAUDEmd_NoRetiredContent(t *testing.T) {
 		}
 	}
 
-	// Must contain the MCP-first boot directive (default delivery is "mcp").
-	if !strings.Contains(string(data), "mom_status") {
-		t.Error("CLAUDE.md must contain mom_status directive (MCP-first delivery)")
+	// Must deliver the vault-first protocol, free of MCP.
+	if !strings.Contains(string(data), ".mom/vault/INDEX.md") {
+		t.Error("CLAUDE.md must contain the vault-first protocol")
+	}
+	if strings.Contains(string(data), "mom_status") || strings.Contains(string(data), "MCP") {
+		t.Error("CLAUDE.md must not reference MCP after upgrade")
 	}
 }
 

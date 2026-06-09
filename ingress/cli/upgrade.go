@@ -12,7 +12,6 @@ import (
 	"github.com/momhq/mom/shared/config"
 	"github.com/momhq/mom/shared/project"
 	"github.com/momhq/mom/shared/ux"
-	storage "github.com/momhq/mom/storage/legacy"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -332,17 +331,6 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 		// refresh that on every upgrade or the two sources drift.
 		if !dryRun {
 			refreshHarnessExtensionsDuringUpgrade(cfg.EnabledHarnesses(), projectRoot, addAction)
-		}
-
-		// Rebuild SQLite search index from JSON files.
-		if !dryRun {
-			idx := storage.NewIndexedAdapter(momDir)
-			if err := idx.Reindex(); err != nil {
-				addAction("⚠", fmt.Sprintf("reindex: %v", err))
-			} else {
-				addAction("✔", "SQLite search index rebuilt")
-			}
-			_ = idx.Close()
 		}
 
 		if showSpinner {
@@ -912,10 +900,6 @@ func regenerateHarnessFiles(projectRoot, momDir string, cfg *config.Config) erro
 		}
 		if err := adapter.GenerateContextFile(harnessCfg, harnessConstraints, harnessSkills, harnessIdentity); err != nil {
 			return fmt.Errorf("generating %s context: %w", rt, err)
-		}
-
-		if err := adapter.RegisterMCP(); err != nil {
-			return fmt.Errorf("registering %s MCP config: %w", rt, err)
 		}
 		if h, ok := adapter.(harness.HookInstaller); ok {
 			if err := h.RegisterHooks(); err != nil {

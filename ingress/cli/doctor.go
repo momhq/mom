@@ -1,16 +1,15 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/momhq/mom/ops/daemon"
 	"github.com/momhq/mom/shared/ux"
+	"github.com/momhq/mom/storage/ledger"
+	"github.com/momhq/mom/storage/librarian"
 	"github.com/spf13/cobra"
 )
 
@@ -52,33 +51,34 @@ func (r HealthReport) HasFailures() bool {
 func BuildHealthReport() HealthReport {
 	return HealthReport{
 		Checks: []Check{
-			checkCentralVault(),
+			checkLedger(),
 			checkWatchDaemon(),
-			checkHarnessMCP(),
 			checkHarnessContext(),
 			checkMomVersion(),
 		},
 	}
 }
 
-func checkCentralVault() Check {
-	path, err := canonical.Path()
+// checkLedger verifies the append-only Ledger (the source of truth)
+// exists and is openable. Replaces the retired SQLite-vault check.
+func checkLedger() Check {
+	dir, err := librarian.LedgerDir()
 	if err != nil {
-		return Check{Name: "central vault", Status: StatusFail, Detail: err.Error(),
+		return Check{Name: "ledger", Status: StatusFail, Detail: err.Error(),
 			NextAction: "run 'mom init'"}
 	}
-	if _, err := os.Stat(path); err != nil {
-		return Check{Name: "central vault", Status: StatusFail, Detail: "DB file missing",
-			NextAction: "run 'mom init' to create the central vault"}
+	if _, err := os.Stat(dir); err != nil {
+		return Check{Name: "ledger", Status: StatusFail, Detail: "ledger directory missing",
+			NextAction: "run 'mom init', then 'mom watch' to start capturing"}
 	}
-	v, err := canonical.Open()
+	l, err := ledger.Open(dir)
 	if err != nil {
-		return Check{Name: "central vault", Status: StatusFail,
-			Detail:     "DB file present but unopenable (corrupt or unreadable)",
-			NextAction: "restore from backup or 'mom export' from a healthy install"}
+		return Check{Name: "ledger", Status: StatusFail,
+			Detail:     "ledger present but unopenable (corrupt or unreadable)",
+			NextAction: "resolve disk issues, then 'mom vault rebuild'"}
 	}
-	_ = v.Close()
-	return Check{Name: "central vault", Status: StatusPass, Detail: path}
+	_ = l.Close()
+	return Check{Name: "ledger", Status: StatusPass, Detail: dir}
 }
 
 func checkWatchDaemon() Check {
@@ -97,31 +97,6 @@ func checkWatchDaemon() Check {
 			NextAction: "run 'mom init' to install the global watch daemon"}
 	}
 	return Check{Name: "watch daemon", Status: StatusPass, Detail: path}
-}
-
-func checkHarnessMCP() Check {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return Check{Name: "harness mcp", Status: StatusFail, Detail: err.Error()}
-	}
-	path := filepath.Join(home, ".claude.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return Check{Name: "harness mcp", Status: StatusFail,
-			Detail: ".claude.json missing", NextAction: "run 'mom init --harnesses claude'"}
-	}
-	var root struct {
-		MCPServers map[string]any `json:"mcpServers"`
-	}
-	if err := json.Unmarshal(data, &root); err != nil {
-		return Check{Name: "harness mcp", Status: StatusFail,
-			Detail: ".claude.json unparseable", NextAction: "run 'mom init --harnesses claude'"}
-	}
-	if _, ok := root.MCPServers["mom"]; !ok {
-		return Check{Name: "harness mcp", Status: StatusFail,
-			Detail: "mom MCP server entry missing", NextAction: "run 'mom init --harnesses claude'"}
-	}
-	return Check{Name: "harness mcp", Status: StatusPass, Detail: "claude wired"}
 }
 
 func checkHarnessContext() Check {
@@ -191,19 +166,6 @@ func renderHuman(cmd *cobra.Command, r HealthReport) {
 			}
 		}
 	}
-}
-
-// truncate shortens s to at most n runes (shared helper, used elsewhere in
-// the cmd package).
-func truncate(s string, n int) string {
-	runes := []rune(s)
-	if len(runes) <= n {
-		return s
-	}
-	if n <= 3 {
-		return string(runes[:n])
-	}
-	return string(runes[:n-3]) + "..."
 }
 
 func renderBundle(cmd *cobra.Command, r HealthReport) {

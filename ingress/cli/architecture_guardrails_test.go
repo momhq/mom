@@ -27,22 +27,15 @@ import (
 // root level. Adding or removing a command requires updating this list
 // (which is the point of the guard — it forces an explicit decision).
 var canonicalCLISurface = []string{
-	"curate",
 	"demo",
 	"doctor",
-	"drafts",
-	"export",
-	"import",
 	"init",
 	"lens",
-	"map",
 	"project",
-	"recall",
-	"record",
-	"serve",
 	"status",
 	"uninstall",
 	"upgrade",
+	"vault",
 	"version",
 	"watch",
 }

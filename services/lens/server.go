@@ -11,10 +11,10 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/momhq/mom/storage/librarian"
+	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/storage/ledger"
 )
 
 //go:embed static
@@ -67,18 +67,19 @@ type MetaResponse struct {
 	TotalMemories int `json:"total_memories"`
 }
 
-// Server serves the lens dashboard.
+// Server serves the lens dashboard. It reads the append-only Ledger
+// (the source of truth) directly — no SQLite.
 type Server struct {
-	lib *librarian.Librarian
-	mux *http.ServeMux
+	ledgerDir string
+	mux       *http.ServeMux
 }
 
-// New creates a Server over the central vault.
-func New(lib *librarian.Librarian) (*Server, error) {
-	if lib == nil {
-		return nil, fmt.Errorf("librarian is nil")
+// New creates a Server over the central Ledger directory.
+func New(ledgerDir string) (*Server, error) {
+	if ledgerDir == "" {
+		return nil, fmt.Errorf("ledger dir is empty")
 	}
-	s := &Server{lib: lib, mux: http.NewServeMux()}
+	s := &Server{ledgerDir: ledgerDir, mux: http.NewServeMux()}
 
 	s.mux.Handle("GET /api/meta", http.HandlerFunc(s.handleMeta))
 	s.mux.Handle("GET /api/sessions/{id}", http.HandlerFunc(s.handleSession))
@@ -120,15 +121,17 @@ type sessionBuild struct {
 	hasTurnObserved bool
 }
 
+// loadSessionData scans the whole Ledger once, grouping turn-observed
+// and memory-recorded events by session. Memory promotion state,
+// landmarks, and tags are not carried on the Ledger (they lived only in
+// the retired SQLite vault), so MemoryItem reports content + timestamp
+// only and CuratedCount is always 0.
 func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
-	memIndex, totalMemories, err := s.loadMemoryIndex()
+	l, err := ledger.Open(s.ledgerDir)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("open ledger: %w", err)
 	}
-	events, err := s.lib.QueryOpEvents(librarian.OpEventFilter{Limit: 100000})
-	if err != nil {
-		return nil, 0, err
-	}
+	defer func() { _ = l.Close() }()
 
 	builds := map[string]*sessionBuild{}
 	get := func(id string) *sessionBuild {
@@ -139,45 +142,59 @@ func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
 		}
 		return b
 	}
-	for _, e := range events {
-		if e.SessionID == "" {
-			continue
+	memIndex := map[string][]MemoryItem{}
+	totalMemories := 0
+
+	it := l.Iterate(0)
+	defer func() { _ = it.Close() }()
+	for {
+		rec, ok := it.Next()
+		if !ok {
+			break
 		}
-		b := get(e.SessionID)
-		b.includeTime(e.CreatedAt)
-		switch e.EventType {
-		case "capture.turn.observed":
-			applyTurnObserved(b, e.Payload)
-		case "legacy.session.summary":
-			applyLegacySummary(b, e.Payload)
-		}
-	}
-	for sid, memories := range memIndex {
+		ev := rec.Event
+		sid := ev.SessionID
 		if sid == "" {
 			continue
 		}
-		b := get(sid)
-		for _, m := range memories {
-			b.includeTime(m.Created)
+		// herald.Event.Timestamp is zero on historical records; fall
+		// back to the Ledger's durable AppendedAt.
+		created := ev.Timestamp
+		if created.IsZero() {
+			created = rec.AppendedAt
 		}
+		switch ev.Type {
+		case herald.TurnObserved:
+			b := get(sid)
+			b.includeTime(created)
+			applyTurnObserved(b, ev.Payload)
+		case herald.MemoryRecord:
+			b := get(sid)
+			b.includeTime(created)
+			summary := payloadStr(ev.Payload, "summary")
+			if summary == "" {
+				summary = payloadStr(ev.Payload, "content")
+			}
+			memIndex[sid] = append(memIndex[sid], MemoryItem{
+				ID:      payloadStr(ev.Payload, "id"),
+				Summary: summary,
+				Tags:    []string{},
+				Created: created,
+			})
+			totalMemories++
+		}
+	}
+	if err := it.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate ledger: %w", err)
 	}
 
 	out := map[string]sessionData{}
 	for sid, b := range builds {
 		memories := memIndex[sid]
-		if strings.HasPrefix(sid, "legacy:") && len(memories) == 0 {
-			continue
-		}
 		if memories == nil {
 			memories = []MemoryItem{}
 		}
 		toolCalls, toolsTotal := toolGroups(b.tools, b.toolDetails)
-		curated := 0
-		for _, m := range memories {
-			if m.PromotionState == "curated" || m.Landmark {
-				curated++
-			}
-		}
 		out[sid] = sessionData{
 			SessionSummary: SessionSummary{
 				SessionID:    sid,
@@ -187,7 +204,7 @@ func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
 				DurationSecs: durationSecs(b.started, b.ended),
 				Interactions: b.interactions,
 				MemoryCount:  len(memories),
-				CuratedCount: curated,
+				CuratedCount: 0,
 				ToolsTotal:   toolsTotal,
 				TotalTokens:  b.totalTokens,
 				CostUSD:      b.costUSD,
@@ -201,30 +218,11 @@ func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
 	return out, totalMemories, nil
 }
 
-func (s *Server) loadMemoryIndex() (map[string][]MemoryItem, int, error) {
-	rows, err := s.lib.SearchMemories(librarian.SearchFilter{Limit: 100000})
-	if err != nil {
-		return nil, 0, err
-	}
-	index := map[string][]MemoryItem{}
-	for _, row := range rows {
-		m := row.Memory
-		tags, err := s.lib.TagsForMemory(m.ID)
-		if err != nil {
-			return nil, 0, err
-		}
-		if m.SessionID != "" {
-			index[m.SessionID] = append(index[m.SessionID], MemoryItem{
-				ID:             m.ID,
-				Summary:        m.Summary,
-				Tags:           tags,
-				PromotionState: m.PromotionState,
-				Created:        m.CreatedAt,
-				Landmark:       m.Landmark,
-			})
-		}
-	}
-	return index, len(rows), nil
+// payloadStr reads a string field from an event payload, returning "" if
+// absent or not a string.
+func payloadStr(payload map[string]any, key string) string {
+	s, _ := payload[key].(string)
+	return s
 }
 
 func (b *sessionBuild) includeTime(t time.Time) {
@@ -274,40 +272,6 @@ func applyTurnObserved(b *sessionBuild, payload map[string]any) {
 	if usage, ok := payload["usage"].(map[string]any); ok {
 		b.totalTokens += intValue(usage["total_tokens"])
 		b.costUSD += floatValue(usage["cost_usd"])
-	}
-}
-
-func applyLegacySummary(b *sessionBuild, payload map[string]any) {
-	b.includePayloadTime(payload, "started")
-	b.includePayloadTime(payload, "ended")
-	if b.model == "" {
-		b.model, _ = payload["model"].(string)
-	}
-	if b.provider == "" {
-		b.provider, _ = payload["provider"].(string)
-	}
-	if b.hasTurnObserved {
-		return
-	}
-	b.interactions = intValue(payload["interactions"])
-	if cats, ok := payload["tool_categories"].(map[string]any); ok {
-		for cat, total := range cats {
-			b.tools[cat] += intValue(total)
-		}
-	}
-	if usage, ok := payload["usage"].(map[string]any); ok {
-		b.totalTokens = intValue(usage["total_tokens"])
-		b.costUSD = floatValue(usage["cost_usd"])
-	}
-}
-
-func (b *sessionBuild) includePayloadTime(payload map[string]any, key string) {
-	s, _ := payload[key].(string)
-	if s == "" {
-		return
-	}
-	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		b.includeTime(t)
 	}
 }
 

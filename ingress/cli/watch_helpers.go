@@ -6,13 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/momhq/mom/ingress/harness"
 	"github.com/momhq/mom/ingress/watcher"
 	"github.com/momhq/mom/ops/daemon"
 	"github.com/momhq/mom/shared/config"
 	"github.com/momhq/mom/shared/pathutil"
+	"github.com/momhq/mom/storage/librarian"
 )
 
 // harnessTranscriptDir resolves a Harness's default transcript directory via
@@ -32,7 +31,7 @@ func harnessTranscriptDir(name string) string {
 
 func resolveMomContext(cwd string) (projectDir string, momDir string, err error) {
 	cwd = pathutil.CanonicalDir(cwd)
-	centralDir, err := canonical.Dir()
+	centralDir, err := librarian.Dir()
 	if err != nil {
 		return "", "", err
 	}
@@ -113,43 +112,6 @@ func ensureGlobalDaemon(projectRoot, momDir string, harnesses []string) error {
 
 	_ = daemon.CleanupLegacy(projectRoot)
 	return nil
-}
-
-// sweepTranscripts runs a one-shot catch-up sweep for all watcher-capable
-// harnesses. Best-effort: errors are logged to stderr, never returned.
-func sweepTranscripts(projectDir, momDir string) {
-	cfg, err := config.Load(momDir)
-	if err != nil {
-		return
-	}
-
-	sources := buildWatcherSources(cfg, projectDir)
-	if len(sources) == 0 {
-		return
-	}
-
-	// Best-effort sweep — open the central vault on the spot. The
-	// helper is short-lived so leaving the vault uncloned is fine
-	// for this one-shot path.
-	pipe := openWritePipeline(openCentralWorkers())
-	w, err := watcher.New(watcher.Config{
-		ProjectDir: projectDir,
-		MomDir:     momDir,
-		Sources:    sources,
-		SweepOnly:  true,
-		Bus:        pipe.bus,
-		Editor:     pipe.ed,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[mom] sweep: %v\n", err)
-		return
-	}
-	w.Sweep()
-	if pipe.crier != nil {
-		if _, err := pipe.crier.Replay(); err != nil {
-			fmt.Fprintf(os.Stderr, "[mom] sweep: crier replay: %v\n", err)
-		}
-	}
 }
 
 // buildWatcherSources builds watcher.Source entries from config for all

@@ -58,6 +58,7 @@ If the user agrees, run that command. If the user declines, stop. Do not install
 - Never run `mom project bind` without first confirming the id with the user.
 - Never run `mom init` from this skill.
 - If `mom project bind` returns an error, surface the error and stop.
+- Capture only begins **after** binding — until `.mom-project.yaml` exists, the watcher records nothing for this directory. Mention this when confirming a successful bind.
 - After a successful bind, confirm in one line that the directory is now bound to `<id>`.
 
 ## Postflight (version hint)

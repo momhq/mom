@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/momhq/mom/ops/daemon"
+	"github.com/momhq/mom/storage/ledger"
+	"github.com/momhq/mom/storage/librarian"
 )
 
 // setupDoctorCleanInstall provisions the minimum filesystem state that
@@ -18,15 +18,22 @@ func setupDoctorCleanInstall(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("MOM_VAULT", filepath.Join(home, ".mom", "central.db"))
+	t.Setenv("MOM_VAULT", filepath.Join(home, ".mom", "mom.db"))
 
-	// Central vault: a real openable DB with the v0.30 migrations applied.
-	v, err := canonical.Open()
+	// Ledger: a real openable ledger directory (the source of truth).
+	ledgerDir, err := librarian.LedgerDir()
 	if err != nil {
-		t.Fatalf("open vault: %v", err)
+		t.Fatalf("LedgerDir: %v", err)
 	}
-	if err := v.Close(); err != nil {
-		t.Fatalf("close vault: %v", err)
+	if err := os.MkdirAll(ledgerDir, 0o755); err != nil {
+		t.Fatalf("mkdir ledger: %v", err)
+	}
+	l, err := ledger.Open(ledgerDir)
+	if err != nil {
+		t.Fatalf("open ledger: %v", err)
+	}
+	if err := l.Close(); err != nil {
+		t.Fatalf("close ledger: %v", err)
 	}
 
 	// Daemon service file. Doctor calls daemon.GlobalDaemonFile() which is
@@ -72,56 +79,28 @@ func runDoctorCmd(t *testing.T, args ...string) (string, error) {
 	return buf.String(), err
 }
 
-// Vault DB missing → vault check fails with an actionable hint and the
-// command exits with an error.
-func TestDoctor_VaultMissing_FailsWithHint(t *testing.T) {
+// Ledger directory missing → ledger check fails with an actionable hint
+// and the command exits with an error.
+func TestDoctor_LedgerMissing_FailsWithHint(t *testing.T) {
 	setupDoctorCleanInstall(t)
-	vaultPath, err := canonical.Path()
+	ledgerDir, err := librarian.LedgerDir()
 	if err != nil {
-		t.Fatalf("canonical.Path: %v", err)
+		t.Fatalf("LedgerDir: %v", err)
 	}
-	if err := os.Remove(vaultPath); err != nil {
-		t.Fatalf("remove vault: %v", err)
+	if err := os.RemoveAll(ledgerDir); err != nil {
+		t.Fatalf("remove ledger: %v", err)
 	}
 
 	out, err := runDoctorCmd(t)
 	if err == nil {
-		t.Fatalf("doctor must return error when vault missing, output:\n%s", out)
+		t.Fatalf("doctor must return error when ledger missing, output:\n%s", out)
 	}
 	lo := strings.ToLower(out)
-	if !strings.Contains(lo, "central vault") {
-		t.Errorf("expected output to mention central vault check, got:\n%s", out)
+	if !strings.Contains(lo, "ledger") {
+		t.Errorf("expected output to mention ledger check, got:\n%s", out)
 	}
 	if !strings.Contains(lo, "mom init") {
 		t.Errorf("expected next-action hint suggesting 'mom init', got:\n%s", out)
-	}
-}
-
-// Vault file present but unopenable (corrupted bytes) → vault check
-// fails with a different hint than the missing case.
-func TestDoctor_VaultCorrupt_FailsWithDistinctHint(t *testing.T) {
-	setupDoctorCleanInstall(t)
-	vaultPath, err := canonical.Path()
-	if err != nil {
-		t.Fatalf("canonical.Path: %v", err)
-	}
-	// Overwrite with non-SQLite bytes so Open() fails.
-	if err := os.WriteFile(vaultPath, []byte("not a sqlite db"), 0o644); err != nil {
-		t.Fatalf("corrupt vault: %v", err)
-	}
-
-	out, err := runDoctorCmd(t)
-	if err == nil {
-		t.Fatalf("doctor must return error when vault is corrupt, output:\n%s", out)
-	}
-	lo := strings.ToLower(out)
-	if !strings.Contains(lo, "central vault") {
-		t.Errorf("expected output to mention central vault check, got:\n%s", out)
-	}
-	// Distinct hint: should mention corruption / restore / re-init concept.
-	// Must not be the same as the missing-file hint.
-	if !strings.Contains(lo, "corrupt") && !strings.Contains(lo, "unopenable") && !strings.Contains(lo, "restore") {
-		t.Errorf("expected corrupt-vault hint (corrupt/unopenable/restore), got:\n%s", out)
 	}
 }
 
@@ -143,28 +122,6 @@ func TestDoctor_DaemonServiceMissing_FailsWithHint(t *testing.T) {
 	lo := strings.ToLower(out)
 	if !strings.Contains(lo, "watch daemon") {
 		t.Errorf("expected output to mention watch daemon check, got:\n%s", out)
-	}
-	if !strings.Contains(lo, "mom init") {
-		t.Errorf("expected next-action hint suggesting 'mom init', got:\n%s", out)
-	}
-}
-
-// MCP wiring missing (mom entry absent from .claude.json) → fails with hint.
-func TestDoctor_MCPWiringMissing_FailsWithHint(t *testing.T) {
-	home := setupDoctorCleanInstall(t)
-	// Overwrite with a .claude.json that has no mom entry.
-	if err := os.WriteFile(filepath.Join(home, ".claude.json"),
-		[]byte(`{"mcpServers":{"other":{"command":"x"}}}`), 0o644); err != nil {
-		t.Fatalf("write claude.json: %v", err)
-	}
-
-	out, err := runDoctorCmd(t)
-	if err == nil {
-		t.Fatalf("doctor must return error when MCP entry missing, output:\n%s", out)
-	}
-	lo := strings.ToLower(out)
-	if !strings.Contains(lo, "harness mcp") {
-		t.Errorf("expected output to mention harness mcp check, got:\n%s", out)
 	}
 	if !strings.Contains(lo, "mom init") {
 		t.Errorf("expected next-action hint suggesting 'mom init', got:\n%s", out)
@@ -213,9 +170,8 @@ func TestDoctor_Bundle_Deterministic(t *testing.T) {
 	}
 	// Bundle must include every check name.
 	for _, name := range []string{
-		"central vault",
+		"ledger",
 		"watch daemon",
-		"harness mcp",
 		"harness context",
 	} {
 		if !strings.Contains(strings.ToLower(first), name) {
@@ -256,9 +212,8 @@ func TestDoctor_CleanInstall_AllChecksPass(t *testing.T) {
 	// Output must mention each check name. Use simple substrings that
 	// would survive cosmetic UX tweaks.
 	for _, name := range []string{
-		"central vault",
+		"ledger",
 		"watch daemon",
-		"harness mcp",
 		"harness context",
 	} {
 		if !strings.Contains(strings.ToLower(out), name) {

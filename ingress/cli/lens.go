@@ -9,10 +9,9 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/momhq/mom/services/lens"
 	"github.com/momhq/mom/shared/ux"
+	"github.com/momhq/mom/storage/librarian"
 	"github.com/spf13/cobra"
 )
 
@@ -37,13 +36,12 @@ func runLens(cmd *cobra.Command, _ []string) error {
 	port, _ := cmd.Flags().GetInt("port")
 	portExplicit := cmd.Flags().Changed("port")
 
-	lib, closeFn, err := canonical.OpenLibrarian()
+	ledgerDir, err := librarian.LedgerDir()
 	if err != nil {
-		return fmt.Errorf("opening central vault: %w", err)
+		return err
 	}
-	defer func() { _ = closeFn() }()
 
-	srv, err := lens.New(lib)
+	srv, err := lens.New(ledgerDir)
 	if err != nil {
 		return fmt.Errorf("starting lens: %w", err)
 	}
@@ -65,7 +63,7 @@ func runLens(cmd *cobra.Command, _ []string) error {
 	url := fmt.Sprintf("http://localhost:%d", actualPort)
 	p := ux.NewPrinter(cmd.OutOrStdout())
 	p.Checkf("mom lens → %s", url)
-	p.KeyValue("  vault", "central", 8)
+	p.KeyValue("  ledger", ledgerDir, 8)
 	p.Blank()
 	p.Muted("  Ctrl+C to stop")
 

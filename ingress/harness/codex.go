@@ -44,12 +44,7 @@ func (a *CodexAdapter) DefaultTranscriptDir() string {
 }
 
 func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error {
-	var body string
-	if config.Delivery == "context-file" {
-		body = BuildContextContent(config, constraints, skills, identity)
-	} else {
-		body = BuildMinimalContextContent()
-	}
+	body := BuildContextContent(config, constraints, skills, identity)
 	content := a.Watermark() + "\n\n" + body
 
 	agentsFile := filepath.Join(a.projectRoot, "AGENTS.md")
@@ -61,7 +56,10 @@ func (a *CodexAdapter) GenerateContextFile(config Config, constraints []Constrai
 }
 
 func (a *CodexAdapter) RegisterHooks() error {
-	return writeCodexHooks(filepath.Join(a.projectRoot, ".codex", "hooks.json"))
+	if err := writeCodexHooks(filepath.Join(a.projectRoot, ".codex", "hooks.json")); err != nil {
+		return err
+	}
+	return writeCodexFeatures(filepath.Join(a.projectRoot, ".codex", "config.toml"))
 }
 
 // RegisterGlobalHooks writes the same hook contract to the user-level
@@ -70,11 +68,18 @@ func (a *CodexAdapter) RegisterHooks() error {
 // Cascade response — same defensive sweep wired for project-local
 // installs, scoped to the user.
 func (a *CodexAdapter) RegisterGlobalHooks() error {
-	path, err := codexHomePath("hooks.json")
+	hooksPath, err := codexHomePath("hooks.json")
 	if err != nil {
 		return err
 	}
-	return writeCodexHooks(path)
+	if err := writeCodexHooks(hooksPath); err != nil {
+		return err
+	}
+	cfgPath, err := codexHomePath("config.toml")
+	if err != nil {
+		return err
+	}
+	return writeCodexFeatures(cfgPath)
 }
 
 // writeCodexHooks renders Codex's hooks.json format at the given path,
@@ -119,37 +124,6 @@ func writeCodexHooks(hooksPath string) error {
 	return nil
 }
 
-// RegisterMCP writes MOM's MCP server entry to both the project-level .mcp.json
-// (shared with other Harnesses) and Codex's config.toml files (project-level and
-// global ~/.codex/config.toml), which is where Codex actually reads MCP config.
-func (a *CodexAdapter) RegisterMCP() error {
-	// 1. Project-level .mcp.json (shared with other Harnesses).
-	mcpPath := filepath.Join(a.projectRoot, ".mcp.json")
-	if err := upsertMCPEntry(mcpPath); err != nil {
-		return err
-	}
-
-	// 2. Project-level .codex/config.toml — Codex reads MCP from here.
-	projectConfig := filepath.Join(a.projectRoot, ".codex", "config.toml")
-	if err := os.MkdirAll(filepath.Dir(projectConfig), 0755); err != nil {
-		return fmt.Errorf("creating .codex dir: %w", err)
-	}
-	if err := upsertCodexMCPEntry(projectConfig); err != nil {
-		return err
-	}
-
-	// 3. Global ~/.codex/config.toml — best-effort (non-fatal).
-	home, err := os.UserHomeDir()
-	if err == nil {
-		globalConfig := filepath.Join(home, ".codex", "config.toml")
-		if _, err := os.Stat(filepath.Dir(globalConfig)); err == nil {
-			_ = upsertCodexMCPEntry(globalConfig)
-		}
-	}
-
-	return nil
-}
-
 // codexFeaturesBlock enables Codex hooks. Codex deprecated the old
 // `codex_hooks` flag in favour of `hooks`.
 const codexFeaturesBlock = `
@@ -157,93 +131,63 @@ const codexFeaturesBlock = `
 hooks = true
 `
 
-// upsertCodexMCPEntry ensures [mcp_servers.mom] and [features].hooks exist in
-// a Codex config.toml. Idempotent and tolerant of older MOM writes that left
-// duplicate [features] tables or the deprecated codex_hooks key.
-func upsertCodexMCPEntry(path string) error {
+// writeCodexFeatures ensures [features].hooks = true exists in a Codex
+// config.toml so Codex honors the hooks.json contract. Idempotent and
+// tolerant of older MOM writes that left duplicate [features] tables, the
+// deprecated codex_hooks key, or a now-retired [mcp_servers.mom] block.
+func writeCodexFeatures(path string) error {
 	existing, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("reading %s: %w", filepath.Base(path), err)
 	}
 
-	// Build the MCP block. Always use the literal "mom" command so brew /
-	// npm / package upgrades pick up the right binary at runtime, instead of
-	// baking whichever absolute path happened to be on PATH at install time.
-	codexMCPBlock := "\n[mcp_servers.mom]\ncommand = \"mom\"\nargs = [\"serve\", \"mcp\"]\n"
-
 	content := string(existing)
-	changed := false
+	// Strip any [mcp_servers.mom] block left by a pre-v0.50 install — MOM no
+	// longer ships an MCP server.
+	content = stripCodexMCPBlock(content)
+	content = normalizeCodexFeaturesBlock(content)
 
-	if strings.Contains(content, "[mcp_servers.mom]") {
-		refreshed, refreshedChanged := replaceCodexMCPBlock(content)
-		if refreshedChanged {
-			content = refreshed
-			changed = true
-		}
-	} else {
-		content = strings.TrimRight(content, "\n") + "\n" + codexMCPBlock
-		changed = true
-	}
-
-	cleaned := normalizeCodexFeaturesBlock(content)
-	if cleaned != content {
-		content = cleaned
-		changed = true
-	}
-
-	if !changed {
+	if content == string(existing) {
 		return nil
 	}
-
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating %s: %w", filepath.Dir(path), err)
+	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", filepath.Base(path), err)
 	}
 	return nil
 }
 
-// replaceCodexMCPBlock rewrites the existing [mcp_servers.mom] section so
-// its command/args fields always reflect the canonical "mom serve mcp" entry.
-// Stale paths baked by earlier installs (e.g. /tmp/mom-dev) are repaired.
-// The block ends at the next top-level [section] header. Any nested
-// [mcp_servers.mom.env] table is dropped — it was test-only debris.
-func replaceCodexMCPBlock(content string) (string, bool) {
+// stripCodexMCPBlock removes a [mcp_servers.mom] section (and any nested
+// [mcp_servers.mom.*] tables) from a Codex config.toml. The block ends at the
+// next top-level [section] header. Used to clean up pre-v0.50 MCP writes.
+func stripCodexMCPBlock(content string) string {
+	if !strings.Contains(content, "[mcp_servers.mom]") {
+		return content
+	}
 	lines := strings.Split(content, "\n")
 	var out []string
 	inBlock := false
-	changed := false
-	canonical := []string{
-		"[mcp_servers.mom]",
-		"command = \"mom\"",
-		"args = [\"serve\", \"mcp\"]",
-	}
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		isHeader := strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")
 		if trimmed == "[mcp_servers.mom]" {
 			inBlock = true
-			out = append(out, canonical...)
-			changed = true
 			continue
 		}
 		if inBlock {
-			if isHeader {
-				// nested mcp_servers.mom.* tables (e.g. .env) are dropped.
-				if strings.HasPrefix(trimmed, "[mcp_servers.mom.") {
-					changed = true
-					continue
-				}
+			if isHeader && !strings.HasPrefix(trimmed, "[mcp_servers.mom.") {
 				inBlock = false
 				out = append(out, line)
 				continue
 			}
-			// drop original key/value lines inside the block.
-			changed = true
+			// drop the block's key/value lines and nested mom.* tables.
 			continue
 		}
 		out = append(out, line)
 	}
-	rebuilt := strings.TrimRight(strings.Join(out, "\n"), "\n") + "\n"
-	return rebuilt, changed && rebuilt != content
+	return strings.TrimRight(strings.Join(out, "\n"), "\n") + "\n"
 }
 
 func normalizeCodexFeaturesBlock(content string) string {
@@ -350,23 +294,11 @@ func (a *CodexAdapter) GenerateGlobalContextFile(config Config, constraints []Co
 	return upsertManagedBlock(path, buildGlobalContext(a.Watermark(), config, constraints, skills, identity))
 }
 
-func (a *CodexAdapter) RegisterGlobalMCP() error {
-	path, err := codexHomePath("config.toml")
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return fmt.Errorf("creating .codex dir: %w", err)
-	}
-	return upsertCodexMCPEntry(path)
-}
-
 func (a *CodexAdapter) GeneratedFiles() []string {
 	return []string{
 		"AGENTS.md",
 		filepath.Join(".codex", "hooks.json"),
 		filepath.Join(".codex", "config.toml"),
-		".mcp.json",
 	}
 }
 

@@ -8,11 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/spf13/cobra"
 
 	"github.com/momhq/mom/shared/config"
+	"github.com/momhq/mom/storage/librarian"
 )
 
 func initTestCentralVault(t *testing.T) string {
@@ -25,7 +24,7 @@ func initTestCentralVault(t *testing.T) string {
 	oldRunner := runExternalCommand
 	runExternalCommand = func(string, ...string) ([]byte, error) { return []byte("ok"), nil }
 	t.Cleanup(func() { runExternalCommand = oldRunner })
-	dir, err := canonical.Dir()
+	dir, err := librarian.Dir()
 	if err != nil {
 		t.Fatalf("canonical.Dir: %v", err)
 	}
@@ -55,11 +54,10 @@ func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 		"identity.json",
 		"schema.json",
 		"logs",
-		"central.db",
+		"ledger",
 	}
 	globalExpected := []string{
 		filepath.Join(home, ".claude", "CLAUDE.md"),
-		filepath.Join(home, ".claude.json"),
 	}
 	// Retired and formerly generated central docs must NOT exist.
 	retired := []string{
@@ -146,12 +144,8 @@ func TestInitCmd_ReinitRepairsMissingGlobalFiles(t *testing.T) {
 
 	home := filepath.Dir(centralDir)
 	contextPath := filepath.Join(home, ".claude", "CLAUDE.md")
-	mcpPath := filepath.Join(home, ".claude.json")
 	if err := os.Remove(contextPath); err != nil {
 		t.Fatalf("removing global context file: %v", err)
-	}
-	if err := os.Remove(mcpPath); err != nil {
-		t.Fatalf("removing global MCP file: %v", err)
 	}
 
 	buf.Reset()
@@ -164,9 +158,6 @@ func TestInitCmd_ReinitRepairsMissingGlobalFiles(t *testing.T) {
 
 	if _, err := os.Stat(contextPath); err != nil {
 		t.Fatalf("global context file was not repaired: %v", err)
-	}
-	if _, err := os.Stat(mcpPath); err != nil {
-		t.Fatalf("global MCP file was not repaired: %v", err)
 	}
 	if !strings.Contains(buf.String(), "configuration up to date") {
 		t.Errorf("expected up-to-date reinit message, got: %s", buf.String())
@@ -412,9 +403,9 @@ func TestInitCmd_MultiHarness(t *testing.T) {
 
 // Experimental warnings are intentionally absent from init output — too noisy for onboarding.
 
-// TestInitCmd_DefaultDeliversMinimalContent verifies that init with default config
-// generates minimal MCP-first boot content (not the legacy full content).
-func TestInitCmd_DefaultDeliversMinimalContent(t *testing.T) {
+// TestInitCmd_DeliversVaultFirstContent verifies that init generates the
+// vault-first, MCP-free boot content (not the legacy full or MCP content).
+func TestInitCmd_DeliversVaultFirstContent(t *testing.T) {
 	dir := t.TempDir()
 	centralDir := initTestCentralVault(t)
 	origDir, _ := os.Getwd()
@@ -437,16 +428,18 @@ func TestInitCmd_DefaultDeliversMinimalContent(t *testing.T) {
 
 	s := string(content)
 
-	// Must contain the MCP-first directive.
-	if !strings.Contains(s, "mom_status") {
-		t.Error("CLAUDE.md must contain mom_status for MCP-first delivery")
+	// Must deliver the vault-first protocol.
+	for _, want := range []string{"mom project", ".mom/vault/INDEX.md", "mom vault fold"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("CLAUDE.md must contain %q (vault-first protocol)", want)
+		}
 	}
 
-	// Must NOT contain the verbose legacy sections.
-	legacy := []string{"## Voice", "## Constraints", "## Skills", "## During work"}
-	for _, section := range legacy {
-		if strings.Contains(s, section) {
-			t.Errorf("CLAUDE.md must not contain legacy section %q with default (mcp) delivery", section)
+	// Must NOT contain MCP or the verbose legacy sections.
+	forbidden := []string{"mom_status", "MCP", "## Voice", "## Constraints", "## Skills", "## During work", ".mom/memory/"}
+	for _, bad := range forbidden {
+		if strings.Contains(s, bad) {
+			t.Errorf("CLAUDE.md must not contain %q in the vault-first architecture", bad)
 		}
 	}
 }

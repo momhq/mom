@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Verify that the four MOM skills are byte-identical between the two
+# Verify that the MOM skills are byte-identical between the two
 # install sources used by `mom init` / `mom upgrade`:
 #
 #   1. skills.sh source (momhq/mom):
-#        skills/mom-{status,recall,project,wrap-up}/SKILL.md
+#        skills/mom-{status,recall,project,fold,rebuild}/SKILL.md
 #      Used by Claude, Codex, and Pi (skill content only).
 #
 #   2. pi-mom npm package source (vmarinogg/pi-packages):
-#        pi-mom/skills/mom-{status,recall,project,wrap-up}/SKILL.md
+#        pi-mom/skills/mom-{status,recall,project,fold,rebuild}/SKILL.md
 #      Used by Pi for its deeper extension-based install.
 #
 # Pi is a hybrid: skills.sh writes the SKILL.md files AND `pi install
@@ -33,7 +33,7 @@ if [[ ! -d "$pi_packages_root/pi-mom/skills" ]]; then
   exit 2
 fi
 
-skills=(mom-status mom-recall mom-project mom-wrap-up)
+skills=(mom-status mom-recall mom-project mom-fold mom-rebuild)
 fail=0
 for s in "${skills[@]}"; do
   a="$mom_repo/skills/$s/SKILL.md"

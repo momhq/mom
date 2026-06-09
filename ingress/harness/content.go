@@ -1,79 +1,44 @@
 package harness
 
 import (
-	"fmt"
 	"strings"
 )
 
-// BuildMinimalContextContent generates a slim boot file for MCP-first delivery.
-// The behavioral protocol is delivered on-demand via mom_status.
-func BuildMinimalContextContent() string {
-	return `# MOM — Memory Oriented Machine
-
-MOM remembers project decisions across sessions.
-
-At session start, call ` + "`mom_status`" + `.
-
-Prefer skills and CLI: /mom-status, /mom-recall, /mom-project, /mom-wrap-up. For explicit "remember/save this" requests, pipe text to ` + "`mom record`" + ` through CLI; never invent session IDs, and omit ` + "`--session`" + ` unless you have a real harness session ID. MCP fallback is for startup, discovery, or when CLI is unavailable.
-`
-}
-
-// BuildContextContent generates the shared Markdown content used by all adapters.
-// Each adapter calls this and writes the result to its specific output file.
-func BuildContextContent(config Config, constraints []Constraint, skills []Skill, identity *Identity) string {
+// BuildContextContent generates the always-loaded MOM context block shared by
+// every harness adapter. It is delivered as a context file (CLAUDE.md,
+// AGENTS.md, …) — the only delivery mode since the MCP server was retired in
+// v0.50. Memory now lives as markdown under .mom/vault/; the agent navigates
+// it directly with file tools.
+//
+// The constraints, skills, and identity parameters are retained for interface
+// compatibility but are no longer rendered: agent behavior is delivered through
+// installed skills, and memory through the vault.
+func BuildContextContent(config Config, _ []Constraint, _ []Skill, _ *Identity) string {
 	var b strings.Builder
 
-	// Header
 	b.WriteString("# MOM — Memory Oriented Machine\n\n")
-	if identity != nil {
-		b.WriteString(identity.What)
-		b.WriteString("\n\n")
-	} else {
-		b.WriteString("MOM (Memory Oriented Machine) — persistent memory for AI agents. She remembers, so you don't have to.\n\n")
-	}
 
-	// Voice
-	b.WriteString("## Voice\n\n")
-	b.WriteString("You are MOM. Direct, warm, lightly playful. ")
-	b.WriteString("You affirm, you don't sell. You remember, you don't instruct. You care, you don't control. ")
-	b.WriteString("When a household metaphor works as well as jargon, use the metaphor. ")
-	b.WriteString("Dry humor welcome, never silly. No emoji.\n\n")
+	// Deterministic session-start procedure. The agent loads this block on
+	// every session, including in directories that are not MOM projects, so
+	// step 1 must short-circuit cleanly when nothing is bound.
+	b.WriteString("At session start, do this in order:\n")
+	b.WriteString("1. Run `mom project`.\n")
+	b.WriteString("   - Prints a project id → say \"MOM project: `<id>`\" and continue to step 2.\n")
+	b.WriteString("   - Reports no binding → say \"MOM project: **not bound** — run `mom project <id>` to bind\", then stop here.\n")
+	b.WriteString("2. Read `.mom/vault/INDEX.md`.\n")
+	b.WriteString("   - It exists → read it; it maps what MOM remembers about this project.\n")
+	b.WriteString("   - It is missing → say \"MOM vault not built yet — run `mom vault fold`\", then stop here.\n\n")
 
-	// Memory
-	b.WriteString("## Memory\n\n")
-	b.WriteString("Your memory lives in `.mom/`. Index, constraints, skills, logs — everything you need to recall is here.\n")
-	if config.HasMCP {
-		b.WriteString("You have MOM tools via MCP — prefer them over raw file reads where available.\n")
-	}
-	b.WriteString("Read only what you need. Never load everything upfront — that's hoarding, not remembering.\n\n")
+	b.WriteString("While working:\n")
+	b.WriteString("- Before you state what was decided, tried, or preferred on this project, read the matching file under `.mom/vault/` (navigate from `INDEX.md`). Answer from the file, not from memory.\n")
+	b.WriteString("- If no vault file matches the topic, say so — never invent past decisions.\n")
+	b.WriteString("- Capture is automatic: a background watcher records sessions and folds them into the vault. Never record memories by hand.\n\n")
 
-	// During work
-	b.WriteString("## During work\n\n")
-	b.WriteString("- Need context? Check the index by tags, read only the relevant docs\n")
-	b.WriteString("- New knowledge goes to `.mom/memory/` as structured JSON\n")
-	b.WriteString("- Follow `.mom/schema.json` — every doc needs: id, scope, tags, created, created_by, content\n\n")
+	b.WriteString("Skills: /mom-status, /mom-project, /mom-fold, /mom-rebuild.\n")
 
-	// Constraints
-	if len(constraints) > 0 {
-		b.WriteString("## Constraints\n\n")
-		b.WriteString("Always-active guardrails loaded from memory. Read the full doc when you need detailed guidance.\n\n")
-		for _, c := range constraints {
-			fmt.Fprintf(&b, "- **%s**: %s → `.mom/constraints/%s.json`\n", c.ID, c.Summary, c.ID)
-		}
-		b.WriteString("\n")
-	}
-
-	// Skills
-	if len(skills) > 0 {
-		b.WriteString("## Skills\n\n")
-		b.WriteString("Composable procedures invoked by trigger or by MOM. Read the full doc for steps and output format.\n\n")
-		for _, s := range skills {
-			fmt.Fprintf(&b, "- **%s**: %s → `.mom/skills/%s.json`\n", s.ID, s.Summary, s.ID)
-		}
-		b.WriteString("\n")
-	}
-
-	// Language, autonomy, communication-mode directives
+	// User-preference directives (language, communication mode, autonomy)
+	// are orthogonal to memory delivery and still apply.
+	b.WriteString("\n")
 	b.WriteString(LanguageInstructions(config.User.Language))
 	b.WriteString("\n\n")
 	b.WriteString(CommunicationModeInstructions(config.User.CommunicationMode))

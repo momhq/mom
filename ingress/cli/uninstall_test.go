@@ -7,9 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/momhq/mom/ops/daemon"
+	"github.com/momhq/mom/storage/librarian"
 )
 
 // setupUninstallTestEnv isolates HOME and MOM_VAULT to temp dirs and changes
@@ -19,7 +18,7 @@ func setupUninstallTestEnv(t *testing.T) (string, string, string) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("MOM_VAULT", filepath.Join(home, ".mom", "central.db"))
-	vaultPath, err := canonical.Path()
+	vaultPath, err := librarian.Path()
 	if err != nil {
 		t.Fatalf("canonical.Path: %v", err)
 	}
@@ -73,10 +72,6 @@ func TestUninstall_DisconnectProject_RemovesHarnessFilesPreservesVault(t *testin
 	if err := os.WriteFile(claudeMd, []byte("generated"), 0o644); err != nil {
 		t.Fatalf("write CLAUDE.md: %v", err)
 	}
-	mcpJSON := filepath.Join(projectRoot, ".mcp.json")
-	if err := os.WriteFile(mcpJSON, []byte("{}"), 0o644); err != nil {
-		t.Fatalf("write .mcp.json: %v", err)
-	}
 
 	// Register the project in the global watch registry.
 	if err := daemon.RegisterProject(projectRoot, filepath.Join(projectRoot, ".mom"), []string{"claude"}); err != nil {
@@ -91,9 +86,6 @@ func TestUninstall_DisconnectProject_RemovesHarnessFilesPreservesVault(t *testin
 	// Harness files removed.
 	if _, err := os.Stat(claudeMd); err == nil {
 		t.Errorf(".claude/CLAUDE.md should have been removed")
-	}
-	if _, err := os.Stat(mcpJSON); err == nil {
-		t.Errorf(".mcp.json should have been removed")
 	}
 
 	// Central vault preserved.

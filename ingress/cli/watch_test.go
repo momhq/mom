@@ -6,11 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/momhq/mom/storage/canonical"
-
 	"github.com/spf13/cobra"
 
 	"github.com/momhq/mom/shared/pathutil"
+	"github.com/momhq/mom/storage/librarian"
 )
 
 func resetWatchFlagsForTest(t *testing.T) {
@@ -49,7 +48,7 @@ func TestWatchStatusUsesCentralVaultWithoutProjectMom(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(projectDir, ".mom")); err == nil {
 		t.Fatal("project-local .mom/ should not be created")
 	}
-	if got, err := canonical.Dir(); err != nil || got != centralDir {
+	if got, err := librarian.Dir(); err != nil || got != centralDir {
 		t.Fatalf("central vault dir = %q, %v; want %q", got, err, centralDir)
 	}
 

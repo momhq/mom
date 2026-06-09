@@ -480,9 +480,13 @@ func (w *Watcher) ingestFile(path string) int {
 					projectId = id
 				}
 			}
-			if projectId != "" {
-				t.ProjectId = projectId
+			if projectId == "" {
+				// No bound project — skip turn capture to protect privacy.
+				// The user is informed of binding status at session start via
+				// the global CLAUDE.md instruction.
+				continue
 			}
+			t.ProjectId = projectId
 			w.cfg.Bus.Publish(herald.Event{
 				Type:      herald.TurnObserved,
 				SessionID: t.SessionID,

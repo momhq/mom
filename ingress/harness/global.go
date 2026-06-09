@@ -1,7 +1,6 @@
 package harness
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,7 +18,6 @@ const (
 type GlobalAdapter interface {
 	Adapter
 	GenerateGlobalContextFile(config Config, constraints []Constraint, skills []Skill, identity *Identity) error
-	RegisterGlobalMCP() error
 }
 
 // GlobalHookInstaller is implemented by harnesses with user-level hooks.
@@ -52,12 +50,7 @@ func pathExists(path string) bool {
 }
 
 func buildGlobalContext(watermark string, config Config, constraints []Constraint, skills []Skill, identity *Identity) string {
-	var body string
-	if config.Delivery == "context-file" {
-		body = BuildContextContent(config, constraints, skills, identity)
-	} else {
-		body = BuildMinimalContextContent()
-	}
+	body := BuildContextContent(config, constraints, skills, identity)
 	return strings.TrimSpace(watermark+"\n\n"+body) + "\n"
 }
 
@@ -129,34 +122,4 @@ func RemoveManagedBlock(path string) error {
 		updated = head + "\n\n" + tail
 	}
 	return os.WriteFile(path, []byte(updated), 0o644)
-}
-
-func upsertClaudeUserMCP() error {
-	path, err := homePath(".claude.json")
-	if err != nil {
-		return err
-	}
-	root := make(map[string]any)
-	if data, err := os.ReadFile(path); err == nil {
-		if err := json.Unmarshal(data, &root); err != nil {
-			return fmt.Errorf("parsing %s: %w", filepath.Base(path), err)
-		}
-	}
-	servers, _ := root["mcpServers"].(map[string]any)
-	if servers == nil {
-		servers = make(map[string]any)
-	}
-	servers["mom"] = map[string]any{
-		"type":    "stdio",
-		"command": "mom",
-		"args":    []string{"serve", "mcp"},
-		"env":     map[string]string{},
-	}
-	root["mcpServers"] = servers
-	data, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling %s: %w", filepath.Base(path), err)
-	}
-	data = append(data, '\n')
-	return os.WriteFile(path, data, 0o644)
 }

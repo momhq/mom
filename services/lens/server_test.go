@@ -9,73 +9,61 @@ import (
 	"testing"
 	"time"
 
-	"github.com/momhq/mom/storage/canonical"
-
+	"github.com/momhq/mom/bus/herald"
 	"github.com/momhq/mom/shared/archtest"
-	"github.com/momhq/mom/storage/librarian"
-	"github.com/momhq/mom/storage/vault"
+	"github.com/momhq/mom/storage/ledger"
 )
 
-func testLibrarian(t *testing.T) (*librarian.Librarian, func()) {
+// testLedger returns a fresh Ledger directory for the test.
+func testLedger(t *testing.T) string {
 	t.Helper()
-	v, err := vault.Open(t.TempDir()+"/mom.db", canonical.Migrations())
-	if err != nil {
-		t.Fatalf("vault.Open: %v", err)
-	}
-	return librarian.New(v), func() { _ = v.Close() }
+	return t.TempDir()
 }
 
-func newTestServer(t *testing.T, lib *librarian.Librarian) *Server {
+// appendEvent appends one event to the Ledger at dir.
+func appendEvent(t *testing.T, dir string, ev herald.Event) {
 	t.Helper()
-	srv, err := New(lib)
+	l, err := ledger.Open(dir)
+	if err != nil {
+		t.Fatalf("ledger.Open: %v", err)
+	}
+	defer func() { _ = l.Close() }()
+	if _, err := l.Append(ev); err != nil {
+		t.Fatalf("ledger.Append: %v", err)
+	}
+}
+
+func newTestServer(t *testing.T, dir string) *Server {
+	t.Helper()
+	srv, err := New(dir)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	return srv
 }
 
-func insertTurn(t *testing.T, lib *librarian.Librarian, sessionID, role string, at time.Time, payload map[string]any) {
+func appendTurn(t *testing.T, dir, sessionID, role string, at time.Time, payload map[string]any) {
 	t.Helper()
 	if payload == nil {
 		payload = map[string]any{}
 	}
 	payload["role"] = role
-	_, err := lib.InsertOpEvent(librarian.OpEvent{EventType: "capture.turn.observed", SessionID: sessionID, CreatedAt: at, Payload: payload})
-	if err != nil {
-		t.Fatalf("InsertOpEvent: %v", err)
-	}
+	appendEvent(t, dir, herald.Event{
+		Type:      herald.TurnObserved,
+		SessionID: sessionID,
+		Timestamp: at,
+		Payload:   payload,
+	})
 }
 
-func insertLegacySummary(t *testing.T, lib *librarian.Librarian, sessionID string, at time.Time, payload map[string]any) {
+func appendMemory(t *testing.T, dir, sessionID, summary string, at time.Time) {
 	t.Helper()
-	_, err := lib.InsertOpEvent(librarian.OpEvent{EventType: "legacy.session.summary", SessionID: sessionID, CreatedAt: at, Payload: payload})
-	if err != nil {
-		t.Fatalf("InsertOpEvent: %v", err)
-	}
-}
-
-func insertMemory(t *testing.T, lib *librarian.Librarian, sessionID, summary string, tags []string, curated bool) string {
-	t.Helper()
-	id, err := lib.InsertMemoryWithTags(librarian.InsertMemory{
-		Type:                   "semantic",
-		Summary:                summary,
-		Content:                `{"text":"` + summary + `"}`,
-		CreatedAt:              time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC),
-		SessionID:              sessionID,
-		ProvenanceActor:        "test",
-		ProvenanceSourceType:   "test",
-		ProvenanceTriggerEvent: "test",
-	}, tags)
-	if err != nil {
-		t.Fatalf("InsertMemoryWithTags: %v", err)
-	}
-	if curated {
-		state := "curated"
-		if err := lib.UpdateOperational(id, librarian.OperationalUpdate{PromotionState: &state}); err != nil {
-			t.Fatalf("UpdateOperational: %v", err)
-		}
-	}
-	return id
+	appendEvent(t, dir, herald.Event{
+		Type:      herald.MemoryRecord,
+		SessionID: sessionID,
+		Timestamp: at,
+		Payload:   map[string]any{"summary": summary},
+	})
 }
 
 func fetchSessions(t *testing.T, h http.Handler) []SessionSummary {
@@ -108,12 +96,11 @@ func fetchDetail(t *testing.T, h http.Handler, id string) SessionDetail {
 	return got
 }
 
-func TestSessions_RenderFromCentralTurnObserved(t *testing.T) {
-	lib, closeFn := testLibrarian(t)
-	defer closeFn()
+func TestSessions_RenderFromTurnObserved(t *testing.T) {
+	dir := testLedger(t)
 	at := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
-	insertTurn(t, lib, "s-new", "user", at, nil)
-	insertTurn(t, lib, "s-new", "assistant", at.Add(time.Minute), map[string]any{
+	appendTurn(t, dir, "s-new", "user", at, nil)
+	appendTurn(t, dir, "s-new", "assistant", at.Add(time.Minute), map[string]any{
 		"tool_categories": []any{"codebase_read", "mom_cli"},
 		"tool_names":      []any{"Read", "mom recall"},
 		"usage":           map[string]any{"total_tokens": float64(42), "cost_usd": 0.02},
@@ -121,105 +108,48 @@ func TestSessions_RenderFromCentralTurnObserved(t *testing.T) {
 		"provider":        "anthropic",
 	})
 
-	got := fetchSessions(t, newTestServer(t, lib).Handler())
+	got := fetchSessions(t, newTestServer(t, dir).Handler())
 	if len(got) != 1 {
 		t.Fatalf("sessions = %+v", got)
 	}
 	if got[0].SessionID != "s-new" || got[0].Interactions != 1 || got[0].ToolsTotal != 2 || got[0].TotalTokens != 42 || got[0].ScopeLabel != "central" {
 		t.Fatalf("summary = %+v", got[0])
 	}
-	detail := fetchDetail(t, newTestServer(t, lib).Handler(), "s-new")
+	detail := fetchDetail(t, newTestServer(t, dir).Handler(), "s-new")
 	if detail.ToolCalls["mom_cli"].Detail["mom recall"] != 1 || detail.ToolCalls["codebase_read"].Detail["Read"] != 1 {
 		t.Fatalf("tool detail missing safe tool names: %+v", detail.ToolCalls)
 	}
 }
 
-func TestSessions_RenderLegacySummaryFromCentralEvents(t *testing.T) {
-	lib, closeFn := testLibrarian(t)
-	defer closeFn()
-	insertLegacySummary(t, lib, "s-legacy", time.Date(2026, 4, 10, 15, 0, 0, 0, time.UTC), map[string]any{
-		"legacy_format": "session_summary",
-		"started":       "2026-04-10T14:00:00Z",
-		"ended":         "2026-04-10T15:00:00Z",
-		"interactions":  float64(7),
-		"tool_categories": map[string]any{
-			"codebase_read": float64(4),
-			"system":        float64(3),
-		},
-		"usage":    map[string]any{"total_tokens": float64(100), "cost_usd": 0.5},
-		"model":    "legacy-model",
-		"provider": "legacy-provider",
-	})
+// Memory-recorded events surface their session with a memory count. The
+// Ledger carries no promotion state / landmarks / tags, so CuratedCount
+// is 0 and Tags is empty by design (the SQLite vault that held them is
+// retired).
+func TestSessions_MemoryRecordedSessionAppears(t *testing.T) {
+	dir := testLedger(t)
+	at := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
+	appendMemory(t, dir, "s-memory", "remember this", at)
 
-	got := fetchSessions(t, newTestServer(t, lib).Handler())
-	if len(got) != 1 || got[0].Interactions != 7 || got[0].ToolsTotal != 7 || got[0].TotalTokens != 100 || got[0].DurationSecs != 3600 {
-		t.Fatalf("sessions = %+v", got)
-	}
-}
-
-func TestSessions_MemoryOnlySessionAppearsWithTags(t *testing.T) {
-	lib, closeFn := testLibrarian(t)
-	defer closeFn()
-	insertMemory(t, lib, "s-memory", "remember this", []string{"deploy", "aws"}, true)
-
-	srv := newTestServer(t, lib)
+	srv := newTestServer(t, dir)
 	got := fetchSessions(t, srv.Handler())
-	if len(got) != 1 || got[0].SessionID != "s-memory" || got[0].MemoryCount != 1 || got[0].CuratedCount != 1 || got[0].Interactions != 0 {
+	if len(got) != 1 || got[0].SessionID != "s-memory" || got[0].MemoryCount != 1 || got[0].CuratedCount != 0 || got[0].Interactions != 0 {
 		t.Fatalf("sessions = %+v", got)
 	}
 	detail := fetchDetail(t, srv.Handler(), "s-memory")
-	if len(detail.Memories) != 1 || len(detail.Memories[0].Tags) != 2 || detail.Memories[0].PromotionState != "curated" {
+	if len(detail.Memories) != 1 || detail.Memories[0].Summary != "remember this" {
 		t.Fatalf("detail = %+v", detail)
 	}
 }
 
-func TestSessions_ExcludePseudoLegacySessionWithoutMemories(t *testing.T) {
-	lib, closeFn := testLibrarian(t)
-	defer closeFn()
-	_, err := lib.InsertOpEvent(librarian.OpEvent{EventType: "legacy.consumption", SessionID: "legacy:abc:2026-04-10", CreatedAt: time.Now(), Payload: map[string]any{"kind": "ConsumptionEvent"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := fetchSessions(t, newTestServer(t, lib).Handler())
-	if len(got) != 0 {
-		t.Fatalf("sessions = %+v, want none", got)
-	}
-}
-
-func TestSessions_MixedSessionPrefersTurnObservedCounts(t *testing.T) {
-	lib, closeFn := testLibrarian(t)
-	defer closeFn()
-	insertLegacySummary(t, lib, "s-mixed", time.Date(2026, 4, 10, 15, 0, 0, 0, time.UTC), map[string]any{
-		"started":         "2026-04-10T14:00:00Z",
-		"ended":           "2026-04-10T15:00:00Z",
-		"interactions":    float64(99),
-		"tool_categories": map[string]any{"system": float64(99)},
-		"model":           "legacy-model",
-		"provider":        "legacy-provider",
-		"legacy_format":   "session_summary",
-	})
-	insertTurn(t, lib, "s-mixed", "assistant", time.Date(2026, 4, 10, 14, 30, 0, 0, time.UTC), map[string]any{
-		"tool_categories": []any{"codebase_read"},
-		"model":           "new-model",
-		"provider":        "new-provider",
-	})
-
-	got := fetchSessions(t, newTestServer(t, lib).Handler())
-	if len(got) != 1 || got[0].Interactions != 1 || got[0].ToolsTotal != 1 || got[0].Model != "new-model" || got[0].Provider != "new-provider" || got[0].DurationSecs != 3600 {
-		t.Fatalf("sessions = %+v", got)
-	}
-}
-
 func TestLensResponseDoesNotLeakToolInputSentinel(t *testing.T) {
-	lib, closeFn := testLibrarian(t)
-	defer closeFn()
-	insertTurn(t, lib, "s-private", "assistant", time.Now(), map[string]any{
+	dir := testLedger(t)
+	appendTurn(t, dir, "s-private", "assistant", time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC), map[string]any{
 		"tool_categories": []any{"system"},
 		"input":           "AKIA-SHOULD-NOT-LEAK secrets.env echo boom",
 	})
 	req := httptest.NewRequest(http.MethodGet, "/api/sessions/s-private", nil)
 	rec := httptest.NewRecorder()
-	newTestServer(t, lib).Handler().ServeHTTP(rec, req)
+	newTestServer(t, dir).Handler().ServeHTTP(rec, req)
 	if strings.Contains(rec.Body.String(), "AKIA") || strings.Contains(rec.Body.String(), "secrets.env") || strings.Contains(rec.Body.String(), "echo boom") {
 		t.Fatalf("Lens response leaked sentinel: %s", rec.Body.String())
 	}
@@ -242,6 +172,7 @@ func TestLensDoesNotImportLegacyStores(t *testing.T) {
 	archtest.AssertNoDirectImport(t, ".",
 		"github.com/momhq/mom/storage/memory",
 		"github.com/momhq/mom/shared/scope",
+		"github.com/momhq/mom/storage/librarian",
 		"github.com/momhq/mom/workers/logbook",
 	)
 }
