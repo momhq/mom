@@ -10,7 +10,71 @@ import (
 	"testing"
 
 	"github.com/momhq/mom/shared/config"
+	"github.com/momhq/mom/storage/librarian"
 )
+
+// TestRegenerateHarnessFiles_CentralVault_MergesBlockPreservingUserContent is
+// the regression guard for the upgrade bug where regenerating a CENTRAL vault
+// (~/.mom, projectRoot == $HOME) used the project-level full-file writer and
+// clobbered the entire global ~/.claude/CLAUDE.md — destroying user content and
+// writing the watermark format instead of the BEGIN/END managed block. The fix
+// routes central vaults through GenerateGlobalContextFile (managed-block merge).
+func TestRegenerateHarnessFiles_CentralVault_MergesBlockPreservingUserContent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("MOM_VAULT", filepath.Join(home, ".mom", "mom.db"))
+
+	momDir, err := librarian.Dir() // central ~/.mom
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(momDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Pre-existing global Claude file: user content surrounding a stale block.
+	claudeMd := filepath.Join(home, ".claude", "CLAUDE.md")
+	if err := os.MkdirAll(filepath.Dir(claudeMd), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prior := "# My personal global notes\n\nKeep me.\n\n" +
+		"<!-- BEGIN MOM GENERATED BLOCK -->\nstale mom block\n<!-- END MOM GENERATED BLOCK -->\n\nTrailing notes.\n"
+	if err := os.WriteFile(claudeMd, []byte(prior), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.Harnesses = map[string]config.HarnessConfig{"claude": {Enabled: true}}
+
+	projectRoot := filepath.Dir(momDir) // $HOME
+	if err := regenerateHarnessFiles(projectRoot, momDir, &cfg); err != nil {
+		t.Fatalf("regenerateHarnessFiles: %v", err)
+	}
+
+	got, err := os.ReadFile(claudeMd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(got)
+
+	if c := strings.Count(s, "BEGIN MOM GENERATED BLOCK"); c != 1 {
+		t.Errorf("want exactly one managed block, got %d:\n%s", c, s)
+	}
+	if !strings.Contains(s, ".mom/vault/INDEX.md") {
+		t.Errorf("managed block missing vault-first protocol:\n%s", s)
+	}
+	if strings.Contains(s, "stale mom block") {
+		t.Errorf("stale block content should have been replaced:\n%s", s)
+	}
+	// The regression: user content outside the managed block must survive.
+	if !strings.Contains(s, "My personal global notes") || !strings.Contains(s, "Trailing notes.") {
+		t.Errorf("user content was clobbered (the bug):\n%s", s)
+	}
+	// And no stray project-level AGENTS.md written at $HOME.
+	if _, err := os.Stat(filepath.Join(projectRoot, "AGENTS.md")); err == nil {
+		t.Errorf("regenerate wrote a stray project-level AGENTS.md at $HOME")
+	}
+}
 
 // setupLegacyProject creates a .mom/ with stale config and current flat structure.
 // resetUpgradeFlags resets cobra flag state between tests.

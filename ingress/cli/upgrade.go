@@ -10,8 +10,10 @@ import (
 
 	"github.com/momhq/mom/ingress/harness"
 	"github.com/momhq/mom/shared/config"
+	"github.com/momhq/mom/shared/pathutil"
 	"github.com/momhq/mom/shared/project"
 	"github.com/momhq/mom/shared/ux"
+	"github.com/momhq/mom/storage/librarian"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -885,6 +887,13 @@ func kebabOnly(s string) string {
 }
 
 // regenerateHarnessFiles rebuilds all harness context files from the current config.
+//
+// For a central vault (momDir == ~/.mom, projectRoot == $HOME) it MUST use the
+// global managed-block writers — GenerateGlobalContextFile merges the MOM block
+// into ~/.claude/CLAUDE.md etc. while preserving the user's surrounding content.
+// The project-level GenerateContextFile does a full os.WriteFile and, targeted at
+// $HOME, would clobber the entire global file (destroying user content and writing
+// the watermark format instead of the BEGIN/END managed block doctor checks for).
 func regenerateHarnessFiles(projectRoot, momDir string, cfg *config.Config) error {
 	registry := harness.NewRegistry(projectRoot)
 
@@ -893,11 +902,30 @@ func regenerateHarnessFiles(projectRoot, momDir string, cfg *config.Config) erro
 	harnessSkills := buildHarnessSkills()
 	harnessIdentity := buildHarnessIdentity()
 
+	central := isCentralVault(momDir)
+
 	for _, rt := range cfg.EnabledHarnesses() {
 		adapter, ok := registry.Get(rt)
 		if !ok {
 			continue
 		}
+
+		if central {
+			global, ok := adapter.(harness.GlobalAdapter)
+			if !ok {
+				return fmt.Errorf("%s does not support global install", rt)
+			}
+			if err := global.GenerateGlobalContextFile(harnessCfg, harnessConstraints, harnessSkills, harnessIdentity); err != nil {
+				return fmt.Errorf("regenerating %s global context: %w", rt, err)
+			}
+			if h, ok := adapter.(harness.GlobalHookInstaller); ok {
+				if err := h.RegisterGlobalHooks(); err != nil {
+					return fmt.Errorf("registering %s global hooks: %w", rt, err)
+				}
+			}
+			continue
+		}
+
 		if err := adapter.GenerateContextFile(harnessCfg, harnessConstraints, harnessSkills, harnessIdentity); err != nil {
 			return fmt.Errorf("generating %s context: %w", rt, err)
 		}
@@ -909,4 +937,19 @@ func regenerateHarnessFiles(projectRoot, momDir string, cfg *config.Config) erro
 	}
 
 	return nil
+}
+
+// isCentralVault reports whether momDir is MOM's central vault directory
+// (~/.mom or the MOM_VAULT override's parent). Central vaults own GLOBAL
+// harness integrations; project-local .mom/ dirs own project files.
+//
+// Paths are symlink-resolved before comparison: on macOS $HOME and a
+// resolved cwd can disagree on the /private prefix, which would otherwise
+// misclassify a central vault as project-local.
+func isCentralVault(momDir string) bool {
+	central, err := librarian.Dir()
+	if err != nil {
+		return false
+	}
+	return pathutil.CanonicalDir(momDir) == pathutil.CanonicalDir(central)
 }
