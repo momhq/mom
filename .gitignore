@@ -26,6 +26,7 @@ CONTEXT.md
 # CLI build artifacts
 cli/bin/
 cli/mom
+/bin/
 .aider*
 
 # Export output
