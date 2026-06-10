@@ -28,6 +28,8 @@ type ToolGroup struct {
 }
 
 // SessionSummary is the list-view shape returned by GET /api/sessions.
+// Built purely from the Ledger: turn-observed events drive interactions,
+// tool calls, tokens, and cost; memory-recorded events drive MemoryCount.
 type SessionSummary struct {
 	SessionID    string  `json:"session_id"`
 	ScopeLabel   string  `json:"scope_label"`
@@ -36,7 +38,6 @@ type SessionSummary struct {
 	DurationSecs float64 `json:"duration_secs"`
 	Interactions int     `json:"interactions"`
 	MemoryCount  int     `json:"memory_count"`
-	CuratedCount int     `json:"curated_count"`
 	ToolsTotal   int     `json:"tools_total"`
 	TotalTokens  int     `json:"total_tokens"`
 	CostUSD      float64 `json:"cost_usd"`
@@ -44,14 +45,13 @@ type SessionSummary struct {
 	Model        string  `json:"model"`
 }
 
-// MemoryItem is a memory document linked to a session.
+// MemoryItem is a memory-recorded event linked to a session. The Ledger
+// carries no promotion state, landmarks, or tags (those lived in the retired
+// SQLite vault), so only the content + timestamp are available.
 type MemoryItem struct {
-	ID             string    `json:"id"`
-	Summary        string    `json:"summary"`
-	Tags           []string  `json:"tags"`
-	PromotionState string    `json:"promotion_state"`
-	Created        time.Time `json:"created"`
-	Landmark       bool      `json:"landmark"`
+	ID      string    `json:"id"`
+	Summary string    `json:"summary"`
+	Created time.Time `json:"created"`
 }
 
 // SessionDetail extends SessionSummary with the full per-session breakdown.
@@ -121,11 +121,10 @@ type sessionBuild struct {
 	hasTurnObserved bool
 }
 
-// loadSessionData scans the whole Ledger once, grouping turn-observed
-// and memory-recorded events by session. Memory promotion state,
-// landmarks, and tags are not carried on the Ledger (they lived only in
-// the retired SQLite vault), so MemoryItem reports content + timestamp
-// only and CuratedCount is always 0.
+// loadSessionData scans the whole Ledger once, grouping turn-observed and
+// memory-recorded events by session. Everything shown is derived from the
+// Ledger: tool calls, tokens, cost, and interactions from turn-observed
+// payloads; memory counts from memory-recorded events.
 func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
 	l, err := ledger.Open(s.ledgerDir)
 	if err != nil {
@@ -178,7 +177,6 @@ func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
 			memIndex[sid] = append(memIndex[sid], MemoryItem{
 				ID:      payloadStr(ev.Payload, "id"),
 				Summary: summary,
-				Tags:    []string{},
 				Created: created,
 			})
 			totalMemories++
@@ -204,7 +202,6 @@ func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
 				DurationSecs: durationSecs(b.started, b.ended),
 				Interactions: b.interactions,
 				MemoryCount:  len(memories),
-				CuratedCount: 0,
 				ToolsTotal:   toolsTotal,
 				TotalTokens:  b.totalTokens,
 				CostUSD:      b.costUSD,
@@ -255,18 +252,29 @@ func applyTurnObserved(b *sessionBuild, payload map[string]any) {
 	if provider, _ := payload["provider"].(string); provider != "" {
 		b.provider = provider
 	}
-	cats := stringSlice(payload["tool_categories"])
-	names := stringSlice(payload["tool_names"])
-	for i, cat := range cats {
-		if cat == "" {
+	// tool_calls is the per-call array the watcher records on every turn:
+	// [{name, category, safe_name, input}, ...]. Aggregate by category and,
+	// within each category, by tool name. Prefer safe_name (privacy-projected)
+	// over name, and never surface the raw `input`.
+	for _, raw := range anySlice(payload["tool_calls"]) {
+		tc, ok := raw.(map[string]any)
+		if !ok {
 			continue
 		}
+		cat := payloadStr(tc, "category")
+		if cat == "" {
+			cat = "uncategorized"
+		}
+		name := payloadStr(tc, "safe_name")
+		if name == "" {
+			name = payloadStr(tc, "name")
+		}
 		b.tools[cat]++
-		if i < len(names) && names[i] != "" {
+		if name != "" {
 			if b.toolDetails[cat] == nil {
 				b.toolDetails[cat] = map[string]int{}
 			}
-			b.toolDetails[cat][names[i]]++
+			b.toolDetails[cat][name]++
 		}
 	}
 	if usage, ok := payload["usage"].(map[string]any); ok {
@@ -275,21 +283,10 @@ func applyTurnObserved(b *sessionBuild, payload map[string]any) {
 	}
 }
 
-func stringSlice(v any) []string {
-	switch xs := v.(type) {
-	case []string:
-		return xs
-	case []any:
-		out := make([]string, 0, len(xs))
-		for _, x := range xs {
-			if s, ok := x.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
+// anySlice returns the value as a []any, or nil. JSON arrays decode to []any.
+func anySlice(v any) []any {
+	xs, _ := v.([]any)
+	return xs
 }
 
 func intValue(v any) int {

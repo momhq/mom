@@ -303,8 +303,6 @@ body {
   font-weight: 600;
   text-align: right;
 }
-.cell-mem.has-mem  { color: var(--gold); }
-.cell-mem.zero-mem { color: var(--paper-20); }
 
 .cell-tokens {
   font-family: 'IBM Plex Mono', monospace;
@@ -522,6 +520,27 @@ body {
   font-weight: 600;
   color: var(--paper);
 }
+.tool-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 12px 8px;
+  background: var(--paper-03);
+  border: 1px solid var(--paper-06);
+  border-top: none;
+}
+.tool-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--paper-50, var(--paper-35));
+  background: var(--paper-06);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.tool-name-c { color: var(--paper); font-weight: 600; }
 
 /* ── Info tooltip ────────────────────────────────────────────────────────── */
 .info-tip {
@@ -576,16 +595,6 @@ body {
   justify-content: space-between;
   align-items: center;
 }
-.mem-label-counts { display: flex; gap: 10px; }
-.mem-label-curated, .mem-label-draft {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.mem-label-curated { color: var(--gold); }
-.mem-label-draft   { color: var(--paper-35); }
-
 .memory-items { display: flex; flex-direction: column; gap: 4px; }
 .memory-item {
   padding: 12px 14px;
@@ -609,19 +618,6 @@ body {
   word-break: break-all;
   line-height: 1.3;
 }
-.badge {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  flex-shrink: 0;
-  line-height: 1.6;
-}
-.badge-landmark { background: var(--paper-10); color: var(--gold); border: 1px solid oklch(76% 0.14 72 / 0.30); }
-.badge-curated  { background: var(--gold); color: var(--ink); }
-.badge-draft    { background: var(--paper-10); color: var(--paper-35); }
-
 .memory-summary {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
@@ -632,18 +628,6 @@ body {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-.memory-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-.memory-tag {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  color: var(--paper-35);
-  border: 1px solid var(--paper-10);
-  padding: 1px 6px;
 }
 </style>
 </head>
@@ -659,7 +643,7 @@ body {
 <div class="filter-bar-v3" id="v3-root">
   <div class="v3-stat-grid">
     <div class="v3-cell"><span class="v3-val" id="v3-sessions">—</span><span class="v3-key">Sessions</span></div>
-    <div class="v3-cell"><span class="v3-val is-gold" id="v3-memories">—</span><span class="v3-key">Memories</span></div>
+    <div class="v3-cell"><span class="v3-val" id="v3-toolcalls">—</span><span class="v3-key">Tool Calls</span></div>
     <div class="v3-cell"><span class="v3-val" id="v3-tokens">—</span><span class="v3-key">Tokens</span></div>
     <div class="v3-cell"><span class="v3-val" id="v3-avg-dur">—</span><span class="v3-key">Avg. Duration</span></div>
   </div>
@@ -669,13 +653,6 @@ body {
     <span class="v3-count" id="v3-count">—</span>
     <div class="v3-filters">
       <div id="v3-harness-filters"></div>
-      <div class="v3-fsep" id="v3-filter-sep" style="display:none"></div>
-      <div id="v3-memory-filters">
-        <button class="tag" data-mem="has">Has Memories</button>
-        <button class="tag" data-mem="no">No Memories</button>
-        <button class="tag" data-mem="curated">Curated</button>
-        <button class="tag" data-mem="draft">Draft</button>
-      </div>
     </div>
   </div>
 </div>
@@ -687,7 +664,7 @@ body {
     <span class="col-header">Session</span>
     <span class="col-header">Harness</span>
     <span class="col-header align-right">Turns</span>
-    <span class="col-header align-right">Mem</span>
+    <span class="col-header align-right">Tools</span>
     <span class="col-header align-right">Tokens</span>
   </div>
   <div class="sessions-list" id="sessions-list"></div>
@@ -710,8 +687,6 @@ const state = {
   filtered: [],
   activeSession: null,
   activeHarness: null,
-  activeMemFilter: null, // 'has' | 'no' | null
-  totalMemories: 0,
 };
 
 /* ── Init ──────────────────────────────────────────────────────────────── */
@@ -724,8 +699,7 @@ async function loadMeta() {
   try {
     const res = await fetch('/api/meta');
     if (!res.ok) return;
-    const meta = await res.json();
-    state.totalMemories = meta.total_memories || 0;
+    await res.json();
     const nav = document.getElementById('nav-vault');
     if (nav) nav.textContent = 'CENTRAL';
   } catch (_) {}
@@ -747,27 +721,26 @@ async function loadSessions() {
 function populateVariantMetrics() {
   const s = state.sessions;
   const totalTokens = s.reduce((n, x) => n + (x.total_tokens || 0), 0);
+  const totalTools  = s.reduce((n, x) => n + (x.tools_total || 0), 0);
   const durSessions = s.filter(x => x.duration_secs > 0);
   const avgDur = durSessions.length > 0
     ? durSessions.reduce((n, x) => n + x.duration_secs, 0) / durSessions.length
     : 0;
 
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  set('v3-sessions', s.length);
-  set('v3-memories', state.totalMemories);
-  set('v3-tokens',   fmtTokens(totalTokens));
-  set('v3-avg-dur',  avgDur > 0 ? fmtDuration(avgDur) : '\u2014');
+  set('v3-sessions',  s.length.toLocaleString());
+  set('v3-toolcalls', totalTools.toLocaleString());
+  set('v3-tokens',    fmtTokens(totalTokens));
+  set('v3-avg-dur',   avgDur > 0 ? fmtDuration(avgDur) : '\u2014');
 }
 
 /* ── Filters ───────────────────────────────────────────────────────────── */
 function buildHarnessFilters() {
   const harnesses = [...new Set(state.sessions.map(s => s.provider).filter(Boolean))].sort();
   const container = document.getElementById('v3-harness-filters');
-  const sep = document.getElementById('v3-filter-sep');
   if (!container) return;
   container.innerHTML = '';
-  if (harnesses.length === 0) { if (sep) sep.style.display = 'none'; return; }
-  if (sep) sep.style.display = '';
+  if (harnesses.length === 0) return;
   const all = makeTag('All', null === state.activeHarness);
   all.addEventListener('click', () => setHarness(null));
   container.appendChild(all);
@@ -791,24 +764,9 @@ function setHarness(h) {
   applyFilters();
 }
 
-document.addEventListener('click', e => {
-  const btn = e.target.closest('[data-mem]');
-  if (!btn) return;
-  const f = btn.dataset.mem;
-  state.activeMemFilter = state.activeMemFilter === f ? null : f;
-  document.querySelectorAll('[data-mem]').forEach(b => {
-    b.classList.toggle('active', b.dataset.mem === state.activeMemFilter);
-  });
-  applyFilters();
-});
-
 function applyFilters() {
   state.filtered = state.sessions.filter(s => {
     if (state.activeHarness && s.provider !== state.activeHarness) return false;
-    if (state.activeMemFilter === 'has' && s.memory_count === 0) return false;
-    if (state.activeMemFilter === 'no' && s.memory_count > 0) return false;
-    if (state.activeMemFilter === 'curated' && s.curated_count === 0) return false;
-    if (state.activeMemFilter === 'draft' && (s.memory_count - s.curated_count) === 0) return false;
     return true;
   });
   updateCount();
@@ -848,7 +806,7 @@ function rowHTML(s) {
   const tokens = s.total_tokens > 0 ? fmtTokens(s.total_tokens) : '\u2014';
   const harness = s.provider ? s.provider : '\u2014';
   const shortId = s.session_id ? s.session_id.slice(0, 18) : '\u2014';
-  const memClass = s.memory_count > 0 ? 'has-mem' : 'zero-mem';
+  const tools = s.tools_total > 0 ? s.tools_total : '\u2014';
 
   return `<div class="session-row" data-id="${esc(s.session_id)}">
     <div class="cell-date">
@@ -861,7 +819,7 @@ function rowHTML(s) {
     </div>
     <div class="cell-harness">${esc(harness)}</div>
     <div class="cell-turns">${s.interactions}</div>
-    <div class="cell-mem ${memClass}">${s.memory_count}</div>
+    <div class="cell-mem">${tools}</div>
     <div class="cell-tokens">${esc(tokens)}</div>
   </div>`;
 }
@@ -930,7 +888,7 @@ function renderPanel(d) {
   const tokens = d.total_tokens > 0 ? fmtTokens(d.total_tokens) : '\u2014';
 
   document.getElementById('stat-strip').innerHTML = `
-    <div class="stat-cell"><div class="stat-value">${d.memory_count}</div><div class="stat-label">Memories</div></div>
+    <div class="stat-cell"><div class="stat-value">${d.interactions}</div><div class="stat-label">Turns</div></div>
     <div class="stat-cell"><div class="stat-value">${d.tools_total}</div><div class="stat-label">Tool Calls</div></div>
     <div class="stat-cell"><div class="stat-value">${esc(tokens)}</div><div class="stat-label">Tokens</div></div>
     <div class="stat-cell"><div class="stat-value">${esc(dur)}</div><div class="stat-label">Duration</div></div>
@@ -970,31 +928,27 @@ function renderPanel(d) {
     <div class="panel-section-label" style="display:flex;align-items:center;gap:0">${toolsLabel}</div>
     <div class="tool-rows">
       ${tools.length > 0
-        ? tools.map(([cat, g]) => `
-            <div class="tool-row">
+        ? tools.map(([cat, g]) => {
+            const names = g.detail ? Object.entries(g.detail).sort((a, b) => b[1] - a[1]) : [];
+            const namesHTML = names.length > 0
+              ? `<div class="tool-names">${names.map(([n, c]) =>
+                  `<span class="tool-name">${esc(n)}<span class="tool-name-c">${c}</span></span>`).join('')}</div>`
+              : '';
+            return `<div class="tool-row">
               <span class="tool-cat">${esc(cat.replace(/_/g, ' '))}</span>
               <span class="tool-total">${g.total}</span>
-            </div>`).join('')
+            </div>${namesHTML}`;
+          }).join('')
         : `<div class="tool-row"><span class="tool-cat">\u2014</span></div>`
       }
     </div>
   </div>`;
 
-  // Memories
+  // Memories \u2014 the Ledger carries a count + content only (no curated/draft).
   const mems = d.memories || [];
   if (mems.length > 0) {
-    const draft   = mems.length - (d.curated_count || 0);
-    const curated = d.curated_count || 0;
-    const memCounts = curated + draft > 0
-      ? `<span class="mem-label-counts">
-           ${curated > 0 ? `<span class="mem-label-curated">${curated} curated</span>` : ''}
-           ${draft   > 0 ? `<span class="mem-label-draft">${draft} draft</span>` : ''}
-         </span>`
-      : '';
     html += `<div class="panel-section">
-      <div class="panel-section-label panel-section-label--split">
-        <span>Memories &middot; ${mems.length}</span>${memCounts}
-      </div>
+      <div class="panel-section-label">Memories &middot; ${mems.length}</div>
       <div class="memory-items">
         ${mems.map(memHTML).join('')}
       </div>
@@ -1005,21 +959,12 @@ function renderPanel(d) {
 }
 
 function memHTML(m) {
-  const badge = m.landmark
-    ? `<span class="badge badge-landmark">Landmark</span>`
-    : m.promotion_state === 'curated'
-      ? `<span class="badge badge-curated">Curated</span>`
-      : `<span class="badge badge-draft">Draft</span>`;
   const summary = m.summary
     ? `<div class="memory-summary">${esc(m.summary)}</div>`
     : '';
-  const tags = (m.tags || []).length > 0
-    ? `<div class="memory-tags">${m.tags.map(t => `<span class="memory-tag">${esc(t)}</span>`).join('')}</div>`
-    : '';
   return `<div class="memory-item">
-    <div class="memory-item-head"><span class="memory-id">${esc(m.id)}</span>${badge}</div>
+    <div class="memory-item-head"><span class="memory-id">${esc(m.id || '')}</span></div>
     ${summary}
-    ${tags}
   </div>`;
 }
 

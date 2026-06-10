@@ -101,11 +101,13 @@ func TestSessions_RenderFromTurnObserved(t *testing.T) {
 	at := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
 	appendTurn(t, dir, "s-new", "user", at, nil)
 	appendTurn(t, dir, "s-new", "assistant", at.Add(time.Minute), map[string]any{
-		"tool_categories": []any{"codebase_read", "mom_cli"},
-		"tool_names":      []any{"Read", "mom recall"},
-		"usage":           map[string]any{"total_tokens": float64(42), "cost_usd": 0.02},
-		"model":           "claude-sonnet",
-		"provider":        "anthropic",
+		"tool_calls": []any{
+			map[string]any{"name": "Read", "category": "codebase_read"},
+			map[string]any{"name": "mom recall", "category": "mom_cli", "safe_name": "mom recall"},
+		},
+		"usage":    map[string]any{"total_tokens": float64(42), "cost_usd": 0.02},
+		"model":    "claude-sonnet",
+		"provider": "anthropic",
 	})
 
 	got := fetchSessions(t, newTestServer(t, dir).Handler())
@@ -117,14 +119,13 @@ func TestSessions_RenderFromTurnObserved(t *testing.T) {
 	}
 	detail := fetchDetail(t, newTestServer(t, dir).Handler(), "s-new")
 	if detail.ToolCalls["mom_cli"].Detail["mom recall"] != 1 || detail.ToolCalls["codebase_read"].Detail["Read"] != 1 {
-		t.Fatalf("tool detail missing safe tool names: %+v", detail.ToolCalls)
+		t.Fatalf("tool detail missing per-call tool names: %+v", detail.ToolCalls)
 	}
 }
 
 // Memory-recorded events surface their session with a memory count. The
-// Ledger carries no promotion state / landmarks / tags, so CuratedCount
-// is 0 and Tags is empty by design (the SQLite vault that held them is
-// retired).
+// Ledger carries no promotion state / landmarks / tags (those lived in the
+// retired SQLite vault), so MemoryItem is content + timestamp only.
 func TestSessions_MemoryRecordedSessionAppears(t *testing.T) {
 	dir := testLedger(t)
 	at := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
@@ -132,7 +133,7 @@ func TestSessions_MemoryRecordedSessionAppears(t *testing.T) {
 
 	srv := newTestServer(t, dir)
 	got := fetchSessions(t, srv.Handler())
-	if len(got) != 1 || got[0].SessionID != "s-memory" || got[0].MemoryCount != 1 || got[0].CuratedCount != 0 || got[0].Interactions != 0 {
+	if len(got) != 1 || got[0].SessionID != "s-memory" || got[0].MemoryCount != 1 || got[0].Interactions != 0 {
 		t.Fatalf("sessions = %+v", got)
 	}
 	detail := fetchDetail(t, srv.Handler(), "s-memory")
@@ -144,8 +145,13 @@ func TestSessions_MemoryRecordedSessionAppears(t *testing.T) {
 func TestLensResponseDoesNotLeakToolInputSentinel(t *testing.T) {
 	dir := testLedger(t)
 	appendTurn(t, dir, "s-private", "assistant", time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC), map[string]any{
-		"tool_categories": []any{"system"},
-		"input":           "AKIA-SHOULD-NOT-LEAK secrets.env echo boom",
+		"tool_calls": []any{
+			map[string]any{
+				"name":     "Bash",
+				"category": "system",
+				"input":    map[string]any{"command": "AKIA-SHOULD-NOT-LEAK secrets.env echo boom"},
+			},
+		},
 	})
 	req := httptest.NewRequest(http.MethodGet, "/api/sessions/s-private", nil)
 	rec := httptest.NewRecorder()
