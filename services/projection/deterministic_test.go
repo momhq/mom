@@ -72,6 +72,53 @@ func TestDeterministicFoldFrontmatter(t *testing.T) {
 	}
 }
 
+func TestBuildIndexEpisodeFallback(t *testing.T) {
+	mkEpisode := func(start, end string) string {
+		ts, _ := time.Parse(time.RFC3339, start)
+		te, _ := time.Parse(time.RFC3339, end)
+		return PrependFrontmatter(Frontmatter{
+			Level: 0, Kind: "episode", Version: 1,
+			TimeRangeStart: ts, TimeRangeEnd: te,
+		}, "# Episode\n")
+	}
+	files := map[string]string{
+		"episodes/aaaa.md": mkEpisode("2026-05-01T00:00:00Z", "2026-05-02T00:00:00Z"),
+		"episodes/bbbb.md": mkEpisode("2026-06-01T00:00:00Z", "2026-06-03T00:00:00Z"),
+	}
+
+	idx := buildIndex(files, FoldInput{ProjectID: "demo"})
+
+	if strings.Contains(idx, "no files yet") {
+		t.Fatal("router reported 'no files yet' while episodes exist")
+	}
+	for _, p := range []string{"episodes/aaaa.md", "episodes/bbbb.md"} {
+		if !strings.Contains(idx, p) {
+			t.Errorf("router missing episode %s:\n%s", p, idx)
+		}
+	}
+	if !strings.Contains(idx, "session memory from 2026-06-01 to 2026-06-03") {
+		t.Errorf("missing date-range hint for newer episode:\n%s", idx)
+	}
+	// Newest episode (June) must be routed before the older one (May).
+	if strings.Index(idx, "episodes/bbbb.md") > strings.Index(idx, "episodes/aaaa.md") {
+		t.Errorf("episodes not ordered newest-first:\n%s", idx)
+	}
+}
+
+func TestBuildIndexEpisodesHiddenOnceTopicsExist(t *testing.T) {
+	files := map[string]string{
+		"episodes/aaaa.md": PrependFrontmatter(Frontmatter{Level: 0, Kind: "episode", Version: 1}, "# Episode\n"),
+		"topics/voice.md":  PrependFrontmatter(Frontmatter{Level: 1, Kind: "topic", Version: 1}, "# Topic\n"),
+	}
+	idx := buildIndex(files, FoldInput{ProjectID: "demo"})
+	if strings.Contains(idx, "episodes/aaaa.md") {
+		t.Errorf("episodes should be hidden once L1 topics exist:\n%s", idx)
+	}
+	if !strings.Contains(idx, "topics/voice.md") {
+		t.Errorf("router missing the topic file:\n%s", idx)
+	}
+}
+
 func keys(m map[string]string) []string {
 	ks := make([]string, 0, len(m))
 	for k := range m {

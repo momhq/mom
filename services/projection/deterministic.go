@@ -264,7 +264,17 @@ func buildIndex(files map[string]string, in FoldInput) string {
 		b.WriteString("| `" + p + "` | " + routerHint(p) + " |\n")
 	}
 	if len(paths) == 0 {
-		b.WriteString("| _(no files yet)_ | run `mom vault fold` after capturing some sessions |\n")
+		// No synthesized L1/L2 files yet. Route to L0 episodes directly so the
+		// router never goes blind while a young vault is below the L1 threshold
+		// — otherwise it reports "no files yet" while real memory sits in
+		// episodes/, and the agent concludes the project has no history.
+		rows := episodeIndexRows(files)
+		if len(rows) == 0 {
+			b.WriteString("| _(no files yet)_ | run `mom vault fold` after capturing some sessions |\n")
+		}
+		for _, r := range rows {
+			b.WriteString("| `" + r.path + "` | " + r.hint + " |\n")
+		}
 	}
 	b.WriteString("\n---\n")
 	engine := in.Engine
@@ -292,6 +302,67 @@ func routerHint(path string) string {
 
 func shouldIndexPath(path string) bool {
 	return !strings.HasPrefix(path, "episodes/")
+}
+
+// indexRow is one router entry: the vault-relative path and its "when to read"
+// hint.
+type indexRow struct {
+	path string
+	hint string
+}
+
+// episodeIndexRows returns router rows for the L0 episode files, newest first.
+// Used only as the router fallback when no L1/L2 files exist yet, so the agent
+// is pointed at the raw episodes instead of being told there is nothing.
+func episodeIndexRows(files map[string]string) []indexRow {
+	type ep struct {
+		path       string
+		start, end time.Time
+	}
+	var eps []ep
+	for p, content := range files {
+		if !strings.HasPrefix(p, "episodes/") {
+			continue
+		}
+		fm, _ := ParseFrontmatter(content)
+		eps = append(eps, ep{path: p, start: fm.TimeRangeStart, end: fm.TimeRangeEnd})
+	}
+	// Newest first by end time; ties (incl. missing timestamps) broken by path
+	// so the order is stable across folds.
+	sort.Slice(eps, func(i, j int) bool {
+		if eps[i].end.Equal(eps[j].end) {
+			return eps[i].path < eps[j].path
+		}
+		return eps[i].end.After(eps[j].end)
+	})
+	rows := make([]indexRow, 0, len(eps))
+	for _, e := range eps {
+		rows = append(rows, indexRow{path: e.path, hint: episodeHint(e.start, e.end)})
+	}
+	return rows
+}
+
+// episodeHint describes an episode by its captured date range so the router
+// reads like the rest of the table ("read this when …").
+func episodeHint(start, end time.Time) string {
+	s, e := dateOrEmpty(start), dateOrEmpty(end)
+	switch {
+	case s == "" && e == "":
+		return "session memory (topics not synthesized yet)"
+	case s == "":
+		return "session memory through " + e
+	case e == "" || s == e:
+		return "session memory from " + s
+	default:
+		return "session memory from " + s + " to " + e
+	}
+}
+
+func dateOrEmpty(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format("2006-01-02")
 }
 
 // buildClaudeBlock emits the tiny always-loaded pointer.
