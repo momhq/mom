@@ -70,9 +70,8 @@ func promptFullUninstallConfirmation(p *ux.Printer, in *bufio.Scanner, cmd *cobr
 	p.Blank()
 	p.Bold("Full uninstall")
 	p.Text("Will remove this project's MOM files, global skills, global harness context,")
-	p.Text("the global watch daemon, and the central vault at ~/.mom/mom.db")
-	p.Text("(ALL memory across ALL projects). This is irreversible.")
-	p.Text("To keep memory, export first with `mom export`.")
+	p.Text("the global watch daemon, and the central memory under ~/.mom/")
+	p.Text("(the Ledger and every project's vault). This is irreversible.")
 	p.Blank()
 	fmt.Fprintf(cmd.OutOrStdout(), "Type %q to confirm: ", fullUninstallPhrase)
 	if !in.Scan() {
@@ -214,7 +213,7 @@ func runDisconnectProject(p *ux.Printer, in *bufio.Scanner, cmd *cobra.Command) 
 		}
 	}
 	p.Chevron("watch registry entry")
-	p.Text("Central vault at ~/.mom/mom.db is NOT touched.")
+	p.Text("Central memory under ~/.mom/ is NOT touched.")
 	p.Blank()
 	fmt.Fprintf(cmd.OutOrStdout(), "Proceed? [y/N]: ")
 	answer := ""

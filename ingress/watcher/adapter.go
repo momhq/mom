@@ -1,6 +1,6 @@
 // Package watcher provides filesystem-based transcript ingestion for MOM.
-// It watches Harness transcript directories and emits structured Turn
-// events on Herald for downstream Drafter and Logbook subscribers.
+// It watches Harness transcript directories and appends structured
+// turn.observed events to the Ledger through the Editor.
 package watcher
 
 // Adapter parses Harness-specific transcript lines into Turn values.
@@ -10,15 +10,13 @@ type Adapter interface {
 	Name() string
 
 	// ExtractTurn parses a single JSONL line and returns the rich
-	// per-turn shape consumed by Drafter (filter pipeline) and
-	// Logbook (metadata projection). Returns (zero, false) for lines
-	// that do not produce a meaningful turn (tool_result, system
-	// messages, sidechain entries, malformed JSON).
+	// per-turn shape the Editor canonicalizes into a turn.observed event.
+	// Returns (zero, false) for lines that do not produce a meaningful
+	// turn (tool_result, system messages, sidechain entries, malformed
+	// JSON).
 	//
-	// The returned Turn carries raw text and tool inputs. Drafter
-	// applies the redaction pipeline; Logbook projects to a
-	// privacy-safe metadata shape (no text, no inputs) before
-	// persisting. The full Turn never lands on disk.
+	// The returned Turn carries raw text and tool inputs; the fold and
+	// lens read paths are responsible for not surfacing sensitive inputs.
 	ExtractTurn(line []byte, sessionID string) (Turn, bool)
 }
 

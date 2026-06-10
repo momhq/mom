@@ -80,8 +80,8 @@ type resolvedSource struct {
 const projectIdCacheTTL = 5 * time.Second
 
 // Watcher tails Harness transcript directories with cursor-based
-// incremental reads and emits one turn.observed event per parsed
-// turn on the Herald bus.
+// incremental reads and appends one turn.observed event per parsed turn
+// to the Ledger through the Editor (capture is gated on a bound project).
 type Watcher struct {
 	cfg        Config
 	sources    []resolvedSource // resolved transcript sources

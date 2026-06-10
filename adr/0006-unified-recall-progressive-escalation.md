@@ -1,5 +1,7 @@
 # 0006 — Unified recall with progressive scope and quality escalation
 
+> **Superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) — v0.50 retired the SQLite/Crier/bus model for the markdown vault.**
+
 `mom_recall` and `search_memories` converged on the same FTS5 engine with identical options. Maintaining two tools created confusion about which to call and doubled the surface area with no benefit. `search_memories` is deleted; `mom_recall` becomes the single recall tool.
 
 Recall now escalates across two axes — scope and quality — in a defined order. The engine iterates an ordered `[]Searcher` chain (repo → org → user → future vault) and stops as soon as it has collected `recallEscalationThreshold` results (named constant, default 3). Escalation is MOM-internal and transparent to the caller. Scope escalates before quality: the engine makes two full passes over the chain — first querying only `curated` memories, then repeating with drafts included — so that a reviewed org memory ranks above an unreviewed local draft.

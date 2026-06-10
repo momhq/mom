@@ -2,23 +2,19 @@ package watcher
 
 import "strings"
 
-// CategorizeToolCall buckets a tool name into one of the v0.30 op
-// categories. Logbook persists categories (not names) on the metadata
-// projection, so this is the boundary between harness-specific tool
+// CategorizeToolCall buckets a tool name into one of the stable
+// categories the lens shows. The category is pre-computed by the watcher
+// (the only component that sees individual tool names) and rides on the
+// turn.observed event, so it is the boundary between harness-specific tool
 // vocabulary and the dashboard's stable category model.
 //
 // Five buckets, by convention used in lens panels:
 //
-//	mom_memory     — memory-touching MCP tools
+//	mom_memory     — historical MOM MCP memory tools (pre-v0.50 transcripts)
 //	mom_cli        — mom-specific CLI invocations
 //	codebase_read  — reads of repo content
 //	codebase_write — writes to repo content
 //	system         — everything else (Bash, Glob, harness internals…)
-//
-// The function lived in internal/logbook in the v1 design; it moves
-// here because the watcher is the only component that sees individual
-// tool names in v0.30. Logbook never categorises — it persists the
-// pre-computed category from the watcher.
 func CategorizeToolCall(toolName string) string {
 	name := NormalizeToolName(toolName)
 	switch {
@@ -47,11 +43,10 @@ func NormalizeToolName(toolName string) string {
 	return toolName
 }
 
-// isMemoryTool recognises the v0.30 live MCP memory tool surface.
-// Retired names (create_memory_draft, mom_record_turn, list_landmarks,
-// get_memory, search_memories) are intentionally absent — they no
-// longer ship and are dropped from categorisation in v0.40 cleanup
-// (#349). The canonical live set lives in mcp/tools.go.
+// isMemoryTool recognises MOM's retired MCP memory tools. MOM no longer
+// ships an MCP server (v0.50), so these names only appear in historical
+// transcripts captured before the cutover; categorising them keeps the
+// lens breakdown correct for older sessions.
 func isMemoryTool(name string) bool {
 	return name == "mom_recall" ||
 		name == "mom_record" ||

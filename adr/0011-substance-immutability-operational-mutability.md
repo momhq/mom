@@ -1,5 +1,7 @@
 # 0011 — Substance immutability; operational metadata is mutable
 
+> **Superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) — v0.50 retired the SQLite/Crier/bus model for the markdown vault.**
+
 A memory row carries two kinds of fields. Some describe *what was captured* — the content, the summary read out of it, the moment and circumstances of capture. Others describe *how MOM is currently filing it* — promotion state, landmark flag, centrality, the type assignment from ADR 0012, the edges to tags and entities. The current model treats both as equally writable, which means a routine recuration is indistinguishable from a content rewrite, and there is no way to assert "this memory still reflects what was originally captured."
 
 The schema enforces a hard boundary.

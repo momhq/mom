@@ -7,15 +7,13 @@ import (
 )
 
 // Turn is the per-turn structured payload emitted by the watcher's
-// adapters. It carries everything Drafter needs to make filter
-// decisions (raw text, tool inputs) AND everything Logbook needs to
-// produce a privacy-safe metadata projection (role, tool categories,
-// usage, model, provider).
+// adapters. It carries the full turn — raw text, tool calls (name,
+// category, input), usage, model, provider.
 //
-// The full Turn rides on the Herald bus inside `turn.observed` events.
-// It is NEVER persisted in raw form. Drafter persists a redacted
-// memory through Librarian; Logbook persists a metadata projection.
-// See PRD 0003 + ADR 0014 for the privacy contract.
+// The Editor canonicalizes the Turn into a `turn.observed` event and
+// appends it to the Ledger. The projection fold and the lens read paths
+// decide what to surface; raw text and tool inputs are not shown by the
+// vault. See PRD 0003 + ADR 0014 for the privacy contract.
 type Turn struct {
 	SessionID string
 	Timestamp time.Time
@@ -45,9 +43,9 @@ type Turn struct {
 
 // ToolCall is one tool invocation observed in an assistant turn.
 // `Input` carries the raw tool arguments (file paths, shell commands,
-// etc.) for Drafter's filter pipeline. `Category` and SafeName are
-// pre-computed by the adapter so Logbook can persist a privacy-safe
-// metadata projection without inspecting raw inputs.
+// etc.). `Category` and SafeName are pre-computed by the adapter so read
+// paths (lens) can show privacy-safe per-tool analytics without inspecting
+// raw inputs.
 type ToolCall struct {
 	Name     string
 	SafeName string
@@ -67,10 +65,10 @@ type Usage struct {
 	StopReason       string
 }
 
-// ToPayload renders a Turn into the map[string]any shape carried by
-// Herald's turn.observed event. Drafter and Logbook both read these
-// keys; the map convention is documented here so subscribers don't
-// reinvent extraction.
+// ToPayload renders a Turn into the map[string]any payload of the
+// turn.observed event appended to the Ledger. The projection fold and the
+// lens read these keys; the map convention is documented here so readers
+// don't reinvent extraction.
 //
 // Keys: "role", "text", "tool_calls" ([]map with name/input/category),
 // "usage" (map of token counts), "model", "provider", "harness",
@@ -126,9 +124,9 @@ func (t Turn) ToPayload() map[string]any {
 }
 
 // Canonical implements editor.Canonicalizer. It exposes Turn as a
-// canonical envelope.TurnObserved event whose payload is exactly the
-// ToPayload() shape Drafter and Logbook already consume. The Editor
-// (ADR 0020) layers provenance + project_id + schema validation on top.
+// canonical envelope.TurnObserved event whose payload is the ToPayload()
+// shape. The Editor (ADR 0020) layers provenance + project_id + schema
+// validation on top before appending to the Ledger.
 func (t Turn) Canonical() (envelope.EventType, map[string]any) {
 	payload := t.ToPayload()
 	if t.SessionID != "" {

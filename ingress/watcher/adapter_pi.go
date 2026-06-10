@@ -78,9 +78,9 @@ type piMessage struct {
 	Content any    `json:"content"` // string or []map[string]any
 }
 
-// ExtractTurn parses a Pi transcript line into the structured Turn
-// shape consumed by Drafter and Logbook. Pi-specific tool_use and
-// usage extraction will land in a follow-up slice.
+// ExtractTurn parses a Pi transcript line into the structured Turn shape
+// the Editor canonicalizes into a turn.observed event. Pi-specific
+// tool_use and usage extraction will land in a follow-up slice.
 func (a *PiAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 	line = trimLine(line)
 	if len(line) == 0 {

@@ -1,7 +1,8 @@
 // Package ledger implements MOM's Layer 1 immutable canonical event
 // log (ADR 0021). The Ledger is an append-only directory of segment
-// files at $HOME/.mom/ledger/. Crier (ADR 0022) reads from it and
-// projects events into the Vault via Librarian.
+// files at $HOME/.mom/ledger/. It is the source of truth; the projection
+// fold (services/projection) reads from it to materialize the per-project
+// markdown vault.
 //
 // Storage shape:
 //
@@ -69,7 +70,7 @@ const recordPrefixSize = 4
 // Record is one canonical event durably stored in the Ledger.
 //
 // Offset is monotonically increasing across the lifetime of the
-// Ledger. Consumers (Crier) checkpoint by Offset.
+// Ledger. Readers (the projection fold) resume from a saved Offset.
 //
 // Event is the canonical envelope.Event from the Editor (ADR 0020).
 // AppendedAt is the wall-clock time the Ledger wrote the record.
@@ -206,9 +207,7 @@ func (l *Ledger) Append(e envelope.Event) (uint64, error) {
 }
 
 // HeadOffset returns the offset of the most recently appended record
-// and true if the Ledger has any records, or (0, false) if empty. It
-// is the cursor Crier's "skip-backfill" startup path uses to advance
-// its checkpoint past pre-existing entries.
+// and true if the Ledger has any records, or (0, false) if empty.
 func (l *Ledger) HeadOffset() (uint64, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

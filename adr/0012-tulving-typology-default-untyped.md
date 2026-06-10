@@ -1,5 +1,7 @@
 # 0012 — Tulving typology for memory types; default to untyped
 
+> **Superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) — v0.50 retired the SQLite/Crier/bus model for the markdown vault.**
+
 Memories vary in kind: a captured fact, a recurring pattern, a single-event recollection, a learned procedure. The current schema flattens this — every memory is just "a memory" — which forces recall to rely entirely on tags and FTS5 to distinguish "the time we decided X" from "the rule we always follow."
 
 MOM adopts a typology adapted from Tulving's memory taxonomy. The `type` enum on `memories` is `episodic | semantic | procedural | untyped`: `semantic` for facts, definitions, and stable knowledge; `episodic` for specific events, decisions, and single-occurrence recollections; `procedural` for how-to, recurring patterns, and rules; `untyped` for memories that have not been classified yet. The set is intentionally small; finer distinctions belong in tags.

@@ -1,5 +1,7 @@
 # 0015 — Bootstrap: global agent-file marker (and protocol-compliant MCP instructions)
 
+> **Partially superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) (v0.50) and [ADR-0023](0023-mcp-server-retirement.md).**
+
 Pre-v0.30, MOM made the harness aware of its presence by generating a per-project context file (e.g. `<project>/.claude/CLAUDE.md`) during `mom init`. v0.30 removes the per-folder `.mom/` (ADR 0009) and stops generating per-project files. Without a replacement, a fresh session in any project has no signal that MOM exists, no instruction to call `mom_status` first, and no way to surface MOM's operating protocol to the agent.
 
 The natural candidate — the MCP spec's server-level `instructions` field — does not work as a bootstrap mechanism in May 2026 across the four supported harnesses (Claude Code, Codex, Windsurf, Pi). Claude Code uses it only as a tool-search discovery hint (2 KB cap, not injected into agent context). Codex closed implementation as "not planned" in December 2025. Windsurf's Cascade MCP integration only consumes `tools` / `resources` / `prompts`. Pi has no first-party MCP support and the third-party adapter does not surface `instructions`. None of the four inject it into model context.

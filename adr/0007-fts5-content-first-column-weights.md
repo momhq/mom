@@ -1,5 +1,7 @@
 # 0007 — FTS5 column weights: content-first ranking
 
+> **Superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) — v0.50 retired the SQLite/Crier/bus model for the markdown vault.**
+
 The FTS5 virtual table `memories_fts` has four columns: `id`, `summary`, `tags`, `content_text`. With equal weights, a query matching a tag scores the same as matching a dense content body — but tags are discovery labels, not relevance signals. The `id` column is a slug derived from the summary; matching it adds noise, not signal.
 
 Column weights are set to `bm25(memories_fts, 0, 2, 1, 10)`: zero on `id` (slug, not meaningful for search), light on `tags` (discovery, not relevance), moderate on `summary` (one-line intent), heavy on `content_text` (the full knowledge body). Content has the signal; tags navigate to it.

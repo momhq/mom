@@ -1,5 +1,7 @@
 # 0022 — Crier as projector/replayer via Librarian
 
+> **Superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) — v0.50 retired the SQLite/Crier/bus model for the markdown vault.**
+
 ADR 0021 establishes the Ledger as Layer 1: the immutable canonical log of events MOM has ingested. The Vault remains Layer 2: the projection of those events into a queryable form. Something has to read the Ledger and produce the Vault — and only that something is allowed to write to the Vault.
 
 This ADR names that component the **Crier** and pins down its contract.

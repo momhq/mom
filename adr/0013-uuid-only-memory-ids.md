@@ -1,5 +1,7 @@
 # 0013 — UUID-only memory IDs
 
+> **Superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) — v0.50 retired the SQLite/Crier/bus model for the markdown vault.**
+
 Memory IDs are currently a mix of slug-style strings derived from content (`recall-v2-design-decisions-...`) and session-derived sequences (`<session-uuid>-NNN`). The mix is historical: early memories were hand-curated and slugged for readability; automatic capture later switched to session-derived IDs. The result is an ID space with no single format, where collisions are possible across sources and where renames mean rewriting every reference.
 
 Every memory ID is a UUIDv4 (or v7 — the choice is implementation-detail and does not affect the contract). IDs are opaque, fixed at creation, never derived from content or session, and never reused. The slug-style and session-derived forms are removed.

@@ -1,5 +1,7 @@
 # 0010 — Graph-fluent schema: tags and entities as first-class nodes
 
+> **Superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) — v0.50 retired the SQLite/Crier/bus model for the markdown vault.**
+
 The current schema stores tags as a denormalized array on the memory row and has no notion of entities (people, repos, files, projects) as referenceable objects. This makes it impossible to ask "show me everything about X" without a full-text scan, and tags drift (`mcp` vs `MCP` vs `mcp-server`) because they're free-form strings on each row.
 
 The schema becomes graph-fluent: `memory`, `tag`, and `entity` are separate tables, joined through `memory_tag` and `memory_entity` edge tables. Tags and entities have their own identity (a row, a UUID, optional aliases) and can be queried, renamed, or merged without rewriting memories. The recall engine can traverse edges — "memories tagged `recall` that also reference entity `mom-cli`" — using ordinary SQL joins instead of FTS5 substring matches.

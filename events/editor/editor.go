@@ -1,18 +1,17 @@
-// Package editor is the canonicalization gateway between Ingress and
-// the bus (ADR 0020). Every ingress surface — ingress/cli, ingress/mcp,
+// Package editor is the canonicalization gateway between Ingress and the
+// Ledger (ADR 0020). Every ingress surface — ingress/cli,
 // ingress/watcher/adapters/* — hands its raw input to the Editor; the
 // Editor produces a canonical envelope.Event, validates it against the
-// Schema Registry (ADR 0019), stamps provenance + project_id, and
-// publishes to the bus.
+// Schema Registry (ADR 0019), stamps provenance + project_id, and appends
+// the event to the Ledger (ADR 0021).
 //
-// The Editor is the architectural invariant ADR 0020 enforces: no
-// raw adapter type crosses the bus boundary. archtests in events/editor
-// and bus/herald (added in #364) enforce this at PR time.
+// The Editor is the architectural invariant ADR 0020 enforces: no raw
+// adapter type reaches the Ledger un-canonicalized. archtests in
+// events/editor enforce this at PR time.
 //
-// In v0.50 the Editor sits between Ingress and bus only. In #366
-// (Item 2.2) it gains a Ledger-append step ordered before the bus
-// publish, making the Ledger the canonical record and the bus a
-// projection.
+// The Ledger is the canonical record and the source of truth; the
+// projection fold reads events back from it to materialize the markdown
+// vault. There is no event bus.
 package editor
 
 import (
@@ -61,10 +60,9 @@ type Canonicalizer interface {
 
 // Editor is the canonicalization gateway. Construct via New.
 //
-// Per architecture v3 (and ADR 0021), the Editor's sole side effect on
-// Publish is appending to the Ledger. Herald is no longer Editor's
-// concern — Crier is the sole live publisher onto the bus after
-// projecting each Ledger event into the Vault.
+// Per ADR 0021, the Editor's sole side effect on Publish is appending the
+// canonical event to the Ledger. Nothing is published anywhere else; the
+// projection fold reads the Ledger to materialize the markdown vault.
 type Editor struct {
 	ledger   LedgerAppender     // nil → Ledger append skipped (tests only)
 	registry *registry.Registry // nil → validation skipped (transitional)
@@ -82,10 +80,9 @@ func New(reg *registry.Registry, logger *log.Logger) *Editor {
 	return &Editor{registry: reg, logger: logger}
 }
 
-// WithLedger returns a new Editor wired to ledger. Production callers
-// use this to enable the ADR 0021 durable-append path: every published
-// event is appended to the Ledger before reaching the bus. Returns the
-// receiver for fluent chaining.
+// WithLedger returns a new Editor wired to ledger. Production callers use
+// this to enable the ADR 0021 durable-append path: every canonical event is
+// appended to the Ledger. Returns the receiver for fluent chaining.
 func (e *Editor) WithLedger(ledger LedgerAppender) *Editor {
 	e.ledger = ledger
 	return e
@@ -142,20 +139,19 @@ func (e *Editor) Canonicalize(in Canonicalizer, src Source) envelope.Event {
 }
 
 // Publish is the production entry point. The order is fixed per
-// ADR 0021 §crash-safety and architecture v3:
+// ADR 0021 §crash-safety:
 //
 //  1. Canonicalize the input.
-//  2. Append the canonical event to the Ledger. If append fails,
-//     the caller observes the error and nothing escapes — no event is
-//     visible to any subscriber until Crier projects it.
+//  2. Append the canonical event to the Ledger. If append fails, the
+//     caller observes the error and nothing escapes — no event is durably
+//     recorded.
 //
-// Editors without a Ledger (test/transitional builds) skip step 2 and
-// the call is a no-op aside from canonicalization (which has no side
-// effects beyond logging).
+// Editors without a Ledger (test/transitional builds) skip step 2 and the
+// call is a no-op aside from canonicalization (which has no side effects
+// beyond logging).
 //
 // The promise: when Publish returns nil, the event is durably in the
-// Ledger. Crier (events/crier) is the sole live publisher onto Herald
-// once the Ledger has accepted the event.
+// Ledger, where the projection fold reads it.
 func (e *Editor) Publish(in Canonicalizer, src Source) error {
 	ev := e.Canonicalize(in, src)
 	if e.ledger != nil {
@@ -166,10 +162,10 @@ func (e *Editor) Publish(in Canonicalizer, src Source) error {
 	return nil
 }
 
-// encodeViolation builds the _schema_violation marker payload. The
-// shape is deliberately simple — Crier (#367) and Logbook can read it
-// programmatically; humans reading Lens see a small object with the
-// three violation categories.
+// encodeViolation builds the _schema_violation marker payload. The shape
+// is deliberately simple — it can be read programmatically off the Ledger,
+// and humans reading Lens see a small object with the three violation
+// categories.
 func encodeViolation(res registry.Result) map[string]any {
 	out := map[string]any{}
 	if len(res.MissingFields) > 0 {

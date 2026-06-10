@@ -1,5 +1,7 @@
 # 0009 — Storage consolidation: $HOME as canonical SQLite vault
 
+> **Partially superseded by [ADR-0024](0024-v050-markdown-vault-memory.md) (v0.50) and [ADR-0023](0023-mcp-server-retirement.md).**
+
 Memories are currently scattered across per-folder `.mom/` directories, with raw transcripts (`raw/*.jsonl`), per-memory JSON files (`memory/*.json`), and SQLite indexes living side by side. This produces three problems: (a) the same memory can exist in multiple project vaults with no single source of truth, (b) raw transcripts duplicate substance already captured in memory documents, and (c) progressive scope escalation has to walk a fragile filesystem chain.
 
 `$HOME/.mom/mom.db` is the single canonical store. All memories live in that database regardless of where they were captured. Per-folder `.mom/` directories are removed; the JSON-file vault and the `raw/` transcript log are removed; SQLite is the only persistence layer. The previous notion of filesystem-partitioned scopes (per-folder vaults walked as a chain) is dropped entirely — there is one vault.

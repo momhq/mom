@@ -48,11 +48,10 @@ type claudeUsage struct {
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
-// ExtractTurn implements Adapter. Returns the rich per-turn
-// shape Drafter and Logbook consume from `turn.observed` events. The
-// raw text and tool inputs ride on the bus only — Drafter applies
-// the redaction pipeline before persisting; Logbook strips them
-// before the metadata projection lands in op_events.
+// ExtractTurn implements Adapter. Returns the rich per-turn shape the
+// Editor canonicalizes into a `turn.observed` event and appends to the
+// Ledger. Raw text and tool inputs are carried on the event; read paths
+// (fold, lens) decide what to surface.
 func (a *ClaudeAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 	line = trimLine(line)
 	if len(line) == 0 {
@@ -110,7 +109,7 @@ func (a *ClaudeAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) 
 	}
 
 	// Drop turns with no text and no tool calls (e.g. tool_result-only
-	// blocks). They carry no signal for either Drafter or Logbook.
+	// blocks). They carry no signal for the vault.
 	if turn.Text == "" && len(turn.ToolCalls) == 0 {
 		return Turn{}, false
 	}
