@@ -92,9 +92,8 @@ func deterministicFrontmatter(projectID, kind string, events []FoldEvent) Frontm
 // memory.recorded and per detected cluster of turns, newest first.
 func buildTimeline(projectID string, events []FoldEvent) map[string]string {
 	type bullet struct {
-		when  time.Time
-		line  string
-		event FoldEvent
+		when time.Time
+		line string
 	}
 	type monthBucket struct {
 		bullets []bullet

@@ -273,20 +273,20 @@ func (it *Iter) Next() (Record, bool) {
 			}
 			if _, err := f.Seek(segmentHeaderSize, io.SeekStart); err != nil {
 				it.err = err
-				f.Close()
+				_ = f.Close()
 				return Record{}, false
 			}
 			it.current = f
 		}
 		rec, err := readNextRecord(it.current)
 		if err == io.EOF {
-			it.current.Close()
+			_ = it.current.Close()
 			it.current = nil
 			continue
 		}
 		if err != nil {
 			it.err = err
-			it.current.Close()
+			_ = it.current.Close()
 			it.current = nil
 			return Record{}, false
 		}
@@ -369,7 +369,7 @@ func (l *Ledger) openOrCreateActive() error {
 		}
 		info, err := f.Stat()
 		if err != nil {
-			f.Close()
+			_ = f.Close()
 			return err
 		}
 		l.active = &segment{path: path, file: f, size: info.Size(), start: 0}
@@ -387,7 +387,7 @@ func (l *Ledger) openOrCreateActive() error {
 	}
 	info, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	l.active = &segment{path: last.path, file: f, size: info.Size(), start: last.start}
@@ -406,7 +406,7 @@ func (l *Ledger) rotateLocked() error {
 	}
 	info, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	l.active = &segment{path: newPath, file: f, size: info.Size(), start: l.nextID}
@@ -440,25 +440,26 @@ func openSegmentForAppend(path string, create bool) (*os.File, error) {
 	}
 	info, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, fmt.Errorf("ledger: stat %s: %w", path, err)
 	}
-	if info.Size() == 0 {
+	switch {
+	case info.Size() == 0:
 		// Brand-new segment — write the header.
 		if err := writeHeader(f); err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, err
 		}
 		if err := f.Sync(); err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, fmt.Errorf("ledger: fsync header %s: %w", path, err)
 		}
-	} else if info.Size() < segmentHeaderSize {
-		f.Close()
+	case info.Size() < segmentHeaderSize:
+		_ = f.Close()
 		return nil, fmt.Errorf("ledger: segment %s too small (%d bytes)", path, info.Size())
-	} else {
+	default:
 		if err := validateHeader(path); err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, err
 		}
 	}
