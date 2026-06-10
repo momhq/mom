@@ -121,44 +121,6 @@ func ledgerDir() (string, error) {
 	return librarian.LedgerDir()
 }
 
-func chooseSynth(engine string, warn func(string)) (projection.Synthesizer, string, error) {
-	switch engine {
-	case "auto", "":
-		// Probe supported invokers in priority order.
-		for _, inv := range []projection.HarnessInvoker{
-			projection.NewClaudeInvoker(""),
-			projection.NewCodexInvoker(""),
-			projection.NewPiInvoker(""),
-		} {
-			if inv.IsAvailable() {
-				s := projection.NewHierarchySynth(projection.NewLLMSynth(inv, warn), 5, 10)
-				return s, inv.Name(), nil
-			}
-		}
-		return nil, "", fmt.Errorf("no supported harness found (tried claude, codex, pi) — install one or pass --engine explicitly")
-	case "claude":
-		inv := projection.NewClaudeInvoker("")
-		if !inv.IsAvailable() {
-			return nil, "", fmt.Errorf("claude CLI not found; install claude or use --engine auto")
-		}
-		return projection.NewHierarchySynth(projection.NewLLMSynth(inv, warn), 5, 10), "claude", nil
-	case "codex":
-		inv := projection.NewCodexInvoker("")
-		if !inv.IsAvailable() {
-			return nil, "", fmt.Errorf("codex CLI not found; install codex or use --engine auto")
-		}
-		return projection.NewHierarchySynth(projection.NewLLMSynth(inv, warn), 5, 10), "codex", nil
-	case "pi":
-		inv := projection.NewPiInvoker("")
-		if !inv.IsAvailable() {
-			return nil, "", fmt.Errorf("pi CLI not found; install pi or use --engine auto")
-		}
-		return projection.NewHierarchySynth(projection.NewLLMSynth(inv, warn), 5, 10), "pi", nil
-	default:
-		return nil, "", fmt.Errorf("invalid --engine %q (want auto|claude|codex|pi)", engine)
-	}
-}
-
 func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	p := ux.NewPrinter(cmd.OutOrStdout())
 
@@ -200,7 +162,7 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	}
 
 	warn := func(msg string) { fmt.Fprintln(os.Stderr, "warning: "+msg) }
-	synth, engineName, err := chooseSynth(vaultEngine, warn)
+	synth, engineName, err := projection.NewSynthesizer(vaultEngine, warn)
 	if err != nil {
 		return err
 	}
@@ -228,12 +190,7 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		chunks = 1 // single refresh pass even with no new events
 	}
 
-	var res projection.FoldResult
-	if hs, ok := synth.(*projection.HierarchySynth); ok {
-		res, err = projection.FoldHierarchical(context.Background(), hs, in, chunkSize)
-	} else {
-		res, err = projection.FoldAll(context.Background(), synth, in, chunkSize)
-	}
+	res, err := projection.Fold(context.Background(), synth, in, chunkSize)
 	if err != nil {
 		spinner.StopFail()
 		return fmt.Errorf("synthesis failed: %w", err)
