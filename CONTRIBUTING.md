@@ -21,37 +21,26 @@ The codebase uses a role-based top-level layout (see [ADR 0017](adr/0017-role-ba
 ```
 cmd/mom/main.go                  # entrypoint
 ingress/                         # external input → in-process events
-├── cli/                         # cobra subcommands (init, recall, record, ops, …)
-├── mcp/                         # MCP stdio server (deprecated in v0.50 per ADR 0023)
+├── cli/                         # cobra subcommands (init, status, project, vault, …)
 ├── watcher/                     # harness transcript watchers (Claude, Codex, Pi)
-├── harness/                     # harness capability registry (detection, tiers)
-└── record/                      # shared explicit-write code path
-events/                          # canonical event pipeline (v0.50 work)
-├── editor/                      # canonicalization gateway (post-Ingress, pre-bus)
+└── harness/                     # harness capability registry (detection, context blocks)
+events/                          # canonical event pipeline
+├── editor/                      # canonicalization gateway (post-ingress, pre-Ledger)
 ├── registry/                    # schema registry (governance level B, ADR 0019)
-└── crier/                       # projector/replayer (Ledger → Vault via Librarian)
-bus/herald/                      # in-process event bus
-workers/                         # bus subscribers with side effects
-├── drafter/                     # event-stream → draft memories
-├── logbook/                     # operational telemetry
-├── cartographer/                # bootstrap seeding (parked, #240)
-└── gardener/                    # landmark computation; retention planned for v0.60
-services/                        # read-side application code
-├── finder/                      # recall query planner (FTS5 + escalation)
+└── envelope/                    # canonical event type (Event/EventType)
+services/                        # the fold and read-side application code
+├── projection/                 # Ledger → markdown vault (Reader → Synthesizer → Writer)
 └── lens/                        # local dashboard HTTP server
 storage/                         # durable state
-├── vault/                       # SQLite primitive
-├── librarian/                   # sole gate to vault writes/reads (ADR 0009)
-├── canonical/                   # canonical-path resolution + migration aggregation
-├── memory/                      # memory document types
-└── legacy/                      # pre-v0.30 JSON storage (migration path only)
+├── ledger/                      # append-only event Ledger (the durable backbone)
+└── librarian/                   # path resolver (~/.mom, $MOM_VAULT, legacy mom.db detection)
 ops/                             # background lifecycle
 ├── daemon/                      # platform service management
 └── diagnose/                    # introspection
 shared/                          # cross-cutting utilities
 ├── config/                      # config.yaml (harness + watcher settings)
 ├── pathutil/                    # path canonicalization
-├── scope/                       # multi-level discovery
+├── scope/                       # project-local .mom/ discovery (NearestWritable)
 ├── project/                     # .mom-project.yaml resolution (ADR 0016)
 ├── ux/                          # TUI/output helpers
 └── archtest/                    # architectural invariant tests
@@ -62,11 +51,8 @@ go.sum
 .mom/                            # MOM's own memory (dogfooding)
 ├── config.yaml                  # preferences
 ├── identity.json                # project identity
-├── memory/                      # memory documents (JSON)
-├── constraints/                 # always-active guardrails
-├── skills/                      # composable procedures
-├── schema.json                  # document schema
-└── index.json                   # tag-based index
+├── ledger/                      # append-only captured events
+└── vault/                       # projected markdown memory (INDEX.md, topics/, timeline/, …)
 ```
 
 See [.github/repo-surface.md](.github/repo-surface.md) for the full one-line

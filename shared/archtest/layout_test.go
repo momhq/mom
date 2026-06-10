@@ -30,6 +30,7 @@ var allowedTopLevelFiles = map[string]bool{
 	".mcp.json":          true,
 	".mcp.json.bkp":      true,
 	".mom-project.yaml":  true,
+	"CHANGELOG.md":       true,
 	"CLAUDE.md":          true, // gitignored — local agent context
 	"CODE_OF_CONDUCT.md": true,
 	"CONTRIBUTING.md":    true,

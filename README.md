@@ -21,10 +21,10 @@ _Memory Oriented Machine — she remembers, so you don't have to._
 
 _Mom_ gives AI coding agents persistent memory across sessions, projects, and tools.
 
-Instead of re-explaining architecture, decisions, conventions, and constraints every time you start a new chat, _mom_ stores them in a local SQLite vault and makes them available inside the agents you already use.
+Instead of re-explaining architecture, decisions, conventions, and constraints every time you start a new chat, _mom_ records them to an append-only Ledger and projects them into a per-project **markdown vault** your agent reads with its normal file tools.
 
 > [!IMPORTANT]
-> `v0.40.0-alpha` is the current public alpha. Pi, Claude Code, and Codex flows are validated end-to-end. Windsurf support was retired in this release (see [ADR — Windsurf retirement](https://github.com/momhq/mom/pull/343)).
+> `v0.50.0-alpha` is the current public alpha. It replaces the SQLite vault and MCP server with a per-project markdown vault projected from an append-only Ledger (see [ADR 0024](adr/0024-v050-markdown-vault-memory.md)). Pi, Claude Code, and Codex flows are validated end-to-end. Upgrading from an older install? See [Upgrade](#upgrade-from-older-mom-installs).
 
 ## Why _mom_?
 
@@ -33,11 +33,11 @@ AI agents are useful, but they forget.
 _Mom_ is the memory layer beside them:
 
 - **Persistent** — memory survives `/clear`, compaction, restarts, and tool switches.
-- **Local-first** — the central vault lives at `$HOME/.mom/mom.db`.
+- **Local-first** — captured turns live in an append-only Ledger at `$HOME/.mom/ledger/`; the projected vault lives per-project under `.mom/vault/`.
+- **Plain markdown** — memory is `.md` files you can open, read, and diff. The agent reads them with its normal file tools; there is no query server.
 - **Harness-agnostic** — Pi, Claude Code, and Codex are integration targets, not storage silos.
-- **Agent-integrated** — memory is available through _mom_ skills and native harness integrations.
-- **MCP-backed** — MCP remains available for startup, discovery, and fallback access.
-- **Continuously recorded** — supported harness transcripts are watched and distilled into draft memories.
+- **Agent-integrated** — memory is delivered through the harness context file and _mom_ skills.
+- **Continuously recorded** — supported harness transcripts are watched and folded into the vault.
 
 ## Install
 
@@ -81,26 +81,27 @@ Then open your agent and work normally. _Mom_ runs in the background, watches su
 
 ## How it works
 
-_Mom_ keeps one central memory vault and adapts it to each harness.
+The write path is a straight line; agents read the projected markdown directly.
 
 ```text
-AI harnesses
-  ├─ Pi extension
-  ├─ Claude Code hooks + skills
-  ├─ Codex hooks + MCP
-  └─ MCP fallback
+AI harnesses (Pi · Claude Code · Codex)
+        │  transcripts
+        ▼
+mom watcher → Editor → Ledger          ($HOME/.mom/ledger/, append-only)
+        │
+        │  mom vault fold  (/mom-fold, or the daemon timer)
+        ▼
+services/projection  (Reader → Synthesizer → Writer)
         │
         ▼
-mom CLI + watcher daemon
-        │
-        ▼
-$HOME/.mom/mom.db
-  ├─ memories
-  ├─ tags
-  ├─ entities
-  ├─ import mappings
-  └─ operational events
+.mom/vault/*.md   ← the agent reads these with its file tools
+  ├─ INDEX.md           # router: "read X when the task looks like Y"
+  ├─ topics/<slug>.md   # decisions, patterns, preferences by subject
+  ├─ timeline/<YYYY-MM>.md
+  └─ summaries/overview.md
 ```
+
+Lose the vault and `mom vault rebuild` regenerates it from the Ledger; the Ledger is the durable backbone and is never derived.
 
 ## Typical workflow
 
@@ -130,24 +131,13 @@ To check that _mom_ is connected:
 
 ### Explore with Lens
 
-For a visual view of sessions, memories, and privacy-projected operational events, run:
+For a visual view of captured sessions and privacy-projected tool activity, run:
 
 ```bash
 mom lens
 ```
 
-Lens is local and reads from the central _mom_ vault.
-
-### Export and import memory
-
-For backup, migration, or sharing a local vault snapshot:
-
-```bash
-mom export
-mom import <path>
-```
-
-`mom export` writes central SQLite table dumps to `$HOME/.mom/exports/<timestamp>/`. `mom import` safely merges new exports or legacy JSON memory directories and skips existing rows.
+Lens is local (loopback only) and reads the append-only Ledger.
 
 ## Harness support
 
@@ -155,10 +145,10 @@ mom import <path>
 | --- | --- | --- |
 | Pi | Validated | Native extension support via `pi install npm:pi-mom`. Gold standard for _mom_. |
 | Claude Code | Validated | Fluent speaker. Provides all the necessary tools _mom_ needs. |
-| Codex | Validated | Hooks, MCP, and per-turn project scoping working end-to-end. |
+| Codex | Validated | Hooks and per-turn project scoping working end-to-end. |
 
 > [!NOTE]
-> _Mom_ uses **harness** to mean the agent framework around the model: tools, hooks, transcripts, prompt files, and MCP configuration.
+> _Mom_ uses **harness** to mean the agent framework around the model: tools, hooks, transcripts, and prompt/context files.
 
 ## Upgrade from older _mom_ installs
 
@@ -169,15 +159,19 @@ mom upgrade --dry-run
 mom upgrade
 ```
 
-Upgrade can import legacy memories, import legacy operational logs, remove known generated legacy files, preserve custom files, clean obsolete hook commands, and install or update skills as a soft-fail step.
+Upgrade regenerates the harness context blocks, tears down the retired MCP registration, removes obsolete hook commands and deprecated skills, and installs or updates the current skills as a soft-fail step.
+
+> [!IMPORTANT]
+> v0.50 does **not** migrate a pre-v0.50 SQLite vault (`$HOME/.mom/mom.db`). The new vault rebuilds from go-forward capture in the Ledger. `mom upgrade` detects a leftover `mom.db` and prints the command to remove it once capture is confirmed.
 
 ## Data and privacy
 
 _Mom_ is local-first.
 
-- The default vault is `$HOME/.mom/mom.db`.
-- `MOM_VAULT=/path/to/mom.db` overrides the vault for tests or isolated runs.
-- Lens and operational logs use privacy-projected metadata.
+- The append-only Ledger lives at `$HOME/.mom/ledger/`; the projected vault lives per-project under `.mom/vault/`.
+- `MOM_VAULT=/path/to/dir` overrides the central `$HOME/.mom` location for tests or isolated runs.
+- Capture is privacy-gated: a turn is only recorded when the directory is bound to a project (`.mom-project.yaml`).
+- Lens uses privacy-projected metadata.
 - Raw tool arguments, raw user text, shell command arguments, query strings, paths, and flags are not stored as operational log detail.
 - Explicit record flows reject invented session IDs; harness session IDs must come from the harness.
 
@@ -219,15 +213,12 @@ The codebase is organised into role-based top-level buckets (see [ADR 0017](adr/
 ```text
 .
 ├── cmd/mom/                # entrypoint
-├── ingress/                # external input: CLI, MCP, watcher adapters, harness detection, explicit record
-├── events/                 # canonical event Editor, schema Registry, Crier projector (v0.50 work)
-├── bus/herald/             # in-process event bus
-├── workers/                # bus subscribers — drafter, logbook, cartographer, gardener
-├── services/               # read-side application code — finder (recall), lens (dashboard)
-├── storage/                # durable state — vault, librarian (gate), canonical, memory, legacy
+├── ingress/                # external input: CLI, watcher adapters, harness detection
+├── events/                 # canonical event Editor, schema Registry, envelope
+├── services/               # projection (the fold) and lens (dashboard)
+├── storage/                # durable state — ledger (append-only), librarian (path resolver)
 ├── ops/                    # background lifecycle — daemon, diagnose
 ├── shared/                 # cross-cutting utilities — config, pathutil, scope, project, ux, archtest
-├── docs/                   # in-repo documentation
 ├── adr/                    # architecture decisions
 ├── prd/                    # product requirements
 ├── skills/                 # _mom_ slash skills
