@@ -88,12 +88,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 	harnesses = resolveInitHarnesses(cwd, harnesses)
 
 	defaults := config.Default()
+	// Non-interactive (-y / --harnesses): no prompt to consent, so fall back to
+	// the sensible default — bind the current directory (when bindable) so
+	// scripted installs still capture. guideProjectBinding re-checks bindability.
 	return runInitWithConfig(cmd, installDir, force, OnboardingResult{
 		Harnesses:  harnesses,
 		Language:   defaults.User.Language,
 		Mode:       defaults.Communication.Mode,
 		InstallDir: installDir,
 		ScopeLabel: "repo",
+		BindCwd:    true,
+		ProjectId:  deriveProjectId(cwd),
 	})
 }
 
@@ -310,11 +315,10 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 
 	// ── Phase 3.75: Bind this directory so capture can start ────────────────
 	// The watch daemon only attaches to directories carrying a
-	// .mom-project.yaml binding (the privacy gate). On a fresh install we bind
-	// the current directory — when it is a real project root — so capture
-	// begins on first run instead of silently doing nothing until the user
-	// binds by hand.
-	bound := guideProjectBinding(cwd, momDir, p)
+	// .mom-project.yaml binding (the privacy gate). When the user opted in
+	// during onboarding, bind the current directory so capture begins on first
+	// run; otherwise leave it unbound and guide them to bind later.
+	bound := guideProjectBinding(cwd, result, p)
 
 	// ── Phase 4: Register with global watch daemon ──────────────────────────
 	if err := ensureGlobalDaemon(cwd, momDir, result.Harnesses); err != nil {
@@ -346,18 +350,25 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	return nil
 }
 
-// guideProjectBinding binds the current directory to a derived project id when
-// it is a sensible project root and not already bound, so the watch daemon —
-// which only attaches to bound directories — can start capturing immediately.
-// Returns the bound id, or "" if nothing was done.
-func guideProjectBinding(cwd, momDir string, p *ux.Printer) string {
+// guideProjectBinding binds the current directory to the project id the user
+// chose during onboarding, so the watch daemon — which only attaches to bound
+// directories — can start capturing immediately. It is a no-op when the user
+// declined, when the directory is already bound, or when it is not a sensible
+// project root. Returns the bound id, or "" if nothing was done.
+func guideProjectBinding(cwd string, result OnboardingResult, p *ux.Printer) string {
+	if !result.BindCwd {
+		return "" // user declined, or non-bindable directory
+	}
 	if _, _, found, _ := project.ResolveProject(cwd); found {
 		return "" // already bound — leave the existing binding alone
 	}
-	if !isBindableDir(cwd, momDir) {
+	if !isBindableDir(cwd) {
 		return ""
 	}
-	id := deriveProjectId(cwd)
+	id := result.ProjectId
+	if strings.TrimSpace(id) == "" {
+		id = deriveProjectId(cwd)
+	}
 	if err := project.WriteBinding(cwd, id, false); err != nil {
 		return ""
 	}
@@ -368,7 +379,7 @@ func guideProjectBinding(cwd, momDir string, p *ux.Printer) string {
 
 // isBindableDir reports whether cwd is a reasonable place to write a project
 // binding: not the home directory and not MOM's central vault dir.
-func isBindableDir(cwd, momDir string) bool {
+func isBindableDir(cwd string) bool {
 	canonical := pathutil.CanonicalDir(cwd)
 	if home, err := os.UserHomeDir(); err == nil && canonical == pathutil.CanonicalDir(home) {
 		return false

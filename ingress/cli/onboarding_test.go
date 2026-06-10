@@ -41,8 +41,10 @@ func isolateHarnessDetection(t *testing.T) {
 //   Confirm:     y/n, empty = default
 //
 // Form flow (bootstrap select removed alongside cartographer):
-//   Form 1: Note(welcome), MultiSelect(harnesses), Select(mode)
-//   Form 2: Note(summary), Confirm
+//   Form 1: Note(welcome), MultiSelect(harnesses), Select(mode),
+//           Confirm(bind cwd?), Input(project id — hidden when bind declined)
+//   Form 2: Note(summary), Confirm(install)
+// The bind group appears only when cwd is bindable (not $HOME / central vault).
 
 // TestOnboarding_DefaultSelections verifies that accepting all defaults works.
 func TestOnboarding_DefaultSelections(t *testing.T) {
@@ -108,8 +110,9 @@ func TestOnboarding_ExplicitSelections(t *testing.T) {
 // returns an error signalling the user aborted.
 func TestOnboarding_ConfirmNo(t *testing.T) {
 	isolateHarnessDetection(t)
-	// Accept defaults, then reject at confirm.
-	input := testReader("0\n\nn\n")
+	// Accept harness/mode defaults, accept the bind default, then reject at the
+	// install confirm (n).
+	input := testReader("0\n\n\nn\n")
 	output := &bytes.Buffer{}
 
 	_, err := runOnboarding(input, output, t.TempDir())

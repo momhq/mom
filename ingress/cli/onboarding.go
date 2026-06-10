@@ -23,6 +23,11 @@ type OnboardingResult struct {
 	InstallDir string
 	// ScopeLabel is retained for legacy config compatibility. Global init writes repo.
 	ScopeLabel string
+	// BindCwd is true when the user opted to bind the current directory as a
+	// project so capture starts immediately.
+	BindCwd bool
+	// ProjectId is the id to bind the current directory to when BindCwd is true.
+	ProjectId string
 }
 
 // runOnboarding executes the interactive wizard and returns the chosen config.
@@ -69,23 +74,30 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	installDir := cwd
 	scopeLabel := "repo"
 
+	// Capture is privacy-gated: it only runs in directories bound to a project.
+	// Offer to bind the current directory so capture starts on first run, but
+	// only when it is a sensible project root (not $HOME or the central vault).
+	bindable := isBindableDir(cwd)
+	bindCwd := true
+	projectId := deriveProjectId(cwd)
+
 	// ── Build the form ──────────────────────────────────────────────────────
-	form := huh.NewForm(
+	groups := []*huh.Group{
 		// Group 1: Welcome
 		huh.NewGroup(
 			huh.NewNote().
 				Title(
-					" ███╗   ███╗  ██████╗  ███╗   ███╗\n"+
-						" ████╗ ████║ ██╔═══██╗ ████╗ ████║\n"+
-						" ██╔████╔██║ ██║   ██║ ██╔████╔██║\n"+
-						" ██║╚██╔╝██║ ██║   ██║ ██║╚██╔╝██║\n"+
-						" ██║ ╚═╝ ██║ ╚██████╔╝ ██║ ╚═╝ ██║\n"+
-						" ╚═╝     ╚═╝  ╚═════╝  ╚═╝     ╚═╝\n"+
+					" ███╗   ███╗  ██████╗  ███╗   ███╗\n" +
+						" ████╗ ████║ ██╔═══██╗ ████╗ ████║\n" +
+						" ██╔████╔██║ ██║   ██║ ██╔████╔██║\n" +
+						" ██║╚██╔╝██║ ██║   ██║ ██║╚██╔╝██║\n" +
+						" ██║ ╚═╝ ██║ ╚██████╔╝ ██║ ╚═╝ ██║\n" +
+						" ╚═╝     ╚═╝  ╚═════╝  ╚═╝     ╚═╝\n" +
 						" Memory Oriented Machine",
 				).
 				Description(
-					"\nMOM gives your AI coding assistant persistent memory\n"+
-						"and structured knowledge management.\n\n"+
+					"\nMOM gives your AI coding assistant persistent memory\n" +
+						"and structured knowledge management.\n\n" +
 						"Setting up MOM takes about 30 seconds. Let's start.",
 				),
 		),
@@ -95,7 +107,7 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 			huh.NewMultiSelect[string]().
 				Title("Which AI Assistants do you want to enable?").
 				Options(harnessOptions...).
-				Height(len(harnessOptions)+2).
+				Height(len(harnessOptions) + 2).
 				Value(&selectedHarnesses).
 				Validate(func(selected []string) error {
 					if len(selected) == 0 {
@@ -116,7 +128,23 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 				).
 				Value(&mode),
 		),
-	).WithAccessible(accessible).
+	}
+
+	// Group 4 (conditional): ask whether to bind this directory so capture
+	// starts here. The id is derived from the directory name; the user can
+	// rebind to a different id later with `mom project bind --id`.
+	if bindable {
+		groups = append(groups, huh.NewGroup(
+			huh.NewConfirm().
+				Title(fmt.Sprintf("Start capturing this directory as project %q?", projectId)).
+				Description("Writes .mom-project.yaml here so the watcher records sessions from this repo.\nCapture only runs in bound directories. Change or remove it anytime with mom project bind.").
+				Affirmative("Yes").
+				Negative("Not now").
+				Value(&bindCwd),
+		))
+	}
+
+	form := huh.NewForm(groups...).WithAccessible(accessible).
 		WithInput(r).
 		WithOutput(w).
 		WithTheme(huh.ThemeFunc(ux.ThemeMOM))
@@ -126,11 +154,16 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 	}
 
 	// ── Summary + Confirm ───────────────────────────────────────────────────
+	captureLine := "  Capture:   bind later (mom project bind --id <id>)"
+	if bindable && bindCwd {
+		captureLine = fmt.Sprintf("  Capture:   this directory, project %q", projectId)
+	}
 	summaryText := fmt.Sprintf(
-		"  Harnesses: %s\n  Language:  %s\n  Mode:      %s",
+		"  Harnesses: %s\n  Language:  %s\n  Mode:      %s\n%s",
 		harnessesLabel(selectedHarnesses),
 		languageLabel(lang),
 		modeLabel(mode),
+		captureLine,
 	)
 
 	confirmed := true
@@ -165,6 +198,8 @@ func runOnboarding(r io.Reader, w io.Writer, cwd string) (OnboardingResult, erro
 		CoreSource: "",
 		InstallDir: installDir,
 		ScopeLabel: scopeLabel,
+		BindCwd:    bindable && bindCwd,
+		ProjectId:  projectId,
 	}, nil
 }
 
