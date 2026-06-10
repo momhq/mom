@@ -40,8 +40,6 @@ func TestLedger_DoesNotImportIngressEventsOrWorkers(t *testing.T) {
 		"github.com/momhq/mom/ingress/harness",
 		"github.com/momhq/mom/workers/drafter",
 		"github.com/momhq/mom/workers/logbook",
-		"github.com/momhq/mom/workers/cartographer",
-		"github.com/momhq/mom/workers/gardener",
 		"github.com/momhq/mom/services/finder",
 		"github.com/momhq/mom/services/lens",
 	)

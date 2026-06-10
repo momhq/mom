@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/storage/ledger"
 	"github.com/momhq/mom/storage/librarian"
 	"gopkg.in/yaml.v3"
@@ -60,7 +60,7 @@ func TestStatusCmd_WithEvents_ShowsCountsAndSpan(t *testing.T) {
 	}
 	at := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
 	for i := 0; i < 3; i++ {
-		if _, err := l.Append(herald.Event{Type: herald.TurnObserved, SessionID: "s1", Timestamp: at, Payload: map[string]any{"role": "user"}}); err != nil {
+		if _, err := l.Append(envelope.Event{Type: envelope.TurnObserved, SessionID: "s1", Timestamp: at, Payload: map[string]any{"role": "user"}}); err != nil {
 			t.Fatalf("append: %v", err)
 		}
 	}
@@ -74,7 +74,7 @@ func TestStatusCmd_WithEvents_ShowsCountsAndSpan(t *testing.T) {
 	}
 
 	out := buf.String()
-	for _, want := range []string{"total 3", "span", "by type", string(herald.TurnObserved)} {
+	for _, want := range []string{"total 3", "span", "by type", string(envelope.TurnObserved)} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, out)
 		}

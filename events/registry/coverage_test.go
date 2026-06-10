@@ -6,24 +6,17 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/events/registry"
 )
 
-// activeEventTypes is the set of EventType constants production code
-// actually publishes onto the bus. Adding a producer requires adding
-// its constant here AND registering its schema.
-//
-// Unused stubs in herald/herald.go (SessionStart, SessionEnd, etc.)
-// are intentionally NOT in this list — they pre-date v0.50 and no
-// publisher emits them today. When a producer ships, the producer's
-// PR adds the constant here + registers the schema in the same change.
-var activeEventTypes = []herald.EventType{
-	herald.TurnObserved,
-	herald.MemoryRecord,
-	herald.OpMemoryCreated,
-	herald.OpMemoryRedacted,
-	herald.OpMemoryDropped,
+// activeEventTypes is the set of EventType constants the system records to
+// the Ledger (TurnObserved) or still decodes from historical records
+// (MemoryRecord). Adding a producer requires adding its constant here AND
+// registering its schema in the same change.
+var activeEventTypes = []envelope.EventType{
+	envelope.TurnObserved,
+	envelope.MemoryRecord,
 }
 
 // TestRegistry_CoversAllActiveEventTypes asserts every active
@@ -74,7 +67,7 @@ func TestRegistry_CoversAllActiveEventTypes(t *testing.T) {
 func TestRegistry_ActiveEventTypesMatchTaxonomy(t *testing.T) {
 	for _, et := range activeEventTypes {
 		if !registry.EventNameRegex.MatchString(string(et)) {
-			t.Errorf("herald.EventType %q does not match family.subject.verb (ADR 0018)", et)
+			t.Errorf("envelope.EventType %q does not match family.subject.verb (ADR 0018)", et)
 		}
 	}
 }

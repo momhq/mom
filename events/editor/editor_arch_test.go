@@ -44,8 +44,6 @@ func TestEditor_DoesNotImportWorkers(t *testing.T) {
 	archtest.AssertNoDirectImport(t, ".",
 		"github.com/momhq/mom/workers/drafter",
 		"github.com/momhq/mom/workers/logbook",
-		"github.com/momhq/mom/workers/cartographer",
-		"github.com/momhq/mom/workers/gardener",
 	)
 }
 

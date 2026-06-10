@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
 	"github.com/momhq/mom/ingress/harness"
 	"github.com/momhq/mom/shared/config"
 	"github.com/momhq/mom/shared/ux"
@@ -313,23 +312,6 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	} else {
 		p.Check("Watch daemon installed")
 	}
-
-	// ── Telemetry: emit smoke events ────────────────────────────────────────
-	startedAt := time.Now().UTC().Format(time.RFC3339)
-	emitter := herald.New(momDir, cfg.Telemetry.TelemetryEnabled())
-	emitter.EmitSessionEvent(herald.SessionEvent{
-		SessionID: "s-init",
-		RepoID:    filepath.Base(cwd),
-		Harness:   cfg.PrimaryHarness(),
-		StartedAt: startedAt,
-		Trigger:   "normal",
-	})
-	emitter.EmitHarnessHealth(herald.HarnessHealth{
-		Harness:       cfg.PrimaryHarness(),
-		TS:            time.Now().UTC().Format(time.RFC3339),
-		WrapUpSuccess: true,
-		LatencyMS:     0,
-	})
 
 	// ── Done ────────────────────────────────────────────────────────────────
 	p.Blank()

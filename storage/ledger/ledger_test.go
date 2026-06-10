@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/storage/ledger"
 )
 
@@ -21,9 +21,9 @@ func mustOpen(t *testing.T, dir string) *ledger.Ledger {
 	return l
 }
 
-func ev(text string) herald.Event {
-	return herald.Event{
-		Type:      herald.TurnObserved,
+func ev(text string) envelope.Event {
+	return envelope.Event{
+		Type:      envelope.TurnObserved,
 		SessionID: "s-1",
 		Timestamp: time.Unix(1, 0).UTC(),
 		Payload:   map[string]any{"text": text},

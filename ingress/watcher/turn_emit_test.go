@@ -4,12 +4,56 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/editor"
+	"github.com/momhq/mom/events/envelope"
 )
+
+// captureAppender is an in-memory Ledger stand-in: it records every event the
+// Editor appends so watcher tests can assert the canonical events produced
+// through the v0.50 Watcher → Editor → Ledger path.
+type captureAppender struct {
+	mu     sync.Mutex
+	events []envelope.Event
+}
+
+func (c *captureAppender) Append(e envelope.Event) (uint64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.events = append(c.events, e)
+	return uint64(len(c.events)), nil
+}
+
+func (c *captureAppender) all() []envelope.Event {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]envelope.Event(nil), c.events...)
+}
+
+// captureWatcher builds a Watcher whose Editor appends to an in-memory capture
+// appender. projectDir may be unbound (no .mom-project.yaml) to exercise the
+// privacy gate.
+func captureWatcher(projectDir, momDir, transcriptDir string) (*Watcher, *captureAppender) {
+	cap := &captureAppender{}
+	ed := editor.New(nil, nil).WithLedger(cap)
+	w := &Watcher{
+		cfg: Config{
+			TranscriptDir: transcriptDir,
+			ProjectDir:    projectDir,
+			MomDir:        momDir,
+			Adapter:       NewClaudeAdapter(),
+			Editor:        ed,
+			DebounceMs:    300,
+		},
+		timers:    make(map[string]*time.Timer),
+		cursorDir: filepath.Join(momDir, "cache"),
+		logFile:   filepath.Join(momDir, "watch.log"),
+	}
+	_ = os.MkdirAll(w.cursorDir, 0755)
+	return w, cap
+}
 
 // TestIngestFile_PublishesTurnObserved locks the watcher's v0.30
 // emission contract: every parsed turn produces ONE turn.observed
@@ -24,30 +68,7 @@ func TestIngestFile_PublishesTurnObserved(t *testing.T) {
 		[]byte("version: \"1\"\nid: alpha\n"), 0o644); err != nil {
 		t.Fatalf("write bind file: %v", err)
 	}
-	bus := herald.NewBus()
-
-	var mu sync.Mutex
-	var captured []herald.Event
-	bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
-		mu.Lock()
-		captured = append(captured, e)
-		mu.Unlock()
-	})
-
-	w := &Watcher{
-		cfg: Config{
-			TranscriptDir: transcriptDir,
-			ProjectDir:    projectDir,
-			MomDir:        momDir,
-			Adapter:       NewClaudeAdapter(),
-			Bus:           bus,
-			DebounceMs:    300,
-		},
-		timers:    make(map[string]*time.Timer),
-		cursorDir: filepath.Join(momDir, "cache"),
-		logFile:   filepath.Join(momDir, "watch.log"),
-	}
-	_ = os.MkdirAll(w.cursorDir, 0755)
+	w, cap := captureWatcher(projectDir, momDir, transcriptDir)
 
 	// Two real Claude transcript lines: one user, one assistant with
 	// usage + a tool_use block.
@@ -59,8 +80,7 @@ func TestIngestFile_PublishesTurnObserved(t *testing.T) {
 
 	w.ingestFile(transcriptPath)
 
-	mu.Lock()
-	defer mu.Unlock()
+	captured := cap.all()
 	if len(captured) != 2 {
 		t.Fatalf("got %d turn.observed events, want 2", len(captured))
 	}
@@ -86,31 +106,23 @@ func TestIngestFile_PublishesTurnObserved(t *testing.T) {
 	if len(tcs) != 2 {
 		t.Errorf("tool_calls len = %d, want 2 (Read + Bash)", len(tcs))
 	}
-	// Verify the Bash command (which contains an AKIA-shaped sentinel
-	// in the fixture) IS preserved in the bus payload — Drafter needs
-	// it for filter decisions. The privacy stripping happens in
-	// Logbook's projection, not in the bus event itself.
+	// The raw Bash command (an AKIA-shaped sentinel in the fixture) rides on
+	// the canonical event appended to the Ledger; the fold/lens read paths
+	// are responsible for not surfacing it.
 	if len(tcs) >= 2 {
 		input, _ := tcs[1]["input"].(map[string]any)
 		cmd, _ := input["command"].(string)
 		if cmd == "" {
-			t.Errorf("Bash tool_call.input.command should be preserved on the bus, got empty")
-		}
-	}
-
-	// Sanity: timestamps were stamped (the bus stamps Timestamp).
-	for i, e := range captured {
-		if e.Timestamp.IsZero() {
-			t.Errorf("event[%d] missing Timestamp (bus should stamp)", i)
+			t.Errorf("Bash tool_call.input.command should be preserved on the canonical event, got empty")
 		}
 	}
 }
 
 // TestIngestFile_PublishesNothingWithoutBus locks the inverse: when
 // the watcher has no Bus configured, ingestion still works (legacy
-// raw writer) but no events are published. Catches a future
-// regression where someone accidentally creates a default Bus.
-func TestIngestFile_PublishesNothingWithoutBus(t *testing.T) {
+// raw writer) but no events are appended. Catches a future regression
+// where ingestion couples to a publish path that must always be present.
+func TestIngestFile_PublishesNothingWithoutEditor(t *testing.T) {
 	transcriptDir := t.TempDir()
 	momDir := t.TempDir()
 
@@ -120,7 +132,7 @@ func TestIngestFile_PublishesNothingWithoutBus(t *testing.T) {
 			MomDir:        momDir,
 			Adapter:       NewClaudeAdapter(),
 			DebounceMs:    300,
-			// Bus intentionally nil
+			// Editor intentionally nil
 		},
 		timers:    make(map[string]*time.Timer),
 		cursorDir: filepath.Join(momDir, "cache"),
@@ -128,12 +140,12 @@ func TestIngestFile_PublishesNothingWithoutBus(t *testing.T) {
 	}
 	_ = os.MkdirAll(w.cursorDir, 0755)
 
-	transcriptPath := filepath.Join(transcriptDir, "s-no-bus.jsonl")
+	transcriptPath := filepath.Join(transcriptDir, "s-no-editor.jsonl")
 	if err := os.WriteFile(transcriptPath, []byte(claudeUserTurn+"\n"), 0o644); err != nil {
 		t.Fatalf("writing transcript: %v", err)
 	}
 
-	// Should not panic; should still write to raw.
+	// Should not panic; parsing still works and returns the turn count.
 	count := w.ingestFile(transcriptPath)
 	if count == 0 {
 		t.Errorf("expected ingest count > 0, got 0")
@@ -151,25 +163,7 @@ func TestIngestFile_PublishesOneEventPerTurn(t *testing.T) {
 		[]byte("version: \"1\"\nid: alpha\n"), 0o644); err != nil {
 		t.Fatalf("write bind file: %v", err)
 	}
-	bus := herald.NewBus()
-
-	var fires atomic.Int64
-	bus.Subscribe(herald.TurnObserved, func(e herald.Event) { fires.Add(1) })
-
-	w := &Watcher{
-		cfg: Config{
-			TranscriptDir: transcriptDir,
-			ProjectDir:    projectDir,
-			MomDir:        momDir,
-			Adapter:       NewClaudeAdapter(),
-			Bus:           bus,
-			DebounceMs:    300,
-		},
-		timers:    make(map[string]*time.Timer),
-		cursorDir: filepath.Join(momDir, "cache"),
-		logFile:   filepath.Join(momDir, "watch.log"),
-	}
-	_ = os.MkdirAll(w.cursorDir, 0755)
+	w, cap := captureWatcher(projectDir, momDir, transcriptDir)
 
 	transcriptPath := filepath.Join(transcriptDir, "s-three.jsonl")
 	body := claudeUserTurn + "\n" + claudeAssistantTextTurn + "\n" + claudeAssistantToolUseTurn + "\n"
@@ -179,8 +173,8 @@ func TestIngestFile_PublishesOneEventPerTurn(t *testing.T) {
 
 	w.ingestFile(transcriptPath)
 
-	if got := fires.Load(); got != 3 {
-		t.Errorf("turn.observed fired %d times, want 3 (one per turn)", got)
+	if got := len(cap.all()); got != 3 {
+		t.Errorf("turn.observed appended %d times, want 3 (one per turn)", got)
 	}
 }
 
@@ -222,28 +216,7 @@ func TestIngestFile_StampsProjectIdFromBindFile(t *testing.T) {
 		t.Fatalf("write bind file: %v", err)
 	}
 
-	bus := herald.NewBus()
-	var mu sync.Mutex
-	var captured []herald.Event
-	bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
-		mu.Lock()
-		captured = append(captured, e)
-		mu.Unlock()
-	})
-
-	w := &Watcher{
-		cfg: Config{
-			TranscriptDir: transcriptDir,
-			ProjectDir:    projectDir,
-			MomDir:        momDir,
-			Adapter:       NewClaudeAdapter(),
-			Bus:           bus,
-		},
-		timers:    make(map[string]*time.Timer),
-		cursorDir: filepath.Join(momDir, "cache"),
-		logFile:   filepath.Join(momDir, "watch.log"),
-	}
-	_ = os.MkdirAll(w.cursorDir, 0755)
+	w, cap := captureWatcher(projectDir, momDir, transcriptDir)
 
 	transcriptPath := filepath.Join(transcriptDir, "s-pid.jsonl")
 	if err := os.WriteFile(transcriptPath, []byte(claudeUserTurn+"\n"), 0o644); err != nil {
@@ -251,8 +224,7 @@ func TestIngestFile_StampsProjectIdFromBindFile(t *testing.T) {
 	}
 	w.ingestFile(transcriptPath)
 
-	mu.Lock()
-	defer mu.Unlock()
+	captured := cap.all()
 	if len(captured) != 1 {
 		t.Fatalf("got %d events, want 1", len(captured))
 	}
@@ -278,28 +250,7 @@ func TestIngestFile_StampsProjectIdFromPerTurnCwd_Claude(t *testing.T) {
 		t.Fatalf("write bind file: %v", err)
 	}
 
-	bus := herald.NewBus()
-	var mu sync.Mutex
-	var captured []herald.Event
-	bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
-		mu.Lock()
-		captured = append(captured, e)
-		mu.Unlock()
-	})
-
-	w := &Watcher{
-		cfg: Config{
-			TranscriptDir: transcriptDir,
-			ProjectDir:    watcherProjectDir,
-			MomDir:        momDir,
-			Adapter:       NewClaudeAdapter(),
-			Bus:           bus,
-		},
-		timers:    make(map[string]*time.Timer),
-		cursorDir: filepath.Join(momDir, "cache"),
-		logFile:   filepath.Join(momDir, "watch.log"),
-	}
-	_ = os.MkdirAll(w.cursorDir, 0755)
+	w, cap := captureWatcher(watcherProjectDir, momDir, transcriptDir)
 
 	line := `{"type":"user","sessionId":"s-cwd","timestamp":"2026-05-05T12:00:00.000Z","isSidechain":false,"cwd":"` + boundDir + `","message":{"role":"user","content":"hi"}}`
 	transcriptPath := filepath.Join(transcriptDir, "s-cwd.jsonl")
@@ -308,8 +259,7 @@ func TestIngestFile_StampsProjectIdFromPerTurnCwd_Claude(t *testing.T) {
 	}
 	w.ingestFile(transcriptPath)
 
-	mu.Lock()
-	defer mu.Unlock()
+	captured := cap.all()
 	if len(captured) != 1 {
 		t.Fatalf("got %d events, want 1", len(captured))
 	}
@@ -329,36 +279,13 @@ func TestIngestFile_SkipsTurnWhenUnbound(t *testing.T) {
 	momDir := t.TempDir()
 	projectDir := t.TempDir() // no .mom-project.yaml
 
-	bus := herald.NewBus()
-	var mu sync.Mutex
-	var captured []herald.Event
-	bus.Subscribe(herald.TurnObserved, func(e herald.Event) {
-		mu.Lock()
-		captured = append(captured, e)
-		mu.Unlock()
-	})
-
-	w := &Watcher{
-		cfg: Config{
-			TranscriptDir: transcriptDir,
-			ProjectDir:    projectDir,
-			MomDir:        momDir,
-			Adapter:       NewClaudeAdapter(),
-			Bus:           bus,
-		},
-		timers:    make(map[string]*time.Timer),
-		cursorDir: filepath.Join(momDir, "cache"),
-		logFile:   filepath.Join(momDir, "watch.log"),
-	}
-	_ = os.MkdirAll(w.cursorDir, 0755)
+	w, cap := captureWatcher(projectDir, momDir, transcriptDir)
 
 	transcriptPath := filepath.Join(transcriptDir, "s-unbound.jsonl")
 	_ = os.WriteFile(transcriptPath, []byte(claudeUserTurn+"\n"), 0o644)
 	w.ingestFile(transcriptPath)
 
-	mu.Lock()
-	defer mu.Unlock()
-	if len(captured) != 0 {
+	if captured := cap.all(); len(captured) != 0 {
 		t.Fatalf("got %d events, want 0 (unbound capture must be skipped)", len(captured))
 	}
 }

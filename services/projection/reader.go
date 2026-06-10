@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/storage/ledger"
 )
 
@@ -91,7 +91,7 @@ func (r *Reader) convert(rec ledger.Record) (FoldEvent, bool) {
 		return FoldEvent{}, false
 	}
 
-	// herald.Event.Timestamp is zero on historical records; the Ledger's
+	// envelope.Event.Timestamp is zero on historical records; the Ledger's
 	// AppendedAt is the durable wall-clock time. Prefer Timestamp, fall
 	// back to AppendedAt.
 	created := ev.Timestamp
@@ -100,7 +100,7 @@ func (r *Reader) convert(rec ledger.Record) (FoldEvent, bool) {
 	}
 
 	switch ev.Type {
-	case herald.TurnObserved:
+	case envelope.TurnObserved:
 		role := payloadString(ev.Payload, "role")
 		text := payloadString(ev.Payload, "text")
 		if isToolNoise(text) {
@@ -114,7 +114,7 @@ func (r *Reader) convert(rec ledger.Record) (FoldEvent, bool) {
 			Role:      role,
 			Text:      text,
 		}, true
-	case herald.MemoryRecord:
+	case envelope.MemoryRecord:
 		content := payloadString(ev.Payload, "content")
 		summary := payloadString(ev.Payload, "summary")
 		return FoldEvent{
@@ -133,7 +133,7 @@ func (r *Reader) convert(rec ledger.Record) (FoldEvent, bool) {
 
 // projectIDOf reads the project_id payload key, tolerating either a
 // top-level SessionID-style field absence.
-func projectIDOf(ev herald.Event) string {
+func projectIDOf(ev envelope.Event) string {
 	return payloadString(ev.Payload, "project_id")
 }
 

@@ -3,7 +3,7 @@ package watcher
 import (
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 )
 
 // Turn is the per-turn structured payload emitted by the watcher's
@@ -126,13 +126,13 @@ func (t Turn) ToPayload() map[string]any {
 }
 
 // Canonical implements editor.Canonicalizer. It exposes Turn as a
-// canonical herald.TurnObserved event whose payload is exactly the
+// canonical envelope.TurnObserved event whose payload is exactly the
 // ToPayload() shape Drafter and Logbook already consume. The Editor
 // (ADR 0020) layers provenance + project_id + schema validation on top.
-func (t Turn) Canonical() (herald.EventType, map[string]any) {
+func (t Turn) Canonical() (envelope.EventType, map[string]any) {
 	payload := t.ToPayload()
 	if t.SessionID != "" {
 		payload["session_id"] = t.SessionID
 	}
-	return herald.TurnObserved, payload
+	return envelope.TurnObserved, payload
 }

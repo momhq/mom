@@ -12,7 +12,6 @@ import (
 // allowedTopLevelDirs is the role-based layout from ADR 0017. Adding a
 // new top-level bucket requires updating this list and the ADR.
 var allowedTopLevelDirs = map[string]bool{
-	"bus":      true,
 	"cmd":      true,
 	"docs":     true,
 	"events":   true,
@@ -21,7 +20,6 @@ var allowedTopLevelDirs = map[string]bool{
 	"services": true,
 	"shared":   true,
 	"storage":  true,
-	"workers":  true,
 }
 
 // allowedTopLevelFiles are the repo-root files that ship in the module.
@@ -133,8 +131,8 @@ func TestLayout_NoCliDirAtAll(t *testing.T) {
 func TestLayout_RequiredBucketsExist(t *testing.T) {
 	root := repoRoot(t)
 	required := []string{
-		"bus", "cmd", "events", "ingress",
-		"ops", "services", "shared", "storage", "workers",
+		"cmd", "events", "ingress",
+		"ops", "services", "shared", "storage",
 	}
 	for _, bucket := range required {
 		path := filepath.Join(root, bucket)

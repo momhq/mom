@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/momhq/mom/bus/herald"
 	"github.com/momhq/mom/events/editor"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/storage/ledger"
 )
 
@@ -35,8 +35,8 @@ func TestPublish_E2E_RealLedger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ledger.Read(0): %v", err)
 	}
-	if rec.Event.Type != herald.TurnObserved {
-		t.Errorf("ledger Type = %q, want %q", rec.Event.Type, herald.TurnObserved)
+	if rec.Event.Type != envelope.TurnObserved {
+		t.Errorf("ledger Type = %q, want %q", rec.Event.Type, envelope.TurnObserved)
 	}
 	if got := rec.Event.Payload["text"]; got != "hello world" {
 		t.Errorf("ledger payload text = %v, want hello world", got)

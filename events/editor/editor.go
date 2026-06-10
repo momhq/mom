@@ -1,7 +1,7 @@
 // Package editor is the canonicalization gateway between Ingress and
 // the bus (ADR 0020). Every ingress surface — ingress/cli, ingress/mcp,
 // ingress/watcher/adapters/* — hands its raw input to the Editor; the
-// Editor produces a canonical herald.Event, validates it against the
+// Editor produces a canonical envelope.Event, validates it against the
 // Schema Registry (ADR 0019), stamps provenance + project_id, and
 // publishes to the bus.
 //
@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/events/registry"
 	"github.com/momhq/mom/shared/project"
 )
@@ -29,7 +29,7 @@ import (
 // test recorders. Defined here so the Editor can stay decoupled from
 // the concrete Ledger driver shape.
 type LedgerAppender interface {
-	Append(herald.Event) (uint64, error)
+	Append(envelope.Event) (uint64, error)
 }
 
 // Source carries the contextual metadata about *where* an input came
@@ -56,7 +56,7 @@ type Source struct {
 // than the Editor type-switching on every known input. Adding a new
 // input is a producer-side change; the Editor's contract is stable.
 type Canonicalizer interface {
-	Canonical() (eventType herald.EventType, payload map[string]any)
+	Canonical() (eventType envelope.EventType, payload map[string]any)
 }
 
 // Editor is the canonicalization gateway. Construct via New.
@@ -91,7 +91,7 @@ func (e *Editor) WithLedger(ledger LedgerAppender) *Editor {
 	return e
 }
 
-// Canonicalize composes a canonical herald.Event from in + src without
+// Canonicalize composes a canonical envelope.Event from in + src without
 // publishing. Pure (modulo logger side-effects). Used by tests and by
 // Publish.
 //
@@ -104,9 +104,9 @@ func (e *Editor) WithLedger(ledger LedgerAppender) *Editor {
 //  4. Validate against the registry (if any). Level-B violations
 //     (missing required, type mismatch, enum violation) attach a
 //     _schema_violation field to the payload but never block publish.
-//  5. Build the herald.Event envelope (Type, SessionID from payload,
-//     Payload). Timestamp is set by herald.Publish, not here.
-func (e *Editor) Canonicalize(in Canonicalizer, src Source) herald.Event {
+//  5. Build the envelope.Event (Type, SessionID from payload, Payload).
+//     Timestamp is left zero here; the Ledger stamps a durable AppendedAt.
+func (e *Editor) Canonicalize(in Canonicalizer, src Source) envelope.Event {
 	eventType, payload := in.Canonical()
 	if payload == nil {
 		payload = map[string]any{}
@@ -134,7 +134,7 @@ func (e *Editor) Canonicalize(in Canonicalizer, src Source) herald.Event {
 	}
 
 	sessionID, _ := payload["session_id"].(string)
-	return herald.Event{
+	return envelope.Event{
 		Type:      eventType,
 		SessionID: sessionID,
 		Payload:   payload,

@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/storage/ledger"
 )
 
@@ -156,18 +156,18 @@ func (s *Server) loadSessionData() (map[string]sessionData, int, error) {
 		if sid == "" {
 			continue
 		}
-		// herald.Event.Timestamp is zero on historical records; fall
+		// envelope.Event.Timestamp is zero on historical records; fall
 		// back to the Ledger's durable AppendedAt.
 		created := ev.Timestamp
 		if created.IsZero() {
 			created = rec.AppendedAt
 		}
 		switch ev.Type {
-		case herald.TurnObserved:
+		case envelope.TurnObserved:
 			b := get(sid)
 			b.includeTime(created)
 			applyTurnObserved(b, ev.Payload)
-		case herald.MemoryRecord:
+		case envelope.MemoryRecord:
 			b := get(sid)
 			b.includeTime(created)
 			summary := payloadStr(ev.Payload, "summary")

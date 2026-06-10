@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/momhq/mom/bus/herald"
 	"github.com/momhq/mom/events/editor"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/shared/pathutil"
 	"github.com/momhq/mom/shared/project"
 	"github.com/momhq/mom/shared/ux"
@@ -54,23 +54,11 @@ type Config struct {
 	// DebounceMs is how long to wait after a Write event before reading.
 	// Defaults to 300ms if zero.
 	DebounceMs int
-	// Bus is the Herald event bus. When set (and Editor is not),
-	// the watcher publishes one turn.observed event per parsed Turn
-	// directly so downstream subscribers (Drafter, Logbook) can run.
-	// May be nil; the watcher still advances cursors and writes its
-	// log either way.
-	//
-	// Deprecated by ADR 0020: when Editor is set, the watcher
-	// publishes through the Editor instead. Bus remains as the
-	// transport the Editor wraps. Callers should wire both during
-	// the v0.50 transition; #364's archtest will eventually forbid
-	// direct Bus.Publish from any Ingress package.
-	Bus *herald.Bus
 
-	// Editor is the canonicalization gateway (ADR 0020). When set,
-	// the watcher publishes parsed Turns through Editor.Publish,
-	// which canonicalizes, validates against the registry, and emits
-	// onto the bus. The Editor itself must hold a Bus reference.
+	// Editor is the canonicalization gateway (ADR 0020). The watcher
+	// publishes each parsed Turn through Editor.Publish, which
+	// canonicalizes it, validates against the registry, and appends the
+	// canonical event to the Ledger.
 	Editor *editor.Editor
 
 	// SweepOnly when true skips fsnotify setup. The watcher can only be
@@ -452,28 +440,19 @@ func (w *Watcher) ingestFile(path string) int {
 		w.p.Checkf("ingested %d turns from %s — %s", len(turns), w.p.HighlightValue(rt), w.p.HighlightValue(short))
 	}
 
-	// Emit one turn.observed event per parsed Turn. When Editor (ADR
-	// 0020) is wired, all canonicalization, validation, and provenance
-	// stamping happens there; the watcher just hands the Turn over.
-	// The legacy direct Bus.Publish path is retained for callers
-	// that haven't migrated yet.
+	// Publish one turn.observed event per parsed Turn through the Editor
+	// (ADR 0020): it canonicalizes the Turn, validates it against the
+	// registry, stamps provenance, and appends the canonical event to the
+	// Ledger. Capture is gated on a bound project — turns from unbound
+	// directories are skipped to protect privacy (the user is told about
+	// binding status at session start via the context block).
 	if w.cfg.Editor != nil {
-		for _, t := range turns {
-			if err := w.cfg.Editor.Publish(t, editor.Source{
-				Adapter: t.Harness,
-				Cwd:     resolveCwdForTurn(t, w.cfg.ProjectDir),
-			}); err != nil {
-				w.logf("editor publish (%s, session=%s): %v", herald.TurnObserved, t.SessionID, err)
-			}
-		}
-	} else if w.cfg.Bus != nil {
 		defaultProjectId := w.resolveProjectId()
 		for _, t := range turns {
 			// Prefer per-turn cwd when the adapter surfaced one (Codex
 			// reports cwd per turn_context — required to scope cross-project
 			// sessions correctly when transcripts share a global directory).
-			// Fall back to the watcher's configured ProjectDir when no
-			// per-turn cwd is available (Claude/Pi).
+			// Fall back to the watcher's configured ProjectDir (Claude/Pi).
 			projectId := defaultProjectId
 			if t.Cwd != "" {
 				if id, _, _, err := project.ResolveProject(t.Cwd); err == nil {
@@ -481,17 +460,15 @@ func (w *Watcher) ingestFile(path string) int {
 				}
 			}
 			if projectId == "" {
-				// No bound project — skip turn capture to protect privacy.
-				// The user is informed of binding status at session start via
-				// the global CLAUDE.md instruction.
 				continue
 			}
 			t.ProjectId = projectId
-			w.cfg.Bus.Publish(herald.Event{
-				Type:      herald.TurnObserved,
-				SessionID: t.SessionID,
-				Payload:   t.ToPayload(),
-			})
+			if err := w.cfg.Editor.Publish(t, editor.Source{
+				Adapter: t.Harness,
+				Cwd:     resolveCwdForTurn(t, w.cfg.ProjectDir),
+			}); err != nil {
+				w.logf("editor publish (%s, session=%s): %v", envelope.TurnObserved, t.SessionID, err)
+			}
 		}
 	}
 

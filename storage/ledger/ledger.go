@@ -45,7 +45,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 )
 
 // SegmentRotationBytes is the maximum size of a single segment file
@@ -71,13 +71,13 @@ const recordPrefixSize = 4
 // Offset is monotonically increasing across the lifetime of the
 // Ledger. Consumers (Crier) checkpoint by Offset.
 //
-// Event is the canonical herald.Event from the Editor (ADR 0020).
+// Event is the canonical envelope.Event from the Editor (ADR 0020).
 // AppendedAt is the wall-clock time the Ledger wrote the record.
 type Record struct {
-	ID         string       `json:"id"`
-	Offset     uint64       `json:"offset"`
-	AppendedAt time.Time    `json:"appended_at"`
-	Event      herald.Event `json:"event"`
+	ID         string         `json:"id"`
+	Offset     uint64         `json:"offset"`
+	AppendedAt time.Time      `json:"appended_at"`
+	Event      envelope.Event `json:"event"`
 }
 
 // Ledger is a handle on the on-disk segment directory. Open returns
@@ -141,7 +141,7 @@ func (l *Ledger) Close() error {
 // Returns (offset, nil) on success. Append never partial-publishes:
 // a failure leaves the on-disk segment consistent (last good record
 // or empty), and the next Append assigns the same offset.
-func (l *Ledger) Append(e herald.Event) (uint64, error) {
+func (l *Ledger) Append(e envelope.Event) (uint64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.active == nil || l.active.file == nil {

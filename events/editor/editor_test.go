@@ -7,19 +7,19 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/momhq/mom/bus/herald"
 	"github.com/momhq/mom/events/editor"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/events/registry"
 )
 
 // staticInput is a minimal Canonicalizer for testing — declares its own
 // (type, payload) so the test controls both sides of the contract.
 type staticInput struct {
-	eventType herald.EventType
+	eventType envelope.EventType
 	payload   map[string]any
 }
 
-func (s staticInput) Canonical() (herald.EventType, map[string]any) {
+func (s staticInput) Canonical() (envelope.EventType, map[string]any) {
 	return s.eventType, s.payload
 }
 
@@ -205,11 +205,11 @@ func writeSchemaDir(t *testing.T, family, filename, body string) string {
 
 // recordingLedger captures Append calls.
 type recordingLedger struct {
-	events []herald.Event
+	events []envelope.Event
 	failOn int // 1-indexed call number on which to return an error; 0 = never fail
 }
 
-func (r *recordingLedger) Append(e herald.Event) (uint64, error) {
+func (r *recordingLedger) Append(e envelope.Event) (uint64, error) {
 	if r.failOn > 0 && len(r.events)+1 == r.failOn {
 		return 0, errLedgerFull
 	}

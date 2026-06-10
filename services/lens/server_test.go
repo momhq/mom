@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/momhq/mom/bus/herald"
+	"github.com/momhq/mom/events/envelope"
 	"github.com/momhq/mom/shared/archtest"
 	"github.com/momhq/mom/storage/ledger"
 )
@@ -21,7 +21,7 @@ func testLedger(t *testing.T) string {
 }
 
 // appendEvent appends one event to the Ledger at dir.
-func appendEvent(t *testing.T, dir string, ev herald.Event) {
+func appendEvent(t *testing.T, dir string, ev envelope.Event) {
 	t.Helper()
 	l, err := ledger.Open(dir)
 	if err != nil {
@@ -48,8 +48,8 @@ func appendTurn(t *testing.T, dir, sessionID, role string, at time.Time, payload
 		payload = map[string]any{}
 	}
 	payload["role"] = role
-	appendEvent(t, dir, herald.Event{
-		Type:      herald.TurnObserved,
+	appendEvent(t, dir, envelope.Event{
+		Type:      envelope.TurnObserved,
 		SessionID: sessionID,
 		Timestamp: at,
 		Payload:   payload,
@@ -58,8 +58,8 @@ func appendTurn(t *testing.T, dir, sessionID, role string, at time.Time, payload
 
 func appendMemory(t *testing.T, dir, sessionID, summary string, at time.Time) {
 	t.Helper()
-	appendEvent(t, dir, herald.Event{
-		Type:      herald.MemoryRecord,
+	appendEvent(t, dir, envelope.Event{
+		Type:      envelope.MemoryRecord,
 		SessionID: sessionID,
 		Timestamp: at,
 		Payload:   map[string]any{"summary": summary},
