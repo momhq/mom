@@ -13,15 +13,25 @@ var (
 	Commit  = "none"
 )
 
+// shortCommit returns the commit truncated to its short form.
+func shortCommit() string {
+	if len(Commit) > 7 {
+		return Commit[:7]
+	}
+	return Commit
+}
+
+// versionString is the plain "Version (commit)" form used by the bare
+// `--version` flag (see root.go).
+func versionString() string {
+	return fmt.Sprintf("%s (%s)", Version, shortCommit())
+}
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the MOM CLI version",
 	Run: func(cmd *cobra.Command, args []string) {
 		p := ux.NewPrinter(cmd.OutOrStdout())
-		short := Commit
-		if len(short) > 7 {
-			short = short[:7]
-		}
-		p.Text(fmt.Sprintf("mom %s (%s)", p.HighlightValue(Version), p.MutedText(short)))
+		p.Text(fmt.Sprintf("mom %s (%s)", p.HighlightValue(Version), p.MutedText(shortCommit())))
 	},
 }

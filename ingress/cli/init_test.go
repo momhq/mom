@@ -31,6 +31,22 @@ func initTestCentralVault(t *testing.T) string {
 	return dir
 }
 
+func TestDeriveProjectId(t *testing.T) {
+	cases := map[string]string{
+		"/Users/v/momhq/mom":      "mom",
+		"/Users/v/My Project":     "my-project",
+		"/Users/v/pi__agents.cli": "pi-agents-cli",
+		"/Users/v/--weird--":      "weird",
+		"/Users/v/123":            "123",
+		"/":                       "project",
+	}
+	for in, want := range cases {
+		if got := deriveProjectId(in); got != want {
+			t.Errorf("deriveProjectId(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestInitCmd_CreatesLeoStructure(t *testing.T) {
 	dir := t.TempDir()
 	centralDir := initTestCentralVault(t)

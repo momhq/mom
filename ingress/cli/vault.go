@@ -93,7 +93,7 @@ func resolveVaultTarget() (projectID, root string, err error) {
 	if !found {
 		if vaultProject == "" || root == "" {
 			return "", "", fmt.Errorf(
-				"no %s found in this directory or any parent — bind this directory with `mom project <id>` first (or pass both --project and --root)",
+				"no %s found in this directory or any parent — bind this directory with `mom project bind --id <id>` first (or pass both --project and --root)",
 				project.BindFilename)
 		}
 	} else if root == "" {

@@ -55,7 +55,7 @@ func checkVersionCache() string {
 	}
 
 	if semverGreater(cache.LatestVersion, Version) {
-		return fmt.Sprintf("MOM %s available. Run `brew upgrade mom` or `mom self-update`", cache.LatestVersion)
+		return fmt.Sprintf("MOM %s available. Run `brew upgrade mom` then `mom upgrade`", cache.LatestVersion)
 	}
 
 	return ""

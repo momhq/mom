@@ -27,6 +27,10 @@ func Execute() error {
 }
 
 func init() {
+	// Enable the bare `mom --version` flag alongside the `version` subcommand.
+	rootCmd.Version = versionString()
+	rootCmd.SetVersionTemplate("mom {{.Version}}\n")
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(statusCmd)

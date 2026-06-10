@@ -27,7 +27,34 @@ var projectCmd = &cobra.Command{
 	Short: "Manage MOM project bindings",
 	Long: `Manage the .mom-project.yaml binding that declares this directory's
 project identity (per ADR 0016). Memories captured from a bound directory
-carry the declared id; recall scopes to that id by default.`,
+carry the declared id; recall scopes to that id by default.
+
+Run with no subcommand to report the current directory's binding — this is
+the session-start check an LLM harness runs.`,
+	RunE: runProjectStatus,
+}
+
+// runProjectStatus reports the binding for the current directory. It backs the
+// session-start procedure shipped in the harness context block: bare
+// `mom project` prints the bound id (and nothing else on the id line) or a
+// clear not-bound message pointing at the bind command.
+func runProjectStatus(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting cwd: %w", err)
+	}
+	id, source, found, err := project.ResolveProject(cwd)
+	if err != nil {
+		return err
+	}
+	out := cmd.OutOrStdout()
+	if !found {
+		fmt.Fprintln(out, "not bound — run `mom project bind --id <id>` to bind this directory")
+		return nil
+	}
+	fmt.Fprintln(out, id)
+	fmt.Fprintf(out, "(bound via %s)\n", source)
+	return nil
 }
 
 var projectBindCmd = &cobra.Command{

@@ -12,6 +12,8 @@ import (
 
 	"github.com/momhq/mom/ingress/harness"
 	"github.com/momhq/mom/shared/config"
+	"github.com/momhq/mom/shared/pathutil"
+	"github.com/momhq/mom/shared/project"
 	"github.com/momhq/mom/shared/ux"
 	"github.com/momhq/mom/storage/librarian"
 	"github.com/spf13/cobra"
@@ -306,9 +308,25 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 	// ── Phase 3.5: Install global skills ────────────────────────────────────
 	installGlobalSkills(p, result.Harnesses)
 
+	// ── Phase 3.75: Bind this directory so capture can start ────────────────
+	// The watch daemon only attaches to directories carrying a
+	// .mom-project.yaml binding (the privacy gate). On a fresh install we bind
+	// the current directory — when it is a real project root — so capture
+	// begins on first run instead of silently doing nothing until the user
+	// binds by hand.
+	bound := guideProjectBinding(cwd, momDir, p)
+
 	// ── Phase 4: Register with global watch daemon ──────────────────────────
 	if err := ensureGlobalDaemon(cwd, momDir, result.Harnesses); err != nil {
-		p.Warnf("watch daemon: %v", err)
+		if bound == "" {
+			// Unbound directory (e.g. init run from $HOME): the daemon has
+			// nothing to attach to yet. Be honest and tell the user how to
+			// start capture instead of claiming it is running.
+			p.Warn("Capture is not running yet — this directory is not a bound project.")
+			p.Muted(fmt.Sprintf("From your project directory run: %s", p.HighlightCmd("mom project bind --id <id>")))
+		} else {
+			p.Warnf("watch daemon: %v", err)
+		}
 	} else {
 		p.Check("Watch daemon installed")
 	}
@@ -320,8 +338,68 @@ func runInitWithConfig(cmd *cobra.Command, cwd string, force bool, result Onboar
 		p.Checkf("%s global integration installed", harnessLabel(rt))
 	}
 	p.Blank()
-	p.Textf("MOM is ready. Try /mom-status or run %s.", p.HighlightCmd("mom status"))
+	if bound != "" {
+		p.Textf("MOM is ready and capturing project %s. Try /mom-status or run %s.", p.HighlightValue(bound), p.HighlightCmd("mom status"))
+	} else {
+		p.Textf("MOM is ready. Bind a project to start capture, then try /mom-status or run %s.", p.HighlightCmd("mom status"))
+	}
 	return nil
+}
+
+// guideProjectBinding binds the current directory to a derived project id when
+// it is a sensible project root and not already bound, so the watch daemon —
+// which only attaches to bound directories — can start capturing immediately.
+// Returns the bound id, or "" if nothing was done.
+func guideProjectBinding(cwd, momDir string, p *ux.Printer) string {
+	if _, _, found, _ := project.ResolveProject(cwd); found {
+		return "" // already bound — leave the existing binding alone
+	}
+	if !isBindableDir(cwd, momDir) {
+		return ""
+	}
+	id := deriveProjectId(cwd)
+	if err := project.WriteBinding(cwd, id, false); err != nil {
+		return ""
+	}
+	p.Checkf("Bound this directory to project %s (capture starts now)", p.HighlightValue(id))
+	p.Muted("Rename anytime: mom project bind --id <id> --force")
+	return id
+}
+
+// isBindableDir reports whether cwd is a reasonable place to write a project
+// binding: not the home directory and not MOM's central vault dir.
+func isBindableDir(cwd, momDir string) bool {
+	canonical := pathutil.CanonicalDir(cwd)
+	if home, err := os.UserHomeDir(); err == nil && canonical == pathutil.CanonicalDir(home) {
+		return false
+	}
+	if central, err := librarian.Dir(); err == nil && canonical == pathutil.CanonicalDir(central) {
+		return false
+	}
+	return true
+}
+
+// deriveProjectId slugifies a directory basename into a project id
+// (lowercase, alphanumeric runs joined by single hyphens).
+func deriveProjectId(cwd string) string {
+	var b strings.Builder
+	prevDash := false
+	for _, r := range strings.ToLower(filepath.Base(cwd)) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			prevDash = false
+			continue
+		}
+		if !prevDash && b.Len() > 0 {
+			b.WriteByte('-')
+			prevDash = true
+		}
+	}
+	id := strings.Trim(b.String(), "-")
+	if id == "" {
+		return "project"
+	}
+	return id
 }
 
 // runReinit handles `mom init` when the central vault already exists. It
