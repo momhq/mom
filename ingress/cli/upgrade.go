@@ -230,6 +230,10 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 			addAction(action.symbol, action.desc)
 		}
 
+		if isCentralVault(momDir) {
+			noticeLegacySQLiteVault(addAction)
+		}
+
 		if showSpinner {
 			time.Sleep(500 * time.Millisecond)
 		}
@@ -326,6 +330,7 @@ func upgradeSingleDir(cmd *cobra.Command, projectRoot string, dryRun bool) error
 		}
 
 		installSkillsDuringUpgrade(cfg.EnabledHarnesses(), dryRun, addAction)
+		pruneDeprecatedSkillsDuringUpgrade(cfg.EnabledHarnesses(), dryRun, addAction)
 
 		// Refresh harness-native extensions (currently just Pi). Skills.sh
 		// keeps SKILL.md in sync for every harness; pi additionally ships
@@ -441,6 +446,43 @@ func installSkillsDuringUpgrade(harnesses []string, dryRun bool, addAction func(
 		}
 		addAction("✔", fmt.Sprintf("skills installed for %s → %s", h, agent))
 	}
+}
+
+// pruneDeprecatedSkillsDuringUpgrade uninstalls skills retired in v0.50 (e.g.
+// mom-wrap-up) so a prior install does not leave a stale, misleading skill on
+// the user's machine. Best-effort: a not-installed skill or skills.sh hiccup
+// must never fail the upgrade.
+func pruneDeprecatedSkillsDuringUpgrade(harnesses []string, dryRun bool, addAction func(string, string)) {
+	for _, h := range harnesses {
+		agent, ok := skillsAgentForHarness(h)
+		if !ok {
+			continue
+		}
+		args, command := skillsRemoveCommand(agent, deprecatedSkills)
+		if dryRun {
+			addAction("+", "would run "+command)
+			continue
+		}
+		if _, err := runExternalCommand("npx", args...); err != nil {
+			continue
+		}
+		addAction("✔", fmt.Sprintf("deprecated skills removed for %s → %s", h, agent))
+	}
+}
+
+// noticeLegacySQLiteVault surfaces a clear notice when a pre-v0.50 SQLite vault
+// (mom.db) is still on disk. v0.50 does not migrate it — the vault is rebuilt
+// from go-forward capture in the Ledger — so we tell the user it is abandoned
+// and give the exact command to remove it. We never delete it automatically.
+func noticeLegacySQLiteVault(addAction func(string, string)) {
+	path, err := librarian.Path()
+	if err != nil {
+		return
+	}
+	if _, statErr := os.Stat(path); statErr != nil {
+		return // no legacy vault present
+	}
+	addAction("⚠", fmt.Sprintf("legacy SQLite memory found at %s — v0.50 does not migrate it; the vault now rebuilds from go-forward capture. Remove it once capture is confirmed: rm %s", path, path))
 }
 
 // fileChanged returns true if the file at path doesn't exist or differs from data.

@@ -15,6 +15,75 @@ func TestClaudeAdapter_Name(t *testing.T) {
 	}
 }
 
+func TestRemoveStaleClaudeMCP(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// ~/.claude.json: top-level mcpServers.mom plus a per-project map, alongside
+	// content that must survive untouched.
+	claudeJSON := `{
+  "numStartups": 7,
+  "mcpServers": {"mom": {"command": "mom", "args": ["serve", "mcp"]}, "other": {"command": "x"}},
+  "projects": {"/a": {"mcpServers": {"mom": {"command": "mom"}}, "history": ["k"]}}
+}`
+	mcpJSON := `{"mcpServers": {"mom": {"command": "mom"}}}`
+	mustWrite(t, filepath.Join(home, ".claude.json"), claudeJSON)
+	mustWrite(t, filepath.Join(home, ".mcp.json"), mcpJSON)
+
+	changed, err := removeStaleClaudeMCP()
+	if err != nil {
+		t.Fatalf("removeStaleClaudeMCP: %v", err)
+	}
+	if len(changed) != 2 {
+		t.Fatalf("expected 2 files rewritten, got %d (%v)", len(changed), changed)
+	}
+
+	got := readJSON(t, filepath.Join(home, ".claude.json"))
+	servers := got["mcpServers"].(map[string]any)
+	if _, ok := servers["mom"]; ok {
+		t.Error("top-level mcpServers.mom not removed")
+	}
+	if _, ok := servers["other"]; !ok {
+		t.Error("unrelated mcpServers.other was dropped")
+	}
+	if got["numStartups"].(float64) != 7 {
+		t.Error("unrelated content not preserved")
+	}
+	proj := got["projects"].(map[string]any)["/a"].(map[string]any)
+	if _, ok := proj["mcpServers"].(map[string]any)["mom"]; ok {
+		t.Error("per-project mcpServers.mom not removed")
+	}
+
+	// Idempotent: a second run with no mom entries rewrites nothing.
+	changed, err = removeStaleClaudeMCP()
+	if err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+	if len(changed) != 0 {
+		t.Errorf("expected no rewrites on clean configs, got %v", changed)
+	}
+}
+
+func mustWrite(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func readJSON(t *testing.T, path string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("unmarshal %s: %v", path, err)
+	}
+	return m
+}
+
 func TestClaudeAdapter_DetectHarness(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -109,6 +109,13 @@ func (a *ClaudeAdapter) GenerateGlobalContextFile(config Config, constraints []C
 }
 
 func (a *ClaudeAdapter) RegisterGlobalHooks() error {
+	// Best-effort: strip MOM's retired MCP registration from Claude's JSON
+	// configs. v0.50 removed the MCP server, so a lingering mcpServers.mom
+	// points at the absent `mom serve mcp` and makes every Claude Code launch
+	// try to spawn a dead server. Never fatal — malformed user files are left
+	// untouched.
+	_, _ = removeStaleClaudeMCP()
+
 	settingsPath, err := homePath(".claude", "settings.json")
 	if err != nil {
 		return err
@@ -130,6 +137,81 @@ func (a *ClaudeAdapter) RegisterGlobalHooks() error {
 	}
 	data = append(data, '\n')
 	return os.WriteFile(settingsPath, data, 0644)
+}
+
+// removeStaleClaudeMCP deletes MOM's pre-v0.50 MCP server entry from Claude's
+// JSON configs (~/.claude.json and ~/.mcp.json). It returns the paths it
+// actually rewrote. A file is only rewritten when a mom MCP entry was present,
+// so installs without the stale entry are left byte-for-byte untouched.
+func removeStaleClaudeMCP() (changed []string, err error) {
+	for _, rel := range [][]string{{".claude.json"}, {".mcp.json"}} {
+		path, e := homePath(rel...)
+		if e != nil {
+			continue
+		}
+		did, e := stripMomMCPFromJSONFile(path)
+		if e != nil {
+			return changed, e
+		}
+		if did {
+			changed = append(changed, path)
+		}
+	}
+	return changed, nil
+}
+
+// stripMomMCPFromJSONFile removes the "mom" key from any mcpServers object in
+// a Claude JSON config — both the top-level map and per-project maps under
+// projects.<path>.mcpServers (the shape ~/.claude.json uses). Returns whether
+// the file changed. Malformed JSON is left untouched (returns false, nil).
+func stripMomMCPFromJSONFile(path string) (bool, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil {
+		return false, nil
+	}
+	changed := deleteMomMCPServer(root)
+	if projects, ok := root["projects"].(map[string]any); ok {
+		for _, v := range projects {
+			if pm, ok := v.(map[string]any); ok {
+				if deleteMomMCPServer(pm) {
+					changed = true
+				}
+			}
+		}
+	}
+	if !changed {
+		return false, nil
+	}
+	out, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return false, err
+	}
+	out = append(out, '\n')
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// deleteMomMCPServer removes obj["mcpServers"]["mom"] if present, reporting
+// whether anything was deleted.
+func deleteMomMCPServer(obj map[string]any) bool {
+	servers, ok := obj["mcpServers"].(map[string]any)
+	if !ok {
+		return false
+	}
+	if _, exists := servers["mom"]; !exists {
+		return false
+	}
+	delete(servers, "mom")
+	return true
 }
 
 func (a *ClaudeAdapter) GeneratedFiles() []string {

@@ -87,6 +87,7 @@ func runFullUninstall(p *ux.Printer, cmd *cobra.Command) error {
 	if err := removeGlobalHarnessContext(p); err != nil {
 		p.Warnf("removing global harness context: %v", err)
 	}
+	removeGlobalSkills(p)
 	if err := removeCentralVault(p); err != nil {
 		p.Warnf("removing central vault: %v", err)
 	}
@@ -136,6 +137,21 @@ func removeGlobalHarnessContext(p *ux.Printer) error {
 		}
 	}
 	return nil
+}
+
+// removeGlobalSkills uninstalls MOM's skills (current + deprecated) from the
+// skills.sh-backed harnesses. Best-effort: skills.sh not being present, or a
+// skill already absent, must not block the uninstall.
+func removeGlobalSkills(p *ux.Printer) {
+	all := append(append([]string{}, currentSkills...), deprecatedSkills...)
+	for _, agent := range []string{"claude-code", "codex"} {
+		args, _ := skillsRemoveCommand(agent, all)
+		if _, err := runExternalCommand("npx", args...); err != nil {
+			p.Warnf("removing MOM skills for %s: %v", agent, err)
+			continue
+		}
+		p.Checkf("removed MOM skills for %s", agent)
+	}
 }
 
 func removeCentralVault(p *ux.Printer) error {

@@ -474,6 +474,23 @@ func skillsInstallCommand(agent string) ([]string, string) {
 	return args, fmt.Sprintf("npx skills add momhq/mom -g -s '*' -a %s -y", agent)
 }
 
+// currentSkills is the v0.50 skill set MOM ships and installs via skills.sh.
+var currentSkills = []string{"mom-status", "mom-recall", "mom-project", "mom-fold", "mom-rebuild"}
+
+// deprecatedSkills lists skills shipped by pre-v0.50 MOM that are removed in
+// v0.50. They are actively uninstalled on init/upgrade so a previously
+// installed copy does not linger and mislead the agent — e.g. mom-wrap-up
+// drove the retired draft-curation flow, which no longer exists.
+var deprecatedSkills = []string{"mom-wrap-up"}
+
+// skillsRemoveCommand builds a skills.sh removal invocation for the given
+// skills under one agent. Mirrors skillsInstallCommand.
+func skillsRemoveCommand(agent string, skills []string) ([]string, string) {
+	args := append([]string{"skills", "remove"}, skills...)
+	args = append(args, "-g", "-a", agent, "-y")
+	return args, fmt.Sprintf("npx skills remove %s -g -a %s -y", strings.Join(skills, " "), agent)
+}
+
 // skillsAgentForHarness maps a MOM harness id to the skills.sh agent id.
 //
 // Pi is intentionally excluded: it installs the deeper pi-mom extension via
