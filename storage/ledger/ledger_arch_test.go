@@ -19,7 +19,6 @@ func TestLedger_DoesNotImportVaultOrLibrarian(t *testing.T) {
 		"github.com/momhq/mom/storage/vault",
 		"github.com/momhq/mom/storage/librarian",
 		"github.com/momhq/mom/storage/canonical",
-		"github.com/momhq/mom/storage/memory",
 		"github.com/momhq/mom/storage/legacy",
 	)
 }

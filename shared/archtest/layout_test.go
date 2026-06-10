@@ -13,7 +13,6 @@ import (
 // new top-level bucket requires updating this list and the ADR.
 var allowedTopLevelDirs = map[string]bool{
 	"cmd":      true,
-	"docs":     true,
 	"events":   true,
 	"ingress":  true,
 	"ops":      true,
@@ -31,6 +30,7 @@ var allowedTopLevelFiles = map[string]bool{
 	".mcp.json":          true,
 	".mcp.json.bkp":      true,
 	".mom-project.yaml":  true,
+	"CLAUDE.md":          true, // gitignored — local agent context
 	"CODE_OF_CONDUCT.md": true,
 	"CONTRIBUTING.md":    true,
 	"LICENSE":            true,
@@ -57,6 +57,8 @@ var allowedTopLevelDirsAux = map[string]bool{
 	"skills":     true,
 	"goals":      true, // gitignored — local goal packages
 	"scripts":    true, // gitignored — local helper scripts
+	".mom":       true, // gitignored — local central vault when developing
+	"bin":        true, // gitignored — local build output
 }
 
 func repoRoot(t *testing.T) string {

@@ -162,18 +162,14 @@ func pluralS(n int) string {
 	return "s"
 }
 
-// scopeWalkAllowlist names the files in internal/cmd/ that may still call
+// scopeWalkAllowlist names the files in ingress/cli/ that may still call
 // the legacy scope-walk APIs. Each entry has explicit rationale.
 //
 //   - uninstall.go: Path-1 disconnect uses scope.NearestWritable as a
 //     fallback so users with leftover project-local .mom/ dirs from
 //     pre-v0.30 installs can still uninstall cleanly (#303 design lock).
-//   - map.go: mom map / cartographer still writes drafts to
-//     .mom/memory/*.json under the pre-central-vault model. Cartographer
-//     v2 will retire this; until then the allowlist documents the debt.
 var scopeWalkAllowlist = map[string]bool{
 	"uninstall.go": true,
-	"map.go":       true,
 }
 
 // scopeWalkForbidden is the set of legacy scope-walk symbols whose usage is

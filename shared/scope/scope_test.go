@@ -30,8 +30,9 @@ func writeConfig(t *testing.T, momDir, label string) {
 	}
 }
 
-func TestWalk_ThreeLevels(t *testing.T) {
-	// Tree: root/.mom, root/a/.mom, root/a/b/.mom — cwd = root/a/b
+func TestNearestWritable_NearestFirst(t *testing.T) {
+	// Tree: root/.mom, root/a/.mom, root/a/b/.mom — cwd = root/a/b.
+	// NearestWritable returns the most specific scope (root/a/b/.mom).
 	root := makeTree(t,
 		".mom",
 		"a/.mom",
@@ -41,82 +42,19 @@ func TestWalk_ThreeLevels(t *testing.T) {
 	writeConfig(t, filepath.Join(root, "a", ".mom"), "org")
 	writeConfig(t, filepath.Join(root, "a", "b", ".mom"), "repo")
 
-	// Patch HOME to root so Walk stops there.
+	// Patch HOME to root so the walk stops there.
 	t.Setenv("HOME", root)
 
 	cwd := filepath.Join(root, "a", "b")
-	scopes := scope.Walk(cwd)
-
-	if len(scopes) != 3 {
-		t.Fatalf("expected 3 scopes, got %d: %v", len(scopes), scopes)
+	s, ok := scope.NearestWritable(cwd)
+	if !ok {
+		t.Fatal("expected NearestWritable to return ok=true")
 	}
-
-	// Nearest first.
-	if scopes[0].Path != filepath.Join(root, "a", "b", ".mom") {
-		t.Errorf("scopes[0].Path = %q, want %q", scopes[0].Path, filepath.Join(root, "a", "b", ".mom"))
+	if s.Path != filepath.Join(root, "a", "b", ".mom") {
+		t.Errorf("Path = %q, want %q", s.Path, filepath.Join(root, "a", "b", ".mom"))
 	}
-	if scopes[1].Path != filepath.Join(root, "a", ".mom") {
-		t.Errorf("scopes[1].Path = %q", scopes[1].Path)
-	}
-	if scopes[2].Path != filepath.Join(root, ".mom") {
-		t.Errorf("scopes[2].Path = %q", scopes[2].Path)
-	}
-
-	if scopes[0].Label != "repo" {
-		t.Errorf("scopes[0].Label = %q, want repo", scopes[0].Label)
-	}
-	if scopes[1].Label != "org" {
-		t.Errorf("scopes[1].Label = %q, want org", scopes[1].Label)
-	}
-	if scopes[2].Label != "user" {
-		t.Errorf("scopes[2].Label = %q, want user", scopes[2].Label)
-	}
-}
-
-func TestWalk_NoLeoDir(t *testing.T) {
-	// cwd with no .mom/ anywhere.
-	root := t.TempDir()
-	t.Setenv("HOME", root)
-
-	scopes := scope.Walk(root)
-	if len(scopes) != 0 {
-		t.Fatalf("expected 0 scopes, got %d", len(scopes))
-	}
-}
-
-func TestWalk_StopsAtHome(t *testing.T) {
-	// Tree: root/.mom, root/a/.mom — HOME = root/a (so root/.mom should not appear)
-	root := makeTree(t,
-		".mom",
-		"a/.mom",
-		"a/b",
-	)
-	writeConfig(t, filepath.Join(root, ".mom"), "user")
-	writeConfig(t, filepath.Join(root, "a", ".mom"), "repo")
-
-	t.Setenv("HOME", filepath.Join(root, "a"))
-
-	cwd := filepath.Join(root, "a", "b")
-	scopes := scope.Walk(cwd)
-
-	// Should only find root/a/.mom (HOME boundary stops at root/a, inclusive).
-	if len(scopes) != 1 {
-		t.Fatalf("expected 1 scope, got %d: %v", len(scopes), scopes)
-	}
-	if scopes[0].Path != filepath.Join(root, "a", ".mom") {
-		t.Errorf("scopes[0].Path = %q", scopes[0].Path)
-	}
-}
-
-func TestWalk_NearestFirst(t *testing.T) {
-	// Single .mom/ one level above cwd.
-	root := makeTree(t, ".mom", "sub")
-	writeConfig(t, filepath.Join(root, ".mom"), "repo")
-	t.Setenv("HOME", root)
-
-	scopes := scope.Walk(filepath.Join(root, "sub"))
-	if len(scopes) != 1 {
-		t.Fatalf("expected 1, got %d", len(scopes))
+	if s.Label != "repo" {
+		t.Errorf("Label = %q, want repo", s.Label)
 	}
 }
 
@@ -144,6 +82,21 @@ func TestNearestWritable_NotFound(t *testing.T) {
 	}
 }
 
+func TestNearestWritable_FindsParentScope(t *testing.T) {
+	// Single .mom/ one level above cwd is discovered via walk-up.
+	root := makeTree(t, ".mom", "sub")
+	writeConfig(t, filepath.Join(root, ".mom"), "repo")
+	t.Setenv("HOME", root)
+
+	s, ok := scope.NearestWritable(filepath.Join(root, "sub"))
+	if !ok {
+		t.Fatal("expected ok=true")
+	}
+	if s.Path != filepath.Join(root, ".mom") {
+		t.Errorf("Path = %q", s.Path)
+	}
+}
+
 func TestDefaultScope_MissingField(t *testing.T) {
 	// A .mom/ with no scope field in config.yaml outside $HOME defaults to "repo".
 	root := makeTree(t, ".mom")
@@ -154,12 +107,12 @@ func TestDefaultScope_MissingField(t *testing.T) {
 	// HOME points elsewhere so the $HOME/.mom/ → "user" override does not trigger.
 	t.Setenv("HOME", t.TempDir())
 
-	scopes := scope.Walk(root)
-	if len(scopes) != 1 {
-		t.Fatalf("expected 1, got %d", len(scopes))
+	s, ok := scope.NearestWritable(root)
+	if !ok {
+		t.Fatal("expected ok=true")
 	}
-	if scopes[0].Label != "repo" {
-		t.Errorf("Label = %q, want repo", scopes[0].Label)
+	if s.Label != "repo" {
+		t.Errorf("Label = %q, want repo", s.Label)
 	}
 }
 
@@ -172,47 +125,11 @@ func TestDefaultScope_MissingField_AtHome(t *testing.T) {
 	}
 	t.Setenv("HOME", root)
 
-	scopes := scope.Walk(root)
-	if len(scopes) != 1 {
-		t.Fatalf("expected 1, got %d", len(scopes))
+	s, ok := scope.NearestWritable(root)
+	if !ok {
+		t.Fatal("expected ok=true")
 	}
-	if scopes[0].Label != "user" {
-		t.Errorf("Label = %q, want user", scopes[0].Label)
-	}
-}
-
-func TestMemoryCount(t *testing.T) {
-	root := makeTree(t, ".mom/memory")
-	writeConfig(t, filepath.Join(root, ".mom"), "repo")
-
-	// Write 2 JSON files and 1 non-JSON.
-	memDir := filepath.Join(root, ".mom", "memory")
-	os.WriteFile(filepath.Join(memDir, "a.json"), []byte("{}"), 0644)    //nolint:errcheck
-	os.WriteFile(filepath.Join(memDir, "b.json"), []byte("{}"), 0644)    //nolint:errcheck
-	os.WriteFile(filepath.Join(memDir, "notes.txt"), []byte("hi"), 0644) //nolint:errcheck
-
-	t.Setenv("HOME", root)
-	scopes := scope.Walk(root)
-	if len(scopes) == 0 {
-		t.Fatal("no scopes found")
-	}
-	if scopes[0].MemoryCount() != 2 {
-		t.Errorf("MemoryCount = %d, want 2", scopes[0].MemoryCount())
-	}
-}
-
-func TestValidateLabel(t *testing.T) {
-	valid := []string{"user", "org", "repo", "workspace", "custom", ""}
-	for _, v := range valid {
-		if err := scope.ValidateLabel(v); err != nil {
-			t.Errorf("ValidateLabel(%q) = %v, want nil", v, err)
-		}
-	}
-
-	invalid := []string{"global", "admin", "team", "REPO"}
-	for _, v := range invalid {
-		if err := scope.ValidateLabel(v); err == nil {
-			t.Errorf("ValidateLabel(%q) expected error, got nil", v)
-		}
+	if s.Label != "user" {
+		t.Errorf("Label = %q, want user", s.Label)
 	}
 }

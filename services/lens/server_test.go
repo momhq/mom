@@ -176,7 +176,6 @@ func TestLensStaticHasNoScopeFilter(t *testing.T) {
 
 func TestLensDoesNotImportLegacyStores(t *testing.T) {
 	archtest.AssertNoDirectImport(t, ".",
-		"github.com/momhq/mom/storage/memory",
 		"github.com/momhq/mom/shared/scope",
 		"github.com/momhq/mom/storage/librarian",
 		"github.com/momhq/mom/workers/logbook",

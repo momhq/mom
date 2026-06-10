@@ -10,21 +10,11 @@
 package scope
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/momhq/mom/shared/config"
 )
-
-// ValidScopeLabels is the set of accepted scope values in config.yaml.
-var ValidScopeLabels = map[string]bool{
-	"user":      true,
-	"org":       true,
-	"repo":      true,
-	"workspace": true,
-	"custom":    true,
-}
 
 // Scope represents a single .mom/ install found during walk-up.
 type Scope struct {
@@ -35,30 +25,13 @@ type Scope struct {
 	Label string
 }
 
-// MemoryCount returns the number of JSON files in the memory/ subdirectory.
-// Returns 0 on any error (missing dir, unreadable, etc.).
-func (s Scope) MemoryCount() int {
-	memDir := filepath.Join(s.Path, "memory")
-	entries, err := os.ReadDir(memDir)
-	if err != nil {
-		return 0
-	}
-	n := 0
-	for _, e := range entries {
-		if !e.IsDir() && filepath.Ext(e.Name()) == ".json" {
-			n++
-		}
-	}
-	return n
-}
-
-// Walk walks up from cwd and returns every ancestor directory that contains a
+// walk walks up from cwd and returns every ancestor directory that contains a
 // .mom/ subdirectory, ordered nearest-first. It stops at $HOME (exclusive) —
 // it never walks above the user's home directory.
 //
 // Symlinks are skipped: if a directory entry is a symlink, it is not followed.
 // This prevents cycles and avoids traversing unexpected paths.
-func Walk(cwd string) []Scope {
+func walk(cwd string) []Scope {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// If we can't determine $HOME, fall back to stopping at filesystem root.
@@ -98,30 +71,11 @@ func Walk(cwd string) []Scope {
 // NearestWritable returns the nearest (most specific) scope for cwd.
 // If no .mom/ exists, it returns a zero Scope and false.
 func NearestWritable(cwd string) (Scope, bool) {
-	scopes := Walk(cwd)
+	scopes := walk(cwd)
 	if len(scopes) == 0 {
 		return Scope{}, false
 	}
 	return scopes[0], true
-}
-
-// FindByLabel walks from cwd and returns the first scope whose label matches
-// the given value. Returns Scope{} and false if none found.
-func FindByLabel(cwd, label string) (Scope, bool) {
-	for _, s := range Walk(cwd) {
-		if s.Label == label {
-			return s, true
-		}
-	}
-	return Scope{}, false
-}
-
-// ValidateLabel returns an error if label is not in ValidScopeLabels.
-func ValidateLabel(label string) error {
-	if label == "" || ValidScopeLabels[label] {
-		return nil
-	}
-	return fmt.Errorf("invalid scope %q: must be one of user, org, repo, workspace, custom", label)
 }
 
 // loadScopeLabel reads the scope field from config.yaml in momDir.

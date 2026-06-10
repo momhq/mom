@@ -25,11 +25,24 @@
 set -euo pipefail
 
 mom_repo="$(cd "$(dirname "$0")/.." && pwd)"
-pi_packages_root="${1:-$(cd "$mom_repo/.." && pwd)/pi-packages}"
 
-if [[ ! -d "$pi_packages_root/pi-mom/skills" ]]; then
-  echo "error: pi-packages not found at $pi_packages_root" >&2
-  echo "       pass the path as first arg or clone vmarinogg/pi-packages next to mom/" >&2
+# Resolve the pi-packages root: explicit arg wins, else probe the common
+# layouts (sibling of the mom repo, or directly under $HOME).
+if [[ -n "${1:-}" ]]; then
+  pi_packages_root="$1"
+else
+  pi_packages_root=""
+  for candidate in "$(cd "$mom_repo/.." && pwd)/pi-packages" "$HOME/pi-packages"; do
+    if [[ -d "$candidate/pi-mom/skills" ]]; then
+      pi_packages_root="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$pi_packages_root" || ! -d "$pi_packages_root/pi-mom/skills" ]]; then
+  echo "error: pi-packages not found (looked next to mom/ and in \$HOME)" >&2
+  echo "       pass the path as first arg or clone vmarinogg/pi-packages" >&2
   exit 2
 fi
 
