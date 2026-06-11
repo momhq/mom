@@ -28,7 +28,6 @@ var allowedTopLevelFiles = map[string]bool{
 	".gitignore":         true,
 	".golangci.yml":      true,
 	".mcp.json":          true,
-	".mcp.json.bkp":      true,
 	".mom-project.yaml":  true,
 	"CHANGELOG.md":       true,
 	"CLAUDE.md":          true, // gitignored — local agent context
