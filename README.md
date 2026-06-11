@@ -69,14 +69,13 @@ Initialize _mom_ once:
 mom init
 ```
 
-_Mom_ will create the global vault, configure detected harness integrations, install _mom_ skills where supported, and start the global watch daemon.
+_Mom_ will set up its central store at `~/.mom` (config + Ledger), configure detected harness integrations, install _mom_ skills where supported, ask whether to start capturing the current directory, and start the watch daemon.
 
-Then open your agent and work normally. _Mom_ runs in the background, watches supported transcript sources, and keeps useful context available through skills:
+Then open your agent and work normally. _Mom_ records sessions in the background and folds them into the vault. At the start of each session your agent reads `.mom/vault/` on its own, so it already knows your project's history — just ask. The skills you'll actually run:
 
 ```text
-/mom-status
-/mom-recall the decision about the auth boundary
-/mom-fold
+/mom-fold     # save recent sessions into the vault (e.g. when wrapping up)
+/mom-status   # check that mom is capturing, and what it knows
 ```
 
 ## How it works
@@ -115,13 +114,7 @@ _Mom_ watches supported transcript sources in the background and records them to
 
 The skill folds newly captured sessions into a navigable markdown vault under `.mom/vault/`.
 
-Later, when you need something _mom_ has seen before, ask your agent:
-
-```text
-/mom-recall deployment rollback procedure
-```
-
-The skill navigates the markdown vault so the agent can recover decisions, conventions, and context without you re-explaining them.
+There is no recall command to run. At the start of each session your agent reads `.mom/vault/INDEX.md` and follows it to the relevant memory, so it answers from what _mom_ already knows — decisions, conventions, and context — without you re-explaining them. Just work normally.
 
 To check that _mom_ is connected:
 

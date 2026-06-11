@@ -368,7 +368,7 @@ func dateOrEmpty(t time.Time) string {
 func buildClaudeBlock(in FoldInput) string {
 	var b strings.Builder
 	b.WriteString("## MOM Vault (projected memory)\n\n")
-	b.WriteString("**Use the vault files below instead of `mom recall` or `mom-recall` for this project's memory.** The vault is pre-synthesized and faster — `mom recall` is a fallback for projects without a vault.\n\n")
+	b.WriteString("**Read the vault files below for this project's memory.** They are pre-synthesized markdown — open them with your file tools; there is no search command to run.\n\n")
 	b.WriteString("1. Read `.mom/vault/INDEX.md` first — it routes you to the right file.\n")
 	b.WriteString("2. Topics: `.mom/vault/topics/<slug>.md` — decisions, patterns, preferences by subject.\n")
 	b.WriteString("3. Timeline: `.mom/vault/timeline/<YYYY-MM>.md` — chronological history.\n")
