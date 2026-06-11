@@ -303,15 +303,20 @@ func (c *ClaudeInvoker) IsAvailable() bool {
 func (c *ClaudeInvoker) Invoke(ctx context.Context, prompt string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	// The model is intentionally not pinned — synthesis runs on whatever model
-	// the user's Claude CLI defaults to, matching the Codex and Pi invokers.
-	// (A future release may let users choose the synthesis model.)
+	// --model haiku is a tier ALIAS, not a pinned version: it always resolves
+	// to the current Haiku generation, so it survives model updates while
+	// keeping synthesis cheap and reliable. The CLI default (Sonnet) is ~60x
+	// pricier per chunk and, being a larger/thinking model, wraps output in
+	// prose/fences that break JSON parsing — forcing the deterministic
+	// fallback. Haiku is fast, obedient to "JSON only", and well-suited to
+	// summarizing a chunk of turns. (A future release may let users choose.)
 	// --system-prompt overrides the user's global CLAUDE.md so the subprocess
 	// doesn't pick up MOM instructions, call mom_status, or act as a coding agent.
 	// --strict-mcp-config with no config file disables all MCP servers.
 	// --allowedTools "" permits no tools — pure text synthesis only.
 	cmd := exec.CommandContext(ctx, c.Bin,
 		"-p", prompt,
+		"--model", "haiku",
 		"--output-format", "json",
 		"--system-prompt", "You are a JSON synthesis engine. Output only valid JSON. No prose, no tool calls, no markdown outside the JSON value strings.",
 		"--strict-mcp-config",
