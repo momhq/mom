@@ -564,13 +564,14 @@ func skillsInstallCommand(agent string) ([]string, string) {
 }
 
 // currentSkills is the v0.50 skill set MOM ships and installs via skills.sh.
-var currentSkills = []string{"mom-status", "mom-recall", "mom-project", "mom-fold", "mom-rebuild"}
+var currentSkills = []string{"mom-status", "mom-project", "mom-fold", "mom-rebuild"}
 
-// deprecatedSkills lists skills shipped by pre-v0.50 MOM that are removed in
-// v0.50. They are actively uninstalled on init/upgrade so a previously
-// installed copy does not linger and mislead the agent — e.g. mom-wrap-up
-// drove the retired draft-curation flow, which no longer exists.
-var deprecatedSkills = []string{"mom-wrap-up"}
+// deprecatedSkills lists skills shipped by earlier MOM versions that are
+// removed. They are actively uninstalled on init/upgrade so a previously
+// installed copy does not linger and mislead the agent: mom-wrap-up drove the
+// retired draft-curation flow, and mom-recall is redundant now that the agent
+// reads the vault directly at session start.
+var deprecatedSkills = []string{"mom-wrap-up", "mom-recall"}
 
 // skillsRemoveCommand builds a skills.sh removal invocation for the given
 // skills under one agent. Mirrors skillsInstallCommand.

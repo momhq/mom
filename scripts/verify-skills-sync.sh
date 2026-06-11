@@ -46,7 +46,7 @@ if [[ -z "$pi_packages_root" || ! -d "$pi_packages_root/pi-mom/skills" ]]; then
   exit 2
 fi
 
-skills=(mom-status mom-recall mom-project mom-fold mom-rebuild)
+skills=(mom-status mom-project mom-fold mom-rebuild)
 fail=0
 for s in "${skills[@]}"; do
   a="$mom_repo/skills/$s/SKILL.md"

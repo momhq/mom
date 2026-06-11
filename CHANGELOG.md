@@ -101,7 +101,9 @@ list of superseded decisions are in
   `mom_get` / `mom_landmarks` tools.
 - `mom recall` search removed — recall is now navigation of the markdown vault.
 - `mom export` / `mom import` removed (they dumped SQLite).
-- `mom-wrap-up` skill removed — use `/mom-fold`.
+- `mom-wrap-up` and `mom-recall` skills removed. The agent reads the vault
+  directly at session start, so there is no recall command to run; save with
+  `/mom-fold`.
 
 ### Upgrading
 

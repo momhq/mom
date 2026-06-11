@@ -1,10 +1,9 @@
 {
   "name": "mom",
   "version": "1.0.0",
-  "description": "User-invocable MOM skills for status, recall, project binding, folding, and rebuilding the vault.",
+  "description": "User-invocable MOM skills for status, project binding, folding, and rebuilding the vault.",
   "skills": [
     "mom-status",
-    "mom-recall",
     "mom-project",
     "mom-fold",
     "mom-rebuild"
