@@ -152,14 +152,23 @@ func extractAssistantText(stdout string) string {
 	return s
 }
 
-// extractJSONObject pulls the first balanced top-level {...} object out of
-// arbitrary text (the model may wrap it in prose or a code fence).
-// It first strips a ```json...``` or ```...``` fence if present.
+// extractJSONObject pulls the synthesis JSON object out of arbitrary model
+// output. The model may wrap it in a code fence, or — with a verbose/thinking
+// default model — prepend prose that itself contains braces (e.g. "the config
+// {mode: gateway}. Here is the vault: {...}"). Naively trusting the first '{'
+// then lands inside the prose and yields a malformed span, which is what
+// produced the "invalid character ... after object key:value pair" parse
+// failures.
+//
+// So: strip a ```...``` fence if present, then scan EVERY '{' as a candidate
+// object start and return the first balanced span that is valid JSON and
+// carries the envelope keys ("files"/"index"), falling back to any valid
+// object. This survives a brace-laden prose preamble.
 func extractJSONObject(text string) string {
-	// Strip markdown code fence if the model wrapped its output.
+	// Strip a ```json...``` or ```...``` fence if present, and try its contents.
 	if idx := strings.Index(text, "```"); idx >= 0 {
 		inner := text[idx+3:]
-		// Skip optional language tag (e.g. "json\n")
+		// Skip optional language tag (e.g. "json\n").
 		if nl := strings.Index(inner, "\n"); nl >= 0 {
 			inner = inner[nl+1:]
 		}
@@ -172,10 +181,31 @@ func extractJSONObject(text string) string {
 		// Fall through: maybe the fence didn't contain JSON but the raw text does.
 	}
 
-	start := strings.Index(text, "{")
-	if start < 0 {
-		return ""
+	var fallback string
+	for start := 0; start < len(text); start++ {
+		if text[start] != '{' {
+			continue
+		}
+		span := balancedObject(text, start)
+		if span == "" || !json.Valid([]byte(span)) {
+			continue
+		}
+		// Prefer the synthesis envelope over an incidental valid object that
+		// happened to appear earlier in a prose preamble.
+		if strings.Contains(span, `"files"`) || strings.Contains(span, `"index"`) {
+			return span
+		}
+		if fallback == "" {
+			fallback = span
+		}
 	}
+	return fallback
+}
+
+// balancedObject returns the brace-balanced {...} span beginning at text[start]
+// (which must be '{'), respecting string literals and escapes, or "" if the
+// braces never balance.
+func balancedObject(text string, start int) string {
 	depth := 0
 	inStr := false
 	esc := false

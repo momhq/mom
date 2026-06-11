@@ -4,6 +4,26 @@ All notable changes to _mom_ are documented here. The format is loosely based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows a
 `vN0.0-alpha` cadence during the alpha line.
 
+## v0.50.1-alpha
+
+Patch release for the v0.50 line.
+
+### Fixed
+
+- **Fold JSON parsing.** `mom vault fold` could fail to read the synthesizer's
+  output when the model prepended prose containing braces (e.g. *"the config
+  {mode: gateway}. Here is the vault: {…}"*) — producing `invalid character …
+  after object key:value pair` errors and a silent fall back to the deterministic
+  (non-LLM) engine for those chunks. The extractor now finds the actual JSON
+  envelope (the object carrying `files`/`index`) instead of trusting the first
+  brace it sees, so a brace-laden preamble no longer breaks the fold.
+
+### Internal
+
+- CI hygiene after the v0.50 dependency removals: `go mod tidy` (dropped the now
+  unused SQLite/finder modules) and the coverage floor adjusted for the smaller
+  codebase.
+
 ## v0.50.0-alpha — Memory is now markdown
 
 _mom_ retires the SQLite vault and the MCP server. Your project's memory is now
