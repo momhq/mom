@@ -102,9 +102,23 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           # If a release already exists (pre-created with curated notes),
-          # just upload the binaries. Otherwise create with auto-generated notes.
+          # just upload the binaries.
           if gh release view "$TAG" &>/dev/null; then
             gh release upload "$TAG" artifacts/mom-*.gz --clobber
+            exit 0
+          fi
+          # Otherwise prefer the curated CHANGELOG.md section for this tag,
+          # falling back to auto-generated notes when no section is found.
+          awk -v tag="$TAG" '
+            $0 ~ "^## " tag {f=1; next}
+            f && /^## / {f=0}
+            f {print}
+          ' CHANGELOG.md | sed '/./,$!d' > /tmp/relnotes.md
+          if [ -s /tmp/relnotes.md ]; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file /tmp/relnotes.md \
+              artifacts/mom-*.gz
           else
             gh release create "$TAG" \
               --title "$TAG" \
