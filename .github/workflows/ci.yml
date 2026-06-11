@@ -13,8 +13,6 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
     steps:
       - uses: actions/checkout@v4
 
@@ -73,8 +71,6 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    defaults:
-      run:
     steps:
       - uses: actions/checkout@v4
 

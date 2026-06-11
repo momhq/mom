@@ -10,8 +10,6 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +24,6 @@ jobs:
   build-darwin:
     needs: test
     runs-on: macos-latest
-    defaults:
-      run:
     steps:
       - uses: actions/checkout@v4
 
@@ -61,8 +57,6 @@ jobs:
   build-linux:
     needs: test
     runs-on: ubuntu-latest
-    defaults:
-      run:
     steps:
       - uses: actions/checkout@v4
 
