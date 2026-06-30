@@ -256,11 +256,12 @@ func buildIndex(files map[string]string, in FoldInput) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# MOM Vault Index — %s\n\n", in.ProjectID)
 	b.WriteString("Router for this project's projected memory. **Read the matching file before acting.** ")
-	b.WriteString("These files synthesize and POINT AT immutable captures — never rewrite memories here.\n\n")
-	b.WriteString("| Read this | When the task looks like |\n")
+	b.WriteString("These files synthesize and POINT AT immutable captures — never rewrite memories here. ")
+	b.WriteString("Each row links straight to the file — open the link, don't reconstruct the path.\n\n")
+	b.WriteString("| Read this | What it covers |\n")
 	b.WriteString("|---|---|\n")
 	for _, p := range paths {
-		b.WriteString("| `" + p + "` | " + routerHint(p) + " |\n")
+		b.WriteString("| " + indexLink(p) + " | " + routerHint(p, files[p]) + " |\n")
 	}
 	if len(paths) == 0 {
 		// No synthesized L1/L2 files yet. Route to L0 episodes directly so the
@@ -272,7 +273,7 @@ func buildIndex(files map[string]string, in FoldInput) string {
 			b.WriteString("| _(no files yet)_ | run `mom vault fold` after capturing some sessions |\n")
 		}
 		for _, r := range rows {
-			b.WriteString("| `" + r.path + "` | " + r.hint + " |\n")
+			b.WriteString("| " + indexLink(r.path) + " | " + r.hint + " |\n")
 		}
 	}
 	b.WriteString("\n---\n")
@@ -285,18 +286,64 @@ func buildIndex(files map[string]string, in FoldInput) string {
 	return b.String()
 }
 
-func routerHint(path string) string {
+// indexLink renders a vault-relative path as a clickable markdown link whose
+// text is the path itself. INDEX.md sits at the vault root, so a relative
+// target like `topics/x.md` resolves directly — the agent opens the link
+// instead of rebuilding the path from scratch.
+func indexLink(path string) string {
+	return "[`" + path + "`](" + path + ")"
+}
+
+// routerHint describes what a vault file covers, drawn from the file's own
+// synthesized title when available so the router carries real content (e.g.
+// "Harness MCP removal → vault-first context") rather than echoing the slug.
+// content may be empty; the description then falls back to the path.
+func routerHint(path, content string) string {
 	switch {
 	case strings.HasPrefix(path, "timeline/"):
-		return "you need the chronological history of what happened (" + strings.TrimSuffix(strings.TrimPrefix(path, "timeline/"), ".md") + ")"
+		return "Chronological history — " + strings.TrimSuffix(strings.TrimPrefix(path, "timeline/"), ".md")
 	case strings.HasPrefix(path, "topics/"):
-		t := strings.TrimSuffix(strings.TrimPrefix(path, "topics/"), ".md")
-		return "the task touches **" + t + "**"
+		if t := docTitle(content); t != "" {
+			return t
+		}
+		return strings.ReplaceAll(strings.TrimSuffix(strings.TrimPrefix(path, "topics/"), ".md"), "-", " ")
 	case strings.HasPrefix(path, "summaries/"):
-		return "you need a high-level project overview before diving into details"
+		if t := docTitle(content); t != "" {
+			return t
+		}
+		return "High-level project overview"
 	default:
-		return "relevant"
+		if t := docTitle(content); t != "" {
+			return t
+		}
+		return "Relevant context"
 	}
+}
+
+// docTitle extracts the first markdown H1 from a vault file body, stripped of
+// the "Topic:"/"Summary:"/"Timeline:" prefix the synthesizers prepend. Returns
+// "" when the body has no leading H1 (e.g. deterministic stubs handled by the
+// caller's slug fallback).
+func docTitle(content string) string {
+	if content == "" {
+		return ""
+	}
+	_, body := ParseFrontmatter(content)
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "# ") {
+			return "" // body opened without an H1 title
+		}
+		title := strings.TrimSpace(strings.TrimPrefix(line, "# "))
+		for _, prefix := range []string{"Topic:", "Summary:", "Timeline:"} {
+			title = strings.TrimSpace(strings.TrimPrefix(title, prefix))
+		}
+		return title
+	}
+	return ""
 }
 
 func shouldIndexPath(path string) bool {
