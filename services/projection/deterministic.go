@@ -43,6 +43,7 @@ func (s *DeterministicSynth) Fold(_ context.Context, in FoldInput) (FoldResult, 
 
 	// INDEX is regenerated each pass from the full file set.
 	linkRelated(files)
+	buildPerFolderIndexes(files)
 	index := buildIndex(files, in)
 	// INDEX.md is carried separately; don't leave a stray copy in Files.
 	delete(files, indexFileName)
@@ -154,14 +155,17 @@ func buildTimeline(projectID string, events []FoldEvent) map[string]string {
 	for month, bucket := range byMonth {
 		sort.SliceStable(bucket.bullets, func(i, j int) bool { return bucket.bullets[i].when.After(bucket.bullets[j].when) })
 		var body strings.Builder
-		fmt.Fprintf(&body, "# Timeline — %s\n\n", month)
-		body.WriteString("_Episodic log of what happened, newest first._\n\n")
+		fmt.Fprintf(&body, "# History — %s\n\n", month)
+		body.WriteString("_Chronological record of what happened, newest first._\n\n")
 		for _, bl := range bucket.bullets {
 			body.WriteString(bl.line)
 			body.WriteString("\n")
 		}
 		fm := deterministicFrontmatter(projectID, "timeline", bucket.events)
-		out[fmt.Sprintf("timeline/%s.md", month)] = PrependFrontmatter(fm, body.String())
+		fm.Type = typeDevLog
+		fm.Name = "History — " + month
+		fm.Description = "What changed during " + month
+		out[fmt.Sprintf("%s/%s.md", devlogDir, month)] = PrependFrontmatter(fm, body.String())
 	}
 	return out
 }
@@ -225,58 +229,80 @@ func buildTopics(projectID string, events []FoldEvent) map[string]string {
 			bucketEvents[i] = sn.event
 		}
 
+		name := strings.ReplaceAll(slug, "-", " ")
 		var body strings.Builder
-		fmt.Fprintf(&body, "# Topic: %s\n\n", slug)
-		body.WriteString("_Memories tagged with this topic, newest first. These point at immutable captures — do not rewrite them._\n\n")
+		fmt.Fprintf(&body, "# %s\n\n", name)
+		body.WriteString("_Memories on this subject, newest first. These point at immutable captures — do not rewrite them._\n\n")
 		for _, sn := range snips {
 			fmt.Fprintf(&body, "- **%s** (session `%s`): %s\n",
 				sn.when.UTC().Format("2006-01-02"), shortSession(sn.sess), truncate(sn.text, snippetMaxChars))
 		}
 		fm := deterministicFrontmatter(projectID, "topic", bucketEvents)
+		fm.Type = typeReference
+		fm.Name = name
+		fm.Description = "Captured memories about " + name
 		fm.Tags = []string{slug}
-		out[fmt.Sprintf("topics/%s.md", slug)] = PrependFrontmatter(fm, body.String())
+		out[fmt.Sprintf("%s/%s.md", referenceDir, slug)] = PrependFrontmatter(fm, body.String())
 	}
 	return out
 }
 
-// buildIndex emits the router INDEX.md mapping "read X when Y" to the
-// files that exist, plus the watermark line.
+// buildIndex emits the OKF root index (ICM Layer 2 — Routing): the project
+// identity blurb, a folder routing table pointing at each layer's own INDEX,
+// and a flat routing table of the reference concepts (the main subjects). It is
+// the one file the agent reads first.
 func buildIndex(files map[string]string, in FoldInput) string {
-	paths := make([]string, 0, len(files))
-	for p := range files {
-		if p == indexFileName {
-			continue
-		}
-		if !shouldIndexPath(p) {
-			continue
-		}
-		paths = append(paths, p)
-	}
-	sort.Strings(paths)
-
 	var b strings.Builder
-	fmt.Fprintf(&b, "# MOM Vault Index — %s\n\n", in.ProjectID)
-	b.WriteString("Router for this project's projected memory. **Read the matching file before acting.** ")
-	b.WriteString("These files synthesize and POINT AT immutable captures — never rewrite memories here. ")
-	b.WriteString("Each row links straight to the file — open the link, don't reconstruct the path.\n\n")
-	b.WriteString("| Read this | What it covers |\n")
-	b.WriteString("|---|---|\n")
-	for _, p := range paths {
-		b.WriteString("| " + indexLink(p) + " | " + routerHint(p, files[p]) + " |\n")
+	fmt.Fprintf(&b, "# MOM Vault — %s\n\n", in.ProjectID)
+	b.WriteString("Projected memory for this project, organized as an ICM (Interpretable Context ")
+	b.WriteString("Methodology) structure in OKF (Open Knowledge Format). **Read the matching file ")
+	b.WriteString("before acting; open links directly — don't reconstruct paths.** Files are ")
+	b.WriteString("regenerated on every fold — never edit them by hand.\n\n")
+
+	// Identity (ICM L1) — the orientation, if present.
+	if c, ok := files[identityFile]; ok {
+		desc := conceptDescription(c)
+		b.WriteString("## Identity\n")
+		b.WriteString("- " + indexLink(identityFile) + " — " + firstNonEmpty(desc, "what this project is") + "\n\n")
 	}
-	if len(paths) == 0 {
-		// No synthesized L1/L2 files yet. Route to L0 episodes directly so the
-		// router never goes blind while a young vault is below the L1 threshold
-		// — otherwise it reports "no files yet" while real memory sits in
-		// episodes/, and the agent concludes the project has no history.
+
+	// Folder routing (ICM L2) — point at each layer's own OKF index.
+	b.WriteString("## Routing — read these when…\n\n")
+	b.WriteString("| Layer | Read | When |\n|---|---|---|\n")
+	routed := false
+	for _, f := range icmFolders {
+		if !folderHasConcepts(files, f.dir) {
+			continue
+		}
+		routed = true
+		fmt.Fprintf(&b, "| %s | %s | %s |\n", f.layer, indexLink(f.dir+"/"+indexFileName), f.whenFor)
+	}
+
+	// Reference concepts (ICM L4) — the flat subject routing table.
+	refs := conceptsIn(files, referenceDir)
+	if len(refs) > 0 {
+		routed = true
+		b.WriteString("\n## Reference — by subject\n\n")
+		b.WriteString("| Read this | What it covers |\n|---|---|\n")
+		for _, p := range refs {
+			b.WriteString("| " + indexLink(p) + " | " + conceptName(p, files[p]) + " |\n")
+		}
+	}
+
+	if !routed {
+		// Young vault below the synthesis threshold: route to raw episodes so the
+		// router never goes blind while real memory sits in episodes/.
 		rows := episodeIndexRows(files)
 		if len(rows) == 0 {
-			b.WriteString("| _(no files yet)_ | run `mom vault fold` after capturing some sessions |\n")
-		}
-		for _, r := range rows {
-			b.WriteString("| " + indexLink(r.path) + " | " + r.hint + " |\n")
+			b.WriteString("\n_(no files yet — run `mom vault fold` after capturing some sessions)_\n")
+		} else {
+			b.WriteString("\n## Recent capture\n\n| Read this | What it covers |\n|---|---|\n")
+			for _, r := range rows {
+				b.WriteString("| " + indexLink(r.path) + " | " + r.hint + " |\n")
+			}
 		}
 	}
+
 	b.WriteString("\n---\n")
 	engine := in.Engine
 	if engine == "" {
@@ -287,6 +313,58 @@ func buildIndex(files map[string]string, in FoldInput) string {
 	return b.String()
 }
 
+// folderHasConcepts reports whether dir holds at least one concept (non-index) file.
+func folderHasConcepts(files map[string]string, dir string) bool {
+	for p := range files {
+		if strings.HasPrefix(p, dir+"/") && !strings.HasSuffix(p, "/"+indexFileName) {
+			return true
+		}
+	}
+	return false
+}
+
+// conceptsIn returns the sorted concept paths in dir (excluding its index).
+func conceptsIn(files map[string]string, dir string) []string {
+	var out []string
+	for p := range files {
+		if strings.HasPrefix(p, dir+"/") && !strings.HasSuffix(p, "/"+indexFileName) {
+			out = append(out, p)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// conceptName returns the display name for a concept: OKF name, else H1 title,
+// else humanized filename.
+func conceptName(path, content string) string {
+	fm, _ := ParseFrontmatter(content)
+	if fm.Name != "" {
+		return fm.Name
+	}
+	if t := firstHeadingTitle(content); t != "" {
+		return t
+	}
+	base := path[strings.LastIndex(path, "/")+1:]
+	return strings.ReplaceAll(strings.TrimSuffix(base, ".md"), "-", " ")
+}
+
+// conceptDescription returns the OKF description, else a first-sentence fallback.
+func conceptDescription(content string) string {
+	fm, body := ParseFrontmatter(content)
+	if fm.Description != "" {
+		return fm.Description
+	}
+	return firstSentence(body)
+}
+
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
+}
+
 // indexLink renders a vault-relative path as a clickable markdown link whose
 // text is the path itself. INDEX.md sits at the vault root, so a relative
 // target like `topics/x.md` resolves directly — the agent opens the link
@@ -295,61 +373,6 @@ func indexLink(path string) string {
 	return "[`" + path + "`](" + path + ")"
 }
 
-// routerHint describes what a vault file covers, drawn from the file's own
-// synthesized title when available so the router carries real content (e.g.
-// "Harness MCP removal → vault-first context") rather than echoing the slug.
-// content may be empty; the description then falls back to the path.
-func routerHint(path, content string) string {
-	switch {
-	case strings.HasPrefix(path, "timeline/"):
-		return "Chronological history — " + strings.TrimSuffix(strings.TrimPrefix(path, "timeline/"), ".md")
-	case strings.HasPrefix(path, "topics/"):
-		if t := docTitle(content); t != "" {
-			return t
-		}
-		return strings.ReplaceAll(strings.TrimSuffix(strings.TrimPrefix(path, "topics/"), ".md"), "-", " ")
-	case strings.HasPrefix(path, "summaries/"):
-		if t := docTitle(content); t != "" {
-			return t
-		}
-		return "High-level project overview"
-	default:
-		if t := docTitle(content); t != "" {
-			return t
-		}
-		return "Relevant context"
-	}
-}
-
-// docTitle extracts the first markdown H1 from a vault file body, stripped of
-// the "Topic:"/"Summary:"/"Timeline:" prefix the synthesizers prepend. Returns
-// "" when the body has no leading H1 (e.g. deterministic stubs handled by the
-// caller's slug fallback).
-func docTitle(content string) string {
-	if content == "" {
-		return ""
-	}
-	_, body := ParseFrontmatter(content)
-	for _, line := range strings.Split(body, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !strings.HasPrefix(line, "# ") {
-			return "" // body opened without an H1 title
-		}
-		title := strings.TrimSpace(strings.TrimPrefix(line, "# "))
-		for _, prefix := range []string{"Topic:", "Summary:", "Timeline:"} {
-			title = strings.TrimSpace(strings.TrimPrefix(title, prefix))
-		}
-		return title
-	}
-	return ""
-}
-
-func shouldIndexPath(path string) bool {
-	return !strings.HasPrefix(path, "episodes/")
-}
 
 // indexRow is one router entry: the vault-relative path and its "when to read"
 // hint.
@@ -412,16 +435,21 @@ func dateOrEmpty(t time.Time) string {
 	return t.UTC().Format("2006-01-02")
 }
 
-// buildClaudeBlock emits the tiny always-loaded pointer.
+// buildClaudeBlock emits the tiny always-loaded pointer (ICM Layer 1/2 hook):
+// it tells the agent how to navigate the OKF/ICM vault, since OKF is not yet a
+// standard the agent knows out of the box.
 func buildClaudeBlock(in FoldInput) string {
 	var b strings.Builder
 	b.WriteString("## MOM Vault (projected memory)\n\n")
-	b.WriteString("**Read the vault files below for this project's memory.** They are pre-synthesized markdown — open them with your file tools; there is no search command to run.\n\n")
-	b.WriteString("1. Read `.mom/vault/INDEX.md` first — it routes you to the right file.\n")
-	b.WriteString("2. Topics: `.mom/vault/topics/<slug>.md` — decisions, patterns, preferences by subject.\n")
-	b.WriteString("3. Timeline: `.mom/vault/timeline/<YYYY-MM>.md` — chronological history.\n")
-	b.WriteString("4. Overview: `.mom/vault/summaries/overview.md` — high-level project summary.\n\n")
-	b.WriteString("The vault synthesizes and POINTS AT immutable captured memories. **Do not rewrite vault files** — direct edits are lost on the next fold.\n")
+	b.WriteString("This project's memory is an **ICM** structure in **OKF** format under `.mom/vault/`. ")
+	b.WriteString("Each folder has its own `INDEX.md`; each concept file carries `type` / `name` / ")
+	b.WriteString("`description` frontmatter — scan those to decide what to open, don't read everything.\n\n")
+	b.WriteString("1. Read `.mom/vault/INDEX.md` first — the root router (identity + routing table).\n")
+	b.WriteString("2. `identity.md` — what this project is.\n")
+	b.WriteString("3. `reference/` — decisions, conventions, durable facts by subject (each has its own `INDEX.md`).\n")
+	b.WriteString("4. `contracts/` — process and workflow rules for a kind of work.\n")
+	b.WriteString("5. `dev-log/` — chronological record of what changed and why.\n\n")
+	b.WriteString("The vault is regenerated from the Ledger on every fold. **Do not edit vault files by hand** — changes are lost on the next fold.\n")
 	fmt.Fprintf(&b, "\n_Folded through Ledger offset **%d** (project `%s`)._\n", in.ToOffset, in.ProjectID)
 	return b.String()
 }

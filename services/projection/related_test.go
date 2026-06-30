@@ -61,6 +61,40 @@ func TestLinkRelated_ChildrenAndSiblings(t *testing.T) {
 	}
 }
 
+func TestBuildPerFolderIndexes(t *testing.T) {
+	files := map[string]string{
+		"reference/voice.md": PrependFrontmatter(
+			Frontmatter{Type: typeReference, Name: "Voice & tone", Description: "How the product speaks.", Level: 1, Version: 1},
+			"# Voice & tone\nbody\n"),
+		"reference/ledger.md": PrependFrontmatter(
+			Frontmatter{Type: typeReference, Name: "Ledger", Level: 1, Version: 1},
+			"# Ledger\nThe append-only source of truth. More detail here.\n"),
+		"episodes/e1.md": PrependFrontmatter(Frontmatter{Type: typeEpisode, Level: 0, Version: 1}, "# Episode\n"),
+	}
+
+	buildPerFolderIndexes(files)
+
+	idx, ok := files["reference/INDEX.md"]
+	if !ok {
+		t.Fatalf("reference/INDEX.md not generated")
+	}
+	fm, _ := ParseFrontmatter(idx)
+	if fm.Type != typeIndex {
+		t.Errorf("per-folder index should have type=index, got %q", fm.Type)
+	}
+	// Links are relative to the folder (base filename only) and carry the OKF name.
+	if !strings.Contains(idx, "[`voice.md`](voice.md)") || !strings.Contains(idx, "Voice & tone") {
+		t.Errorf("reference index missing concept link/name:\n%s", idx)
+	}
+	if !strings.Contains(idx, "How the product speaks.") {
+		t.Errorf("reference index missing OKF description:\n%s", idx)
+	}
+	// Episodes are provenance — no folder index.
+	if _, exists := files["episodes/INDEX.md"]; exists {
+		t.Errorf("episodes/ should not get a folder index")
+	}
+}
+
 func TestLinkRelated_Idempotent(t *testing.T) {
 	mk := func(p string) map[string]string {
 		return map[string]string{

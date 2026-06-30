@@ -197,6 +197,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	}
 
 	linkRelated(acc)
+	buildPerFolderIndexes(acc)
 	index := buildIndex(acc, in)
 	block := buildClaudeBlock(in)
 	return FoldResult{Files: acc, Index: index, ClaudeBlock: block, Chunks: chunkMap}, nil
@@ -209,9 +210,9 @@ func buildL0Input(in FoldInput, cid string) FoldInput {
 	// Inject a synthetic "context" file so the LLM knows its output path.
 	hint := map[string]string{}
 	hint["_l0_hint"] = fmt.Sprintf(
-		"Write a SINGLE episode file at path episodes/%s.md.\n"+
-			"Set frontmatter: level:0, kind:episode, sources:[<offsets from events>], tags:[<topic slugs>], time_range_start/end.\n"+
-			"Body: bullet-point log of significant moments from this session chunk (decisions, corrections, preferences). No chatter.",
+		"WORK ITEM (L0 capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
+			"Frontmatter: type:episode, name:<short session subject>, description:<one line>, level:0, sources:[<offsets from events>], tags:[<subject slugs>], time_range_start/end.\n"+
+			"Body: bullet-point log of significant moments from this session chunk (decisions, corrections, preferences, what was built and why). No chatter.",
 		cid)
 	out.Existing = hint
 	return out
@@ -257,10 +258,12 @@ func buildL1Input(in FoldInput, l0Files, l1Existing map[string]string) FoldInput
 	}
 
 	hint := map[string]string{}
-	hint["_l1_hint"] = "Synthesize topics/ and timeline/ files from the L0 episode files in the existing set.\n" +
-		"Set frontmatter: level:1, kind:topic or kind:timeline, sources:[combined offsets], tags:[relevant slugs], time_range_start/end.\n" +
-		"List children: paths of the episodes/ files that contributed.\n" +
-		"Body: synthesized content — patterns, decisions, and chronological summaries. No inventing."
+	hint["_l1_hint"] = "WORK ITEM (L1 synthesis): From the L0 episode files in the existing set, synthesize CANONICAL concept files.\n" +
+		"- reference/<subject>.md — one file per durable SUBJECT (a decision, convention, architecture area, or fact). type:reference.\n" +
+		"- contracts/<subject>.md — one file per recurring PROCESS or rule (workflow, release flow, review, naming). type:contract.\n" +
+		"MINIMALISM: one subject per file. If reference/<subject>.md already exists, UPDATE it — never create a near-duplicate (no -v2/-view/-cleanup variants); merge instead.\n" +
+		"Frontmatter: type, name (short title), description (one line), level:1, sources:[combined offsets], tags, time_range_start/end. List children: the episodes/ paths that contributed.\n" +
+		"Body: synthesized decisions/patterns/conventions. No inventing."
 	for p, c := range existing {
 		hint[p] = c
 	}
@@ -318,10 +321,11 @@ func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput
 	}
 
 	hint := map[string]string{}
-	hint["_l2_hint"] = "Write a SINGLE high-level overview at path summaries/overview.md.\n" +
-		"Set frontmatter: level:2, kind:summary, sources:[combined offsets], tags:[main themes].\n" +
-		"List children: paths of the topics/ and timeline/ files that contributed.\n" +
-		"Body: concise project overview — main themes, key decisions, active concerns. No inventing."
+	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/contract files in the existing set, write TWO things.\n" +
+		"1. identity.md (type:identity) — what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A living orientation, NOT an era recap. UPDATE the existing identity.md in place.\n" +
+		"2. dev-log/<YYYY-MM>.md (type:dev-log) — a concise chronological record of what changed and why, one file per month. UPDATE the current month's file.\n" +
+		"Frontmatter: type, name, description, level:2, sources:[combined offsets], tags. identity.md lists children: the reference/ paths it draws on.\n" +
+		"Body: synthesized, grounded in the existing files. No inventing."
 	for p, c := range existing {
 		hint[p] = c
 	}

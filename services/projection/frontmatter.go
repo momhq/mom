@@ -10,10 +10,18 @@ import (
 )
 
 // Frontmatter is the structured metadata block prepended to every vault file.
+//
+// Type/Name/Description are the OKF (Open Knowledge Format) concept metadata:
+// the agent reads them first — bit by bit — to decide whether to open the file,
+// without loading its body. Type is the single required OKF field; it names the
+// ICM layer / concept kind (e.g. "identity", "reference", "contract", "dev-log").
 type Frontmatter struct {
 	ID             string    // 16 hex chars, content-addressed from project + source offsets
+	Type           string    // OKF concept type / ICM layer: identity|reference|contract|dev-log|episode|index
+	Name           string    // OKF: short human/agent-facing title of the concept
+	Description    string    // OKF: one-line description of what the file holds
 	Level          int       // 0=episode, 1=topic/timeline, 2=summary
-	Kind           string    // "episode" | "topic" | "timeline" | "summary" | "index"
+	Kind           string    // legacy: "episode" | "topic" | "timeline" | "summary" | "index"
 	Sources        []uint64  // sorted ledger offsets that contributed to this file
 	Tags           []string  // topic tags
 	TimeRangeStart time.Time // zero → omitted from output
@@ -31,6 +39,16 @@ func RenderFrontmatter(fm Frontmatter) string {
 
 	if fm.ID != "" {
 		fmt.Fprintf(&b, "id: %s\n", fm.ID)
+	}
+	// OKF concept metadata first — this is what an agent scans before opening.
+	if fm.Type != "" {
+		fmt.Fprintf(&b, "type: %s\n", fm.Type)
+	}
+	if fm.Name != "" {
+		fmt.Fprintf(&b, "name: %s\n", yamlScalar(fm.Name))
+	}
+	if fm.Description != "" {
+		fmt.Fprintf(&b, "description: %s\n", yamlScalar(fm.Description))
 	}
 	fmt.Fprintf(&b, "level: %d\n", fm.Level)
 	if fm.Kind != "" {
@@ -111,6 +129,12 @@ func ParseFrontmatter(content string) (Frontmatter, string) {
 		switch key {
 		case "id":
 			fm.ID = val
+		case "type":
+			fm.Type = val
+		case "name":
+			fm.Name = unquoteYAML(val)
+		case "description":
+			fm.Description = unquoteYAML(val)
 		case "level":
 			if n, err := strconv.Atoi(val); err == nil {
 				fm.Level = n
@@ -160,6 +184,32 @@ func ParseFrontmatter(content string) (Frontmatter, string) {
 // PrependFrontmatter renders fm and prepends it to body.
 func PrependFrontmatter(fm Frontmatter, body string) string {
 	return RenderFrontmatter(fm) + body
+}
+
+// yamlScalar double-quotes a value when it contains characters that would
+// break a bare YAML scalar (colon, leading special chars, quotes). Plain
+// values pass through unquoted to keep the frontmatter readable.
+func yamlScalar(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	if s == "" {
+		return `""`
+	}
+	if strings.ContainsAny(s, ":#\"'[]{}") || strings.HasPrefix(s, " ") || strings.HasSuffix(s, " ") {
+		return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
+	}
+	return s
+}
+
+// unquoteYAML reverses yamlScalar for parsing: strips surrounding quotes and
+// unescapes embedded quotes.
+func unquoteYAML(s string) string {
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		return strings.ReplaceAll(s[1:len(s)-1], `\"`, `"`)
+	}
+	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
+		return s[1 : len(s)-1]
+	}
+	return s
 }
 
 // chunkID derives a content-addressed ID for a vault file from its source offsets.

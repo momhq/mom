@@ -49,7 +49,7 @@ func linkRelated(files map[string]string) {
 			path:  p,
 			fm:    fm,
 			body:  stripRelatedSection(body),
-			title: routerHint(p, c),
+			title: conceptName(p, c),
 		})
 	}
 

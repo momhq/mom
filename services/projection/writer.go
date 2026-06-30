@@ -186,8 +186,9 @@ func (w *Writer) WritePruned(res FoldResult) (WriteResult, error) {
 		keep[filepath.ToSlash(filepath.Clean(filepath.FromSlash(p)))] = true
 	}
 
-	// Prune stale topics//timeline/ files first.
-	pruneDirs := []string{"topics", "timeline", "episodes", "summaries"}
+	// Prune stale concept files first. Includes the legacy dirs (topics,
+	// timeline, summaries) so an old vault migrates cleanly to the ICM layout.
+	pruneDirs := []string{"reference", "contracts", "dev-log", "episodes", "topics", "timeline", "summaries"}
 	for _, d := range pruneDirs {
 		dir := filepath.Join(base, d)
 		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

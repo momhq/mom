@@ -26,10 +26,10 @@ func TestBuildTimelineTwoMonths(t *testing.T) {
 	}
 	out := buildTimeline("test-project", events)
 	if len(out) != 2 {
-		t.Fatalf("expected 2 timeline files, got %d: %v", len(out), keys(out))
+		t.Fatalf("expected 2 dev-log files, got %d: %v", len(out), keys(out))
 	}
 	for path, content := range out {
-		if !strings.HasPrefix(path, "timeline/") {
+		if !strings.HasPrefix(path, devlogDir+"/") {
 			t.Errorf("unexpected path: %s", path)
 		}
 		fm, _ := ParseFrontmatter(content)
@@ -59,6 +59,10 @@ func TestDeterministicFoldFrontmatter(t *testing.T) {
 		t.Fatalf("Fold error: %v", err)
 	}
 	for path, content := range res.Files {
+		// Per-folder OKF indexes are generated metadata, not concept files.
+		if strings.HasSuffix(path, indexFileName) {
+			continue
+		}
 		fm, _ := ParseFrontmatter(content)
 		if fm.Level != 1 {
 			t.Errorf("%s: expected level 1, got %d", path, fm.Level)
@@ -68,6 +72,9 @@ func TestDeterministicFoldFrontmatter(t *testing.T) {
 		}
 		if len(fm.Sources) == 0 {
 			t.Errorf("%s: expected sources, got none", path)
+		}
+		if fm.Type == "" {
+			t.Errorf("%s: expected an OKF type, got none", path)
 		}
 	}
 }
@@ -105,50 +112,53 @@ func TestBuildIndexEpisodeFallback(t *testing.T) {
 	}
 }
 
-func TestBuildIndexEpisodesHiddenOnceTopicsExist(t *testing.T) {
+func TestBuildIndexEpisodesHiddenOnceReferenceExists(t *testing.T) {
 	files := map[string]string{
-		"episodes/aaaa.md": PrependFrontmatter(Frontmatter{Level: 0, Kind: "episode", Version: 1}, "# Episode\n"),
-		"topics/voice.md":  PrependFrontmatter(Frontmatter{Level: 1, Kind: "topic", Version: 1}, "# Topic\n"),
+		"episodes/aaaa.md":   PrependFrontmatter(Frontmatter{Type: typeEpisode, Level: 0, Version: 1}, "# Episode\n"),
+		"reference/voice.md": PrependFrontmatter(Frontmatter{Type: typeReference, Name: "Voice", Level: 1, Version: 1}, "# Voice\n"),
 	}
 	idx := buildIndex(files, FoldInput{ProjectID: "demo"})
 	if strings.Contains(idx, "episodes/aaaa.md") {
-		t.Errorf("episodes should be hidden once L1 topics exist:\n%s", idx)
+		t.Errorf("episodes should be hidden once reference concepts exist:\n%s", idx)
 	}
-	if !strings.Contains(idx, "topics/voice.md") {
-		t.Errorf("router missing the topic file:\n%s", idx)
+	if !strings.Contains(idx, "reference/voice.md") {
+		t.Errorf("router missing the reference concept:\n%s", idx)
 	}
 }
 
-// TestBuildIndexLinksAndTitles guards the router improvements: every entry is a
-// clickable markdown link (not a bare path), and a topic's description is drawn
-// from its synthesized H1 title rather than echoing the slug.
-func TestBuildIndexLinksAndTitles(t *testing.T) {
+// TestBuildIndexRoutesICMLayout guards the OKF root router: reference concepts
+// are clickable links described by their OKF name, identity is surfaced, and the
+// folder routing points at each layer's own index.
+func TestBuildIndexRoutesICMLayout(t *testing.T) {
 	files := map[string]string{
-		"topics/harness-mcp.md": PrependFrontmatter(
-			Frontmatter{Level: 1, Kind: "topic", Version: 1},
-			"# Topic: Harness MCP removal → vault-first context\nDecision: drop MCP.\n"),
-		"topics/raw-slug.md": PrependFrontmatter(
-			Frontmatter{Level: 1, Kind: "topic", Version: 1}, "no title here\n"),
-		"summaries/overview.md": PrependFrontmatter(
-			Frontmatter{Level: 2, Kind: "summary", Version: 1}, "# Project overview\nstuff\n"),
+		"identity.md": PrependFrontmatter(
+			Frontmatter{Type: typeIdentity, Name: "Demo", Description: "A demo project.", Level: 2, Version: 1},
+			"# Demo\n"),
+		"reference/harness-mcp.md": PrependFrontmatter(
+			Frontmatter{Type: typeReference, Name: "Harness MCP removal", Level: 1, Version: 1},
+			"# Harness MCP removal\nDecision: drop MCP.\n"),
+		"reference/INDEX.md":  PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Reference — index\n"),
+		"contracts/INDEX.md":  PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Contracts — index\n"),
+		"contracts/release.md": PrependFrontmatter(Frontmatter{Type: typeContract, Name: "Release flow", Level: 1, Version: 1}, "# Release flow\n"),
 	}
 
 	idx := buildIndex(files, FoldInput{ProjectID: "demo"})
 
-	// Linked path, not a bare code span.
-	if !strings.Contains(idx, "[`topics/harness-mcp.md`](topics/harness-mcp.md)") {
-		t.Errorf("topic path not rendered as a markdown link:\n%s", idx)
+	if !strings.Contains(idx, "[`identity.md`](identity.md)") || !strings.Contains(idx, "A demo project.") {
+		t.Errorf("router missing identity with its description:\n%s", idx)
 	}
-	// Description comes from the H1 title (prefix stripped), not the slug.
-	if !strings.Contains(idx, "Harness MCP removal → vault-first context") {
-		t.Errorf("router did not use the synthesized topic title:\n%s", idx)
+	if !strings.Contains(idx, "[`reference/harness-mcp.md`](reference/harness-mcp.md)") {
+		t.Errorf("reference concept not rendered as a markdown link:\n%s", idx)
+	}
+	if !strings.Contains(idx, "Harness MCP removal") {
+		t.Errorf("router did not use the OKF concept name:\n%s", idx)
+	}
+	// Folder routing points at the per-folder index, not individual files.
+	if !strings.Contains(idx, "[`contracts/INDEX.md`](contracts/INDEX.md)") {
+		t.Errorf("router missing the contracts folder routing:\n%s", idx)
 	}
 	if strings.Contains(idx, "the task touches") {
 		t.Errorf("router still emits the stale slug-echo hint:\n%s", idx)
-	}
-	// A file without a leading H1 falls back to the humanized slug.
-	if !strings.Contains(idx, "| raw slug |") {
-		t.Errorf("missing humanized-slug fallback for title-less topic:\n%s", idx)
 	}
 }
 
