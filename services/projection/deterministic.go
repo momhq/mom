@@ -42,6 +42,7 @@ func (s *DeterministicSynth) Fold(_ context.Context, in FoldInput) (FoldResult, 
 	}
 
 	// INDEX is regenerated each pass from the full file set.
+	linkRelated(files)
 	index := buildIndex(files, in)
 	// INDEX.md is carried separately; don't leave a stray copy in Files.
 	delete(files, indexFileName)

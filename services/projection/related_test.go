@@ -1,0 +1,82 @@
+package projection
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestLinkRelated_ChildrenAndSiblings(t *testing.T) {
+	mk := func(level int, kind string, sources []uint64, tags []string, title string) string {
+		return PrependFrontmatter(Frontmatter{
+			Level: level, Kind: kind, Version: 1, Sources: sources, Tags: tags,
+		}, "# "+title+"\nbody\n")
+	}
+
+	files := map[string]string{
+		// Two episodes feeding the architecture topic.
+		"episodes/e1.md": mk(0, "episode", []uint64{10, 11}, []string{"architecture"}, "Episode 1"),
+		"episodes/e2.md": mk(0, "episode", []uint64{12}, []string{"architecture"}, "Episode 2"),
+		// Topics: architecture + ledger share the "architecture" tag; voice is unrelated.
+		"topics/architecture.md": mk(1, "topic", []uint64{10, 11, 12}, []string{"architecture"}, "Topic: Architecture"),
+		"topics/ledger.md":       mk(1, "topic", []uint64{20, 21}, []string{"architecture", "ledger"}, "Topic: Ledger"),
+		"topics/voice.md":        mk(1, "topic", []uint64{30}, []string{"voice"}, "Topic: Voice"),
+		// Overview rolls up every topic offset.
+		"summaries/overview.md": mk(2, "summary", []uint64{10, 11, 12, 20, 21, 30}, []string{"architecture"}, "Project overview"),
+	}
+
+	linkRelated(files)
+
+	arch := files["topics/architecture.md"]
+	fm, _ := ParseFrontmatter(arch)
+
+	// Children: the two episodes whose offsets are covered by the topic's sources.
+	if got := strings.Join(fm.Children, ","); got != "episodes/e1.md,episodes/e2.md" {
+		t.Errorf("architecture children = %q, want the two episodes", got)
+	}
+
+	// Related body: links the sibling that shares a tag (ledger), not voice.
+	if !strings.Contains(arch, relatedHeading) {
+		t.Fatalf("architecture topic missing Related section:\n%s", arch)
+	}
+	if !strings.Contains(arch, "](ledger.md)") {
+		t.Errorf("architecture should link sibling ledger.md:\n%s", arch)
+	}
+	if strings.Contains(arch, "voice.md") {
+		t.Errorf("architecture should NOT link the unrelated voice topic:\n%s", arch)
+	}
+	// Parent overview link, relative from topics/ up to summaries/.
+	if !strings.Contains(arch, "](../summaries/overview.md) _(overview)_") {
+		t.Errorf("architecture missing parent overview link:\n%s", arch)
+	}
+
+	// Overview's children are the three L1 topics (one level down), not episodes.
+	ovFm, _ := ParseFrontmatter(files["summaries/overview.md"])
+	if got := strings.Join(ovFm.Children, ","); got != "topics/architecture.md,topics/ledger.md,topics/voice.md" {
+		t.Errorf("overview children = %q, want the three topics", got)
+	}
+
+	// Episodes stay leaves: no Related section.
+	if strings.Contains(files["episodes/e1.md"], relatedHeading) {
+		t.Errorf("episode should not get a Related section:\n%s", files["episodes/e1.md"])
+	}
+}
+
+func TestLinkRelated_Idempotent(t *testing.T) {
+	mk := func(p string) map[string]string {
+		return map[string]string{
+			"topics/a.md": PrependFrontmatter(Frontmatter{Level: 1, Kind: "topic", Version: 1, Sources: []uint64{1}, Tags: []string{"x"}}, "# A\nbody\n"),
+			"topics/b.md": PrependFrontmatter(Frontmatter{Level: 1, Kind: "topic", Version: 1, Sources: []uint64{2}, Tags: []string{"x"}}, "# B\nbody\n"),
+		}
+	}
+	files := mk("")
+	linkRelated(files)
+	once := files["topics/a.md"]
+	linkRelated(files)
+	twice := files["topics/a.md"]
+	if once != twice {
+		t.Errorf("linkRelated not idempotent:\n--- once ---\n%s\n--- twice ---\n%s", once, twice)
+	}
+	if c := strings.Count(twice, relatedHeading); c != 1 {
+		t.Errorf("want exactly one Related section after re-fold, got %d:\n%s", c, twice)
+	}
+}

@@ -196,6 +196,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		}
 	}
 
+	linkRelated(acc)
 	index := buildIndex(acc, in)
 	block := buildClaudeBlock(in)
 	return FoldResult{Files: acc, Index: index, ClaudeBlock: block, Chunks: chunkMap}, nil
