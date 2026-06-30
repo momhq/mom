@@ -321,11 +321,10 @@ func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput
 	}
 
 	hint := map[string]string{}
-	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/contract files in the existing set, write TWO things.\n" +
-		"1. identity.md (type:identity) — what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A living orientation, NOT an era recap. UPDATE the existing identity.md in place.\n" +
-		"2. dev-log/<YYYY-MM>.md (type:dev-log) — a concise chronological record of what changed and why, one file per month. UPDATE the current month's file.\n" +
-		"Frontmatter: type, name, description, level:2, sources:[combined offsets], tags. identity.md lists children: the reference/ paths it draws on.\n" +
-		"Body: synthesized, grounded in the existing files. No inventing."
+	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/contract files in the existing set, write a SINGLE file identity.md (type:identity).\n" +
+		"It states what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A LIVING orientation, NOT a chronological recap — no dates, no history log. UPDATE the existing identity.md in place.\n" +
+		"Frontmatter: type:identity, name, description, level:2, sources:[combined offsets], tags. List children: the reference/ paths it draws on.\n" +
+		"Body: synthesized from the existing files. No inventing."
 	for p, c := range existing {
 		hint[p] = c
 	}

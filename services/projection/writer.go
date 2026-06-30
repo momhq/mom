@@ -120,11 +120,24 @@ type WriteResult struct {
 }
 
 // Write materializes the vault files, INDEX.md, the CLAUDE.md managed
-// block, and the watermark. dirs are 0700, files 0600.
-func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int) (WriteResult, error) {
+// block, and the watermark. dirs are 0700, files 0600. When prune is true
+// (rebuild), stale concept files not present in res.Files are deleted first so
+// the on-disk vault exactly matches the freshly synthesized set — otherwise a
+// structure change would leave the old layout lingering beside the new one.
+func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool) (WriteResult, error) {
 	base := VaultDir(w.Root)
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		return WriteResult{}, fmt.Errorf("mkdir vault: %w", err)
+	}
+
+	if prune {
+		keep := map[string]bool{}
+		for p := range res.Files {
+			keep[filepath.ToSlash(filepath.Clean(filepath.FromSlash(p)))] = true
+		}
+		if err := pruneStaleConcepts(base, keep); err != nil {
+			return WriteResult{}, err
+		}
 	}
 
 	written := 0
@@ -185,39 +198,8 @@ func (w *Writer) WritePruned(res FoldResult) (WriteResult, error) {
 	for p := range res.Files {
 		keep[filepath.ToSlash(filepath.Clean(filepath.FromSlash(p)))] = true
 	}
-
-	// Prune stale concept files first. Includes the legacy dirs (topics,
-	// timeline, summaries) so an old vault migrates cleanly to the ICM layout.
-	pruneDirs := []string{"reference", "contracts", "dev-log", "episodes", "topics", "timeline", "summaries"}
-	for _, d := range pruneDirs {
-		dir := filepath.Join(base, d)
-		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-			rel, rerr := filepath.Rel(base, path)
-			if rerr != nil {
-				return rerr
-			}
-			relSlash := filepath.ToSlash(rel)
-			// Never delete protected files or non-markdown noise like .DS_Store.
-			if !strings.HasSuffix(relSlash, ".md") {
-				return nil
-			}
-			if keep[relSlash] {
-				return nil
-			}
-			return os.Remove(path)
-		})
-		if walkErr != nil && !os.IsNotExist(walkErr) {
-			return WriteResult{}, fmt.Errorf("prune %s: %w", d, walkErr)
-		}
+	if err := pruneStaleConcepts(base, keep); err != nil {
+		return WriteResult{}, err
 	}
 
 	written := 0
@@ -257,6 +239,42 @@ func (w *Writer) WritePruned(res FoldResult) (WriteResult, error) {
 	}
 
 	return WriteResult{FilesWritten: written, VaultDir: base, ClaudePath: claudePath}, nil
+}
+
+// pruneStaleConcepts deletes every .md concept file under the known vault
+// content dirs that is not in keep. Includes the legacy dirs (topics, timeline,
+// summaries) so an old vault migrates cleanly to the ICM layout. Never touches
+// non-markdown files (.DS_Store, the legacy `index`), INDEX.md handling, or the
+// fold-state. keep paths are slash-relative and cleaned.
+func pruneStaleConcepts(base string, keep map[string]bool) error {
+	pruneDirs := []string{referenceDir, contractsDir, episodesDir, "topics", "timeline", "summaries", "dev-log"}
+	for _, d := range pruneDirs {
+		dir := filepath.Join(base, d)
+		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil
+				}
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			rel, rerr := filepath.Rel(base, path)
+			if rerr != nil {
+				return rerr
+			}
+			relSlash := filepath.ToSlash(rel)
+			if !strings.HasSuffix(relSlash, ".md") || keep[relSlash] {
+				return nil
+			}
+			return os.Remove(path)
+		})
+		if walkErr != nil && !os.IsNotExist(walkErr) {
+			return fmt.Errorf("prune %s: %w", d, walkErr)
+		}
+	}
+	return nil
 }
 
 func writeVaultFile(base, rel, content string) error {

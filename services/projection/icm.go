@@ -15,19 +15,19 @@ import (
 //	identity.md    — L1 Identity: what the project is (one concept)
 //	reference/     — L4 Reference: canonical, deduped decisions/subjects
 //	contracts/     — L3 Stage Contract: process, conventions, workflow rules
-//	dev-log/       — chronological reasoning trail (per month)
 //	episodes/      — raw L0 capture: provenance, hidden from routing
+//
+// There is deliberately no history/dev-log layer: ICM has none, and chronology
+// is provenance (episodes + the Ledger), not a synthesized concept.
 const (
 	identityFile = "identity.md"
 	referenceDir = "reference"
 	contractsDir = "contracts"
-	devlogDir    = "dev-log"
 	episodesDir  = "episodes"
 
 	typeIdentity  = "identity"
 	typeReference = "reference"
 	typeContract  = "contract"
-	typeDevLog    = "dev-log"
 	typeEpisode   = "episode"
 	typeIndex     = "index"
 )
@@ -43,7 +43,6 @@ type icmFolder struct {
 var icmFolders = []icmFolder{
 	{referenceDir, "Reference", "you need a decision, convention, or durable fact about a subject"},
 	{contractsDir, "Stage Contract", "you need the process/rules for a kind of work (workflow, release, review)"},
-	{devlogDir, "History", "you need the chronological record of what changed and why"},
 }
 
 // layerOf reports the ICM concept type for a vault-relative path.
@@ -55,8 +54,6 @@ func layerOf(path string) string {
 		return typeReference
 	case strings.HasPrefix(path, contractsDir+"/"):
 		return typeContract
-	case strings.HasPrefix(path, devlogDir+"/"):
-		return typeDevLog
 	case strings.HasPrefix(path, episodesDir+"/"):
 		return typeEpisode
 	default:
@@ -65,11 +62,11 @@ func layerOf(path string) string {
 }
 
 // buildPerFolderIndexes generates an OKF INDEX.md inside each routable folder
-// (reference/, contracts/, dev-log/), listing every concept with its name and
-// description so the agent can pick a file without opening any. It mutates files
-// in place, adding "<dir>/INDEX.md" entries. Episodes are provenance — no index.
+// (reference/, contracts/), listing every concept with its name and description
+// so the agent can pick a file without opening any. It mutates files in place,
+// adding "<dir>/INDEX.md" entries. Episodes are provenance — no index.
 func buildPerFolderIndexes(files map[string]string) {
-	for _, dir := range []string{referenceDir, contractsDir, devlogDir} {
+	for _, dir := range []string{referenceDir, contractsDir} {
 		type row struct{ path, name, desc string }
 		var rows []row
 		for p, c := range files {

@@ -19,29 +19,22 @@ func makeMemoryEvent(offset uint64, sessionID string, t time.Time, text string, 
 	}
 }
 
-func TestBuildTimelineTwoMonths(t *testing.T) {
+func TestDeterministicFoldEmitsReferenceOnly(t *testing.T) {
 	events := []FoldEvent{
-		makeMemoryEvent(1, "sess-a", time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC), "jan memory", nil),
-		makeMemoryEvent(2, "sess-b", time.Date(2026, 2, 5, 0, 0, 0, 0, time.UTC), "feb memory", nil),
+		makeMemoryEvent(1, "sess-a", time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC), "jan memory", []string{"arch"}),
+		makeMemoryEvent(2, "sess-b", time.Date(2026, 2, 5, 0, 0, 0, 0, time.UTC), "feb memory", []string{"arch"}),
 	}
-	out := buildTimeline("test-project", events)
-	if len(out) != 2 {
-		t.Fatalf("expected 2 dev-log files, got %d: %v", len(out), keys(out))
+	res, err := NewDeterministicSynth().Fold(context.Background(), FoldInput{ProjectID: "demo", Events: events})
+	if err != nil {
+		t.Fatal(err)
 	}
-	for path, content := range out {
-		if !strings.HasPrefix(path, devlogDir+"/") {
-			t.Errorf("unexpected path: %s", path)
+	for p := range res.Files {
+		if strings.HasPrefix(p, "dev-log/") || strings.HasPrefix(p, "timeline/") {
+			t.Errorf("deterministic fold must not emit a chronological layer, got %s", p)
 		}
-		fm, _ := ParseFrontmatter(content)
-		if fm.Level != 1 {
-			t.Errorf("%s: expected level 1, got %d", path, fm.Level)
-		}
-		if fm.Kind != "timeline" {
-			t.Errorf("%s: expected kind timeline, got %q", path, fm.Kind)
-		}
-		if len(fm.Sources) == 0 {
-			t.Errorf("%s: expected sources, got none", path)
-		}
+	}
+	if _, ok := res.Files[referenceDir+"/arch.md"]; !ok {
+		t.Errorf("expected a reference concept for the memory tag, got %v", keys(res.Files))
 	}
 }
 

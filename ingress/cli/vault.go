@@ -198,7 +198,9 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	spinner.Stop()
 
 	writer := projection.NewWriter(root)
-	wres, err := writer.Write(res, read.Head, len(read.Events))
+	// On rebuild, prune stale files so the on-disk vault exactly matches the
+	// freshly synthesized set (e.g. when the layout changes).
+	wres, err := writer.Write(res, read.Head, len(read.Events), rebuild)
 	if err != nil {
 		return err
 	}

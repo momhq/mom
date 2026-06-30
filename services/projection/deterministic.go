@@ -32,10 +32,9 @@ func (s *DeterministicSynth) Fold(_ context.Context, in FoldInput) (FoldResult, 
 		files[p] = c
 	}
 
-	timeline := buildTimeline(in.ProjectID, in.Events)
-	for p, c := range timeline {
-		files[p] = c
-	}
+	// Deterministic fallback emits only reference/ concepts from recorded
+	// memories. There is no chronological layer — history is provenance
+	// (episodes + the Ledger), not a synthesized ICM layer.
 	topics := buildTopics(in.ProjectID, in.Events)
 	for p, c := range topics {
 		files[p] = c
@@ -88,86 +87,6 @@ func deterministicFrontmatter(projectID, kind string, events []FoldEvent) Frontm
 		FoldedAt:       time.Now().UTC(),
 		Version:        1,
 	}
-}
-
-// buildTimeline produces timeline/<YYYY-MM>.md, one bullet per
-// memory.recorded and per detected cluster of turns, newest first.
-func buildTimeline(projectID string, events []FoldEvent) map[string]string {
-	type bullet struct {
-		when time.Time
-		line string
-	}
-	type monthBucket struct {
-		bullets []bullet
-		events  []FoldEvent
-	}
-	byMonth := map[string]*monthBucket{}
-
-	// Cluster consecutive turns within the same session into one bullet.
-	var turnRun []FoldEvent
-	flush := func() {
-		if len(turnRun) == 0 {
-			return
-		}
-		first := turnRun[0]
-		month := first.CreatedAt.UTC().Format("2006-01")
-		summary := clusterSummary(turnRun)
-		line := fmt.Sprintf("- **%s** · session `%s` · %d turns — %s",
-			first.CreatedAt.UTC().Format("2006-01-02 15:04"),
-			shortSession(first.SessionID), len(turnRun), summary)
-		if byMonth[month] == nil {
-			byMonth[month] = &monthBucket{}
-		}
-		byMonth[month].bullets = append(byMonth[month].bullets, bullet{when: first.CreatedAt, line: line})
-		byMonth[month].events = append(byMonth[month].events, turnRun...)
-		turnRun = nil
-	}
-
-	for _, e := range events {
-		if e.Type == string(memoryType) {
-			month := e.CreatedAt.UTC().Format("2006-01")
-			text := e.Summary
-			if strings.TrimSpace(text) == "" {
-				text = e.Text
-			}
-			line := fmt.Sprintf("- **%s** · 🧠 memory · session `%s` — %s",
-				e.CreatedAt.UTC().Format("2006-01-02 15:04"),
-				shortSession(e.SessionID), truncate(text, snippetMaxChars))
-			if len(e.Tags) > 0 {
-				line += "  _(" + strings.Join(e.Tags, ", ") + ")_"
-			}
-			if byMonth[month] == nil {
-				byMonth[month] = &monthBucket{}
-			}
-			byMonth[month].bullets = append(byMonth[month].bullets, bullet{when: e.CreatedAt, line: line})
-			byMonth[month].events = append(byMonth[month].events, e)
-			continue
-		}
-		// turn
-		if len(turnRun) > 0 && turnRun[len(turnRun)-1].SessionID != e.SessionID {
-			flush()
-		}
-		turnRun = append(turnRun, e)
-	}
-	flush()
-
-	out := map[string]string{}
-	for month, bucket := range byMonth {
-		sort.SliceStable(bucket.bullets, func(i, j int) bool { return bucket.bullets[i].when.After(bucket.bullets[j].when) })
-		var body strings.Builder
-		fmt.Fprintf(&body, "# History — %s\n\n", month)
-		body.WriteString("_Chronological record of what happened, newest first._\n\n")
-		for _, bl := range bucket.bullets {
-			body.WriteString(bl.line)
-			body.WriteString("\n")
-		}
-		fm := deterministicFrontmatter(projectID, "timeline", bucket.events)
-		fm.Type = typeDevLog
-		fm.Name = "History — " + month
-		fm.Description = "What changed during " + month
-		out[fmt.Sprintf("%s/%s.md", devlogDir, month)] = PrependFrontmatter(fm, body.String())
-	}
-	return out
 }
 
 // buildTopics groups memory content by tag into topics/<tag>.md, capped
@@ -447,8 +366,7 @@ func buildClaudeBlock(in FoldInput) string {
 	b.WriteString("1. Read `.mom/vault/INDEX.md` first — the root router (identity + routing table).\n")
 	b.WriteString("2. `identity.md` — what this project is.\n")
 	b.WriteString("3. `reference/` — decisions, conventions, durable facts by subject (each has its own `INDEX.md`).\n")
-	b.WriteString("4. `contracts/` — process and workflow rules for a kind of work.\n")
-	b.WriteString("5. `dev-log/` — chronological record of what changed and why.\n\n")
+	b.WriteString("4. `contracts/` — process and workflow rules for a kind of work.\n\n")
 	b.WriteString("The vault is regenerated from the Ledger on every fold. **Do not edit vault files by hand** — changes are lost on the next fold.\n")
 	fmt.Fprintf(&b, "\n_Folded through Ledger offset **%d** (project `%s`)._\n", in.ToOffset, in.ProjectID)
 	return b.String()
@@ -456,19 +374,6 @@ func buildClaudeBlock(in FoldInput) string {
 
 // memoryType is the FoldEvent.Type value for recorded memories.
 const memoryType = "capture.memory.recorded"
-
-func clusterSummary(turns []FoldEvent) string {
-	// Prefer the first substantive user turn, else first turn text.
-	for _, t := range turns {
-		if strings.EqualFold(t.Role, "user") && strings.TrimSpace(t.Text) != "" {
-			return truncate(t.Text, snippetMaxChars)
-		}
-	}
-	if len(turns) > 0 {
-		return truncate(turns[0].Text, snippetMaxChars)
-	}
-	return "(no text)"
-}
 
 func shortSession(id string) string {
 	if len(id) <= 8 {
