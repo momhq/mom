@@ -976,6 +976,21 @@ func regenerateHarnessFiles(projectRoot, momDir string, cfg *config.Config) erro
 				return fmt.Errorf("registering %s hooks: %w", rt, err)
 			}
 		}
+
+		// Heal the global managed block too. `mom upgrade` is almost always run
+		// from a project, so momDir is the project's .mom and the central branch
+		// above never fires — yet the user's global ~/.claude/CLAUDE.md MOM block
+		// still needs refreshing (doctor checks for its BEGIN/END markers, and
+		// pre-v0.50 installs whose global file was written without them stay
+		// broken otherwise). GenerateGlobalContextFile targets a fixed path via
+		// upsertManagedBlock, which is idempotent and preserves the user's
+		// surrounding content, so running it on every project upgrade is safe.
+		// (#390)
+		if global, ok := adapter.(harness.GlobalAdapter); ok {
+			if err := global.GenerateGlobalContextFile(harnessCfg, harnessConstraints, harnessSkills, harnessIdentity); err != nil {
+				return fmt.Errorf("refreshing %s global context: %w", rt, err)
+			}
+		}
 	}
 
 	return nil

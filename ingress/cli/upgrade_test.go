@@ -76,6 +76,69 @@ func TestRegenerateHarnessFiles_CentralVault_MergesBlockPreservingUserContent(t 
 	}
 }
 
+// TestRegenerateHarnessFiles_Project_HealsGlobalBlock is the regression guard
+// for #390: `mom upgrade` run from a project (momDir == project/.mom, NOT the
+// central vault) only regenerated the project context file and never refreshed
+// the global ~/.claude/CLAUDE.md MOM block. Pre-v0.50 installs whose global file
+// lacked the BEGIN/END markers stayed broken (doctor kept reporting "MOM block
+// missing") until `mom init --harnesses claude`. The fix also heals the global
+// managed block on a project upgrade.
+func TestRegenerateHarnessFiles_Project_HealsGlobalBlock(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	// Central vault lives at ~/.mom; the project we upgrade is elsewhere.
+	t.Setenv("MOM_VAULT", filepath.Join(home, ".mom", "mom.db"))
+
+	// Global Claude file as a pre-v0.50 install left it: user content, NO MOM block.
+	claudeMd := filepath.Join(home, ".claude", "CLAUDE.md")
+	if err := os.MkdirAll(filepath.Dir(claudeMd), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prior := "# My personal global notes\n\nKeep me.\n"
+	if err := os.WriteFile(claudeMd, []byte(prior), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A real project directory distinct from $HOME, with its own .mom/.
+	projectRoot := t.TempDir()
+	projectMomDir := filepath.Join(projectRoot, ".mom")
+	if err := os.MkdirAll(projectMomDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if isCentralVault(projectMomDir) {
+		t.Fatalf("test setup: project .mom must not classify as central vault")
+	}
+
+	cfg := config.Default()
+	cfg.Harnesses = map[string]config.HarnessConfig{"claude": {Enabled: true}}
+
+	if err := regenerateHarnessFiles(projectRoot, projectMomDir, &cfg); err != nil {
+		t.Fatalf("regenerateHarnessFiles: %v", err)
+	}
+
+	// The project context file is still written.
+	if _, err := os.Stat(filepath.Join(projectRoot, ".claude", "CLAUDE.md")); err != nil {
+		t.Errorf("project .claude/CLAUDE.md not generated: %v", err)
+	}
+
+	// #390: the global block is now healed, with user content preserved.
+	got, err := os.ReadFile(claudeMd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(got)
+	if c := strings.Count(s, "BEGIN MOM GENERATED BLOCK"); c != 1 {
+		t.Errorf("want exactly one global managed block after project upgrade, got %d:\n%s", c, s)
+	}
+	if !strings.Contains(s, ".mom/vault/INDEX.md") {
+		t.Errorf("global block missing vault-first protocol:\n%s", s)
+	}
+	if !strings.Contains(s, "My personal global notes") {
+		t.Errorf("user content in global file was clobbered:\n%s", s)
+	}
+}
+
 // setupLegacyProject creates a .mom/ with stale config and current flat structure.
 // resetUpgradeFlags resets cobra flag state between tests.
 func resetUpgradeFlags(t *testing.T) {
