@@ -8,9 +8,14 @@ import (
 	"time"
 )
 
-// HierarchySynth wraps an LLMSynth to produce a three-level vault:
-// L0 episodes (one per chunk) → L1 topics/timeline (synthesized from L0
-// when enough episodes exist) → L2 summaries (when enough L1 files exist).
+// l1BatchEpisodes is how many L0 episodes one L1 synthesis call processes.
+// Bounded so neither the prompt nor the expected JSON output grows with the
+// whole corpus (which made a single all-episodes call time out or truncate).
+const l1BatchEpisodes = 20
+
+// HierarchySynth wraps an LLMSynth to produce the ICM vault:
+// L0 episodes (one per chunk) → L1 reference/ + contracts/ concepts
+// (synthesized from L0 in batches) → L2 identity.md (from the reference layer).
 type HierarchySynth struct {
 	inner       Synthesizer
 	l1Threshold int // min episodes before triggering L1 synthesis (default 5)
@@ -141,47 +146,77 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		}
 	}
 
-	// ── L1 pass: topics + timeline synthesized from all L0 episodes ──────────
+	// ── L1 pass: reference/ + contracts/ synthesized from L0 episodes ────────
+	// Batched: each call sees a BATCH of episodes plus the reference/contracts
+	// built so far, and updates concepts in place. A single call over all
+	// episodes does not scale — the prompt and the expected JSON output grow
+	// with the corpus until the model times out or truncates and the synth
+	// silently falls back to the deterministic engine.
 	if len(l0Files) >= hs.l1Threshold {
-		progress(fmt.Sprintf("L1 synthesis — topics + timeline from %d episodes", len(l0Files)))
-		l1Existing := map[string]string{}
-		for p, c := range acc {
-			if strings.HasPrefix(p, "topics/") || strings.HasPrefix(p, "timeline/") {
-				l1Existing[p] = c
-			}
+		epPaths := make([]string, 0, len(l0Files))
+		for p := range l0Files {
+			epPaths = append(epPaths, p)
 		}
-		l1In := buildL1Input(in, l0Files, l1Existing)
-		l1Res, err := hs.inner.Fold(ctx, l1In)
-		if err != nil {
-			warn(fmt.Sprintf("L1 synthesis failed (%v); keeping existing L1 files", err))
-		} else {
+		sort.Strings(epPaths)
+
+		batch := l1BatchEpisodes
+		nBatches := (len(epPaths) + batch - 1) / batch
+		for bi := 0; bi < len(epPaths); bi += batch {
+			end := bi + batch
+			if end > len(epPaths) {
+				end = len(epPaths)
+			}
+			progress(fmt.Sprintf("L1 synthesis — reference/contracts (batch %d/%d, %d episodes)", bi/batch+1, nBatches, end-bi))
+
+			batchFiles := map[string]string{}
+			for _, p := range epPaths[bi:end] {
+				batchFiles[p] = l0Files[p]
+			}
+			// Feed back the reference/contracts accumulated so far so the model
+			// UPDATES an existing concept rather than spawning a duplicate.
+			l1Existing := map[string]string{}
+			for p, c := range acc {
+				if strings.HasSuffix(p, "/"+indexFileName) {
+					continue
+				}
+				if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
+					l1Existing[p] = c
+				}
+			}
+			l1Res, err := hs.inner.Fold(ctx, buildL1Input(in, batchFiles, l1Existing))
+			if err != nil {
+				warn(fmt.Sprintf("L1 batch %d/%d failed (%v); skipping", bi/batch+1, nBatches, err))
+				continue
+			}
 			for p, c := range l1Res.Files {
 				acc[p] = c
 			}
 		}
 	}
 
-	// Collect L1 files.
+	// Collect L1 concept files (reference + contracts), excluding folder indexes.
 	l1Files := map[string]string{}
 	for p, c := range acc {
-		if strings.HasPrefix(p, "topics/") || strings.HasPrefix(p, "timeline/") {
+		if strings.HasSuffix(p, "/"+indexFileName) {
+			continue
+		}
+		if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
 			l1Files[p] = c
 		}
 	}
 
-	// ── L2 pass: summary synthesized from all L1 files ───────────────────────
+	// ── L2 pass: identity.md synthesized from the reference/contract layer ───
+	// The reference layer is deduped and bounded by subject count (far smaller
+	// than the episode corpus), so a single identity call is tractable.
 	if len(l1Files) >= hs.l2Threshold {
-		progress(fmt.Sprintf("L2 synthesis — overview from %d topics/timeline files", len(l1Files)))
+		progress(fmt.Sprintf("L2 synthesis — identity from %d reference/contract files", len(l1Files)))
 		l2Existing := map[string]string{}
-		for p, c := range acc {
-			if strings.HasPrefix(p, "summaries/") {
-				l2Existing[p] = c
-			}
+		if c, ok := acc[identityFile]; ok {
+			l2Existing[identityFile] = c
 		}
-		l2In := buildL2Input(in, l1Files, l2Existing)
-		l2Res, err := hs.inner.Fold(ctx, l2In)
+		l2Res, err := hs.inner.Fold(ctx, buildL2Input(in, l1Files, l2Existing))
 		if err != nil {
-			warn(fmt.Sprintf("L2 synthesis failed (%v); keeping existing summaries", err))
+			warn(fmt.Sprintf("L2 synthesis failed (%v); keeping existing identity", err))
 		} else {
 			for p, c := range l2Res.Files {
 				acc[p] = c
