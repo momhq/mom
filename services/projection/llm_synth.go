@@ -262,11 +262,11 @@ func buildPrompt(in FoldInput) (string, bool) {
 	b.WriteString("2. Produce RESIDUE ONLY: decisions, preferences, corrections, recurring procedures, identity. Drop chatter and transient status.\n")
 	b.WriteString("3. Follow the WORK ITEM hint in the existing files (a `_l0_hint`/`_l1_hint`/`_l2_hint` entry): it tells you which layer and paths to write this pass.\n")
 	b.WriteString("4. MINIMALISM (OKF): one concept = ONE subject per file. NEVER create two files about the same subject. If a `reference/<subject>.md` already exists for a subject, UPDATE it in place — do not make `<subject>-v2`, `<subject>-view`, etc.\n")
-	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|contract|episode), name (short title), description (one line of what it holds), level, sources (ledger offsets), tags, time_range_start, time_range_end (RFC3339).\n")
+	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|contract|episode), name (short title), description (one line), level, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance; emitting offset arrays bloats and truncates your output.\n")
 	b.WriteString("6. Do NOT restate CLAUDE.md content. Set \"claude_block\" to empty string always. Leave \"index\" empty — the router is generated deterministically.\n")
 	b.WriteString("7. SCOPE: only write concepts for subjects DIRECTLY worked on in THIS project. Ignore other projects mentioned in passing.\n\n")
 	b.WriteString("OUTPUT FORMAT — return ONLY this JSON, no prose, no code fence:\n")
-	b.WriteString(`{"files":[{"path":"reference/voice.md","content":"---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlevel: 1\nsources: [1,2,3]\ntags: [voice]\ntime_range_start: 2026-01-01T00:00:00Z\ntime_range_end: 2026-01-31T23:59:59Z\n---\n# Voice & tone\n..."}],"index":"","claude_block":""}` + "\n\n")
+	b.WriteString(`{"files":[{"path":"reference/voice.md","content":"---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlevel: 1\ntags: [voice]\ntime_range_start: 2026-01-01T00:00:00Z\ntime_range_end: 2026-01-31T23:59:59Z\n---\n# Voice & tone\n..."}],"index":"","claude_block":""}` + "\n\n")
 	fmt.Fprintf(&b, "PROJECT: %s\n", in.ProjectID)
 	fmt.Fprintf(&b, "WATERMARK: offset %d\n", in.ToOffset)
 	if windowed {

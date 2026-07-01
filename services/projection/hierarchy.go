@@ -132,7 +132,16 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			warn(fmt.Sprintf("L0 chunk %d/%d failed (%v); skipping", (i/chunkSize)+1, total, err))
 			continue
 		}
+		chunkOffsets := make([]uint64, len(chunk))
+		for j, e := range chunk {
+			chunkOffsets[j] = e.Offset
+		}
 		for p, c := range res.Files {
+			// MOM owns provenance — the model omits sources (a big offset array
+			// bloats output and truncates the JSON). Stamp the chunk's offsets.
+			if strings.HasPrefix(p, episodesDir+"/") {
+				c = stampProvenance(c, in.ProjectID, chunkOffsets, nil)
+			}
 			acc[p] = c
 		}
 		// Record the episode path.
@@ -166,8 +175,11 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		for i, subj := range subjects {
 			progress(fmt.Sprintf("L1 subject %d/%d — reference/%s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
 			subEps := make(map[string]string, len(subj.episodePaths))
+			var subOffsets []uint64
 			for _, p := range subj.episodePaths {
 				subEps[p] = l0Files[p]
+				fm, _ := ParseFrontmatter(l0Files[p])
+				subOffsets = append(subOffsets, fm.Sources...)
 			}
 			l1Res, err := hs.inner.Fold(ctx, buildL1SubjectInput(in, subj, subEps))
 			if err != nil {
@@ -175,6 +187,11 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				continue
 			}
 			for p, c := range l1Res.Files {
+				// Stamp provenance MOM owns: the union of the subject's episode
+				// offsets, and the episodes as children. The model omits sources.
+				if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
+					c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths)
+				}
 				acc[p] = c
 			}
 		}
@@ -232,12 +249,45 @@ func buildL0Input(in FoldInput, cid string) FoldInput {
 	hint := map[string]string{}
 	hint["_l0_hint"] = fmt.Sprintf(
 		"WORK ITEM (L0 capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
-			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), level:0, sources:[<offsets from events>], tags:[<subject slugs>], time_range_start/end.\n"+
+			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), level:0, tags:[<subject slugs>], time_range_start/end. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
 			"Body: a FLAT bullet list — AT MOST 10 short bullets of durable decisions/corrections/preferences and what was built. "+
 			"HARD LIMITS: no headings, no code blocks, no sub-bullets, no multi-line bullets; keep the whole file under 180 words. "+
 			"This must stay short enough to fit in one response — terseness is mandatory, not optional.",
 		cid)
 	out.Existing = hint
+	return out
+}
+
+// stampProvenance rewrites a synthesized file's machine-owned frontmatter:
+// sources (deduped/sorted), children, and the content-addressed id. The model
+// is told to OMIT these — a large sources offset array bloats the JSON output
+// until it truncates, and provenance is MOM's to compute, not the model's.
+func stampProvenance(content, projectID string, sources []uint64, children []string) string {
+	fm, body := ParseFrontmatter(content)
+	fm.Sources = sortedUniqueOffsets(sources)
+	if len(children) > 0 {
+		ch := append([]string(nil), children...)
+		sort.Strings(ch)
+		fm.Children = ch
+	}
+	fm.ID = chunkID(projectID, fm.Sources)
+	return PrependFrontmatter(fm, body)
+}
+
+func sortedUniqueOffsets(in []uint64) []uint64 {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[uint64]struct{}, len(in))
+	out := make([]uint64, 0, len(in))
+	for _, o := range in {
+		if _, ok := seen[o]; ok {
+			continue
+		}
+		seen[o] = struct{}{}
+		out = append(out, o)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
 }
 
@@ -319,7 +369,7 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string)
 	hint["_l1_hint"] = fmt.Sprintf(
 		"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file at reference/%s.md about the subject \"%s\".\n"+
 			"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
-			"Frontmatter: type:reference, name:\"%s\", description:<one line>, level:1, sources (the ledger offsets of the contributing episodes), tags:[%s].\n"+
+			"Frontmatter: type:reference, name:\"%s\", description:<one line>, level:1, tags:[%s]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
 			"Body: a FLAT bullet list, AT MOST 12 short bullets, no headings, no code blocks, no sub-bullets, under 200 words. Terse. Do NOT write any other file.",
 		subj.slug, subj.name, subj.name, subj.name, subj.slug)
 	for p, c := range episodes {
