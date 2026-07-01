@@ -246,8 +246,10 @@ func buildL0Input(in FoldInput, cid string) FoldInput {
 	hint := map[string]string{}
 	hint["_l0_hint"] = fmt.Sprintf(
 		"WORK ITEM (L0 capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
-			"Frontmatter: type:episode, name:<short session subject>, description:<one line>, level:0, sources:[<offsets from events>], tags:[<subject slugs>], time_range_start/end.\n"+
-			"Body: bullet-point log of significant moments from this session chunk (decisions, corrections, preferences, what was built and why). No chatter.",
+			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), level:0, sources:[<offsets from events>], tags:[<subject slugs>], time_range_start/end.\n"+
+			"Body: a FLAT bullet list — AT MOST 10 short bullets of durable decisions/corrections/preferences and what was built. "+
+			"HARD LIMITS: no headings, no code blocks, no sub-bullets, no multi-line bullets; keep the whole file under 180 words. "+
+			"This must stay short enough to fit in one response — terseness is mandatory, not optional.",
 		cid)
 	out.Existing = hint
 	return out
