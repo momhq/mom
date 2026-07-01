@@ -8,14 +8,20 @@ import (
 	"time"
 )
 
-// l1BatchEpisodes is how many L0 episodes one L1 synthesis call processes.
-// Bounded so neither the prompt nor the expected JSON output grows with the
-// whole corpus (which made a single all-episodes call time out or truncate).
-const l1BatchEpisodes = 20
+const (
+	// l1SubjectMinEpisodes is the minimum number of episodes a tag must span to
+	// become a reference concept — filters one-off tags out as noise.
+	l1SubjectMinEpisodes = 2
+	// maxSubjects caps how many reference concepts one fold synthesizes.
+	maxSubjects = 60
+	// maxEpisodesPerSubject bounds a single subject's synthesis prompt so a very
+	// hot tag can't produce an oversized call.
+	maxEpisodesPerSubject = 40
+)
 
 // HierarchySynth wraps an LLMSynth to produce the ICM vault:
-// L0 episodes (one per chunk) → L1 reference/ + contracts/ concepts
-// (synthesized from L0 in batches) → L2 identity.md (from the reference layer).
+// L0 episodes (one per chunk) → L1 reference/ concepts (one per subject, grouped
+// by L0 tags) → L2 identity.md (from the reference layer).
 type HierarchySynth struct {
 	inner       Synthesizer
 	l1Threshold int // min episodes before triggering L1 synthesis (default 5)
@@ -146,46 +152,26 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		}
 	}
 
-	// ── L1 pass: reference/ + contracts/ synthesized from L0 episodes ────────
-	// Batched: each call sees a BATCH of episodes plus the reference/contracts
-	// built so far, and updates concepts in place. A single call over all
-	// episodes does not scale — the prompt and the expected JSON output grow
-	// with the corpus until the model times out or truncates and the synth
-	// silently falls back to the deterministic engine.
+	// ── L1 pass: one reference/ concept per SUBJECT ──────────────────────────
+	// Subject-oriented, not batch-oriented. The L0 episodes already carry the
+	// subjects in their `tags`; we group episodes by tag and synthesize exactly
+	// ONE reference file per subject from only that subject's episodes. This
+	// makes dedup structural (one file per subject — no near-duplicates), bounds
+	// every call to a single small output (fast, never times out), and scales
+	// with the number of subjects rather than the episode count. A single call
+	// over all episodes emitting all concepts did neither.
 	if len(l0Files) >= hs.l1Threshold {
-		epPaths := make([]string, 0, len(l0Files))
-		for p := range l0Files {
-			epPaths = append(epPaths, p)
-		}
-		sort.Strings(epPaths)
-
-		batch := l1BatchEpisodes
-		nBatches := (len(epPaths) + batch - 1) / batch
-		for bi := 0; bi < len(epPaths); bi += batch {
-			end := bi + batch
-			if end > len(epPaths) {
-				end = len(epPaths)
+		subjects := collectSubjects(l0Files, in.ProjectID)
+		progress(fmt.Sprintf("L1 synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
+		for i, subj := range subjects {
+			progress(fmt.Sprintf("L1 subject %d/%d — reference/%s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
+			subEps := make(map[string]string, len(subj.episodePaths))
+			for _, p := range subj.episodePaths {
+				subEps[p] = l0Files[p]
 			}
-			progress(fmt.Sprintf("L1 synthesis — reference/contracts (batch %d/%d, %d episodes)", bi/batch+1, nBatches, end-bi))
-
-			batchFiles := map[string]string{}
-			for _, p := range epPaths[bi:end] {
-				batchFiles[p] = l0Files[p]
-			}
-			// Feed back the reference/contracts accumulated so far so the model
-			// UPDATES an existing concept rather than spawning a duplicate.
-			l1Existing := map[string]string{}
-			for p, c := range acc {
-				if strings.HasSuffix(p, "/"+indexFileName) {
-					continue
-				}
-				if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
-					l1Existing[p] = c
-				}
-			}
-			l1Res, err := hs.inner.Fold(ctx, buildL1Input(in, batchFiles, l1Existing))
+			l1Res, err := hs.inner.Fold(ctx, buildL1SubjectInput(in, subj, subEps))
 			if err != nil {
-				warn(fmt.Sprintf("L1 batch %d/%d failed (%v); skipping", bi/batch+1, nBatches, err))
+				warn(fmt.Sprintf("L1 subject %q failed (%v); skipping", subj.slug, err))
 				continue
 			}
 			for p, c := range l1Res.Files {
@@ -255,69 +241,101 @@ func buildL0Input(in FoldInput, cid string) FoldInput {
 	return out
 }
 
-// buildL1Input returns a FoldInput for L1 synthesis (topics + timeline from L0 episodes).
-func buildL1Input(in FoldInput, l0Files, l1Existing map[string]string) FoldInput {
-	// Merge l0 files into a synthetic "existing" set alongside the real L1 files.
-	existing := map[string]string{}
-	for p, c := range l1Existing {
-		existing[p] = c
-	}
+// subject is one reference concept to synthesize: a tag slug shared by a set of
+// L0 episodes.
+type subject struct {
+	slug         string
+	name         string
+	episodePaths []string
+}
+
+// collectSubjects groups L0 episodes by the tags their frontmatter carries. Each
+// tag that recurs across at least l1SubjectMinEpisodes episodes becomes one
+// reference concept. The project-name tag and one-off tags are dropped as noise;
+// the result is capped at maxSubjects by frequency, then ordered by slug for a
+// deterministic fold.
+func collectSubjects(l0Files map[string]string, projectID string) []subject {
+	tagEps := map[string][]string{}
 	for p, c := range l0Files {
-		existing[p] = c
+		fm, _ := ParseFrontmatter(c)
+		seen := map[string]bool{}
+		for _, t := range fm.Tags {
+			slug := tagSlug(t)
+			if slug == "" || seen[slug] {
+				continue
+			}
+			seen[slug] = true
+			tagEps[slug] = append(tagEps[slug], p)
+		}
 	}
 
-	// Collect all offsets and time range from the l0 files' frontmatter.
-	var allOffsets []uint64
+	projSlug := tagSlug(projectID)
+	subs := make([]subject, 0, len(tagEps))
+	for slug, eps := range tagEps {
+		if slug == projSlug || len(eps) < l1SubjectMinEpisodes {
+			continue
+		}
+		// Bound the episodes per subject so a very hot tag can't produce an
+		// oversized prompt; keep the most recent (highest-offset) episodes.
+		sort.Strings(eps)
+		if len(eps) > maxEpisodesPerSubject {
+			eps = eps[len(eps)-maxEpisodesPerSubject:]
+		}
+		subs = append(subs, subject{slug: slug, name: strings.ReplaceAll(slug, "-", " "), episodePaths: eps})
+	}
+
+	// Keep the top maxSubjects by episode count, then order by slug.
+	sort.Slice(subs, func(i, j int) bool {
+		if len(subs[i].episodePaths) != len(subs[j].episodePaths) {
+			return len(subs[i].episodePaths) > len(subs[j].episodePaths)
+		}
+		return subs[i].slug < subs[j].slug
+	})
+	if len(subs) > maxSubjects {
+		subs = subs[:maxSubjects]
+	}
+	sort.Slice(subs, func(i, j int) bool { return subs[i].slug < subs[j].slug })
+	return subs
+}
+
+// buildL1SubjectInput returns a FoldInput that asks for a SINGLE reference file
+// about one subject, synthesized from only that subject's episodes.
+func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string) FoldInput {
+	var offsets []uint64
 	var earliest, latest time.Time
-	for _, content := range l0Files {
-		fm, _ := ParseFrontmatter(content)
-		allOffsets = append(allOffsets, fm.Sources...)
-		if !fm.TimeRangeStart.IsZero() {
-			if earliest.IsZero() || fm.TimeRangeStart.Before(earliest) {
-				earliest = fm.TimeRangeStart
-			}
+	for _, c := range episodes {
+		fm, _ := ParseFrontmatter(c)
+		offsets = append(offsets, fm.Sources...)
+		if !fm.TimeRangeStart.IsZero() && (earliest.IsZero() || fm.TimeRangeStart.Before(earliest)) {
+			earliest = fm.TimeRangeStart
 		}
-		if !fm.TimeRangeEnd.IsZero() {
-			if latest.IsZero() || fm.TimeRangeEnd.After(latest) {
-				latest = fm.TimeRangeEnd
-			}
+		if !fm.TimeRangeEnd.IsZero() && (latest.IsZero() || fm.TimeRangeEnd.After(latest)) {
+			latest = fm.TimeRangeEnd
 		}
 	}
-	sort.Slice(allOffsets, func(i, j int) bool { return allOffsets[i] < allOffsets[j] })
-
-	// Build synthetic events list — one placeholder per l0 file.
-	syntheticEvents := make([]FoldEvent, 0, len(l0Files))
-	for p := range l0Files {
-		syntheticEvents = append(syntheticEvents, FoldEvent{
-			Type: "synthetic.l0",
-			Text: fmt.Sprintf("Episode file: %s", p),
-		})
-	}
+	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
 
 	hint := map[string]string{}
-	hint["_l1_hint"] = "WORK ITEM (L1 synthesis): From the L0 episode files in the existing set, synthesize CANONICAL concept files.\n" +
-		"- reference/<subject>.md — one file per durable SUBJECT (a decision, convention, architecture area, or fact). type:reference.\n" +
-		"- contracts/<subject>.md — one file per recurring PROCESS or rule (workflow, release flow, review, naming). type:contract.\n" +
-		"MINIMALISM: one subject per file. If reference/<subject>.md already exists, UPDATE it — never create a near-duplicate (no -v2/-view/-cleanup variants); merge instead.\n" +
-		"Frontmatter: type, name (short title), description (one line), level:1, sources:[combined offsets], tags, time_range_start/end. List children: the episodes/ paths that contributed.\n" +
-		"Body: synthesized decisions/patterns/conventions. No inventing."
-	for p, c := range existing {
+	hint["_l1_hint"] = fmt.Sprintf(
+		"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file at reference/%s.md about the subject \"%s\".\n"+
+			"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
+			"Frontmatter: type:reference, name:\"%s\", description:<one line>, level:1, sources (the ledger offsets of the contributing episodes), tags:[%s].\n"+
+			"Body: a FLAT bullet list, AT MOST 12 short bullets, no headings, no code blocks, no sub-bullets, under 200 words. Terse. Do NOT write any other file.",
+		subj.slug, subj.name, subj.name, subj.name, subj.slug)
+	for p, c := range episodes {
 		hint[p] = c
 	}
 
 	var fromOff, toOff uint64
-	if len(allOffsets) > 0 {
-		fromOff = allOffsets[0]
-		toOff = allOffsets[len(allOffsets)-1]
+	if len(offsets) > 0 {
+		fromOff, toOff = offsets[0], offsets[len(offsets)-1]
 	}
-
 	return FoldInput{
 		ProjectID:   in.ProjectID,
 		ProjectRoot: in.ProjectRoot,
 		FromOffset:  fromOff,
 		ToOffset:    toOff,
 		Existing:    hint,
-		Events:      syntheticEvents,
 	}
 }
 

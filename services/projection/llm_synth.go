@@ -333,7 +333,7 @@ func (c *ClaudeInvoker) IsAvailable() bool {
 }
 
 func (c *ClaudeInvoker) Invoke(ctx context.Context, prompt string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	// The model is intentionally not pinned — synthesis runs on whatever model
 	// the user's Claude CLI defaults to, matching the Codex and Pi invokers.
@@ -380,7 +380,7 @@ func (c *CodexInvoker) IsAvailable() bool {
 }
 
 func (c *CodexInvoker) Invoke(ctx context.Context, prompt string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	// codex non-interactive: `codex exec -q "<prompt>"` outputs assistant text to stdout.
 	cmd := exec.CommandContext(ctx, c.Bin, "exec", "-q", prompt)
@@ -415,7 +415,7 @@ func (p *PiInvoker) IsAvailable() bool {
 }
 
 func (p *PiInvoker) Invoke(ctx context.Context, prompt string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	// pi non-interactive: `pi run -p "<prompt>"` outputs assistant text to stdout.
 	cmd := exec.CommandContext(ctx, p.Bin, "run", "-p", prompt)
