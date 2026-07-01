@@ -72,29 +72,62 @@ func (s *LLMSynth) fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 	}
 
 	assistantText := extractAssistantText(raw)
-	jsonObj := extractJSONObject(assistantText)
-	if strings.TrimSpace(jsonObj) == "" {
-		return FoldResult{}, fmt.Errorf("no JSON object in %s output (got: %s)", s.invoker.Name(), truncate(assistantText, 300))
-	}
-
-	var out llmOut
-	if err := json.Unmarshal([]byte(jsonObj), &out); err != nil {
-		return FoldResult{}, fmt.Errorf("parse %s JSON: %w", s.invoker.Name(), err)
-	}
-	if len(out.Files) == 0 && strings.TrimSpace(out.Index) == "" {
-		return FoldResult{}, fmt.Errorf("empty synthesis result from %s", s.invoker.Name())
+	parsed := parseDelimitedFiles(assistantText)
+	if len(parsed) == 0 {
+		return FoldResult{}, fmt.Errorf("no files in %s output (got: %s)", s.invoker.Name(), truncate(assistantText, 300))
 	}
 
 	files := map[string]string{}
-	for _, f := range out.Files {
-		p := strings.TrimSpace(f.Path)
+	for p, content := range parsed {
+		p = strings.TrimSpace(p)
 		if p == "" || p == indexFileName {
 			continue
 		}
-		files[p] = postProcessLLMFile(in.ProjectID, f.Content)
+		files[p] = postProcessLLMFile(in.ProjectID, content)
 	}
-	// The CLAUDE.md pointer block is ALWAYS generated deterministically.
-	return FoldResult{Files: files, Index: out.Index, ClaudeBlock: buildClaudeBlock(in)}, nil
+	if len(files) == 0 {
+		return FoldResult{}, fmt.Errorf("empty synthesis result from %s", s.invoker.Name())
+	}
+	// index and claude_block are generated deterministically, not by the model.
+	return FoldResult{Files: files, ClaudeBlock: buildClaudeBlock(in)}, nil
+}
+
+// fileBlockOpen/Close delimit each emitted file. Content between them is raw
+// markdown — never JSON-escaped — so quotes, code, and newlines in the file body
+// cannot corrupt the payload (the failure mode of embedding files in JSON).
+const (
+	fileBlockOpen  = "@@@FILE "
+	fileBlockClose = "@@@END@@@"
+)
+
+// parseDelimitedFiles extracts path→content pairs from the model's delimited
+// output. Each block is `@@@FILE <path>@@@\n<content>\n@@@END@@@`. Prose or code
+// fences around the blocks are ignored; a block missing its close terminator is
+// dropped (the only casualty of a truncated response, instead of the whole set).
+func parseDelimitedFiles(text string) map[string]string {
+	files := map[string]string{}
+	for {
+		i := strings.Index(text, fileBlockOpen)
+		if i < 0 {
+			break
+		}
+		rest := text[i+len(fileBlockOpen):]
+		nl := strings.IndexByte(rest, '\n')
+		if nl < 0 {
+			break
+		}
+		path := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest[:nl]), "@@@"))
+		body := rest[nl+1:]
+		end := strings.Index(body, fileBlockClose)
+		if end < 0 {
+			break // truncated final block — drop it, keep the rest
+		}
+		if path != "" {
+			files[path] = strings.TrimRight(body[:end], "\n") + "\n"
+		}
+		text = body[end+len(fileBlockClose):]
+	}
+	return files
 }
 
 // postProcessLLMFile stamps correct frontmatter onto an LLM-produced file.
@@ -262,11 +295,12 @@ func buildPrompt(in FoldInput) (string, bool) {
 	b.WriteString("2. Produce RESIDUE ONLY: decisions, preferences, corrections, recurring procedures, identity. Drop chatter and transient status.\n")
 	b.WriteString("3. Follow the WORK ITEM hint in the existing files (a `_l0_hint`/`_l1_hint`/`_l2_hint` entry): it tells you which layer and paths to write this pass.\n")
 	b.WriteString("4. MINIMALISM (OKF): one concept = ONE subject per file. NEVER create two files about the same subject. If a `reference/<subject>.md` already exists for a subject, UPDATE it in place — do not make `<subject>-v2`, `<subject>-view`, etc.\n")
-	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|contract|episode), name (short title), description (one line), level, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance; emitting offset arrays bloats and truncates your output.\n")
-	b.WriteString("6. Do NOT restate CLAUDE.md content. Set \"claude_block\" to empty string always. Leave \"index\" empty — the router is generated deterministically.\n")
-	b.WriteString("7. SCOPE: only write concepts for subjects DIRECTLY worked on in THIS project. Ignore other projects mentioned in passing.\n\n")
-	b.WriteString("OUTPUT FORMAT — return ONLY this JSON, no prose, no code fence:\n")
-	b.WriteString(`{"files":[{"path":"reference/voice.md","content":"---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlevel: 1\ntags: [voice]\ntime_range_start: 2026-01-01T00:00:00Z\ntime_range_end: 2026-01-31T23:59:59Z\n---\n# Voice & tone\n..."}],"index":"","claude_block":""}` + "\n\n")
+	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|contract|episode), name (short title), description (one line), level, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance.\n")
+	b.WriteString("6. SCOPE: only write concepts for subjects DIRECTLY worked on in THIS project. Ignore other projects mentioned in passing.\n\n")
+	b.WriteString("OUTPUT FORMAT — emit each file as a delimited block and NOTHING else (no JSON, no prose, no code fences). Write the file content as plain markdown between the delimiters — do NOT escape quotes or newlines:\n")
+	b.WriteString(fileBlockOpen + "<vault-relative path>" + "@@@\n<full markdown file content, starting with the --- frontmatter>\n" + fileBlockClose + "\n\n")
+	b.WriteString("Example:\n")
+	b.WriteString(fileBlockOpen + "reference/voice.md@@@\n---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlevel: 1\ntags: [voice]\n---\n# Voice & tone\n- Terse, direct, no filler.\n" + fileBlockClose + "\n\n")
 	fmt.Fprintf(&b, "PROJECT: %s\n", in.ProjectID)
 	fmt.Fprintf(&b, "WATERMARK: offset %d\n", in.ToOffset)
 	if windowed {
@@ -345,7 +379,7 @@ func (c *ClaudeInvoker) Invoke(ctx context.Context, prompt string) (string, erro
 	cmd := exec.CommandContext(ctx, c.Bin,
 		"-p", prompt,
 		"--output-format", "json",
-		"--system-prompt", "You are a JSON synthesis engine. Output only valid JSON. No prose, no tool calls, no markdown outside the JSON value strings.",
+		"--system-prompt", "You are a synthesis engine. Output ONLY the requested @@@FILE ... @@@END@@@ delimited blocks with plain-markdown content between them. No JSON, no prose, no code fences, no tool calls.",
 		"--strict-mcp-config",
 		"--allowedTools", "",
 	)

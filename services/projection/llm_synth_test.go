@@ -2,6 +2,7 @@ package projection
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -61,5 +62,38 @@ func TestExtractJSONObject(t *testing.T) {
 				t.Errorf("returned span is not valid JSON: %q", got)
 			}
 		})
+	}
+}
+
+func TestParseDelimitedFiles(t *testing.T) {
+	// Content that would break a JSON string: quotes, code, braces, newlines.
+	out := "some preamble prose\n" +
+		"@@@FILE reference/collision.md@@@\n" +
+		"---\ntype: reference\nname: Collision\n---\n# Collision\n" +
+		"- Fixed the \"float\" bug with `const rate = shards / 2;` and {braces}\n" +
+		"- Multi\nline body\n" +
+		"@@@END@@@\n" +
+		"@@@FILE identity.md@@@\n---\ntype: identity\n---\n# Proj\n@@@END@@@\n"
+
+	files := parseDelimitedFiles(out)
+	if len(files) != 2 {
+		t.Fatalf("want 2 files, got %d: %v", len(files), files)
+	}
+	c := files["reference/collision.md"]
+	if !strings.Contains(c, `"float"`) || !strings.Contains(c, "const rate = shards / 2;") || !strings.Contains(c, "{braces}") {
+		t.Errorf("content with quotes/code/braces not preserved:\n%s", c)
+	}
+	if _, ok := files["identity.md"]; !ok {
+		t.Errorf("second file missing")
+	}
+}
+
+func TestParseDelimitedFiles_DropsTruncatedTail(t *testing.T) {
+	// A complete block followed by a truncated one: keep the complete, drop the rest.
+	out := "@@@FILE reference/a.md@@@\n---\ntype: reference\n---\n# A\n@@@END@@@\n" +
+		"@@@FILE reference/b.md@@@\n---\ntype: reference\n---\n# B\n- truncated mid-w"
+	files := parseDelimitedFiles(out)
+	if len(files) != 1 || files["reference/a.md"] == "" {
+		t.Errorf("want only the complete file a.md, got %v", files)
 	}
 }
