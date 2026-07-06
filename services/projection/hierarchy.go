@@ -584,7 +584,7 @@ func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput
 	hint := map[string]string{}
 	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/contract files in the existing set, write a SINGLE file identity.md (type:identity).\n" +
 		"It states what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A LIVING orientation, NOT a chronological recap — no dates, no history log. UPDATE the existing identity.md in place.\n" +
-		"Frontmatter: type:identity, name, description, level:2, sources:[combined offsets], tags. List children: the reference/ paths it draws on.\n" +
+		"Frontmatter: type:identity, name, description, level:2, tags. OMIT sources — do NOT write a sources field (MOM fills provenance). List children: the reference/ paths it draws on.\n" +
 		"Body: synthesized from the existing files. No inventing."
 	for p, c := range existing {
 		hint[p] = c
