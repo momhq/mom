@@ -98,9 +98,18 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 		path, title string
 		shared      int
 	}
+	// docType returns the effective type/kind for sibling-grouping. ICM files
+	// carry a `type:` field; legacy files use `kind:`.
+	docType := func(fm Frontmatter) string {
+		if fm.Type != "" {
+			return fm.Type
+		}
+		return fm.Kind
+	}
+
 	var sibs []scored
 	for _, o := range docs {
-		if o.path == d.path || o.fm.Kind != d.fm.Kind {
+		if o.path == d.path || docType(o.fm) != docType(d.fm) {
 			continue
 		}
 		shared := 0

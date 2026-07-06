@@ -95,6 +95,38 @@ func TestBuildPerFolderIndexes(t *testing.T) {
 	}
 }
 
+// TestLinkRelated_ICMTypeSiblings verifies that two files carrying the ICM
+// `type:` field (no legacy `kind:`) are correctly recognised as siblings when
+// they share a tag.
+func TestLinkRelated_ICMTypeSiblings(t *testing.T) {
+	mkICM := func(typ string, sources []uint64, tags []string, title string) string {
+		return PrependFrontmatter(Frontmatter{
+			Type: typ, Level: 1, Version: 1, Sources: sources, Tags: tags,
+		}, "# "+title+"\nbody\n")
+	}
+
+	files := map[string]string{
+		"reference/auth.md":    mkICM(typeReference, []uint64{1, 2}, []string{"auth", "security"}, "Auth"),
+		"reference/session.md": mkICM(typeReference, []uint64{3, 4}, []string{"auth", "session"}, "Session"),
+		"contracts/release.md": mkICM(typeContract, []uint64{5, 6}, []string{"release"}, "Release"),
+	}
+
+	linkRelated(files)
+
+	auth := files["reference/auth.md"]
+	// auth and session share the "auth" tag and have the same type:reference.
+	if !strings.Contains(auth, relatedHeading) {
+		t.Fatalf("auth.md missing Related section (ICM type-based sibling):\n%s", auth)
+	}
+	if !strings.Contains(auth, "](session.md)") {
+		t.Errorf("auth.md should link sibling session.md (same type, shared tag):\n%s", auth)
+	}
+	// release.md is type:contract — must NOT appear as a sibling of auth.md.
+	if strings.Contains(auth, "release.md") {
+		t.Errorf("auth.md should NOT link cross-type release.md:\n%s", auth)
+	}
+}
+
 func TestLinkRelated_Idempotent(t *testing.T) {
 	mk := func(p string) map[string]string {
 		return map[string]string{
