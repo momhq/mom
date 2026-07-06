@@ -126,7 +126,50 @@ func (r *Reader) convert(rec ledger.Record) (FoldEvent, bool) {
 			Summary:   summary,
 			Tags:      payloadStrings(ev.Payload, "tags"),
 		}, true
+
+	// Operational events — ADR 0025.
+	// operational.message.posted: surface prose kinds in the fold; drop
+	// tool_result and system (harness machinery, not company record prose).
+	case envelope.OperationalMessagePosted:
+		kind := payloadString(ev.Payload, "kind")
+		switch kind {
+		case "chat", "plan", "handoff", "artifact", "decision":
+			senderName := payloadString(ev.Payload, "sender_name")
+			senderType := payloadString(ev.Payload, "sender_type")
+			body := payloadString(ev.Payload, "body")
+			return FoldEvent{
+				Offset:    rec.Offset,
+				Type:      "os.message",
+				SessionID: ev.SessionID,
+				CreatedAt: created,
+				Role:      senderName + " (" + senderType + ")",
+				Text:      "[" + kind + "] " + body,
+			}, true
+		default:
+			// tool_result, system, and any future kinds are dropped.
+			return FoldEvent{}, false
+		}
+
+	// operational.approval.resolved: surface approval outcomes in the fold.
+	case envelope.OperationalApprovalResolved:
+		status := payloadString(ev.Payload, "status")
+		note := payloadString(ev.Payload, "note")
+		text := "approval " + status
+		if note != "" {
+			text += ": " + note
+		}
+		return FoldEvent{
+			Offset:    rec.Offset,
+			Type:      "os.approval",
+			SessionID: ev.SessionID,
+			CreatedAt: created,
+			Text:      text,
+		}, true
+
 	default:
+		// All other operational.* events (run.started, run.finished,
+		// approval.requested, task.created, task.updated,
+		// workspace.registered) remain in the Ledger but are not folded.
 		return FoldEvent{}, false
 	}
 }
