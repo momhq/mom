@@ -243,17 +243,23 @@ func (w *Writer) WritePruned(res FoldResult) (WriteResult, error) {
 
 // pruneStaleConcepts deletes every .md concept file under the known vault
 // content dirs that is not in keep. Includes the legacy dirs (topics, timeline,
-// summaries) so an old vault migrates cleanly to the ICM layout. Never touches
-// non-markdown files (.DS_Store, the legacy `index`), INDEX.md handling, or the
-// fold-state. keep paths are slash-relative and cleaned.
+// summaries) so an old vault migrates cleanly to the ICM layout. keep paths
+// are slash-relative and cleaned.
 //
-// It also prunes root-level .md files (e.g. identity.md from a prior fold) that
-// are not in keep, with the following guards:
-//   - INDEX.md is never deleted (the writer manages it separately).
-//   - Only plain files ending in .md; never directories; never dot-files
-//     (e.g. .fold-state.json must survive).
+// It also prunes the vault root so a rebuild fully migrates an old vault:
+//   - Stale .md files not in keep (e.g. identity.md from a prior fold).
+//     INDEX.md is never deleted (the writer manages it separately).
+//   - Legacy artifacts by exact shape: the extensionless `index` file and
+//     leaked `_l*_hint` keys — the ONLY non-.md files it may delete.
+//   - Never directories; never dot-files (.fold-state.json, .DS_Store
+//     survive); never any other non-.md file.
+//
+// Finally, legacy dirs left empty by the prune (topics, timeline, summaries,
+// dev-log) are removed; a dir still holding stray non-.md user content is
+// left alone.
 func pruneStaleConcepts(base string, keep map[string]bool) error {
-	pruneDirs := []string{referenceDir, contractsDir, episodesDir, "topics", "timeline", "summaries", "dev-log"}
+	legacyDirs := []string{"topics", "timeline", "summaries", "dev-log"}
+	pruneDirs := append([]string{referenceDir, contractsDir, episodesDir}, legacyDirs...)
 	for _, d := range pruneDirs {
 		dir := filepath.Join(base, d)
 		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -281,7 +287,8 @@ func pruneStaleConcepts(base string, keep map[string]bool) error {
 		}
 	}
 
-	// Prune stale root-level .md files (e.g. identity.md from a prior fold).
+	// Prune the vault root: stale .md files (e.g. identity.md from a prior
+	// fold) and legacy artifacts (`index`, leaked `_l*_hint` keys).
 	entries, err := os.ReadDir(base)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("prune vault root: %w", err)
@@ -296,6 +303,15 @@ func pruneStaleConcepts(base string, keep map[string]bool) error {
 			continue
 		}
 		if !strings.HasSuffix(name, ".md") {
+			// The only non-.md files ever deleted: the legacy extensionless
+			// `index` and leaked `_l*_hint` keys.
+			hint, _ := filepath.Match("_l*_hint", name)
+			if name != "index" && !hint {
+				continue
+			}
+			if err := os.Remove(filepath.Join(base, name)); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("prune vault root %s: %w", name, err)
+			}
 			continue
 		}
 		// INDEX.md is written after prune; never delete it here.
@@ -309,6 +325,13 @@ func pruneStaleConcepts(base string, keep map[string]bool) error {
 		if err := os.Remove(filepath.Join(base, name)); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("prune vault root %s: %w", name, err)
 		}
+	}
+
+	// Drop legacy dirs the prune left empty. os.Remove fails on a non-empty
+	// dir (ENOTEMPTY) — ignored silently, so a dir holding stray user content
+	// (non-.md files) is left alone.
+	for _, d := range legacyDirs {
+		_ = os.Remove(filepath.Join(base, d))
 	}
 	return nil
 }
