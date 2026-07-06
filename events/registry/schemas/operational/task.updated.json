@@ -1,0 +1,12 @@
+{
+  "name": "operational.task.updated",
+  "description": "A task's status or owner was updated. Published by the Toad OS ingest surface.",
+  "fields": {
+    "project_id":       {"type": "string", "required": true},
+    "session_id":       {"type": "string", "required": true},
+    "task_id":          {"type": "string", "required": true},
+    "status":           {"type": "string", "required": true},
+    "owner_agent_id":   {"type": "string", "required": false},
+    "updated_at":       {"type": "string", "required": true}
+  }
+}

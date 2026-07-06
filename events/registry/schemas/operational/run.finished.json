@@ -1,0 +1,13 @@
+{
+  "name": "operational.run.finished",
+  "description": "An agent run completed. Published by the Toad OS ingest surface when a run reaches a terminal state.",
+  "fields": {
+    "project_id":  {"type": "string", "required": true},
+    "session_id":  {"type": "string", "required": true},
+    "run_id":      {"type": "string", "required": true},
+    "status":      {"type": "string", "required": true},
+    "cost_usd":    {"type": "number", "required": false},
+    "num_turns":   {"type": "number", "required": false},
+    "ended_at":    {"type": "string", "required": true}
+  }
+}

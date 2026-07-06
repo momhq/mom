@@ -1,0 +1,16 @@
+{
+  "name": "operational.run.started",
+  "description": "An agent run was started. Published by the Toad OS ingest surface when an agent begins executing.",
+  "fields": {
+    "project_id":     {"type": "string", "required": true},
+    "session_id":     {"type": "string", "required": true},
+    "run_id":         {"type": "string", "required": true},
+    "agent_id":       {"type": "string", "required": true},
+    "workspace_id":   {"type": "string", "required": false},
+    "channel_id":     {"type": "string", "required": true},
+    "title":          {"type": "string", "required": true},
+    "model":          {"type": "string", "required": true},
+    "parent_run_id":  {"type": "string", "required": false},
+    "started_at":     {"type": "string", "required": true}
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "operational.approval.requested",
+  "description": "A human approval was requested for a risky agent action. Published by the Toad OS ingest surface.",
+  "fields": {
+    "project_id":   {"type": "string", "required": true},
+    "session_id":   {"type": "string", "required": true},
+    "approval_id":  {"type": "string", "required": true},
+    "run_id":       {"type": "string", "required": true},
+    "agent_id":     {"type": "string", "required": true},
+    "channel_id":   {"type": "string", "required": true},
+    "action":       {"type": "string", "required": true},
+    "tool_name":    {"type": "string", "required": true},
+    "tool_input":   {"type": "object", "required": true},
+    "risk":         {"type": "string", "required": true},
+    "reason":       {"type": "string", "required": true},
+    "created_at":   {"type": "string", "required": true}
+  }
+}

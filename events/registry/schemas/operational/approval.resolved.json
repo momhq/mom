@@ -1,0 +1,12 @@
+{
+  "name": "operational.approval.resolved",
+  "description": "A pending approval was resolved (approved or rejected). Published by the Toad OS ingest surface.",
+  "fields": {
+    "project_id":   {"type": "string", "required": true},
+    "session_id":   {"type": "string", "required": true},
+    "approval_id":  {"type": "string", "required": true},
+    "status":       {"type": "string", "required": true},
+    "note":         {"type": "string", "required": false},
+    "resolved_at":  {"type": "string", "required": true}
+  }
+}

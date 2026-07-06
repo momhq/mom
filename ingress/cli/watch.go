@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/momhq/mom/events/editor"
+	"github.com/momhq/mom/services/ingest"
 	"github.com/momhq/mom/storage/ledger"
 
 	"github.com/fsnotify/fsnotify"
@@ -23,9 +25,11 @@ import (
 )
 
 var (
-	watchStatus bool
-	watchSweep  bool
-	watchGlobal bool
+	watchStatus  bool
+	watchSweep   bool
+	watchGlobal  bool
+	ingestPort   int
+	noIngest     bool
 )
 
 var watchCmd = &cobra.Command{
@@ -60,6 +64,10 @@ func init() {
 	watchCmd.Flags().BoolVar(&watchGlobal, "global", false,
 		"Run as a single global daemon watching all registered projects")
 	_ = watchCmd.Flags().MarkHidden("global")
+	watchCmd.Flags().IntVar(&ingestPort, "ingest-port", ingest.DefaultPort,
+		"TCP port for the operational event ingress server (global mode only)")
+	watchCmd.Flags().BoolVar(&noIngest, "no-ingest", false,
+		"Disable the operational event ingress server (global mode only)")
 }
 
 func runWatch(cmd *cobra.Command, _ []string) error {
@@ -166,6 +174,23 @@ func runWatchGlobal(sweepOnly bool) error {
 	// across every project. All projects write to the same central
 	// Ledger via the Editor's durable-append path.
 	pipe := openLedgerPipeline()
+
+	// Start the ingest server inside this process, sharing the pipeline.
+	// Only in persistent (non-sweep) mode; the server needs a long-lived process.
+	if !sweepOnly && !noIngest && pipe.ed != nil && pipe.led != nil {
+		ingestSrv := ingest.New(pipe.ed, pipe.led)
+		ln, err := ingest.ListenWithFallback("", ingestPort, 10)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[mom] ingest: bind port: %v — ingress disabled\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "[mom] ingest: listening on %s\n", ln.Addr())
+			go func() {
+				if err := http.Serve(ln, ingestSrv.Handler()); err != nil {
+					fmt.Fprintf(os.Stderr, "[mom] ingest: server stopped: %v\n", err)
+				}
+			}()
+		}
+	}
 
 	if sweepOnly {
 		p := ux.NewPrinter(os.Stderr)
