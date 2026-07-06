@@ -11,10 +11,11 @@ import (
 	"strings"
 )
 
-// indexLinkRe matches inline markdown links whose target is a topics/ or
-// timeline/ vault file, capturing the target path so it can be checked
-// against the set of files the garden pass actually produced.
-var indexLinkRe = regexp.MustCompile(`\[[^\]]*\]\((\.?/?(?:topics|timeline)/[^)\s#]+\.md)[^)]*\)`)
+// indexLinkRe matches inline markdown links whose target is a vault content
+// file under any known layout directory (ICM: reference, contracts, episodes;
+// legacy: topics, timeline, summaries, dev-log). The target path is captured
+// so it can be checked against the set of files the garden pass produced.
+var indexLinkRe = regexp.MustCompile(`\[[^\]]*\]\((\.?/?(?:reference|contracts|episodes|topics|timeline|summaries|dev-log)/[^)\s#]+\.md)[^)]*\)`)
 
 const (
 	// gardenModel is the stronger default model for garden passes. Dedupe
