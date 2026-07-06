@@ -235,6 +235,59 @@ func TestFoldHierarchicalContractClassification(t *testing.T) {
 	}
 }
 
+// systemicSynth succeeds for the first okCalls L0 windows, then fails every
+// call with an InvokeError — simulating a usage limit hit mid-fold.
+type systemicSynth struct {
+	okCalls int
+	calls   int
+}
+
+func (s *systemicSynth) Fold(_ context.Context, in FoldInput) (FoldResult, error) {
+	if !has(in.Existing, "_l0_hint") {
+		// Any L1/L2 call during the outage is a bug — fail loudly.
+		s.calls++
+		return FoldResult{}, &InvokeError{Err: errors.New("usage limit reached")}
+	}
+	s.calls++
+	if s.calls > s.okCalls {
+		return FoldResult{}, &InvokeError{Err: errors.New("usage limit reached")}
+	}
+	offs := make([]uint64, len(in.Events))
+	for i, e := range in.Events {
+		offs[i] = e.Offset
+	}
+	cid := chunkID(in.ProjectID, offs)
+	return FoldResult{Files: map[string]string{
+		"episodes/" + cid + ".md": PrependFrontmatter(
+			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
+	}}, nil
+}
+
+// TestFoldHierarchicalSystemicAbort guards the circuit breaker: a harness
+// process failure (usage limit) aborts the fold WITHOUT bisecting the window
+// or attempting L1/L2 — one failing call, not dozens of doomed ones.
+func TestFoldHierarchicalSystemicAbort(t *testing.T) {
+	var events []FoldEvent
+	for i := 1; i <= 40; i++ {
+		events = append(events, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "m", nil))
+	}
+	stub := &systemicSynth{okCalls: 1}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 1, l2Threshold: 1}
+
+	res, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events, ToOffset: 40}, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.FoldedThrough != 20 {
+		t.Errorf("want FoldedThrough=20, got %d", res.FoldedThrough)
+	}
+	// Exactly 2 calls: the successful chunk 1 and the single failed chunk 2.
+	// No bisection retries, no L1, no L2 during the outage.
+	if stub.calls != 2 {
+		t.Errorf("want 2 synthesis calls (success + single systemic failure), got %d", stub.calls)
+	}
+}
+
 func fileKeys(m map[string]string) []string {
 	ks := make([]string, 0, len(m))
 	for k := range m {

@@ -97,6 +97,9 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// the last consecutive successfully folded chunk (the resume watermark).
 	foldedThrough := in.ToOffset
 	lastGood := in.FromOffset
+	// systemicAbort is set when the harness itself is failing (usage limit,
+	// auth) — every further call is doomed, so L1/L2 are skipped this fold.
+	systemicAbort := false
 
 	for i := 0; i < len(events); i += chunkSize {
 		end := i + chunkSize
@@ -131,14 +134,20 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		label := fmt.Sprintf("L0 episode %d/%d", chunkNum, total)
 		progress(fmt.Sprintf("%s — synthesizing %d events", label, len(chunk)))
 
-		endOff, ok := hs.foldL0Chunk(ctx, in, chunk, acc, chunkMap, label, progress, warn)
-		if !ok {
+		endOff, ferr := hs.foldL0Chunk(ctx, in, chunk, acc, chunkMap, label, progress, warn)
+		if ferr != nil {
 			if endOff > 0 {
 				lastGood = endOff
 			}
 			foldedThrough = lastGood
-			warn(fmt.Sprintf("stopping L0 at offset %d (%d/%d chunks); run `mom vault fold` again to retry the rest",
-				foldedThrough, chunkNum-1, total))
+			systemicAbort = IsSystemicError(ferr)
+			if systemicAbort {
+				warn(fmt.Sprintf("harness failing systemically (%v); aborting this fold at offset %d — run `mom vault fold` when the harness recovers (e.g. usage limit reset)",
+					ferr, foldedThrough))
+			} else {
+				warn(fmt.Sprintf("stopping L0 at offset %d (%d/%d chunks); run `mom vault fold` again to retry the rest",
+					foldedThrough, chunkNum-1, total))
+			}
 			break
 		}
 		lastGood = endOff
@@ -166,7 +175,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// the call is skipped — an incremental fold only pays for subjects whose
 	// episode set actually changed.
 	l1Changed := false
-	if len(l0Files) >= hs.l1Threshold {
+	if !systemicAbort && len(l0Files) >= hs.l1Threshold {
 		subjects := collectSubjects(l0Files, in.ProjectID)
 		progress(fmt.Sprintf("L1 synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
 		for i, subj := range subjects {
@@ -201,6 +210,11 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			progress(fmt.Sprintf("L1 subject %d/%d — %s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
 			l1Res, err := hs.inner.Fold(ctx, buildL1SubjectInput(in, subj, subEps, existingPath, acc[existingPath]))
 			if err != nil {
+				if IsSystemicError(err) {
+					warn(fmt.Sprintf("harness failing systemically (%v); aborting L1 — the next fold retries the remaining subjects", err))
+					systemicAbort = true
+					break
+				}
 				// Safe to skip: the id mismatch persists, so the next fold
 				// retries this subject.
 				warn(fmt.Sprintf("L1 subject %q failed (%v); skipping — next fold retries it", subj.slug, err))
@@ -244,7 +258,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// The concept layer is deduped and bounded by subject count (far smaller
 	// than the episode corpus), so a single identity call is tractable. Skipped
 	// when no concept changed this fold — identity depends only on that layer.
-	if len(l1Files) >= hs.l2Threshold {
+	if !systemicAbort && len(l1Files) >= hs.l2Threshold {
 		_, hasIdentity := acc[identityFile]
 		if !l1Changed && hasIdentity {
 			progress("L2 identity — unchanged")
@@ -285,11 +299,14 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 }
 
 // foldL0Chunk synthesizes one episode for a window of events, bisecting on
-// failure so one bad window cannot stall the whole fold. Successful output is
-// written into acc and chunkMap. It returns the offset folded through — the
-// end of the window's consecutive successful prefix, 0 when nothing folded —
-// and whether the whole window succeeded.
-func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk []FoldEvent, acc, chunkMap map[string]string, label string, progress, warn func(string)) (uint64, bool) {
+// size-related failure (timeout, truncated/malformed output) so one bad
+// window cannot stall the whole fold. A systemic harness failure (usage
+// limit, auth) is returned immediately without bisecting — halving the window
+// cannot fix the harness. Successful output is written into acc and chunkMap.
+// It returns the offset folded through — the end of the window's consecutive
+// successful prefix, 0 when nothing folded — and the failure, nil on full
+// success.
+func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk []FoldEvent, acc, chunkMap map[string]string, label string, progress, warn func(string)) (uint64, error) {
 	offsets := make([]uint64, len(chunk))
 	for j, e := range chunk {
 		offsets[j] = e.Offset
@@ -319,27 +336,30 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 		} else {
 			chunkMap[cid] = ""
 		}
-		return chunk[len(chunk)-1].Offset, true
+		return chunk[len(chunk)-1].Offset, nil
 	}
 
+	if IsSystemicError(err) {
+		return 0, err
+	}
 	if len(chunk) < 2*minBisectEvents {
 		warn(fmt.Sprintf("%s failed (%v); window of %d events is too small to bisect", label, err, len(chunk)))
-		return 0, false
+		return 0, err
 	}
 
 	mid := len(chunk) / 2
 	warn(fmt.Sprintf("%s failed (%v); bisecting into %d+%d events", label, err, mid, len(chunk)-mid))
 	progress(label + " — first half")
-	leftEnd, leftOK := hs.foldL0Chunk(ctx, in, chunk[:mid], acc, chunkMap, label+"·a", progress, warn)
-	if !leftOK {
-		return leftEnd, false
+	leftEnd, lerr := hs.foldL0Chunk(ctx, in, chunk[:mid], acc, chunkMap, label+"·a", progress, warn)
+	if lerr != nil {
+		return leftEnd, lerr
 	}
 	progress(label + " — second half")
-	rightEnd, rightOK := hs.foldL0Chunk(ctx, in, chunk[mid:], acc, chunkMap, label+"·b", progress, warn)
+	rightEnd, rerr := hs.foldL0Chunk(ctx, in, chunk[mid:], acc, chunkMap, label+"·b", progress, warn)
 	if rightEnd == 0 {
 		rightEnd = leftEnd
 	}
-	return rightEnd, rightOK
+	return rightEnd, rerr
 }
 
 // knownSubjectTags returns the tag vocabulary already used by episodes in the

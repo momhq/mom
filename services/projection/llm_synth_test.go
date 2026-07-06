@@ -97,3 +97,19 @@ func TestParseDelimitedFiles_DropsTruncatedTail(t *testing.T) {
 		t.Errorf("want only the complete file a.md, got %v", files)
 	}
 }
+
+func TestParseJSONFilesFallback(t *testing.T) {
+	// The legacy JSON envelope some models emit despite the delimiter
+	// instruction — optionally wrapped in a code fence.
+	text := "```json\n{\"files\":[{\"path\":\"episodes/abc.md\",\"content\":\"---\\ntype: episode\\n---\\n# Ep\\n\"}]}\n```"
+	files := parseJSONFiles(text)
+	if len(files) != 1 {
+		t.Fatalf("want 1 file from JSON fallback, got %d", len(files))
+	}
+	if _, ok := files["episodes/abc.md"]; !ok {
+		t.Errorf("missing episodes/abc.md, got %v", files)
+	}
+	if parseJSONFiles("no json here") != nil {
+		t.Errorf("want nil for non-JSON text")
+	}
+}
