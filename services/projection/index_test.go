@@ -1,7 +1,6 @@
 package projection
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -16,59 +15,6 @@ func makeMemoryEvent(offset uint64, sessionID string, t time.Time, text string, 
 		Role:      "user",
 		Text:      text,
 		Tags:      tags,
-	}
-}
-
-func TestDeterministicFoldEmitsReferenceOnly(t *testing.T) {
-	events := []FoldEvent{
-		makeMemoryEvent(1, "sess-a", time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC), "jan memory", []string{"arch"}),
-		makeMemoryEvent(2, "sess-b", time.Date(2026, 2, 5, 0, 0, 0, 0, time.UTC), "feb memory", []string{"arch"}),
-	}
-	res, err := NewDeterministicSynth().Fold(context.Background(), FoldInput{ProjectID: "demo", Events: events})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for p := range res.Files {
-		if strings.HasPrefix(p, "dev-log/") || strings.HasPrefix(p, "timeline/") {
-			t.Errorf("deterministic fold must not emit a chronological layer, got %s", p)
-		}
-	}
-	if _, ok := res.Files[referenceDir+"/arch.md"]; !ok {
-		t.Errorf("expected a reference concept for the memory tag, got %v", keys(res.Files))
-	}
-}
-
-func TestDeterministicFoldFrontmatter(t *testing.T) {
-	events := []FoldEvent{
-		makeMemoryEvent(10, "sess-a", time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), "a decision", []string{"arch"}),
-		makeMemoryEvent(11, "sess-a", time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC), "another decision", []string{"arch"}),
-	}
-	synth := NewDeterministicSynth()
-	res, err := synth.Fold(context.Background(), FoldInput{
-		ProjectID: "test-proj",
-		Events:    events,
-	})
-	if err != nil {
-		t.Fatalf("Fold error: %v", err)
-	}
-	for path, content := range res.Files {
-		// Per-folder OKF indexes are generated metadata, not concept files.
-		if strings.HasSuffix(path, indexFileName) {
-			continue
-		}
-		fm, _ := ParseFrontmatter(content)
-		if fm.Level != 1 {
-			t.Errorf("%s: expected level 1, got %d", path, fm.Level)
-		}
-		if fm.Version != 1 {
-			t.Errorf("%s: expected version 1, got %d", path, fm.Version)
-		}
-		if len(fm.Sources) == 0 {
-			t.Errorf("%s: expected sources, got none", path)
-		}
-		if fm.Type == "" {
-			t.Errorf("%s: expected an OKF type, got none", path)
-		}
 	}
 }
 
@@ -130,8 +76,8 @@ func TestBuildIndexRoutesICMLayout(t *testing.T) {
 		"reference/harness-mcp.md": PrependFrontmatter(
 			Frontmatter{Type: typeReference, Name: "Harness MCP removal", Level: 1, Version: 1},
 			"# Harness MCP removal\nDecision: drop MCP.\n"),
-		"reference/INDEX.md":  PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Reference — index\n"),
-		"contracts/INDEX.md":  PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Contracts — index\n"),
+		"reference/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Reference — index\n"),
+		"contracts/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Contracts — index\n"),
 		"contracts/release.md": PrependFrontmatter(Frontmatter{Type: typeContract, Name: "Release flow", Level: 1, Version: 1}, "# Release flow\n"),
 	}
 
@@ -153,12 +99,4 @@ func TestBuildIndexRoutesICMLayout(t *testing.T) {
 	if strings.Contains(idx, "the task touches") {
 		t.Errorf("router still emits the stale slug-echo hint:\n%s", idx)
 	}
-}
-
-func keys(m map[string]string) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	return ks
 }

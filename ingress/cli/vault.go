@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/momhq/mom/services/projection"
+	"github.com/momhq/mom/shared/config"
 	"github.com/momhq/mom/shared/project"
 	"github.com/momhq/mom/shared/ux"
 	"github.com/momhq/mom/storage/librarian"
@@ -14,11 +15,12 @@ import (
 )
 
 var (
-	vaultProject string
-	vaultEngine  string
-	vaultRoot    string
-	vaultChunk   int
-	vaultModel   string
+	vaultProject   string
+	vaultEngine    string
+	vaultRoot      string
+	vaultChunk     int
+	vaultModel     string
+	vaultFoldModel string
 )
 
 var vaultCmd = &cobra.Command{
@@ -69,6 +71,7 @@ func init() {
 	for _, c := range []*cobra.Command{vaultFoldCmd, vaultRebuildCmd} {
 		c.Flags().StringVar(&vaultEngine, "engine", "auto", "Synthesis engine: auto | claude | codex | pi")
 		c.Flags().IntVar(&vaultChunk, "chunk", 60, "Events per synthesizer call when folding (iterative, full-history coverage)")
+		c.Flags().StringVar(&vaultFoldModel, "model", "", "Synthesis model (default: vault.fold_model config, else the engine's cheap default — claude: haiku)")
 	}
 	vaultGardenCmd.Flags().StringVar(&vaultModel, "model", "claude-sonnet-4-6", "Model used for the garden reorganization pass")
 	vaultCmd.AddCommand(vaultFoldCmd)
@@ -162,7 +165,7 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	}
 
 	warn := func(msg string) { fmt.Fprintln(os.Stderr, "warning: "+msg) }
-	synth, engineName, err := projection.NewSynthesizer(vaultEngine, warn)
+	synth, engineName, err := projection.NewSynthesizer(vaultEngine, resolveFoldModel(), warn)
 	if err != nil {
 		return err
 	}
@@ -197,10 +200,18 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	}
 	spinner.Stop()
 
+	// Persist the watermark the synthesis actually reached — on a partial
+	// fold that is behind the read head, so the next fold retries the
+	// remaining window instead of skipping it.
+	foldedThrough := res.FoldedThrough
+	if foldedThrough == 0 {
+		foldedThrough = read.Head
+	}
+
 	writer := projection.NewWriter(root)
 	// On rebuild, prune stale files so the on-disk vault exactly matches the
 	// freshly synthesized set (e.g. when the layout changes).
-	wres, err := writer.Write(res, read.Head, len(read.Events), rebuild)
+	wres, err := writer.Write(res, foldedThrough, len(read.Events), rebuild)
 	if err != nil {
 		return err
 	}
@@ -212,15 +223,37 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	p.Diamond("vault " + verb)
 	p.Blank()
 	p.Chevron(fmt.Sprintf("project:       %s", p.HighlightValue(projectID)))
-	p.Chevron(fmt.Sprintf("offsets:       %d → %d", fromOffset, read.Head))
+	p.Chevron(fmt.Sprintf("offsets:       %d → %d", fromOffset, foldedThrough))
 	p.Chevron(fmt.Sprintf("events folded: %d", len(read.Events)))
 	p.Chevron(fmt.Sprintf("chunks:        %d (size %d)", chunks, chunkSize))
 	p.Chevron(fmt.Sprintf("files written: %d", wres.FilesWritten))
 	p.Chevron(fmt.Sprintf("engine:        %s", engineName))
 	p.Chevron(fmt.Sprintf("vault:         %s", wres.VaultDir))
 	p.Blank()
+	if foldedThrough < read.Head {
+		p.Chevron(fmt.Sprintf("partial: synthesis stopped at offset %d of %d — run `mom vault fold` to retry the rest", foldedThrough, read.Head))
+		p.Blank()
+	}
 	p.Checkf("vault written; CLAUDE.md block updated at %s", p.HighlightValue(wres.ClaudePath))
 	return nil
+}
+
+// resolveFoldModel picks the fold synthesis model: the --model flag wins,
+// then the vault.fold_model key in ~/.mom/config.yaml. Empty lets the
+// projection factory apply the engine's cheap default (claude: haiku).
+func resolveFoldModel() string {
+	if vaultFoldModel != "" {
+		return vaultFoldModel
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	cfg, err := config.Load(filepath.Join(home, ".mom"))
+	if err != nil {
+		return ""
+	}
+	return cfg.Vault.FoldModel
 }
 
 func runVaultGarden(cmd *cobra.Command, _ []string) error {

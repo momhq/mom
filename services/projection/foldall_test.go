@@ -6,15 +6,15 @@ import (
 	"time"
 )
 
-// countingSynth wraps DeterministicSynth and counts Fold calls.
+// countingSynth is a trivial synthesizer that counts Fold calls; FoldAll's
+// chunk-cache behavior is what's under test, not the synthesis itself.
 type countingSynth struct {
-	inner Synthesizer
 	calls int
 }
 
-func (c *countingSynth) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
+func (c *countingSynth) Fold(_ context.Context, _ FoldInput) (FoldResult, error) {
 	c.calls++
-	return c.inner.Fold(ctx, in)
+	return FoldResult{Files: map[string]string{}}, nil
 }
 
 func TestFoldAllIdempotency(t *testing.T) {
@@ -23,7 +23,7 @@ func TestFoldAllIdempotency(t *testing.T) {
 		makeMemoryEvent(2, "s1", time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), "event 2", nil),
 	}
 
-	synth := &countingSynth{inner: NewDeterministicSynth()}
+	synth := &countingSynth{}
 	in := FoldInput{
 		ProjectID: "test-proj",
 		Events:    events,
@@ -58,7 +58,7 @@ func TestFoldAllRebuildSkipsNoChunks(t *testing.T) {
 	events := []FoldEvent{
 		makeMemoryEvent(1, "s1", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "event 1", nil),
 	}
-	synth := &countingSynth{inner: NewDeterministicSynth()}
+	synth := &countingSynth{}
 
 	// First fold to get chunk map.
 	res1, _ := FoldAll(context.Background(), synth, FoldInput{ProjectID: "proj", Events: events}, 10)

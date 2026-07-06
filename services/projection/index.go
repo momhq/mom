@@ -1,170 +1,11 @@
 package projection
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 )
-
-const (
-	snippetMaxChars = 400
-	maxTopicFiles   = 12
-)
-
-// DeterministicSynth is the no-LLM fallback synthesizer. It groups events
-// into a small fixed structure (timeline/, topics/) and emits templated
-// markdown. Fast and free; always succeeds.
-type DeterministicSynth struct{}
-
-// NewDeterministicSynth builds the templated synthesizer.
-func NewDeterministicSynth() *DeterministicSynth { return &DeterministicSynth{} }
-
-// Fold implements Synthesizer. It merges the new events with the existing
-// vault by regenerating from the combined view it can derive; because the
-// deterministic synth has no memory of prior raw events, it folds the new
-// window and preserves any existing files it does not overwrite.
-func (s *DeterministicSynth) Fold(_ context.Context, in FoldInput) (FoldResult, error) {
-	files := map[string]string{}
-	// Preserve existing files we don't regenerate this pass.
-	for p, c := range in.Existing {
-		files[p] = c
-	}
-
-	// Deterministic fallback emits only reference/ concepts from recorded
-	// memories. There is no chronological layer — history is provenance
-	// (episodes + the Ledger), not a synthesized ICM layer.
-	topics := buildTopics(in.ProjectID, in.Events)
-	for p, c := range topics {
-		files[p] = c
-	}
-
-	// INDEX is regenerated each pass from the full file set.
-	linkRelated(files)
-	buildPerFolderIndexes(files)
-	index := buildIndex(files, in)
-	// INDEX.md is carried separately; don't leave a stray copy in Files.
-	delete(files, indexFileName)
-
-	block := buildClaudeBlock(in)
-
-	return FoldResult{Files: files, Index: index, ClaudeBlock: block}, nil
-}
-
-// deterministicFrontmatter builds a Frontmatter for a deterministic vault
-// file from the events that contributed to it.
-func deterministicFrontmatter(projectID, kind string, events []FoldEvent) Frontmatter {
-	offsets := make([]uint64, 0, len(events))
-	tagSet := map[string]struct{}{}
-	var earliest, latest time.Time
-	for _, e := range events {
-		offsets = append(offsets, e.Offset)
-		for _, t := range e.Tags {
-			tagSet[t] = struct{}{}
-		}
-		if earliest.IsZero() || e.CreatedAt.Before(earliest) {
-			earliest = e.CreatedAt
-		}
-		if latest.IsZero() || e.CreatedAt.After(latest) {
-			latest = e.CreatedAt
-		}
-	}
-	tags := make([]string, 0, len(tagSet))
-	for t := range tagSet {
-		tags = append(tags, t)
-	}
-	sort.Strings(tags)
-
-	return Frontmatter{
-		ID:             chunkID(projectID, offsets),
-		Level:          1,
-		Kind:           kind,
-		Sources:        offsets,
-		Tags:           tags,
-		TimeRangeStart: earliest,
-		TimeRangeEnd:   latest,
-		FoldedAt:       time.Now().UTC(),
-		Version:        1,
-	}
-}
-
-// buildTopics groups memory content by tag into topics/<tag>.md, capped
-// at the most-frequent maxTopicFiles tags.
-func buildTopics(projectID string, events []FoldEvent) map[string]string {
-	type snippet struct {
-		when  time.Time
-		text  string
-		sess  string
-		event FoldEvent
-	}
-	byTag := map[string][]snippet{}
-	count := map[string]int{}
-
-	for _, e := range events {
-		if e.Type != string(memoryType) {
-			continue
-		}
-		text := e.Text
-		if strings.TrimSpace(text) == "" {
-			text = e.Summary
-		}
-		tags := e.Tags
-		if len(tags) == 0 {
-			tags = []string{"untagged"}
-		}
-		for _, t := range tags {
-			slug := tagSlug(t)
-			if slug == "" {
-				continue
-			}
-			byTag[slug] = append(byTag[slug], snippet{when: e.CreatedAt, text: text, sess: e.SessionID, event: e})
-			count[slug]++
-		}
-	}
-
-	// Rank tags by frequency and cap.
-	slugs := make([]string, 0, len(byTag))
-	for s := range byTag {
-		slugs = append(slugs, s)
-	}
-	sort.Slice(slugs, func(i, j int) bool {
-		if count[slugs[i]] != count[slugs[j]] {
-			return count[slugs[i]] > count[slugs[j]]
-		}
-		return slugs[i] < slugs[j]
-	})
-	if len(slugs) > maxTopicFiles {
-		slugs = slugs[:maxTopicFiles]
-	}
-
-	out := map[string]string{}
-	for _, slug := range slugs {
-		snips := byTag[slug]
-		sort.SliceStable(snips, func(i, j int) bool { return snips[i].when.After(snips[j].when) })
-
-		bucketEvents := make([]FoldEvent, len(snips))
-		for i, sn := range snips {
-			bucketEvents[i] = sn.event
-		}
-
-		name := strings.ReplaceAll(slug, "-", " ")
-		var body strings.Builder
-		fmt.Fprintf(&body, "# %s\n\n", name)
-		body.WriteString("_Memories on this subject, newest first. These point at immutable captures — do not rewrite them._\n\n")
-		for _, sn := range snips {
-			fmt.Fprintf(&body, "- **%s** (session `%s`): %s\n",
-				sn.when.UTC().Format("2006-01-02"), shortSession(sn.sess), truncate(sn.text, snippetMaxChars))
-		}
-		fm := deterministicFrontmatter(projectID, "topic", bucketEvents)
-		fm.Type = typeReference
-		fm.Name = name
-		fm.Description = "Captured memories about " + name
-		fm.Tags = []string{slug}
-		out[fmt.Sprintf("%s/%s.md", referenceDir, slug)] = PrependFrontmatter(fm, body.String())
-	}
-	return out
-}
 
 // buildIndex emits the OKF root index (ICM Layer 2 — Routing): the project
 // identity blurb, a folder routing table pointing at each layer's own INDEX,
@@ -225,7 +66,7 @@ func buildIndex(files map[string]string, in FoldInput) string {
 	b.WriteString("\n---\n")
 	engine := in.Engine
 	if engine == "" {
-		engine = "deterministic"
+		engine = "llm"
 	}
 	fmt.Fprintf(&b, "_Watermark: folded through Ledger offset **%d** at %s (%s engine)._\n",
 		in.ToOffset, time.Now().UTC().Format(time.RFC3339), engine)
@@ -286,12 +127,11 @@ func firstNonEmpty(a, b string) string {
 
 // indexLink renders a vault-relative path as a clickable markdown link whose
 // text is the path itself. INDEX.md sits at the vault root, so a relative
-// target like `topics/x.md` resolves directly — the agent opens the link
+// target like `reference/x.md` resolves directly — the agent opens the link
 // instead of rebuilding the path from scratch.
 func indexLink(path string) string {
 	return "[`" + path + "`](" + path + ")"
 }
-
 
 // indexRow is one router entry: the vault-relative path and its "when to read"
 // hint.
@@ -337,7 +177,7 @@ func episodeHint(start, end time.Time) string {
 	s, e := dateOrEmpty(start), dateOrEmpty(end)
 	switch {
 	case s == "" && e == "":
-		return "session memory (topics not synthesized yet)"
+		return "session memory (subjects not synthesized yet)"
 	case s == "":
 		return "session memory through " + e
 	case e == "" || s == e:

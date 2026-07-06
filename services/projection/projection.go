@@ -33,8 +33,10 @@ const defaultChunkSize = 60
 // Existing set. The returned Index is the last chunk's Index, and the
 // ClaudeBlock is always the deterministic block for the overall window.
 //
-// A chunk that fails internally is already handled by the synthesizer's own
-// fallback; if a chunk surfaces a hard error, FoldAll warns and keeps going.
+// A chunk that surfaces a hard error is warned about and skipped. FoldAll is
+// the flat driver for plain Synthesizers (tests, custom engines); the CLI's
+// hierarchical path is FoldHierarchical, which stops the watermark short on
+// failure instead.
 func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int) (FoldResult, error) {
 	if chunkSize <= 0 {
 		chunkSize = defaultChunkSize
@@ -70,7 +72,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 			acc[p] = c
 		}
 		lastIndex = res.Index
-		return FoldResult{Files: acc, Index: lastIndex, ClaudeBlock: buildClaudeBlock(in), Chunks: in.ExistingChunks}, nil
+		return FoldResult{Files: acc, Index: lastIndex, ClaudeBlock: buildClaudeBlock(in), Chunks: in.ExistingChunks, FoldedThrough: in.ToOffset}, nil
 	}
 
 	// chunkMap accumulates chunkID → vault path across all chunks this fold.
@@ -146,7 +148,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 		}
 	}
 
-	return FoldResult{Files: acc, Index: lastIndex, ClaudeBlock: buildClaudeBlock(in), Chunks: chunkMap}, nil
+	return FoldResult{Files: acc, Index: lastIndex, ClaudeBlock: buildClaudeBlock(in), Chunks: chunkMap, FoldedThrough: in.ToOffset}, nil
 }
 
 // FoldEvent is a normalized, projection-facing view of a single Ledger
@@ -201,11 +203,17 @@ type FoldResult struct {
 	// (or reused from ExistingChunks) this fold. Written into FoldState so
 	// the next incremental fold can skip unchanged chunks.
 	Chunks map[string]string
+	// FoldedThrough is the Ledger offset the vault is consistent through —
+	// the watermark the caller must persist. Equal to the input's ToOffset on
+	// a full fold; behind it when synthesis stopped early on a failing window
+	// (the next fold resumes exactly there).
+	FoldedThrough uint64
 }
 
-// Synthesizer turns a window of FoldEvents into a FoldResult. Two
-// implementations exist: DeterministicSynth (templated, free, fast) and
-// ClaudeSynth (LLM, falls back to deterministic on any error).
+// Synthesizer turns a window of FoldEvents into a FoldResult. Synthesis is
+// LLM-only — the vault structure depends on reasoning, so there is no
+// templated fallback engine. A synthesizer that cannot produce a result
+// returns an error and the fold driver stops the watermark short.
 type Synthesizer interface {
 	Fold(ctx context.Context, in FoldInput) (FoldResult, error)
 }

@@ -23,6 +23,16 @@ type Config struct {
 	Memory        MemoryConfig             `yaml:"memory"`
 	// Watcher controls the filesystem transcript watcher (mom watch).
 	Watcher WatcherConfig `yaml:"watcher,omitempty"`
+	// Vault controls the vault projection lane (mom vault fold/rebuild).
+	Vault VaultConfig `yaml:"vault,omitempty"`
+}
+
+// VaultConfig controls the vault projection lane (mom vault fold/rebuild).
+type VaultConfig struct {
+	// FoldModel pins the model used for fold synthesis (passed to the engine
+	// CLI, e.g. `claude --model`). Empty = the engine's cheap default
+	// (claude: haiku); codex/pi fall back to their CLI defaults.
+	FoldModel string `yaml:"fold_model,omitempty"`
 }
 
 // WatcherConfig controls the filesystem transcript watcher (mom watch).

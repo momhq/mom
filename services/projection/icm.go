@@ -45,22 +45,6 @@ var icmFolders = []icmFolder{
 	{contractsDir, "Stage Contract", "you need the process/rules for a kind of work (workflow, release, review)"},
 }
 
-// layerOf reports the ICM concept type for a vault-relative path.
-func layerOf(path string) string {
-	switch {
-	case path == identityFile:
-		return typeIdentity
-	case strings.HasPrefix(path, referenceDir+"/"):
-		return typeReference
-	case strings.HasPrefix(path, contractsDir+"/"):
-		return typeContract
-	case strings.HasPrefix(path, episodesDir+"/"):
-		return typeEpisode
-	default:
-		return ""
-	}
-}
-
 // buildPerFolderIndexes generates an OKF INDEX.md inside each routable folder
 // (reference/, contracts/), listing every concept with its name and description
 // so the agent can pick a file without opening any. It mutates files in place,

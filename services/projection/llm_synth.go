@@ -25,24 +25,24 @@ type HarnessInvoker interface {
 	Invoke(ctx context.Context, prompt string) (string, error)
 }
 
-// LLMSynth is the harness-agnostic synthesizer. It calls any HarnessInvoker
-// and falls back to DeterministicSynth on any error.
+// LLMSynth is the harness-agnostic synthesizer. It calls any HarnessInvoker.
+// There is no non-LLM fallback: the vault structure depends on reasoning, so a
+// call that still fails after a retry surfaces its error to the fold driver,
+// which stops the watermark short and retries the window on the next fold.
 type LLMSynth struct {
-	invoker  HarnessInvoker
-	fallback *DeterministicSynth
-	Warn     func(string)
+	invoker HarnessInvoker
+	Warn    func(string)
 }
 
-// NewLLMSynth builds the harness-agnostic synthesizer with a deterministic fallback.
+// NewLLMSynth builds the harness-agnostic synthesizer.
 func NewLLMSynth(invoker HarnessInvoker, warn func(string)) *LLMSynth {
 	if warn == nil {
 		warn = func(string) {}
 	}
-	return &LLMSynth{invoker: invoker, fallback: NewDeterministicSynth(), Warn: warn}
+	return &LLMSynth{invoker: invoker, Warn: warn}
 }
 
-// Fold implements Synthesizer. It retries once before falling back to the
-// deterministic engine so the command always succeeds.
+// Fold implements Synthesizer. It retries once, then returns the error.
 func (s *LLMSynth) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 	res, err := s.fold(ctx, in)
 	if err != nil {
@@ -50,8 +50,7 @@ func (s *LLMSynth) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 		res, err = s.fold(ctx, in)
 	}
 	if err != nil {
-		s.Warn(fmt.Sprintf("%s synthesis failed (%v); falling back to deterministic engine", s.invoker.Name(), err))
-		return s.fallback.Fold(ctx, in)
+		return FoldResult{}, fmt.Errorf("%s synthesis failed after retry: %w", s.invoker.Name(), err)
 	}
 	return res, nil
 }
@@ -350,6 +349,10 @@ func buildPrompt(in FoldInput) (string, bool) {
 // ClaudeInvoker shells out to the claude CLI.
 type ClaudeInvoker struct {
 	Bin string
+	// Model pins the synthesis model (passed as --model). The factory defaults
+	// this to the cheapest tier so folds never burn the user's default-model
+	// limits; users override via --model or the vault.fold_model config key.
+	Model string
 }
 
 func NewClaudeInvoker(bin string) *ClaudeInvoker {
@@ -369,21 +372,25 @@ func (c *ClaudeInvoker) IsAvailable() bool {
 func (c *ClaudeInvoker) Invoke(ctx context.Context, prompt string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	// The model is intentionally not pinned — synthesis runs on whatever model
-	// the user's Claude CLI defaults to, matching the Codex and Pi invokers.
-	// (A future release may let users choose the synthesis model.)
 	// --system-prompt overrides the user's global CLAUDE.md so the subprocess
 	// doesn't pick up MOM instructions, call mom_status, or act as a coding agent.
 	// --strict-mcp-config with no config file disables all MCP servers.
 	// --allowedTools "" permits no tools — pure text synthesis only.
-	cmd := exec.CommandContext(ctx, c.Bin,
-		"-p", prompt,
+	args := []string{
+		"-p",
 		"--output-format", "json",
 		"--system-prompt", "You are a synthesis engine. Output ONLY the requested @@@FILE ... @@@END@@@ delimited blocks with plain-markdown content between them. No JSON, no prose, no code fences, no tool calls.",
 		"--strict-mcp-config",
 		"--allowedTools", "",
-	)
+	}
+	if c.Model != "" {
+		args = append(args, "--model", c.Model)
+	}
+	cmd := exec.CommandContext(ctx, c.Bin, args...)
 	cmd.Dir = os.TempDir()
+	// The prompt goes over stdin, not argv: prompts carry whole vault files and
+	// can exceed the OS argv limit (macOS ARG_MAX is 1 MiB) as a vault grows.
+	cmd.Stdin = strings.NewReader(prompt)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -397,6 +404,9 @@ func (c *ClaudeInvoker) Invoke(ctx context.Context, prompt string) (string, erro
 // Invocation: codex exec -q "<prompt>" (non-interactive mode)
 type CodexInvoker struct {
 	Bin string
+	// Model pins the synthesis model (passed as -m). Empty = the codex CLI's
+	// own default.
+	Model string
 }
 
 func NewCodexInvoker(bin string) *CodexInvoker {
@@ -417,7 +427,12 @@ func (c *CodexInvoker) Invoke(ctx context.Context, prompt string) (string, error
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	// codex non-interactive: `codex exec -q "<prompt>"` outputs assistant text to stdout.
-	cmd := exec.CommandContext(ctx, c.Bin, "exec", "-q", prompt)
+	args := []string{"exec", "-q"}
+	if c.Model != "" {
+		args = append(args, "-m", c.Model)
+	}
+	args = append(args, prompt)
+	cmd := exec.CommandContext(ctx, c.Bin, args...)
 	cmd.Dir = os.TempDir()
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout

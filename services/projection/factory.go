@@ -12,16 +12,27 @@ const (
 	l2Threshold = 10
 )
 
+// defaultClaudeFoldModel is the model folds pin when the user chose none.
+// Fold prompts are small and templated, so the cheapest tier is enough — and
+// pinning it keeps folds from burning the user's default-model usage limits.
+// Override with --model or the vault.fold_model config key.
+const defaultClaudeFoldModel = "haiku"
+
 // NewSynthesizer builds the fold Synthesizer for the named engine. "auto"
 // (or "") probes the supported harness CLIs in priority order
-// (claude → codex → pi) and uses the first available. Returns the
-// Synthesizer and the resolved engine name; warn receives non-fatal
-// synthesis warnings.
+// (claude → codex → pi) and uses the first available. model pins the
+// synthesis model; empty selects the engine's cheap default (claude) or the
+// CLI's own default (codex, pi). Returns the Synthesizer and the resolved
+// engine name; warn receives non-fatal synthesis warnings.
 //
 // This keeps engine selection inside the projection package — callers ask
 // for an engine by name and never touch the concrete synthesizer types.
-func NewSynthesizer(engine string, warn func(string)) (Synthesizer, string, error) {
+func NewSynthesizer(engine, model string, warn func(string)) (Synthesizer, string, error) {
+	if warn == nil {
+		warn = func(string) {}
+	}
 	build := func(inv HarnessInvoker) Synthesizer {
+		applyModel(inv, model, warn)
 		return NewHierarchySynth(NewLLMSynth(inv, warn), l1Threshold, l2Threshold)
 	}
 
@@ -41,6 +52,26 @@ func NewSynthesizer(engine string, warn func(string)) (Synthesizer, string, erro
 		return build(inv), engine, nil
 	default:
 		return nil, "", fmt.Errorf("invalid engine %q (want auto|claude|codex|pi)", engine)
+	}
+}
+
+// applyModel pins the synthesis model on the invoker. Claude defaults to the
+// cheapest tier when no model was chosen; codex passes the model through only
+// when explicitly set; pi has no known model flag, so a requested model is
+// ignored with a warning.
+func applyModel(inv HarnessInvoker, model string, warn func(string)) {
+	switch v := inv.(type) {
+	case *ClaudeInvoker:
+		if model == "" {
+			model = defaultClaudeFoldModel
+		}
+		v.Model = model
+	case *CodexInvoker:
+		v.Model = model
+	default:
+		if model != "" {
+			warn(fmt.Sprintf("engine %s does not support model pinning; using its CLI default", inv.Name()))
+		}
 	}
 }
 
