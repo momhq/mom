@@ -246,6 +246,12 @@ func (w *Writer) WritePruned(res FoldResult) (WriteResult, error) {
 // summaries) so an old vault migrates cleanly to the ICM layout. Never touches
 // non-markdown files (.DS_Store, the legacy `index`), INDEX.md handling, or the
 // fold-state. keep paths are slash-relative and cleaned.
+//
+// It also prunes root-level .md files (e.g. identity.md from a prior fold) that
+// are not in keep, with the following guards:
+//   - INDEX.md is never deleted (the writer manages it separately).
+//   - Only plain files ending in .md; never directories; never dot-files
+//     (e.g. .fold-state.json must survive).
 func pruneStaleConcepts(base string, keep map[string]bool) error {
 	pruneDirs := []string{referenceDir, contractsDir, episodesDir, "topics", "timeline", "summaries", "dev-log"}
 	for _, d := range pruneDirs {
@@ -272,6 +278,36 @@ func pruneStaleConcepts(base string, keep map[string]bool) error {
 		})
 		if walkErr != nil && !os.IsNotExist(walkErr) {
 			return fmt.Errorf("prune %s: %w", d, walkErr)
+		}
+	}
+
+	// Prune stale root-level .md files (e.g. identity.md from a prior fold).
+	entries, err := os.ReadDir(base)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("prune vault root: %w", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Never delete dot-files (.fold-state.json, .DS_Store, etc.).
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if !strings.HasSuffix(name, ".md") {
+			continue
+		}
+		// INDEX.md is written after prune; never delete it here.
+		if name == indexFileName {
+			continue
+		}
+		relSlash := name // root-level: relative path is just the filename
+		if keep[relSlash] {
+			continue
+		}
+		if err := os.Remove(filepath.Join(base, name)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("prune vault root %s: %w", name, err)
 		}
 	}
 	return nil
