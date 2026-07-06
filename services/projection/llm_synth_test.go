@@ -1,6 +1,7 @@
 package projection
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -95,6 +96,85 @@ func TestParseDelimitedFiles_DropsTruncatedTail(t *testing.T) {
 	files := parseDelimitedFiles(out)
 	if len(files) != 1 || files["reference/a.md"] == "" {
 		t.Errorf("want only the complete file a.md, got %v", files)
+	}
+}
+
+// fakeInvoker is a HarnessInvoker returning a canned response.
+type fakeInvoker struct{ out string }
+
+func (f *fakeInvoker) Name() string      { return "fake" }
+func (f *fakeInvoker) IsAvailable() bool { return true }
+func (f *fakeInvoker) Invoke(ctx context.Context, prompt string) (string, error) {
+	return f.out, nil
+}
+
+func TestFoldDropsDisallowedPaths(t *testing.T) {
+	block := func(path string) string {
+		return "@@@FILE " + path + "@@@\n---\ntype: reference\n---\n# X\n@@@END@@@\n"
+	}
+	// Mixed batch: two valid concept files plus LLM junk of every rejected
+	// shape — a script, an echoed hint key, a nested path, and traversal.
+	out := block("reference/good.md") +
+		block("contracts/release.md") +
+		block("reference/generate_image.py") +
+		block("_l0_hint") +
+		block("episodes/sub/nested.md") +
+		block("../escape.md") +
+		block("reference/_hint.md")
+
+	var warns []string
+	s := NewLLMSynth(&fakeInvoker{out: out}, func(w string) { warns = append(warns, w) })
+	res, err := s.Fold(context.Background(), FoldInput{ProjectID: "p"})
+	if err != nil {
+		t.Fatalf("Fold: %v", err)
+	}
+
+	if len(res.Files) != 2 {
+		t.Fatalf("want exactly the 2 valid files, got %d: %v", len(res.Files), res.Files)
+	}
+	for _, p := range []string{"reference/good.md", "contracts/release.md"} {
+		if _, ok := res.Files[p]; !ok {
+			t.Errorf("valid file %s missing from result", p)
+		}
+	}
+	// Every dropped path is warned about, with the offending path included.
+	for _, bad := range []string{"reference/generate_image.py", "_l0_hint", "episodes/sub/nested.md", "../escape.md", "reference/_hint.md"} {
+		found := false
+		for _, w := range warns {
+			if strings.Contains(w, bad) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("no warn for dropped path %q; warns: %v", bad, warns)
+		}
+	}
+}
+
+func TestAllowedVaultPath(t *testing.T) {
+	cases := map[string]bool{
+		"INDEX.md":               true,
+		"identity.md":            true,
+		"reference/voice.md":     true,
+		"contracts/release.md":   true,
+		"episodes/abc123.md":     true,
+		"reference/x.py":         false, // not .md
+		"_l0_hint":               false, // hint key, no extension
+		"_l0_hint.md":            false, // not an allowed root file
+		"notes.md":               false, // arbitrary root .md
+		"reference/_hint.md":     false, // _-prefixed name
+		"reference/.hidden.md":   false, // dot-file
+		"episodes/sub/nested.md": false, // nested subdir
+		"../escape.md":           false, // traversal
+		"/etc/x.md":              false, // absolute
+		"topics/legacy.md":       false, // legacy dir not in ICM allowlist
+		"reference/.md":          false, // empty name
+	}
+	for p, want := range cases {
+		if got := allowedVaultPath(p); got != want {
+			t.Errorf("allowedVaultPath(%q) = %v, want %v", p, got, want)
+		}
 	}
 }
 

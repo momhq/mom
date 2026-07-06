@@ -118,6 +118,10 @@ func (s *LLMSynth) fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 		if p == "" || p == indexFileName {
 			continue
 		}
+		if !allowedVaultPath(p) {
+			s.Warn(fmt.Sprintf("dropping synthesized file with disallowed path %q", p))
+			continue
+		}
 		files[p] = postProcessLLMFile(in.ProjectID, content)
 	}
 	if len(files) == 0 {
@@ -125,6 +129,36 @@ func (s *LLMSynth) fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 	}
 	// index and claude_block are generated deterministically, not by the model.
 	return FoldResult{Files: files, ClaudeBlock: buildClaudeBlock(in)}, nil
+}
+
+// allowedVaultPath reports whether an LLM-emitted file path is a legitimate
+// vault concept path. Models occasionally emit junk (scripts, echoed `_l0_hint`
+// keys, nested paths); this is the single allowlist chokepoint where their
+// output enters the result set. Allowed: INDEX.md, identity.md at the root, and
+// <name>.md directly under reference/, contracts/, or episodes/ — nothing
+// nested deeper, nothing without a .md suffix, no traversal, no `_`-prefixed
+// hint names.
+func allowedVaultPath(p string) bool {
+	if !strings.HasSuffix(p, ".md") || strings.Contains(p, "\\") {
+		return false
+	}
+	parts := strings.Split(p, "/")
+	switch len(parts) {
+	case 1:
+		// Root level: only the router and the identity concept.
+		return parts[0] == indexFileName || parts[0] == identityFile
+	case 2:
+		dir, name := parts[0], parts[1]
+		if dir != referenceDir && dir != contractsDir && dir != episodesDir {
+			return false // covers traversal too: ".." is not an allowed dir
+		}
+		if name == ".md" || strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".") {
+			return false
+		}
+		return true
+	default:
+		return false // nested subdirs are never allowed
+	}
 }
 
 // fileBlockOpen/Close delimit each emitted file. Content between them is raw
