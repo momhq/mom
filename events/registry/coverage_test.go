@@ -17,6 +17,16 @@ import (
 var activeEventTypes = []envelope.EventType{
 	envelope.TurnObserved,
 	envelope.MemoryRecord,
+	// Operational family — published by services/ingest via the shared
+	// Editor + Ledger pipeline (ADR 0025).
+	envelope.OperationalMessagePosted,
+	envelope.OperationalRunStarted,
+	envelope.OperationalRunFinished,
+	envelope.OperationalApprovalRequested,
+	envelope.OperationalApprovalResolved,
+	envelope.OperationalTaskCreated,
+	envelope.OperationalTaskUpdated,
+	envelope.OperationalWorkspaceRegistered,
 }
 
 // TestRegistry_CoversAllActiveEventTypes asserts every active

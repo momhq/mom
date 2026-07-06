@@ -1,0 +1,16 @@
+{
+  "name": "operational.task.created",
+  "description": "A task was created in the company task ledger. Published by the Toad OS ingest surface.",
+  "fields": {
+    "project_id":       {"type": "string", "required": true},
+    "session_id":       {"type": "string", "required": true},
+    "task_id":          {"type": "string", "required": true},
+    "workspace_id":     {"type": "string", "required": true},
+    "channel_id":       {"type": "string", "required": true},
+    "title":            {"type": "string", "required": true},
+    "status":           {"type": "string", "required": true},
+    "owner_agent_id":   {"type": "string", "required": false},
+    "acceptance":       {"type": "string", "required": true},
+    "created_at":       {"type": "string", "required": true}
+  }
+}

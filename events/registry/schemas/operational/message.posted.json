@@ -1,0 +1,20 @@
+{
+  "name": "operational.message.posted",
+  "description": "A message was posted in a channel or thread by a human or agent. Published by the Toad OS ingest surface; represents a company-record communication event.",
+  "fields": {
+    "project_id":    {"type": "string", "required": true},
+    "session_id":    {"type": "string", "required": true},
+    "message_id":    {"type": "string", "required": true},
+    "channel_id":    {"type": "string", "required": true},
+    "thread_id":     {"type": "string", "required": false},
+    "workspace_id":  {"type": "string", "required": false},
+    "sender_type":   {"type": "string", "required": true},
+    "sender_id":     {"type": "string", "required": true},
+    "sender_name":   {"type": "string", "required": true},
+    "kind":          {"type": "string", "required": true, "values": ["chat", "plan", "handoff", "artifact", "decision", "tool_result", "system"]},
+    "body":          {"type": "string", "required": true},
+    "extra":         {"type": "object", "required": false},
+    "run_id":        {"type": "string", "required": false},
+    "created_at":    {"type": "string", "required": true}
+  }
+}

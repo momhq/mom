@@ -1,0 +1,13 @@
+{
+  "name": "operational.workspace.registered",
+  "description": "A workspace was registered (a directory scope for agent work). Published by the Toad OS ingest surface.",
+  "fields": {
+    "project_id":    {"type": "string", "required": true},
+    "session_id":    {"type": "string", "required": true},
+    "workspace_id":  {"type": "string", "required": true},
+    "name":          {"type": "string", "required": true},
+    "root":          {"type": "string", "required": true},
+    "purpose":       {"type": "string", "required": true},
+    "created_at":    {"type": "string", "required": true}
+  }
+}

@@ -23,6 +23,34 @@ const (
 	// Ledger records still decode; the v0.50 capture-only model has no live
 	// producer for it.
 	MemoryRecord EventType = "capture.memory.recorded"
+
+	// Operational event types — published by the Toad OS ingest surface
+	// (services/ingest) via the shared Editor + Ledger pipeline. These make
+	// MOM's ledger the canonical company record for agent-centric operations.
+
+	// OperationalMessagePosted records a message posted in a channel or thread.
+	OperationalMessagePosted EventType = "operational.message.posted"
+
+	// OperationalRunStarted records the start of an agent run.
+	OperationalRunStarted EventType = "operational.run.started"
+
+	// OperationalRunFinished records the terminal state of an agent run.
+	OperationalRunFinished EventType = "operational.run.finished"
+
+	// OperationalApprovalRequested records a request for human approval.
+	OperationalApprovalRequested EventType = "operational.approval.requested"
+
+	// OperationalApprovalResolved records the resolution of a pending approval.
+	OperationalApprovalResolved EventType = "operational.approval.resolved"
+
+	// OperationalTaskCreated records a new task in the company task ledger.
+	OperationalTaskCreated EventType = "operational.task.created"
+
+	// OperationalTaskUpdated records a status or ownership change on a task.
+	OperationalTaskUpdated EventType = "operational.task.updated"
+
+	// OperationalWorkspaceRegistered records a new workspace being registered.
+	OperationalWorkspaceRegistered EventType = "operational.workspace.registered"
 )
 
 // Event is the canonical envelope appended to the Ledger.
