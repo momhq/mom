@@ -295,3 +295,187 @@ func fileKeys(m map[string]string) []string {
 	}
 	return ks
 }
+
+// multiSubjectL0Stub emits episodes whose tags rotate across subjectTags so
+// collectSubjects produces len(subjectTags) subjects (each appears on every
+// episode, satisfying l1SubjectMinEpisodes easily).
+type multiSubjectL0Stub struct {
+	subjectTags []string
+	l0, l1, l2  int
+}
+
+func (s *multiSubjectL0Stub) Fold(_ context.Context, in FoldInput) (FoldResult, error) {
+	files := map[string]string{}
+	switch {
+	case has(in.Existing, "_l0_hint"):
+		s.l0++
+		offs := make([]uint64, len(in.Events))
+		for i, e := range in.Events {
+			offs[i] = e.Offset
+		}
+		cid := chunkID(in.ProjectID, offs)
+		// Tag every episode with ALL subject tags so each subject has enough episodes.
+		files[episodesDir+"/"+cid+".md"] = PrependFrontmatter(
+			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: s.subjectTags},
+			"# Episode\n")
+	case has(in.Existing, "_l1_hint"):
+		s.l1++
+		// If an existing concept path is present in Existing (update-in-place),
+		// use it. Otherwise extract the slug from the _l1_hint text.
+		for k := range in.Existing {
+			if (strings.HasPrefix(k, referenceDir+"/") || strings.HasPrefix(k, contractsDir+"/")) &&
+				!strings.HasSuffix(k, "/"+indexFileName) {
+				files[k] = PrependFrontmatter(
+					Frontmatter{Type: typeReference, Level: 1, Version: 1}, "# concept\n")
+				return FoldResult{Files: files}, nil
+			}
+		}
+		// New subject: derive slug from the hint text.
+		slug := subjectSlugFromHint(in.Existing["_l1_hint"])
+		files[referenceDir+"/"+slug+".md"] = PrependFrontmatter(
+			Frontmatter{Type: typeReference, Level: 1, Version: 1}, "# concept\n")
+	case has(in.Existing, "_l2_hint"):
+		s.l2++
+		files[identityFile] = PrependFrontmatter(
+			Frontmatter{Type: typeIdentity, Level: 2, Version: 1}, "# identity\n")
+	}
+	return FoldResult{Files: files}, nil
+}
+
+// subjectSlugFromHint extracts the subject slug from the _l1_hint text, which
+// contains `Write EXACTLY ONE file about the subject "<name>".`. Used by the
+// stub to infer which subject an L1 call is about when all episodes share the
+// same tags.
+func subjectSlugFromHint(hint string) string {
+	const marker = `about the subject "`
+	idx := strings.Index(hint, marker)
+	if idx < 0 {
+		return "unknown"
+	}
+	rest := hint[idx+len(marker):]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		return "unknown"
+	}
+	name := rest[:end]
+	return strings.ReplaceAll(name, " ", "-")
+}
+
+// l1AbortAfterNStub fails the (n+1)th L1 call with a systemic InvokeError.
+// L0 and L2 always succeed (via multiSubjectL0Stub).
+type l1AbortAfterNStub struct {
+	multiSubjectL0Stub
+	okL1 int // number of L1 calls to allow before aborting
+}
+
+func (s *l1AbortAfterNStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
+	if has(in.Existing, "_l1_hint") {
+		if s.l1 >= s.okL1 {
+			// Fail this call systemically.
+			s.l1++
+			return FoldResult{}, &InvokeError{Err: errors.New("usage limit reached")}
+		}
+	}
+	return s.multiSubjectL0Stub.Fold(ctx, in)
+}
+
+// TestPendingSynthesisResumeAfterL1Abort verifies the full resume lifecycle:
+//
+//  1. An initial fold completes L0 but aborts L1 after the first subject due to
+//     a systemic harness failure. FoldResult.PendingSynthesis must be true.
+//
+//  2. A follow-up fold with zero new events and ResumeSynthesis=true (simulating
+//     what the CLI does when fold-state.PendingSynthesis is set) runs the L1 pass
+//     against the existing episodes, completes the remaining subjects, and
+//     produces PendingSynthesis=false.
+func TestPendingSynthesisResumeAfterL1Abort(t *testing.T) {
+	subjects := []string{"alpha", "bravo", "charlie"}
+	// 6 events → chunkSize 1 → 6 episodes; every episode has all 3 tags →
+	// collectSubjects produces 3 subjects.
+	var events []FoldEvent
+	for i := 1; i <= 6; i++ {
+		events = append(events, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), fmt.Sprintf("m%d", i), nil))
+	}
+
+	// ── Step 1: fold that aborts L1 after the first subject. ────────────────
+	abortStub := &l1AbortAfterNStub{
+		multiSubjectL0Stub: multiSubjectL0Stub{subjectTags: subjects},
+		okL1:               1, // allow exactly one L1 call, then abort
+	}
+	hs := &HierarchySynth{inner: abortStub, l1Threshold: 1, l2Threshold: 1000}
+
+	res1, err := FoldHierarchical(context.Background(), hs, FoldInput{
+		ProjectID: "demo",
+		Events:    events,
+		ToOffset:  6,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// L0 must have run for all 6 events.
+	if abortStub.l0 != 6 {
+		t.Errorf("want 6 L0 calls, got %d", abortStub.l0)
+	}
+	// L1 was aborted after 2 attempts (1 ok + 1 systemic fail).
+	if abortStub.l1 != 2 {
+		t.Errorf("want 2 L1 attempts (1 ok + 1 fail), got %d", abortStub.l1)
+	}
+	// PendingSynthesis must be true since L0 completed but L1 was aborted.
+	if !res1.PendingSynthesis {
+		t.Error("want PendingSynthesis=true after L1 abort, got false")
+	}
+	// FoldedThrough must still be the full watermark (L0 completed fine).
+	if res1.FoldedThrough != 6 {
+		t.Errorf("want FoldedThrough=6 (L0 complete), got %d", res1.FoldedThrough)
+	}
+	// Exactly one concept file was written (the first subject that succeeded).
+	conceptCount := 0
+	for p := range res1.Files {
+		if strings.HasPrefix(p, referenceDir+"/") && !strings.HasSuffix(p, "/"+indexFileName) {
+			conceptCount++
+		}
+	}
+	if conceptCount != 1 {
+		t.Errorf("want 1 concept file written before abort, got %d (files: %v)", conceptCount, fileKeys(res1.Files))
+	}
+
+	// ── Step 2: resume fold — zero new events, ResumeSynthesis=true. ────────
+	// Use a working stub for the resume.
+	workingStub := &multiSubjectL0Stub{subjectTags: subjects}
+	hs2 := &HierarchySynth{inner: workingStub, l1Threshold: 1, l2Threshold: 1}
+
+	res2, err := FoldHierarchical(context.Background(), hs2, FoldInput{
+		ProjectID:       "demo",
+		ToOffset:        6,
+		Existing:        res1.Files,
+		ExistingChunks:  res1.Chunks,
+		ResumeSynthesis: true,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// PendingSynthesis must clear when the fold completes without systemic abort.
+	if res2.PendingSynthesis {
+		t.Error("want PendingSynthesis=false after successful resume, got true")
+	}
+	// L0 must NOT have been called during the resume (all chunks cached).
+	if workingStub.l0 != 0 {
+		t.Errorf("want 0 L0 calls on resume (all chunks cached), got %d", workingStub.l0)
+	}
+	// All 3 subjects must now have concept files.
+	conceptCount2 := 0
+	for p := range res2.Files {
+		if strings.HasPrefix(p, referenceDir+"/") && !strings.HasSuffix(p, "/"+indexFileName) {
+			conceptCount2++
+		}
+	}
+	if conceptCount2 != 3 {
+		t.Errorf("want 3 concept files after resume (one per subject), got %d (files: %v)", conceptCount2, fileKeys(res2.Files))
+	}
+	// identity.md must be present (L2 threshold is 1).
+	if _, ok := res2.Files[identityFile]; !ok {
+		t.Errorf("want identity.md after resume, missing (files: %v)", fileKeys(res2.Files))
+	}
+}

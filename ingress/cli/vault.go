@@ -139,6 +139,7 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	// Determine the watermark and existing chunk map to resume from.
 	var fromOffset uint64
 	var existingChunks map[string]string
+	var resumeSynthesis bool
 	if !rebuild {
 		st, found, serr := projection.LoadFoldState(root)
 		if serr != nil {
@@ -147,6 +148,7 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		if found {
 			fromOffset = st.LastOffset
 			existingChunks = st.Chunks
+			resumeSynthesis = st.PendingSynthesis
 		}
 	}
 
@@ -170,23 +172,42 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		return err
 	}
 
-	spinner := ux.NewSpinner(cmd.OutOrStdout())
-	spinner.Start(fmt.Sprintf("folding %d events with %s", len(read.Events), engineName))
-
-	in := projection.FoldInput{
-		ProjectID:      projectID,
-		ProjectRoot:    root,
-		FromOffset:     fromOffset,
-		ToOffset:       read.Head,
-		Existing:       existing,
-		Events:         read.Events,
-		ExistingChunks: existingChunks,
-		Engine:         engineName,
-		Progress:       spinner.Update,
-	}
 	chunkSize := vaultChunk
 	if chunkSize <= 0 {
 		chunkSize = 60
+	}
+
+	// Count pending subjects for the resume banner.
+	var spinnerMsg string
+	if resumeSynthesis && len(read.Events) == 0 {
+		// Count L0 episodes and pending subjects (those without a current concept file).
+		l0Count := 0
+		for p := range existing {
+			if len(p) > len("episodes/") && p[:len("episodes/")] == "episodes/" {
+				l0Count++
+			}
+		}
+		spinnerMsg = fmt.Sprintf("resuming interrupted synthesis (%d episodes) with %s", l0Count, engineName)
+	} else if resumeSynthesis {
+		spinnerMsg = fmt.Sprintf("resuming interrupted synthesis + %d new events with %s", len(read.Events), engineName)
+	} else {
+		spinnerMsg = fmt.Sprintf("folding %d events with %s", len(read.Events), engineName)
+	}
+
+	spinner := ux.NewSpinner(cmd.OutOrStdout())
+	spinner.Start(spinnerMsg)
+
+	in := projection.FoldInput{
+		ProjectID:       projectID,
+		ProjectRoot:     root,
+		FromOffset:      fromOffset,
+		ToOffset:        read.Head,
+		Existing:        existing,
+		Events:          read.Events,
+		ExistingChunks:  existingChunks,
+		Engine:          engineName,
+		Progress:        spinner.Update,
+		ResumeSynthesis: resumeSynthesis,
 	}
 	chunks := (len(read.Events) + chunkSize - 1) / chunkSize
 	if chunks == 0 {
@@ -230,7 +251,10 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	p.Chevron(fmt.Sprintf("engine:        %s", engineName))
 	p.Chevron(fmt.Sprintf("vault:         %s", wres.VaultDir))
 	p.Blank()
-	if foldedThrough < read.Head {
+	if res.PendingSynthesis {
+		p.Chevron("pending: L1/L2 synthesis was interrupted — run `mom vault fold` when the harness recovers to complete it")
+		p.Blank()
+	} else if foldedThrough < read.Head {
 		p.Chevron(fmt.Sprintf("partial: synthesis stopped at offset %d of %d — run `mom vault fold` to retry the rest", foldedThrough, read.Head))
 		p.Blank()
 	}

@@ -38,6 +38,11 @@ type FoldState struct {
 	// in the last fold. Used by the next incremental fold to skip re-synthesis
 	// of chunks whose source events haven't changed. Nil on fresh vaults.
 	Chunks map[string]string `json:"chunks,omitempty"`
+	// PendingSynthesis is true when the last fold completed L0 but aborted L1
+	// or L2 due to a systemic harness failure. The next fold must re-run the
+	// L1/L2 passes against the existing episodes even when there are no new
+	// events.
+	PendingSynthesis bool `json:"pending_synthesis,omitempty"`
 }
 
 // VaultDir returns the absolute vault directory for a project root.
@@ -168,11 +173,12 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 	}
 
 	st := FoldState{
-		LastOffset:   head,
-		FoldedAt:     time.Now().UTC(),
-		FilesWritten: written,
-		EventsFolded: eventsFolded,
-		Chunks:       res.Chunks,
+		LastOffset:       head,
+		FoldedAt:         time.Now().UTC(),
+		FilesWritten:     written,
+		EventsFolded:     eventsFolded,
+		Chunks:           res.Chunks,
+		PendingSynthesis: res.PendingSynthesis,
 	}
 	if err := writeFoldState(base, st); err != nil {
 		return WriteResult{}, err

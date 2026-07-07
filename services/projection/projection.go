@@ -188,6 +188,11 @@ type FoldInput struct {
 	// Progress, if non-nil, is called with a short human-readable label whenever
 	// a meaningful step starts. Used to drive a spinner in the CLI.
 	Progress func(string)
+	// ResumeSynthesis, when true, signals that L0 is already complete in Existing
+	// and only the L1/L2 passes need to run. Set by the CLI when fold-state has
+	// PendingSynthesis=true. FoldHierarchical skips the L0 loop entirely and
+	// seeds its episode set from the on-disk Existing files.
+	ResumeSynthesis bool
 }
 
 // FoldResult is what a Synthesizer returns: the set of vault files to
@@ -208,6 +213,12 @@ type FoldResult struct {
 	// a full fold; behind it when synthesis stopped early on a failing window
 	// (the next fold resumes exactly there).
 	FoldedThrough uint64
+	// PendingSynthesis is true when L0 succeeded but L1 or L2 was aborted due
+	// to a systemic harness failure (usage limit, auth). The vault has all
+	// episode files but missing or incomplete concept/identity files. The CLI
+	// persists this in fold-state so the next fold can resume the L1/L2 passes
+	// without re-synthesizing L0.
+	PendingSynthesis bool
 }
 
 // Synthesizer turns a window of FoldEvents into a FoldResult. Synthesis is
