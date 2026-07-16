@@ -521,6 +521,12 @@ func invokeExitError(ctx context.Context, name string, err error, stdout, stderr
 	if detail == "" {
 		detail = strings.TrimSpace(stdout)
 	}
+	// The CLI's stored OAuth token can go stale (expiry, binary update
+	// re-gating keychain access) while the desktop app stays logged in —
+	// point at the fix instead of printing a bare exit status.
+	if strings.Contains(detail, "Not logged in") {
+		return fmt.Errorf("%s CLI is logged out — run `%s` in a terminal and `/login`, then re-run the fold: %w", name, name, err)
+	}
 	return fmt.Errorf("%s exit: %w (output: %s)", name, err, truncate(detail, 300))
 }
 
