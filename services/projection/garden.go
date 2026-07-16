@@ -64,10 +64,15 @@ func Garden(ctx context.Context, projectRoot, projectID, model string, warn func
 
 	prompt := buildGardenPrompt(projectID, existing)
 
-	cmd := exec.CommandContext(ctx, "claude", "-p", prompt, "--model", model, "--output-format", "json")
+	// disableAllHooks: same rationale as the fold invoker — the user's
+	// MOM-installed Stop/SessionEnd sweep hooks must not run (or fail) inside
+	// a synthesis subprocess.
+	cmd := exec.CommandContext(ctx, "claude", "-p", "--model", model, "--output-format", "json",
+		"--settings", `{"disableAllHooks": true}`)
 	// Run in a neutral directory so the subprocess does not inherit the
 	// target project's CLAUDE.md / skills / MCP as its own context.
 	cmd.Dir = os.TempDir()
+	cmd.Stdin = strings.NewReader(prompt)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

@@ -476,12 +476,19 @@ func (c *ClaudeInvoker) Invoke(ctx context.Context, prompt string) (string, erro
 	// doesn't pick up MOM instructions, call mom_status, or act as a coding agent.
 	// --strict-mcp-config with no config file disables all MCP servers.
 	// --allowedTools "" permits no tools — pure text synthesis only.
+	// disableAllHooks: MOM's own harness install registers Stop/SessionEnd
+	// hooks (`mom watch --sweep`) in the user's settings; every synthesis
+	// subprocess would fire them, and a sweep exceeding the hook timeout
+	// makes the CLI swallow the result and exit 1 — MOM tripping over
+	// itself. Synthesis calls are not sessions worth capturing anyway.
+	// (--setting-sources/--bare would also drop hooks, but they break OAuth.)
 	args := []string{
 		"-p",
 		"--output-format", "json",
 		"--system-prompt", "You are a synthesis engine. Output ONLY the requested @@@FILE ... @@@END@@@ delimited blocks with plain-markdown content between them. No JSON, no prose, no code fences, no tool calls.",
 		"--strict-mcp-config",
 		"--allowedTools", "",
+		"--settings", `{"disableAllHooks": true}`,
 	}
 	if c.Model != "" {
 		args = append(args, "--model", c.Model)
