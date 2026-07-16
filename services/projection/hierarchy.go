@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
 const (
@@ -74,6 +75,20 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	if progress == nil {
 		progress = func(string) {}
 	}
+	checkpoint := in.Checkpoint
+	if checkpoint == nil {
+		checkpoint = func(map[string]string, map[string]string, uint64) {}
+	}
+	parallel := in.Parallel
+	if parallel < 1 {
+		parallel = 1
+	}
+	// Synthesis calls run concurrently; serialize the callbacks the CLI hands
+	// us (spinner updates, stderr warnings) so they cannot interleave.
+	var cbMu sync.Mutex
+	baseProgress, baseWarn := progress, warn
+	progress = func(s string) { cbMu.Lock(); baseProgress(s); cbMu.Unlock() }
+	warn = func(s string) { cbMu.Lock(); baseWarn(s); cbMu.Unlock() }
 
 	// ── L0 pass: one episode file per chunk ──────────────────────────────────
 	acc := map[string]string{}
@@ -99,64 +114,15 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		// Skip the L0 loop entirely; l0Files will be populated from acc below.
 		// The watermark does not change — it was already persisted correctly.
 		progress("resuming interrupted synthesis — skipping L0 (already complete)")
-	} else {
-		events := in.Events
-		total := (len(events) + chunkSize - 1) / chunkSize
-		if total == 0 {
-			total = 1
-		}
-		lastGood := in.FromOffset
-
-		for i := 0; i < len(events); i += chunkSize {
-			end := i + chunkSize
-			if end > len(events) {
-				end = len(events)
+	} else if len(in.Events) > 0 {
+		var stopped bool
+		foldedThrough, systemicAbort, stopped = hs.runL0Pool(ctx, in, chunkSize, parallel, acc, chunkMap, progress, warn, checkpoint)
+		if stopped {
+			if systemicAbort {
+				warn(fmt.Sprintf("harness failing systemically; aborting this fold at offset %d — run `mom vault fold` when the harness recovers (e.g. usage limit reset)", foldedThrough))
+			} else {
+				warn(fmt.Sprintf("some windows failed; watermark stopped at offset %d — run `mom vault fold` again to retry them (completed windows are cached)", foldedThrough))
 			}
-			chunk := events[i:end]
-			chunkNum := (i / chunkSize) + 1
-
-			offsets := make([]uint64, len(chunk))
-			for j, e := range chunk {
-				offsets[j] = e.Offset
-			}
-			cid := chunkID(in.ProjectID, offsets)
-
-			// Skip synthesis if this chunk is already in the vault.
-			if existingPath, seen := in.ExistingChunks[cid]; seen {
-				if existingPath == "" {
-					progress(fmt.Sprintf("L0 episode %d/%d (cached)", chunkNum, total))
-					chunkMap[cid] = ""
-					lastGood = chunk[len(chunk)-1].Offset
-					continue
-				}
-				if _, exists := acc[existingPath]; exists {
-					progress(fmt.Sprintf("L0 episode %d/%d (cached)", chunkNum, total))
-					chunkMap[cid] = existingPath
-					lastGood = chunk[len(chunk)-1].Offset
-					continue
-				}
-			}
-
-			label := fmt.Sprintf("L0 episode %d/%d", chunkNum, total)
-			progress(fmt.Sprintf("%s — synthesizing %d events", label, len(chunk)))
-
-			endOff, ferr := hs.foldL0Chunk(ctx, in, chunk, acc, chunkMap, label, progress, warn)
-			if ferr != nil {
-				if endOff > 0 {
-					lastGood = endOff
-				}
-				foldedThrough = lastGood
-				systemicAbort = IsSystemicError(ferr)
-				if systemicAbort {
-					warn(fmt.Sprintf("harness failing systemically (%v); aborting this fold at offset %d — run `mom vault fold` when the harness recovers (e.g. usage limit reset)",
-						ferr, foldedThrough))
-				} else {
-					warn(fmt.Sprintf("stopping L0 at offset %d (%d/%d chunks); run `mom vault fold` again to retry the rest",
-						foldedThrough, chunkNum-1, total))
-				}
-				break
-			}
-			lastGood = endOff
 		}
 	}
 
@@ -185,6 +151,12 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	if !systemicAbort && len(l0Files) >= hs.l1Threshold {
 		subjects := collectSubjects(l0Files, in.ProjectID)
 		progress(fmt.Sprintf("L1 synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
+
+		l1ctx, l1cancel := context.WithCancel(ctx)
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, parallel)
+
 		for i, subj := range subjects {
 			subEps := make(map[string]string, len(subj.episodePaths))
 			var subOffsets []uint64
@@ -199,6 +171,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			// update-in-place pinning.
 			refPath := referenceDir + "/" + subj.slug + ".md"
 			conPath := contractsDir + "/" + subj.slug + ".md"
+			mu.Lock()
 			existingPath := ""
 			for _, p := range []string{refPath, conPath} {
 				if _, ok := acc[p]; ok {
@@ -209,45 +182,71 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			expectID := chunkID(in.ProjectID, sortedUniqueOffsets(subOffsets))
 			if existingPath != "" {
 				if fm, _ := ParseFrontmatter(acc[existingPath]); fm.ID == expectID {
+					mu.Unlock()
 					progress(fmt.Sprintf("L1 subject %d/%d — %s (unchanged)", i+1, len(subjects), existingPath))
 					continue
 				}
 			}
+			existingContent := acc[existingPath]
+			mu.Unlock()
 
-			progress(fmt.Sprintf("L1 subject %d/%d — %s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
-			l1Res, err := hs.inner.Fold(ctx, buildL1SubjectInput(in, subj, subEps, existingPath, acc[existingPath]))
-			if err != nil {
-				if IsSystemicError(err) {
-					warn(fmt.Sprintf("harness failing systemically (%v); aborting L1 — the next fold retries the remaining subjects", err))
-					systemicAbort = true
-					break
-				}
-				// Safe to skip: the id mismatch persists, so the next fold
-				// retries this subject.
-				warn(fmt.Sprintf("L1 subject %q failed (%v); skipping — next fold retries it", subj.slug, err))
-				continue
+			// Acquire a slot before spawning: parallel=1 stays strictly
+			// sequential, and a systemic cancel stops further submissions.
+			sem <- struct{}{}
+			if l1ctx.Err() != nil {
+				<-sem
+				break
 			}
-			wrote := ""
-			for p, c := range l1Res.Files {
-				// Stamp provenance MOM owns: the union of the subject's episode
-				// offsets, and the episodes as children. The model omits sources.
-				if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
-					c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths)
-					wrote = p
-					l1Changed = true
+			wg.Add(1)
+			go func(i int, subj subject, subEps map[string]string, subOffsets []uint64, refPath, conPath, existingPath, existingContent string) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				progress(fmt.Sprintf("L1 subject %d/%d — %s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
+				l1Res, err := hs.inner.Fold(l1ctx, buildL1SubjectInput(in, subj, subEps, existingPath, existingContent))
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					if IsSystemicError(err) && l1ctx.Err() == nil {
+						warn(fmt.Sprintf("harness failing systemically (%v); aborting L1 — the next fold retries the remaining subjects", err))
+					} else if l1ctx.Err() == nil {
+						// Safe to skip: the id mismatch persists, so the next
+						// fold retries this subject.
+						warn(fmt.Sprintf("L1 subject %q failed (%v); skipping — next fold retries it", subj.slug, err))
+					}
+					if IsSystemicError(err) {
+						systemicAbort = true
+						l1cancel()
+					}
+					return
 				}
-				acc[p] = c
-			}
-			// If the model reclassified the subject into the other folder,
-			// drop the stale twin so one subject never has two homes.
-			if wrote != "" {
-				for _, p := range []string{refPath, conPath} {
-					if p != wrote {
-						delete(acc, p)
+				changed := map[string]string{}
+				wrote := ""
+				for p, c := range l1Res.Files {
+					// Stamp provenance MOM owns: the union of the subject's
+					// episode offsets, and the episodes as children. The model
+					// omits sources.
+					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
+						c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths)
+						wrote = p
+						l1Changed = true
+					}
+					acc[p] = c
+					changed[p] = c
+				}
+				// If the model reclassified the subject into the other folder,
+				// drop the stale twin so one subject never has two homes.
+				if wrote != "" {
+					for _, p := range []string{refPath, conPath} {
+						if p != wrote {
+							delete(acc, p)
+						}
 					}
 				}
-			}
+				checkpoint(changed, chunkMap, foldedThrough)
+			}(i, subj, subEps, subOffsets, refPath, conPath, existingPath, existingContent)
 		}
+		wg.Wait()
+		l1cancel()
 	}
 
 	// Collect L1 concept files (reference + contracts), excluding folder indexes.
@@ -282,6 +281,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				for p, c := range l2Res.Files {
 					acc[p] = c
 				}
+				checkpoint(l2Res.Files, chunkMap, foldedThrough)
 			}
 		}
 	}
@@ -311,15 +311,140 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	return FoldResult{Files: acc, Index: index, ClaudeBlock: block, Chunks: chunkMap, FoldedThrough: foldedThrough, PendingSynthesis: pendingSynthesis}, nil
 }
 
+// runL0Pool synthesizes all L0 chunks with up to parallel concurrent calls.
+// Chunk boundaries are deterministic (same watermark → same event stream →
+// same chunks), so out-of-order completions are safe to persist: the
+// watermark only advances along the CONSECUTIVE prefix of successful chunks,
+// while later completed chunks land in the chunk cache and are skipped when
+// the next fold re-reads the window. A systemic harness failure cancels the
+// pool; an isolated window failure lets the other windows finish.
+func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize, parallel int, acc, chunkMap map[string]string, progress, warn func(string), checkpoint func(map[string]string, map[string]string, uint64)) (foldedThrough uint64, systemic, stopped bool) {
+	events := in.Events
+	total := (len(events) + chunkSize - 1) / chunkSize
+
+	type result struct {
+		endOff uint64
+		ok     bool
+		done   bool
+	}
+	results := make([]result, total)
+	frontierIdx := 0
+	frontier := in.FromOffset
+	knownTags := knownSubjectTags(acc)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, parallel)
+
+	// advanceFrontier is called with mu held. The watermark moves through the
+	// consecutive prefix of fully successful chunks, then may step INTO a
+	// partially-bisected frontier chunk (its left halves succeeded).
+	advanceFrontier := func() {
+		for frontierIdx < total && results[frontierIdx].done && results[frontierIdx].ok {
+			frontier = results[frontierIdx].endOff
+			frontierIdx++
+		}
+		if frontierIdx < total && results[frontierIdx].done && !results[frontierIdx].ok && results[frontierIdx].endOff > frontier {
+			frontier = results[frontierIdx].endOff
+		}
+	}
+
+	for i := 0; i < len(events); i += chunkSize {
+		idx := i / chunkSize
+		end := i + chunkSize
+		if end > len(events) {
+			end = len(events)
+		}
+		chunk := events[i:end]
+
+		offsets := make([]uint64, len(chunk))
+		for j, e := range chunk {
+			offsets[j] = e.Offset
+		}
+		cid := chunkID(in.ProjectID, offsets)
+
+		// Skip synthesis if this chunk is already in the vault.
+		if existingPath, seen := in.ExistingChunks[cid]; seen {
+			mu.Lock()
+			cachedOK := existingPath == ""
+			if !cachedOK {
+				_, cachedOK = acc[existingPath]
+			}
+			if cachedOK {
+				chunkMap[cid] = existingPath
+				results[idx] = result{endOff: chunk[len(chunk)-1].Offset, ok: true, done: true}
+				advanceFrontier()
+				mu.Unlock()
+				progress(fmt.Sprintf("L0 episode %d/%d (cached)", idx+1, total))
+				continue
+			}
+			mu.Unlock()
+		}
+
+		// Acquire a slot BEFORE spawning: parallel=1 stays strictly ordered,
+		// and a systemic cancel stops further submissions.
+		sem <- struct{}{}
+		if ctx.Err() != nil {
+			<-sem
+			break
+		}
+		wg.Add(1)
+		go func(idx int, chunk []FoldEvent) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			label := fmt.Sprintf("L0 episode %d/%d", idx+1, total)
+			progress(fmt.Sprintf("%s — synthesizing %d events", label, len(chunk)))
+
+			files := map[string]string{}
+			cmap := map[string]string{}
+			endOff, err := hs.foldL0Chunk(ctx, in, chunk, files, cmap, label, progress, warn, knownTags)
+
+			mu.Lock()
+			defer mu.Unlock()
+			for p, c := range files {
+				acc[p] = c
+			}
+			for k, v := range cmap {
+				chunkMap[k] = v
+			}
+			results[idx] = result{endOff: endOff, ok: err == nil, done: true}
+			advanceFrontier()
+			if err != nil {
+				stopped = true
+				if IsSystemicError(err) {
+					systemic = true
+					cancel()
+				} else if ctx.Err() == nil {
+					warn(fmt.Sprintf("%s failed (%v); continuing other windows — the next fold retries it", label, err))
+				}
+			}
+			if len(files) > 0 {
+				checkpoint(files, chunkMap, frontier)
+			}
+		}(idx, chunk)
+	}
+	wg.Wait()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !stopped {
+		frontier = in.ToOffset
+	}
+	return frontier, systemic, stopped
+}
+
 // foldL0Chunk synthesizes one episode for a window of events, bisecting on
 // size-related failure (timeout, truncated/malformed output) so one bad
 // window cannot stall the whole fold. A systemic harness failure (usage
 // limit, auth) is returned immediately without bisecting — halving the window
-// cannot fix the harness. Successful output is written into acc and chunkMap.
-// It returns the offset folded through — the end of the window's consecutive
-// successful prefix, 0 when nothing folded — and the failure, nil on full
-// success.
-func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk []FoldEvent, acc, chunkMap map[string]string, label string, progress, warn func(string)) (uint64, error) {
+// cannot fix the harness. Successful output is written into files and cmap
+// (caller-local maps; the pool merges them under its lock). It returns the
+// offset folded through — the end of the window's consecutive successful
+// prefix, 0 when nothing folded — and the failure, nil on full success.
+func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk []FoldEvent, files, cmap map[string]string, label string, progress, warn func(string), knownTags []string) (uint64, error) {
 	offsets := make([]uint64, len(chunk))
 	for j, e := range chunk {
 		offsets[j] = e.Offset
@@ -333,7 +458,7 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 		ToOffset:    chunk[len(chunk)-1].Offset,
 		Events:      chunk,
 	}
-	res, err := hs.inner.Fold(ctx, buildL0Input(chunkIn, cid, knownSubjectTags(acc)))
+	res, err := hs.inner.Fold(ctx, buildL0Input(chunkIn, cid, knownTags))
 	if err == nil {
 		for p, c := range res.Files {
 			// MOM owns provenance — the model omits sources (a big offset array
@@ -341,13 +466,13 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 			if strings.HasPrefix(p, episodesDir+"/") {
 				c = stampProvenance(c, in.ProjectID, offsets, nil)
 			}
-			acc[p] = c
+			files[p] = c
 		}
 		episodePath := fmt.Sprintf("%s/%s.md", episodesDir, cid)
-		if _, ok := acc[episodePath]; ok {
-			chunkMap[cid] = episodePath
+		if _, ok := files[episodePath]; ok {
+			cmap[cid] = episodePath
 		} else {
-			chunkMap[cid] = ""
+			cmap[cid] = ""
 		}
 		return chunk[len(chunk)-1].Offset, nil
 	}
@@ -363,12 +488,12 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 	mid := len(chunk) / 2
 	warn(fmt.Sprintf("%s failed (%v); bisecting into %d+%d events", label, err, mid, len(chunk)-mid))
 	progress(label + " — first half")
-	leftEnd, lerr := hs.foldL0Chunk(ctx, in, chunk[:mid], acc, chunkMap, label+"·a", progress, warn)
+	leftEnd, lerr := hs.foldL0Chunk(ctx, in, chunk[:mid], files, cmap, label+"·a", progress, warn, knownTags)
 	if lerr != nil {
 		return leftEnd, lerr
 	}
 	progress(label + " — second half")
-	rightEnd, rerr := hs.foldL0Chunk(ctx, in, chunk[mid:], acc, chunkMap, label+"·b", progress, warn)
+	rightEnd, rerr := hs.foldL0Chunk(ctx, in, chunk[mid:], files, cmap, label+"·b", progress, warn, knownTags)
 	if rightEnd == 0 {
 		rightEnd = leftEnd
 	}

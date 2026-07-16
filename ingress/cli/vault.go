@@ -21,6 +21,7 @@ var (
 	vaultChunk     int
 	vaultModel     string
 	vaultFoldModel string
+	vaultParallel  int
 )
 
 var vaultCmd = &cobra.Command{
@@ -72,6 +73,7 @@ func init() {
 		c.Flags().StringVar(&vaultEngine, "engine", "auto", "Synthesis engine: auto | claude | codex | pi")
 		c.Flags().IntVar(&vaultChunk, "chunk", 60, "Events per synthesizer call when folding (iterative, full-history coverage)")
 		c.Flags().StringVar(&vaultFoldModel, "model", "", "Synthesis model (default: vault.fold_model config, else the engine's cheap default — claude: haiku)")
+		c.Flags().IntVar(&vaultParallel, "parallel", 4, "Concurrent synthesis calls for the L0/L1 passes")
 	}
 	vaultGardenCmd.Flags().StringVar(&vaultModel, "model", "claude-sonnet-4-6", "Model used for the garden reorganization pass")
 	vaultCmd.AddCommand(vaultFoldCmd)
@@ -198,6 +200,7 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	spinner := ux.NewSpinner(cmd.OutOrStdout())
 	spinner.Start(spinnerMsg)
 
+	writer := projection.NewWriter(root)
 	in := projection.FoldInput{
 		ProjectID:       projectID,
 		ProjectRoot:     root,
@@ -209,6 +212,15 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		Engine:          engineName,
 		Progress:        spinner.Update,
 		ResumeSynthesis: resumeSynthesis,
+		Parallel:        vaultParallel,
+		// Persist every completed synthesis step immediately: a Ctrl-C or
+		// crash mid-fold loses at most one call's work, and the next fold
+		// resumes from the checkpointed watermark + chunk cache.
+		Checkpoint: func(changed, chunks map[string]string, watermark uint64) {
+			if cerr := writer.Checkpoint(changed, chunks, watermark); cerr != nil {
+				warn(fmt.Sprintf("checkpoint failed (%v); continuing — progress since the last good checkpoint is at risk", cerr))
+			}
+		},
 	}
 	chunks := (len(read.Events) + chunkSize - 1) / chunkSize
 	if chunks == 0 {
@@ -237,7 +249,6 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	// vault when a rebuild ran against a logged-out harness CLI).
 	prune := rebuild && foldedThrough >= read.Head && !res.PendingSynthesis
 
-	writer := projection.NewWriter(root)
 	wres, err := writer.Write(res, foldedThrough, len(read.Events), prune)
 	if err != nil {
 		return err

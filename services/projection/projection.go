@@ -188,6 +188,15 @@ type FoldInput struct {
 	// Progress, if non-nil, is called with a short human-readable label whenever
 	// a meaningful step starts. Used to drive a spinner in the CLI.
 	Progress func(string)
+	// Checkpoint, if non-nil, is called after every durable synthesis step
+	// (a successful L0 chunk, L1 subject, or the L2 identity) with the files
+	// produced by that step, the full chunk map so far, and the consecutive
+	// watermark reached. The CLI persists these immediately so an interrupted
+	// fold (Ctrl-C, crash, power loss) loses at most one call's work.
+	Checkpoint func(changed map[string]string, chunks map[string]string, foldedThrough uint64)
+	// Parallel is the number of concurrent synthesis calls for the L0 and L1
+	// passes. <=1 means sequential.
+	Parallel int
 	// ResumeSynthesis, when true, signals that L0 is already complete in Existing
 	// and only the L1/L2 passes need to run. Set by the CLI when fold-state has
 	// PendingSynthesis=true. FoldHierarchical skips the L0 loop entirely and

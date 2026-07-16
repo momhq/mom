@@ -42,9 +42,11 @@ func (s *failingSynth) Fold(_ context.Context, in FoldInput) (FoldResult, error)
 }
 
 // TestFoldHierarchicalStopsWatermarkAtFailure guards the no-fallback contract:
-// when an L0 window keeps failing even after bisection, the fold stops and
-// FoldedThrough points at the end of the last consecutive successful window —
-// never past the failed events.
+// when an L0 window keeps failing even after bisection, FoldedThrough points
+// at the end of the last CONSECUTIVE successful window — never past the
+// failed events. Windows after the failure may still complete (they are
+// persisted into the chunk cache), but the failed window's events must never
+// appear in any episode.
 func TestFoldHierarchicalStopsWatermarkAtFailure(t *testing.T) {
 	var events []FoldEvent
 	for i := 1; i <= 60; i++ {
@@ -64,16 +66,34 @@ func TestFoldHierarchicalStopsWatermarkAtFailure(t *testing.T) {
 	if res.FoldedThrough != 20 {
 		t.Errorf("want FoldedThrough=20 (last consecutive success), got %d", res.FoldedThrough)
 	}
-	// Nothing past the failure may be synthesized (fail-fast, no gaps).
+	// The failed window's events (21–40) must never appear in an episode.
+	// Chunk 3 (41–60) is allowed to complete and be cached out-of-order.
+	sawLater := false
 	for p, c := range res.Files {
 		if !strings.HasPrefix(p, "episodes/") {
 			continue
 		}
 		fm, _ := ParseFrontmatter(c)
 		for _, o := range fm.Sources {
-			if o > 20 {
-				t.Errorf("episode %s covers offset %d beyond the failed window", p, o)
+			if o > 20 && o <= 40 {
+				t.Errorf("episode %s covers offset %d from the FAILED window", p, o)
 			}
+			if o > 40 {
+				sawLater = true
+			}
+		}
+	}
+	// The out-of-order chunk must be in the chunk cache so the next fold
+	// skips it after retrying the failed window.
+	if sawLater {
+		found := false
+		for _, path := range res.Chunks {
+			if strings.HasPrefix(path, "episodes/") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("out-of-order episode not recorded in the chunk cache")
 		}
 	}
 }
@@ -477,5 +497,76 @@ func TestPendingSynthesisResumeAfterL1Abort(t *testing.T) {
 	// identity.md must be present (L2 threshold is 1).
 	if _, ok := res2.Files[identityFile]; !ok {
 		t.Errorf("want identity.md after resume, missing (files: %v)", fileKeys(res2.Files))
+	}
+}
+
+// TestFoldHierarchicalCheckpointsEveryChunk guards interruption safety: the
+// Checkpoint callback fires after every successful L0 chunk with that chunk's
+// files, and the final watermark matches the last checkpoint's frontier.
+func TestFoldHierarchicalCheckpointsEveryChunk(t *testing.T) {
+	var events []FoldEvent
+	for i := 1; i <= 30; i++ {
+		events = append(events, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "m", nil))
+	}
+	stub := &icmStub{}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 1000, l2Threshold: 1000}
+
+	var calls int
+	var lastWatermark uint64
+	in := FoldInput{
+		ProjectID: "demo", Events: events, ToOffset: 30,
+		Checkpoint: func(changed, chunks map[string]string, watermark uint64) {
+			calls++
+			if len(changed) == 0 {
+				t.Errorf("checkpoint %d carried no files", calls)
+			}
+			lastWatermark = watermark
+		},
+	}
+	res, err := FoldHierarchical(context.Background(), hs, in, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 {
+		t.Errorf("want 3 checkpoints (one per chunk), got %d", calls)
+	}
+	if lastWatermark != 30 {
+		t.Errorf("want last checkpoint watermark 30, got %d", lastWatermark)
+	}
+	if res.FoldedThrough != 30 {
+		t.Errorf("want FoldedThrough=30, got %d", res.FoldedThrough)
+	}
+}
+
+// TestFoldHierarchicalParallel runs the L0 pool with 4 workers over 8 chunks
+// and asserts every chunk lands: 8 episodes, full watermark, full chunk cache.
+func TestFoldHierarchicalParallel(t *testing.T) {
+	var events []FoldEvent
+	for i := 1; i <= 80; i++ {
+		events = append(events, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "m", nil))
+	}
+	stub := &sizeLimitedSynth{maxEvents: 10}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 1000, l2Threshold: 1000}
+
+	res, err := FoldHierarchical(context.Background(), hs, FoldInput{
+		ProjectID: "demo", Events: events, ToOffset: 80, Parallel: 4,
+	}, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.FoldedThrough != 80 {
+		t.Errorf("want FoldedThrough=80, got %d", res.FoldedThrough)
+	}
+	episodes := 0
+	for p := range res.Files {
+		if strings.HasPrefix(p, "episodes/") {
+			episodes++
+		}
+	}
+	if episodes != 8 {
+		t.Errorf("want 8 episodes from 8 parallel chunks, got %d", episodes)
+	}
+	if len(res.Chunks) != 8 {
+		t.Errorf("want 8 chunk-cache entries, got %d", len(res.Chunks))
 	}
 }

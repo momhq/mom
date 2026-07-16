@@ -124,6 +124,29 @@ type WriteResult struct {
 	ClaudePath   string
 }
 
+// Checkpoint persists an in-progress fold: the files produced so far and a
+// fold-state carrying the chunk cache and the consecutive watermark, marked
+// PendingSynthesis so the next fold knows synthesis did not complete. Called
+// after every successful synthesis step, it bounds the cost of an
+// interruption (Ctrl-C, crash) to at most one call.
+func (w *Writer) Checkpoint(files map[string]string, chunks map[string]string, watermark uint64) error {
+	base := VaultDir(w.Root)
+	if err := os.MkdirAll(base, 0o700); err != nil {
+		return fmt.Errorf("mkdir vault: %w", err)
+	}
+	for rel, content := range files {
+		if err := writeVaultFile(base, rel, content); err != nil {
+			return err
+		}
+	}
+	return writeFoldState(base, FoldState{
+		LastOffset:       watermark,
+		FoldedAt:         time.Now().UTC(),
+		Chunks:           chunks,
+		PendingSynthesis: true,
+	})
+}
+
 // Write materializes the vault files, INDEX.md, the CLAUDE.md managed
 // block, and the watermark. dirs are 0700, files 0600. When prune is true
 // (rebuild), stale concept files not present in res.Files are deleted first so
