@@ -185,3 +185,27 @@ func TestPruneStaleConcepts_KeepsNewIdentity(t *testing.T) {
 		t.Error("identity.md in keep was deleted but must survive")
 	}
 }
+
+// TestWritePruneRefusesEmptyFreshSet guards against the failure that wiped a
+// 2500-episode vault: a rebuild whose synthesis aborted immediately returns an
+// empty file set, and pruning against it would delete every existing file.
+func TestWritePruneRefusesEmptyFreshSet(t *testing.T) {
+	root := t.TempDir()
+	w := NewWriter(root)
+
+	// Seed a vault with one episode via a normal write.
+	seed := FoldResult{Files: map[string]string{"episodes/aaa.md": "# Episode\n"}, Index: "# idx\n"}
+	if _, err := w.Write(seed, 10, 1, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// A failed rebuild: prune requested, but the fresh set is empty.
+	empty := FoldResult{Files: map[string]string{}, Index: "# idx\n"}
+	if _, err := w.Write(empty, 0, 0, true); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(VaultDir(root), "episodes", "aaa.md")); err != nil {
+		t.Errorf("existing episode was pruned by an empty synthesis: %v", err)
+	}
+}

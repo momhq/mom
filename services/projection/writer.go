@@ -135,7 +135,11 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 		return WriteResult{}, fmt.Errorf("mkdir vault: %w", err)
 	}
 
-	if prune {
+	// Refuse to prune against an empty fresh set regardless of what the
+	// caller asked: "delete everything the synthesis didn't produce" with a
+	// synthesis that produced nothing means deleting the whole vault. That
+	// can only be a failed fold, never an intended rebuild.
+	if prune && len(res.Files) > 0 {
 		keep := map[string]bool{}
 		for p := range res.Files {
 			keep[filepath.ToSlash(filepath.Clean(filepath.FromSlash(p)))] = true

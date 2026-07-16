@@ -224,16 +224,21 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 
 	// Persist the watermark the synthesis actually reached — on a partial
 	// fold that is behind the read head, so the next fold retries the
-	// remaining window instead of skipping it.
+	// remaining window instead of skipping it. 0 is a real value here (a
+	// rebuild whose very first window failed): promoting it to read.Head
+	// would mark every event folded when NONE was, silently skipping them
+	// forever — that is how fallout-overseer's fold-state got poisoned.
 	foldedThrough := res.FoldedThrough
-	if foldedThrough == 0 {
-		foldedThrough = read.Head
-	}
+
+	// Prune (delete files absent from the fresh set) ONLY when the rebuild
+	// fully completed: L0 consumed the whole window and L1/L2 were not
+	// interrupted. An aborted rebuild has a near-empty fresh set — pruning
+	// on it deletes the entire existing vault (this destroyed a 2500-episode
+	// vault when a rebuild ran against a logged-out harness CLI).
+	prune := rebuild && foldedThrough >= read.Head && !res.PendingSynthesis
 
 	writer := projection.NewWriter(root)
-	// On rebuild, prune stale files so the on-disk vault exactly matches the
-	// freshly synthesized set (e.g. when the layout changes).
-	wres, err := writer.Write(res, foldedThrough, len(read.Events), rebuild)
+	wres, err := writer.Write(res, foldedThrough, len(read.Events), prune)
 	if err != nil {
 		return err
 	}
@@ -257,6 +262,10 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		p.Blank()
 	} else if foldedThrough < read.Head {
 		p.Chevron(fmt.Sprintf("partial: synthesis stopped at offset %d of %d — run `mom vault fold` to retry the rest", foldedThrough, read.Head))
+		p.Blank()
+	}
+	if rebuild && !prune {
+		p.Chevron("note: rebuild incomplete — existing vault files were KEPT (stale ones are pruned only by a fully completed rebuild)")
 		p.Blank()
 	}
 	p.Checkf("vault written; CLAUDE.md block updated at %s", p.HighlightValue(wres.ClaudePath))
