@@ -216,7 +216,7 @@ func postProcessLLMFile(projectID, content string) string {
 		// LLM omitted frontmatter entirely — return as-is (no id to compute).
 		return content
 	}
-	return PrependFrontmatter(fm, body)
+	return PrependFrontmatter(fm, ensureTitle(fm, body))
 }
 
 // parseJSONFiles extracts path→content pairs from a legacy JSON-envelope

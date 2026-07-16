@@ -55,11 +55,7 @@ func RenderFrontmatter(fm Frontmatter) string {
 		fmt.Fprintf(&b, "kind: %s\n", fm.Kind)
 	}
 	if len(fm.Sources) > 0 {
-		parts := make([]string, len(fm.Sources))
-		for i, s := range fm.Sources {
-			parts[i] = strconv.FormatUint(s, 10)
-		}
-		fmt.Fprintf(&b, "sources: [%s]\n", strings.Join(parts, ", "))
+		fmt.Fprintf(&b, "sources: [%s]\n", renderOffsetRanges(fm.Sources))
 	}
 	if len(fm.Tags) > 0 {
 		fmt.Fprintf(&b, "tags: [%s]\n", strings.Join(fm.Tags, ", "))
@@ -145,6 +141,17 @@ func ParseFrontmatter(content string) (Frontmatter, string) {
 			val = strings.Trim(val, "[]")
 			for _, p := range strings.Split(val, ",") {
 				p = strings.TrimSpace(p)
+				// A "lo-hi" token is a compressed run of consecutive offsets.
+				if lo, hi, ok := strings.Cut(p, "-"); ok {
+					l, lerr := strconv.ParseUint(strings.TrimSpace(lo), 10, 64)
+					h, herr := strconv.ParseUint(strings.TrimSpace(hi), 10, 64)
+					if lerr == nil && herr == nil && h >= l {
+						for n := l; n <= h; n++ {
+							fm.Sources = append(fm.Sources, n)
+						}
+					}
+					continue
+				}
 				if n, err := strconv.ParseUint(p, 10, 64); err == nil {
 					fm.Sources = append(fm.Sources, n)
 				}
@@ -184,6 +191,41 @@ func ParseFrontmatter(content string) (Frontmatter, string) {
 // PrependFrontmatter renders fm and prepends it to body.
 func PrependFrontmatter(fm Frontmatter, body string) string {
 	return RenderFrontmatter(fm) + body
+}
+
+// renderOffsetRanges serializes sorted offsets with consecutive runs
+// compressed to "lo-hi". Concept files can carry thousands of contributing
+// offsets — mostly consecutive turn windows — and writing each one out made a
+// single frontmatter line several KB long, drowning the actual content when a
+// human opens the file. ParseFrontmatter expands the runs back, so chunkID
+// (computed from the expanded set) is unaffected.
+func renderOffsetRanges(sources []uint64) string {
+	var parts []string
+	for i := 0; i < len(sources); {
+		j := i
+		for j+1 < len(sources) && sources[j+1] == sources[j]+1 {
+			j++
+		}
+		if j > i {
+			parts = append(parts, fmt.Sprintf("%d-%d", sources[i], sources[j]))
+		} else {
+			parts = append(parts, strconv.FormatUint(sources[i], 10))
+		}
+		i = j + 1
+	}
+	return strings.Join(parts, ", ")
+}
+
+// ensureTitle guarantees a human-readable H1 at the top of a concept body.
+// Synthesis prompts forbid headings (terseness), so the title is stamped
+// deterministically from the OKF name — without it, a rendered file is a wall
+// of frontmatter followed by bare bullets.
+func ensureTitle(fm Frontmatter, body string) string {
+	trimmed := strings.TrimLeft(body, "\n")
+	if fm.Name == "" || strings.HasPrefix(trimmed, "# ") {
+		return body
+	}
+	return "# " + fm.Name + "\n\n" + trimmed
 }
 
 // yamlScalar double-quotes a value when it contains characters that would

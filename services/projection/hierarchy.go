@@ -564,7 +564,7 @@ func stampProvenance(content, projectID string, sources []uint64, children []str
 		fm.Children = ch
 	}
 	fm.ID = chunkID(projectID, fm.Sources)
-	return PrependFrontmatter(fm, body)
+	return PrependFrontmatter(fm, ensureTitle(fm, body))
 }
 
 func sortedUniqueOffsets(in []uint64) []uint64 {

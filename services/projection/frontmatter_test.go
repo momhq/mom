@@ -105,3 +105,47 @@ func TestChunkIDProjectIsolation(t *testing.T) {
 		t.Errorf("different project IDs should produce different chunk IDs")
 	}
 }
+
+func TestSourcesRangeCompression(t *testing.T) {
+	fm := Frontmatter{
+		Type:    "reference",
+		Name:    "demo",
+		Level:   1,
+		Version: 1,
+		Sources: []uint64{1, 2, 3, 4, 7, 9, 10, 11, 20},
+	}
+	out := RenderFrontmatter(fm)
+	if !strings.Contains(out, "sources: [1-4, 7, 9-11, 20]") {
+		t.Errorf("consecutive runs not compressed:\n%s", out)
+	}
+	parsed, _ := ParseFrontmatter(out + "body\n")
+	want := []uint64{1, 2, 3, 4, 7, 9, 10, 11, 20}
+	if len(parsed.Sources) != len(want) {
+		t.Fatalf("round-trip lost offsets: %v", parsed.Sources)
+	}
+	for i, o := range want {
+		if parsed.Sources[i] != o {
+			t.Errorf("offset %d: want %d, got %d", i, o, parsed.Sources[i])
+		}
+	}
+	// chunkID must be identical whether computed from expanded or round-tripped offsets.
+	if chunkID("p", want) != chunkID("p", parsed.Sources) {
+		t.Errorf("chunkID changed across range round-trip")
+	}
+}
+
+func TestEnsureTitleStampsH1(t *testing.T) {
+	fm := Frontmatter{Name: "Fold model configuration"}
+	got := ensureTitle(fm, "- bullet one\n- bullet two\n")
+	if !strings.HasPrefix(got, "# Fold model configuration\n\n- bullet one") {
+		t.Errorf("title not stamped:\n%s", got)
+	}
+	// Idempotent: an existing H1 is kept, not duplicated.
+	if ensureTitle(fm, got) != got {
+		t.Errorf("ensureTitle not idempotent")
+	}
+	// No name → body unchanged.
+	if ensureTitle(Frontmatter{}, "- b\n") != "- b\n" {
+		t.Errorf("body changed despite empty name")
+	}
+}
