@@ -179,7 +179,8 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 
 	// Count pending subjects for the resume banner.
 	var spinnerMsg string
-	if resumeSynthesis && len(read.Events) == 0 {
+	switch {
+	case resumeSynthesis && len(read.Events) == 0:
 		// Count L0 episodes and pending subjects (those without a current concept file).
 		l0Count := 0
 		for p := range existing {
@@ -188,9 +189,9 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 			}
 		}
 		spinnerMsg = fmt.Sprintf("resuming interrupted synthesis (%d episodes) with %s", l0Count, engineName)
-	} else if resumeSynthesis {
+	case resumeSynthesis:
 		spinnerMsg = fmt.Sprintf("resuming interrupted synthesis + %d new events with %s", len(read.Events), engineName)
-	} else {
+	default:
 		spinnerMsg = fmt.Sprintf("folding %d events with %s", len(read.Events), engineName)
 	}
 

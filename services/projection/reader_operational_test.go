@@ -195,11 +195,8 @@ func TestReader_OperationalRunStarted_Dropped(t *testing.T) {
 	if len(res.Events) != 0 {
 		t.Errorf("expected 0 fold events for run.started, got %d", len(res.Events))
 	}
-	// But head should have advanced.
-	if res.Head == 0 {
-		// Head is offset 0 of the run.started — that is fine.
-		// HeadOffset is set regardless of whether the event was kept.
-	}
+	// Head is offset 0 of the run.started — that is fine; HeadOffset is set
+	// regardless of whether the event was kept, so there is nothing to assert.
 }
 
 // TestReader_ProjectFilter asserts that events for other projects are dropped.
