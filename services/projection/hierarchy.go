@@ -278,10 +278,26 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			if err != nil {
 				warn(fmt.Sprintf("L2 synthesis failed (%v); keeping existing identity", err))
 			} else {
-				for p, c := range l2Res.Files {
-					acc[p] = c
+				// Stamp identity provenance MOM owns: the union of the concept
+				// layer's offsets, with the concept files as children. Without
+				// this the parent "(overview)" links in every concept's Related
+				// section have nothing to anchor to (the model omits sources).
+				var l1Offsets []uint64
+				l1Paths := make([]string, 0, len(l1Files))
+				for p, c := range l1Files {
+					fm, _ := ParseFrontmatter(c)
+					l1Offsets = append(l1Offsets, fm.Sources...)
+					l1Paths = append(l1Paths, p)
 				}
-				checkpoint(l2Res.Files, chunkMap, foldedThrough)
+				stamped := map[string]string{}
+				for p, c := range l2Res.Files {
+					if p == identityFile {
+						c = stampProvenance(c, in.ProjectID, l1Offsets, l1Paths)
+					}
+					acc[p] = c
+					stamped[p] = c
+				}
+				checkpoint(stamped, chunkMap, foldedThrough)
 			}
 		}
 	}
@@ -663,7 +679,7 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 		target = fmt.Sprintf(
 			"Classify the subject, then pick the path:\n"+
 				"- contracts/%s.md with type:contract — if the subject is a recurring PROCESS or set of workflow rules (how a kind of work is done: releases, reviews, testing, branching).\n"+
-				"- reference/%s.md with type:reference — otherwise (durable decisions, conventions, architecture, facts).",
+			"- reference/%s.md with type:reference — otherwise (durable decisions, conventions, architecture, facts).",
 			subj.slug, subj.slug)
 	}
 
@@ -671,8 +687,8 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 	hint["_l1_hint"] = fmt.Sprintf(
 		"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file about the subject \"%s\".\n%s\n"+
 			"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
-			"Frontmatter: type (as above), name:\"%s\", description:<one line>, level:1, tags:[%s]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
-			"Body: a FLAT bullet list, AT MOST 12 short bullets, no headings, no code blocks, no sub-bullets, under 200 words. Terse. Do NOT write any other file.",
+			"Frontmatter: type (as above), name:\"%s\", description:<one line>, level:1, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
+			"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (contracts only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
 		subj.name, target, subj.name, subj.name, subj.slug)
 	if existingPath != "" && existingContent != "" {
 		hint[existingPath] = existingContent
@@ -722,7 +738,7 @@ func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput
 	hint := map[string]string{}
 	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/contract files in the existing set, write a SINGLE file identity.md (type:identity).\n" +
 		"It states what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A LIVING orientation, NOT a chronological recap — no dates, no history log. UPDATE the existing identity.md in place.\n" +
-		"Frontmatter: type:identity, name, description, level:2, tags. OMIT sources — do NOT write a sources field (MOM fills provenance). List children: the reference/ paths it draws on.\n" +
+		"Frontmatter: type:identity, name, description, level:2, tags. OMIT sources and children — MOM fills provenance.\n" +
 		"Body: synthesized from the existing files. No inventing."
 	for p, c := range existing {
 		hint[p] = c

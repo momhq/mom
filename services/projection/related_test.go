@@ -1,8 +1,10 @@
 package projection
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLinkRelated_ChildrenAndSiblings(t *testing.T) {
@@ -144,5 +146,68 @@ func TestLinkRelated_Idempotent(t *testing.T) {
 	}
 	if c := strings.Count(twice, relatedHeading); c != 1 {
 		t.Errorf("want exactly one Related section after re-fold, got %d:\n%s", c, twice)
+	}
+}
+
+// TestLinkRelated_OffsetOverlapSiblings mirrors the real ICM vault shape:
+// every concept carries only its own unique slug as a tag, so tag overlap is
+// impossible — relatedness must come from shared source offsets.
+func TestLinkRelated_OffsetOverlapSiblings(t *testing.T) {
+	mk := func(typ string, sources []uint64, tag, title string) string {
+		return PrependFrontmatter(Frontmatter{
+			Type: typ, Name: title, Level: 1, Version: 1, Sources: sources, Tags: []string{tag},
+		}, "# "+title+"\nbody\n")
+	}
+	files := map[string]string{
+		// fold and release co-occur in offsets 10-12; voice is disjoint.
+		"reference/fold.md":    mk(typeReference, []uint64{10, 11, 12, 13}, "fold", "Fold"),
+		"contracts/release.md": mk(typeContract, []uint64{11, 12, 20}, "release", "Release"),
+		"reference/voice.md":   mk(typeReference, []uint64{30, 31}, "voice", "Voice"),
+	}
+
+	linkRelated(files)
+
+	fold := files["reference/fold.md"]
+	if !strings.Contains(fold, relatedHeading) {
+		t.Fatalf("fold.md missing Related section despite offset overlap:\n%s", fold)
+	}
+	// Cross-type links are wanted: the release contract shares fold's windows.
+	if !strings.Contains(fold, "](../contracts/release.md)") {
+		t.Errorf("fold.md should link co-occurring release.md:\n%s", fold)
+	}
+	if strings.Contains(fold, "voice.md") {
+		t.Errorf("fold.md should NOT link disjoint voice.md:\n%s", fold)
+	}
+	// And the link is mutual.
+	if !strings.Contains(files["contracts/release.md"], "](../reference/fold.md)") {
+		t.Errorf("release.md should link back to fold.md:\n%s", files["contracts/release.md"])
+	}
+}
+
+// TestFoldStampsIdentityProvenance: identity.md gets machine-stamped sources
+// (union of the concept layer) so concept files can link it as their parent.
+func TestFoldStampsIdentityProvenance(t *testing.T) {
+	var events []FoldEvent
+	for i := 1; i <= 10; i++ {
+		events = append(events, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "m", nil))
+	}
+	stub := &refStub{}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 5, l2Threshold: 1}
+
+	res, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events, ToOffset: 10}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fm, _ := ParseFrontmatter(res.Files[identityFile])
+	if len(fm.Sources) == 0 {
+		t.Fatalf("identity.md has no stamped sources:\n%s", res.Files[identityFile])
+	}
+	if fm.ID == "" {
+		t.Errorf("identity.md missing content-addressed id")
+	}
+	// The concept file links identity as its parent overview.
+	ref := res.Files[referenceDir+"/arch.md"]
+	if !strings.Contains(ref, "](../identity.md) _(overview)_") {
+		t.Errorf("concept missing parent overview link to identity:\n%s", ref)
 	}
 }

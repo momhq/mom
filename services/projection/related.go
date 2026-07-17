@@ -57,12 +57,15 @@ func linkRelated(files map[string]string) {
 		// Vertical lineage: children are exactly one level below whose offsets
 		// are covered by this file's sources. children/ stays machine-facing
 		// (frontmatter), mirroring how sources is provenance, not navigation.
+		// The source set is built once per doc — with thousands of episodes a
+		// per-pair set rebuild dominates the fold's post-pass.
+		dset := offsetSet(d.fm.Sources)
 		var children []string
 		for _, o := range docs {
 			if o.path == d.path || o.fm.Level != d.fm.Level-1 {
 				continue
 			}
-			if offsetsIntersect(o.fm.Sources, d.fm.Sources) {
+			if intersectsSet(o.fm.Sources, dset) {
 				children = append(children, o.path)
 			}
 		}
@@ -86,45 +89,54 @@ func linkRelated(files map[string]string) {
 	}
 }
 
-// relatedLinks builds the body link list for one document: sibling docs of the
-// same kind sharing the most tags (capped), then the parent overview if any.
+// relatedLinks builds the body link list for one document: same-level concept
+// docs ranked by how strongly they co-occur, then the parent overview if any.
+//
+// Relatedness is scored primarily by SOURCE-OFFSET OVERLAP — two concepts
+// whose provenance shares captured windows were literally worked on together.
+// Shared tags are the secondary signal. Tags alone used to be the only
+// signal, which silently produced zero links in ICM vaults: every subject
+// concept carries its own unique slug as its tag, so no two ever matched.
 func relatedLinks(d *relDoc, docs []*relDoc) []string {
 	tagset := make(map[string]bool, len(d.fm.Tags))
 	for _, t := range d.fm.Tags {
 		tagset[t] = true
 	}
+	dset := offsetSet(d.fm.Sources)
 
 	type scored struct {
-		path, title string
-		shared      int
-	}
-	// docType returns the effective type/kind for sibling-grouping. ICM files
-	// carry a `type:` field; legacy files use `kind:`.
-	docType := func(fm Frontmatter) string {
-		if fm.Type != "" {
-			return fm.Type
-		}
-		return fm.Kind
+		path, title           string
+		sharedOff, sharedTags int
 	}
 
 	var sibs []scored
 	for _, o := range docs {
-		if o.path == d.path || docType(o.fm) != docType(d.fm) {
+		// Same level only; episodes (level 0) and INDEX files never link.
+		if o.path == d.path || o.fm.Level != d.fm.Level || o.fm.Level == 0 || o.fm.Type == typeIndex {
 			continue
 		}
-		shared := 0
-		for _, t := range o.fm.Tags {
-			if tagset[t] {
-				shared++
+		sharedOff := 0
+		for _, off := range o.fm.Sources {
+			if _, ok := dset[off]; ok {
+				sharedOff++
 			}
 		}
-		if shared > 0 {
-			sibs = append(sibs, scored{o.path, o.title, shared})
+		sharedTags := 0
+		for _, t := range o.fm.Tags {
+			if tagset[t] {
+				sharedTags++
+			}
+		}
+		if sharedOff > 0 || sharedTags > 0 {
+			sibs = append(sibs, scored{o.path, o.title, sharedOff, sharedTags})
 		}
 	}
 	sort.Slice(sibs, func(i, j int) bool {
-		if sibs[i].shared != sibs[j].shared {
-			return sibs[i].shared > sibs[j].shared
+		if sibs[i].sharedOff != sibs[j].sharedOff {
+			return sibs[i].sharedOff > sibs[j].sharedOff
+		}
+		if sibs[i].sharedTags != sibs[j].sharedTags {
+			return sibs[i].sharedTags > sibs[j].sharedTags
 		}
 		return sibs[i].path < sibs[j].path
 	})
@@ -141,8 +153,8 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 	// this one's offsets.
 	var parents []scored
 	for _, o := range docs {
-		if o.fm.Level > d.fm.Level && offsetsIntersect(d.fm.Sources, o.fm.Sources) {
-			parents = append(parents, scored{o.path, o.title, 0})
+		if o.fm.Level > d.fm.Level && intersectsSet(d.fm.Sources, offsetSet(o.fm.Sources)) {
+			parents = append(parents, scored{path: o.path, title: o.title})
 		}
 	}
 	sort.Slice(parents, func(i, j int) bool { return parents[i].path < parents[j].path })
@@ -152,16 +164,18 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 	return links
 }
 
-// offsetsIntersect reports whether the two offset lists share any value. An
-// episode "belongs to" a topic when they share at least one ledger offset.
-func offsetsIntersect(a, b []uint64) bool {
-	if len(a) == 0 || len(b) == 0 {
-		return false
-	}
-	set := make(map[uint64]struct{}, len(b))
-	for _, o := range b {
+// offsetSet builds a lookup set from an offset list.
+func offsetSet(offs []uint64) map[uint64]struct{} {
+	set := make(map[uint64]struct{}, len(offs))
+	for _, o := range offs {
 		set[o] = struct{}{}
 	}
+	return set
+}
+
+// intersectsSet reports whether any offset in a is present in set. An episode
+// "belongs to" a concept when they share at least one ledger offset.
+func intersectsSet(a []uint64, set map[uint64]struct{}) bool {
 	for _, o := range a {
 		if _, ok := set[o]; ok {
 			return true
