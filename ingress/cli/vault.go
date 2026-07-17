@@ -19,7 +19,6 @@ var (
 	vaultEngine    string
 	vaultRoot      string
 	vaultChunk     int
-	vaultModel     string
 	vaultFoldModel string
 	vaultParallel  int
 )
@@ -57,15 +56,8 @@ var vaultStatusCmd = &cobra.Command{
 	RunE:  runVaultStatus,
 }
 
-var vaultGardenCmd = &cobra.Command{
-	Use:   "garden",
-	Short: "Reorganize the existing vault (merge/dedupe/relink) without inventing memories",
-	Args:  cobra.NoArgs,
-	RunE:  runVaultGarden,
-}
-
 func init() {
-	for _, c := range []*cobra.Command{vaultFoldCmd, vaultRebuildCmd, vaultStatusCmd, vaultGardenCmd} {
+	for _, c := range []*cobra.Command{vaultFoldCmd, vaultRebuildCmd, vaultStatusCmd} {
 		c.Flags().StringVar(&vaultProject, "project", "", "Override the resolved project id")
 		c.Flags().StringVar(&vaultRoot, "root", "", "Override the project root for output (default: resolved project root)")
 	}
@@ -75,11 +67,9 @@ func init() {
 		c.Flags().StringVar(&vaultFoldModel, "model", "", "Synthesis model (default: vault.fold_model config, else the engine's cheap default — claude: haiku)")
 		c.Flags().IntVar(&vaultParallel, "parallel", 4, "Concurrent synthesis calls for the L0/L1 passes")
 	}
-	vaultGardenCmd.Flags().StringVar(&vaultModel, "model", "claude-sonnet-4-6", "Model used for the garden reorganization pass")
 	vaultCmd.AddCommand(vaultFoldCmd)
 	vaultCmd.AddCommand(vaultRebuildCmd)
 	vaultCmd.AddCommand(vaultStatusCmd)
-	vaultCmd.AddCommand(vaultGardenCmd)
 }
 
 // resolveVaultTarget resolves the project id and output root from cwd /
@@ -299,43 +289,6 @@ func resolveFoldModel() string {
 		return ""
 	}
 	return cfg.Vault.FoldModel
-}
-
-func runVaultGarden(cmd *cobra.Command, _ []string) error {
-	p := ux.NewPrinter(cmd.OutOrStdout())
-
-	projectID, root, err := resolveVaultTarget()
-	if err != nil {
-		return err
-	}
-
-	warn := func(msg string) { fmt.Fprintln(os.Stderr, "warning: "+msg) }
-	gres, err := projection.Garden(context.Background(), root, projectID, vaultModel, warn)
-	if err != nil {
-		// Garden leaves the vault untouched on any failure.
-		return fmt.Errorf("garden failed; vault left unchanged: %w", err)
-	}
-
-	writer := projection.NewWriter(root)
-	wres, err := writer.WritePruned(gres.Result)
-	if err != nil {
-		return err
-	}
-
-	removed := gres.FilesBefore - gres.FilesAfter
-
-	p.Diamond("vault garden")
-	p.Blank()
-	p.Chevron(fmt.Sprintf("project:       %s", p.HighlightValue(projectID)))
-	p.Chevron(fmt.Sprintf("files before:  %d", gres.FilesBefore))
-	p.Chevron(fmt.Sprintf("files after:   %d", gres.FilesAfter))
-	p.Chevron(fmt.Sprintf("net change:    %d files merged/removed", removed))
-	p.Chevron(fmt.Sprintf("files written: %d", wres.FilesWritten))
-	p.Chevron(fmt.Sprintf("model:         %s", gres.Model))
-	p.Chevron(fmt.Sprintf("vault:         %s", wres.VaultDir))
-	p.Blank()
-	p.Checkf("vault gardened; CLAUDE.md block updated at %s", p.HighlightValue(wres.ClaudePath))
-	return nil
 }
 
 func runVaultStatus(cmd *cobra.Command, _ []string) error {

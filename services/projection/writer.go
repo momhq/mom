@@ -30,10 +30,6 @@ type FoldState struct {
 	FoldedAt     time.Time `json:"folded_at"`
 	FilesWritten int       `json:"files_written"`
 	EventsFolded int       `json:"events_folded"`
-	// LastGardenedAt records the last `mom vault garden` pass. Zero until
-	// the vault has been gardened. Garden consumes no new events, so it
-	// never changes LastOffset.
-	LastGardenedAt time.Time `json:"last_gardened_at,omitempty"`
 	// Chunks maps chunkID → vault-relative path for every chunk synthesized
 	// in the last fold. Used by the next incremental fold to skip re-synthesis
 	// of chunks whose source events haven't changed. Nil on fresh vaults.
@@ -207,66 +203,6 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 		Chunks:           res.Chunks,
 		PendingSynthesis: res.PendingSynthesis,
 	}
-	if err := writeFoldState(base, st); err != nil {
-		return WriteResult{}, err
-	}
-
-	return WriteResult{FilesWritten: written, VaultDir: base, ClaudePath: claudePath}, nil
-}
-
-// WritePruned materializes a reorganized vault (e.g. from a garden pass):
-// it writes res.Files and INDEX.md, updates the CLAUDE.md managed block,
-// and DELETES any existing files under topics/ and timeline/ that are not
-// in the new set. It never touches .fold-state.json, INDEX.md, .DS_Store,
-// or anything outside topics//timeline/. The watermark offset is preserved
-// (garden consumes no new events); LastGardenedAt is stamped.
-func (w *Writer) WritePruned(res FoldResult) (WriteResult, error) {
-	base := VaultDir(w.Root)
-	if err := os.MkdirAll(base, 0o700); err != nil {
-		return WriteResult{}, fmt.Errorf("mkdir vault: %w", err)
-	}
-
-	// Build the set of new paths (slash-relative) for prune comparison.
-	keep := map[string]bool{}
-	for p := range res.Files {
-		keep[filepath.ToSlash(filepath.Clean(filepath.FromSlash(p)))] = true
-	}
-	if err := pruneStaleConcepts(base, keep); err != nil {
-		return WriteResult{}, err
-	}
-
-	written := 0
-	paths := make([]string, 0, len(res.Files))
-	for p := range res.Files {
-		paths = append(paths, p)
-	}
-	sort.Strings(paths)
-	for _, rel := range paths {
-		if err := writeVaultFile(base, rel, res.Files[rel]); err != nil {
-			return WriteResult{}, err
-		}
-		written++
-	}
-
-	if strings.TrimSpace(res.Index) != "" {
-		if err := writeVaultFile(base, indexFileName, res.Index); err != nil {
-			return WriteResult{}, err
-		}
-		written++
-	}
-
-	claudePath := filepath.Join(w.Root, claudeFileName)
-	if err := updateClaudeBlock(claudePath, res.ClaudeBlock); err != nil {
-		return WriteResult{}, err
-	}
-
-	// Preserve the existing watermark offset; only stamp the garden time.
-	st, _, lerr := LoadFoldState(w.Root)
-	if lerr != nil {
-		return WriteResult{}, lerr
-	}
-	st.FilesWritten = written
-	st.LastGardenedAt = time.Now().UTC()
 	if err := writeFoldState(base, st); err != nil {
 		return WriteResult{}, err
 	}
