@@ -48,6 +48,10 @@ type WatcherConfig struct {
 	// CodexTranscriptDir overrides the default Codex session directory.
 	// Defaults to $CODEX_HOME/sessions (or ~/.codex/sessions) when empty.
 	CodexTranscriptDir string `yaml:"codex_transcript_dir,omitempty"`
+	// OatsTranscriptDir overrides the default OATS transcript root
+	// (Open Agent Transcript Standard — momOS and any conformant writer).
+	// Defaults to ~/.transcripts/ when empty.
+	OatsTranscriptDir string `yaml:"oats_transcript_dir,omitempty"`
 	// DebounceMs is the debounce delay in milliseconds. Default: 300.
 	DebounceMs int `yaml:"debounce_ms,omitempty"`
 }

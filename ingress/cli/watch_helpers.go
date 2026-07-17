@@ -149,5 +149,45 @@ func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source
 			Adapter:       adapter,
 		})
 	}
+
+	// OATS (Open Agent Transcript Standard) is harness-agnostic: any
+	// conformant writer (momOS today, others later) lands sessions under a
+	// single shared root, and the adapter attributes each session to the
+	// harness named in its line-1 header. It is therefore not gated on
+	// EnabledHarnesses — the source is added whenever the transcript root
+	// exists on disk.
+	if dir, ok := oatsTranscriptDir(cfg); ok {
+		sources = append(sources, watcher.Source{
+			Harness:       "oats",
+			TranscriptDir: dir,
+			Adapter:       watcher.NewOatsAdapter(),
+		})
+	}
 	return sources
+}
+
+// defaultOatsTranscriptDir is the OATS standard transcript root.
+const defaultOatsTranscriptDir = "~/.transcripts/"
+
+// oatsTranscriptDir returns the configured (or default) OATS transcript
+// root and whether it exists as a directory. The unexpanded form is
+// returned — watcher.New performs tilde expansion itself, matching how
+// the other harness sources are passed through.
+func oatsTranscriptDir(cfg *config.Config) (string, bool) {
+	dir := cfg.Watcher.OatsTranscriptDir
+	if dir == "" {
+		dir = defaultOatsTranscriptDir
+	}
+	resolved := dir
+	if strings.HasPrefix(resolved, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", false
+		}
+		resolved = filepath.Join(home, resolved[1:])
+	}
+	if info, err := os.Stat(resolved); err != nil || !info.IsDir() {
+		return "", false
+	}
+	return dir, true
 }
