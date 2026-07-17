@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -216,12 +217,13 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				}
 				changed := map[string]string{}
 				wrote := ""
+				subStart, subEnd := fmTimeRange(subEps)
 				for p, c := range l1Res.Files {
 					// Stamp provenance MOM owns: the union of the subject's
-					// episode offsets, and the episodes as children. The model
-					// omits sources.
+					// episode offsets, the episodes as children, and the span
+					// of the episodes' fact time. The model omits all of these.
 					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
-						c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths)
+						c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths, subStart, subEnd)
 						wrote = p
 						l1Changed = true
 					}
@@ -285,9 +287,10 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 					l1Paths = append(l1Paths, p)
 				}
 				stamped := map[string]string{}
+				idStart, idEnd := fmTimeRange(l1Files)
 				for p, c := range l2Res.Files {
 					if p == identityFile {
-						c = stampProvenance(c, in.ProjectID, l1Offsets, l1Paths)
+						c = stampProvenance(c, in.ProjectID, l1Offsets, l1Paths, idStart, idEnd)
 					}
 					acc[p] = c
 					stamped[p] = c
@@ -471,11 +474,13 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 	}
 	res, err := hs.inner.Fold(ctx, buildL0Input(chunkIn, cid, knownTags))
 	if err == nil {
+		start, end := eventTimeRange(chunk)
 		for p, c := range res.Files {
 			// MOM owns provenance — the model omits sources (a big offset array
-			// bloats output and truncates the JSON). Stamp the chunk's offsets.
+			// bloats output and truncates the JSON). Stamp the chunk's offsets
+			// and the events' real time span.
 			if strings.HasPrefix(p, episodesDir+"/") {
-				c = stampProvenance(c, in.ProjectID, offsets, nil)
+				c = stampProvenance(c, in.ProjectID, offsets, nil, start, end)
 			}
 			files[p] = c
 		}
@@ -550,7 +555,7 @@ func buildL0Input(in FoldInput, cid string, knownTags []string) FoldInput {
 	// Inject a synthetic "context" file so the LLM knows its output path.
 	hint := fmt.Sprintf(
 		"WORK ITEM (L0 capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
-			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), level:0, tags:[2-4 kebab-case subject slugs], time_range_start/end. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
+			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), level:0, tags:[2-4 kebab-case subject slugs]. OMIT sources and time_range fields — MOM fills provenance and dates.\n"+
 			"Body: a FLAT bullet list — AT MOST 10 short bullets of durable decisions/corrections/preferences and what was built. "+
 			"HARD LIMITS: no headings, no code blocks, no sub-bullets, no multi-line bullets; keep the whole file under 180 words. "+
 			"This must stay short enough to fit in one response — terseness is mandatory, not optional.",
@@ -563,10 +568,12 @@ func buildL0Input(in FoldInput, cid string, knownTags []string) FoldInput {
 }
 
 // stampProvenance rewrites a synthesized file's machine-owned frontmatter:
-// sources (deduped/sorted), children, and the content-addressed id. The model
-// is told to OMIT these — a large sources offset array bloats the JSON output
-// until it truncates, and provenance is MOM's to compute, not the model's.
-func stampProvenance(content, projectID string, sources []uint64, children []string) string {
+// sources (deduped/sorted), children, the content-addressed id, and the FACT
+// time range. The model is told to OMIT all of these — provenance is MOM's to
+// compute, not the model's. Time ranges especially: the model never sees the
+// event timestamps, so anything it writes is a guess (in practice it stamped
+// the fold date on months-old facts, destroying the agent's recency signal).
+func stampProvenance(content, projectID string, sources []uint64, children []string, start, end time.Time) string {
 	fm, body := ParseFrontmatter(content)
 	fm.Sources = sortedUniqueOffsets(sources)
 	if len(children) > 0 {
@@ -574,8 +581,44 @@ func stampProvenance(content, projectID string, sources []uint64, children []str
 		sort.Strings(ch)
 		fm.Children = ch
 	}
+	if !start.IsZero() {
+		fm.TimeRangeStart = start.UTC()
+	}
+	if !end.IsZero() {
+		fm.TimeRangeEnd = end.UTC()
+	}
 	fm.ID = chunkID(projectID, fm.Sources)
 	return PrependFrontmatter(fm, ensureTitle(fm, body))
+}
+
+// eventTimeRange returns the min/max CreatedAt across events (zero times skipped).
+func eventTimeRange(events []FoldEvent) (start, end time.Time) {
+	for _, e := range events {
+		if e.CreatedAt.IsZero() {
+			continue
+		}
+		if start.IsZero() || e.CreatedAt.Before(start) {
+			start = e.CreatedAt
+		}
+		if end.IsZero() || e.CreatedAt.After(end) {
+			end = e.CreatedAt
+		}
+	}
+	return start, end
+}
+
+// fmTimeRange returns the min start / max end across a set of parsed files.
+func fmTimeRange(files map[string]string) (start, end time.Time) {
+	for _, c := range files {
+		fm, _ := ParseFrontmatter(c)
+		if !fm.TimeRangeStart.IsZero() && (start.IsZero() || fm.TimeRangeStart.Before(start)) {
+			start = fm.TimeRangeStart
+		}
+		if !fm.TimeRangeEnd.IsZero() && (end.IsZero() || fm.TimeRangeEnd.After(end)) {
+			end = fm.TimeRangeEnd
+		}
+	}
+	return start, end
 }
 
 func sortedUniqueOffsets(in []uint64) []uint64 {

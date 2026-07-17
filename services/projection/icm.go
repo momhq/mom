@@ -51,7 +51,7 @@ var icmFolders = []icmFolder{
 // adding "<dir>/INDEX.md" entries. Episodes are provenance — no index.
 func buildPerFolderIndexes(files map[string]string) {
 	for _, dir := range []string{referenceDir, contractsDir} {
-		type row struct{ path, name, desc string }
+		type row struct{ path, name, desc, through string }
 		var rows []row
 		for p, c := range files {
 			if !strings.HasPrefix(p, dir+"/") || strings.HasSuffix(p, "/"+indexFileName) {
@@ -66,7 +66,13 @@ func buildPerFolderIndexes(files map[string]string) {
 			if desc == "" {
 				desc = firstSentence(body)
 			}
-			rows = append(rows, row{p, name, desc})
+			// "Through" is the concept's fact-freshness: the date of the last
+			// captured event that contributed to it — NOT when it was folded.
+			through := ""
+			if !fm.TimeRangeEnd.IsZero() {
+				through = fm.TimeRangeEnd.UTC().Format("2006-01-02")
+			}
+			rows = append(rows, row{p, name, desc, through})
 		}
 		if len(rows) == 0 {
 			continue
@@ -76,7 +82,8 @@ func buildPerFolderIndexes(files map[string]string) {
 		var b strings.Builder
 		b.WriteString(RenderFrontmatter(Frontmatter{Type: typeIndex, Version: 1}))
 		fmt.Fprintf(&b, "# %s — index\n\n", strings.Title(dir)) //nolint:staticcheck
-		b.WriteString("| Concept | What it covers |\n|---|---|\n")
+		b.WriteString("_\"Through\" is the date of the last captured fact in the concept — its freshness, not its fold time._\n\n")
+		b.WriteString("| Concept | What it covers | Through |\n|---|---|---|\n")
 		for _, r := range rows {
 			// Link is relative to this folder, so just the base filename.
 			base := strings.TrimPrefix(r.path, dir+"/")
@@ -88,7 +95,7 @@ func buildPerFolderIndexes(files map[string]string) {
 			if r.desc != "" && r.desc != name {
 				b.WriteString(" — " + r.desc)
 			}
-			b.WriteString(" |\n")
+			b.WriteString(" | " + r.through + " |\n")
 		}
 		files[dir+"/"+indexFileName] = b.String()
 	}

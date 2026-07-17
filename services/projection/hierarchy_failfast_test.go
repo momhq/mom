@@ -570,3 +570,50 @@ func TestFoldHierarchicalParallel(t *testing.T) {
 		t.Errorf("want 8 chunk-cache entries, got %d", len(res.Chunks))
 	}
 }
+
+// TestFoldStampsFactTimeRanges guards the recency signal: time ranges come
+// from the EVENTS' timestamps (fact time), never from the model or the fold
+// clock — episodes span their chunk's events, concepts span their episodes.
+func TestFoldStampsFactTimeRanges(t *testing.T) {
+	day1 := time.Date(2025, 6, 1, 10, 0, 0, 0, time.UTC)
+	day2 := time.Date(2025, 6, 9, 18, 0, 0, 0, time.UTC)
+	var events []FoldEvent
+	for i := 1; i <= 10; i++ {
+		when := day1
+		if i > 5 {
+			when = day2
+		}
+		events = append(events, makeMemoryEvent(uint64(i), "s", when, "m", nil))
+	}
+	stub := &refStub{}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 5, l2Threshold: 1}
+
+	// chunkSize 1 → one episode per event, comfortably past the L1 threshold.
+	res, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events, ToOffset: 10}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Every episode's range comes from its event's real timestamp.
+	for p, c := range res.Files {
+		if !strings.HasPrefix(p, "episodes/") {
+			continue
+		}
+		fm, _ := ParseFrontmatter(c)
+		if fm.TimeRangeStart.IsZero() || fm.TimeRangeEnd.IsZero() {
+			t.Errorf("episode %s missing stamped time range", p)
+		}
+		if fm.TimeRangeStart.Year() != 2025 {
+			t.Errorf("episode %s time range not from event facts: %v", p, fm.TimeRangeStart)
+		}
+	}
+	// The concept spans both episodes: day1 → day2.
+	fm, _ := ParseFrontmatter(res.Files[referenceDir+"/arch.md"])
+	if !fm.TimeRangeStart.Equal(day1) || !fm.TimeRangeEnd.Equal(day2) {
+		t.Errorf("concept time range = %v → %v, want %v → %v", fm.TimeRangeStart, fm.TimeRangeEnd, day1, day2)
+	}
+	// The per-folder index surfaces the freshness date.
+	if !strings.Contains(res.Files[referenceDir+"/"+indexFileName], "| 2025-06-09 |") {
+		t.Errorf("reference index missing Through freshness column:\n%s", res.Files[referenceDir+"/"+indexFileName])
+	}
+}
