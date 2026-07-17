@@ -109,12 +109,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// auth) — every further call is doomed, so L1/L2 are skipped this fold.
 	systemicAbort := false
 
-	if in.ResumeSynthesis {
-		// Resume path: L0 is already complete on disk (loaded into in.Existing).
-		// Skip the L0 loop entirely; l0Files will be populated from acc below.
-		// The watermark does not change — it was already persisted correctly.
-		progress("resuming interrupted synthesis — skipping L0 (already complete)")
-	} else if len(in.Events) > 0 {
+	if len(in.Events) > 0 {
 		var stopped bool
 		foldedThrough, systemicAbort, stopped = hs.runL0Pool(ctx, in, chunkSize, parallel, acc, chunkMap, progress, warn, checkpoint)
 		if stopped {

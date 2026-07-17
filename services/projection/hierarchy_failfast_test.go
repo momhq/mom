@@ -460,17 +460,17 @@ func TestPendingSynthesisResumeAfterL1Abort(t *testing.T) {
 		t.Errorf("want 1 concept file written before abort, got %d (files: %v)", conceptCount, fileKeys(res1.Files))
 	}
 
-	// ── Step 2: resume fold — zero new events, ResumeSynthesis=true. ────────
-	// Use a working stub for the resume.
+	// ── Step 2: resume fold — zero new events. No flag needed: the L0 loop
+	// no-ops on an empty window and the content-addressed L1 skip synthesizes
+	// exactly the subjects that are still missing their concept files.
 	workingStub := &multiSubjectL0Stub{subjectTags: subjects}
 	hs2 := &HierarchySynth{inner: workingStub, l1Threshold: 1, l2Threshold: 1}
 
 	res2, err := FoldHierarchical(context.Background(), hs2, FoldInput{
-		ProjectID:       "demo",
-		ToOffset:        6,
-		Existing:        res1.Files,
-		ExistingChunks:  res1.Chunks,
-		ResumeSynthesis: true,
+		ProjectID:      "demo",
+		ToOffset:       6,
+		Existing:       res1.Files,
+		ExistingChunks: res1.Chunks,
 	}, 1)
 	if err != nil {
 		t.Fatal(err)

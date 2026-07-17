@@ -34,11 +34,6 @@ type FoldState struct {
 	// in the last fold. Used by the next incremental fold to skip re-synthesis
 	// of chunks whose source events haven't changed. Nil on fresh vaults.
 	Chunks map[string]string `json:"chunks,omitempty"`
-	// PendingSynthesis is true when the last fold completed L0 but aborted L1
-	// or L2 due to a systemic harness failure. The next fold must re-run the
-	// L1/L2 passes against the existing episodes even when there are no new
-	// events.
-	PendingSynthesis bool `json:"pending_synthesis,omitempty"`
 }
 
 // VaultDir returns the absolute vault directory for a project root.
@@ -121,10 +116,10 @@ type WriteResult struct {
 }
 
 // Checkpoint persists an in-progress fold: the files produced so far and a
-// fold-state carrying the chunk cache and the consecutive watermark, marked
-// PendingSynthesis so the next fold knows synthesis did not complete. Called
+// fold-state carrying the chunk cache and the consecutive watermark. Called
 // after every successful synthesis step, it bounds the cost of an
-// interruption (Ctrl-C, crash) to at most one call.
+// interruption (Ctrl-C, crash) to at most one call — the next fold resumes
+// from the watermark and the chunk cache skips everything already done.
 func (w *Writer) Checkpoint(files map[string]string, chunks map[string]string, watermark uint64) error {
 	base := VaultDir(w.Root)
 	if err := os.MkdirAll(base, 0o700); err != nil {
@@ -139,7 +134,6 @@ func (w *Writer) Checkpoint(files map[string]string, chunks map[string]string, w
 		LastOffset:       watermark,
 		FoldedAt:         time.Now().UTC(),
 		Chunks:           chunks,
-		PendingSynthesis: true,
 	})
 }
 
@@ -201,7 +195,6 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 		FilesWritten:     written,
 		EventsFolded:     eventsFolded,
 		Chunks:           res.Chunks,
-		PendingSynthesis: res.PendingSynthesis,
 	}
 	if err := writeFoldState(base, st); err != nil {
 		return WriteResult{}, err

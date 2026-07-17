@@ -131,7 +131,6 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	// Determine the watermark and existing chunk map to resume from.
 	var fromOffset uint64
 	var existingChunks map[string]string
-	var resumeSynthesis bool
 	if !rebuild {
 		st, found, serr := projection.LoadFoldState(root)
 		if serr != nil {
@@ -140,7 +139,6 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		if found {
 			fromOffset = st.LastOffset
 			existingChunks = st.Chunks
-			resumeSynthesis = st.PendingSynthesis
 		}
 	}
 
@@ -169,23 +167,7 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		chunkSize = 60
 	}
 
-	// Count pending subjects for the resume banner.
-	var spinnerMsg string
-	switch {
-	case resumeSynthesis && len(read.Events) == 0:
-		// Count L0 episodes and pending subjects (those without a current concept file).
-		l0Count := 0
-		for p := range existing {
-			if len(p) > len("episodes/") && p[:len("episodes/")] == "episodes/" {
-				l0Count++
-			}
-		}
-		spinnerMsg = fmt.Sprintf("resuming interrupted synthesis (%d episodes) with %s", l0Count, engineName)
-	case resumeSynthesis:
-		spinnerMsg = fmt.Sprintf("resuming interrupted synthesis + %d new events with %s", len(read.Events), engineName)
-	default:
-		spinnerMsg = fmt.Sprintf("folding %d events with %s", len(read.Events), engineName)
-	}
+	spinnerMsg := fmt.Sprintf("folding %d events with %s", len(read.Events), engineName)
 
 	spinner := ux.NewSpinner(cmd.OutOrStdout())
 	spinner.Start(spinnerMsg)
@@ -201,7 +183,6 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		ExistingChunks:  existingChunks,
 		Engine:          engineName,
 		Progress:        spinner.Update,
-		ResumeSynthesis: resumeSynthesis,
 		Parallel:        vaultParallel,
 		// Persist every completed synthesis step immediately: a Ctrl-C or
 		// crash mid-fold loses at most one call's work, and the next fold

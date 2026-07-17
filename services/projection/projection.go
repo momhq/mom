@@ -197,11 +197,6 @@ type FoldInput struct {
 	// Parallel is the number of concurrent synthesis calls for the L0 and L1
 	// passes. <=1 means sequential.
 	Parallel int
-	// ResumeSynthesis, when true, signals that L0 is already complete in Existing
-	// and only the L1/L2 passes need to run. Set by the CLI when fold-state has
-	// PendingSynthesis=true. FoldHierarchical skips the L0 loop entirely and
-	// seeds its episode set from the on-disk Existing files.
-	ResumeSynthesis bool
 }
 
 // FoldResult is what a Synthesizer returns: the set of vault files to
@@ -223,10 +218,10 @@ type FoldResult struct {
 	// (the next fold resumes exactly there).
 	FoldedThrough uint64
 	// PendingSynthesis is true when L0 succeeded but L1 or L2 was aborted due
-	// to a systemic harness failure (usage limit, auth). The vault has all
-	// episode files but missing or incomplete concept/identity files. The CLI
-	// persists this in fold-state so the next fold can resume the L1/L2 passes
-	// without re-synthesizing L0.
+	// to a systemic harness failure (usage limit, auth). Informational for the
+	// CLI summary only — it is NOT persisted. Resume needs no flag: the next
+	// fold re-reads events from the watermark (completing L0) and the
+	// content-addressed L1 skip re-synthesizes exactly the missing concepts.
 	PendingSynthesis bool
 }
 
