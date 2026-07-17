@@ -152,13 +152,53 @@ func TestClaudeAdapter_ExtractTurn_SkipsSidechain(t *testing.T) {
 	}
 }
 
-func TestClaudeAdapter_ExtractTurn_SkipsToolResultOnlyTurn(t *testing.T) {
+// Tool-result-only user lines are the harness returning results, not
+// the human speaking: they surface as role:"tool" turns carrying the
+// ToolResult (call id, content, error state).
+func TestClaudeAdapter_ExtractTurn_ToolResultOnlyTurnBecomesToolTurn(t *testing.T) {
 	a := NewClaudeAdapter()
 	turn, ok := a.ExtractTurn([]byte(claudeToolResultTurn), "s")
-	// Tool-result-only user turns produce no text and no tool_calls;
-	// they should be skipped.
-	if ok && turn.Text == "" && len(turn.ToolCalls) == 0 {
-		t.Fatal("tool-result-only turn returned ok=true with empty payload — should be skipped")
+	if !ok {
+		t.Fatal("expected ok=true for tool-result turn")
+	}
+	if turn.Role != "tool" {
+		t.Errorf("Role = %q, want tool (result-only user line re-attributed)", turn.Role)
+	}
+	if turn.Text != "" {
+		t.Errorf("Text = %q, want empty (result rides on ToolResults)", turn.Text)
+	}
+	if len(turn.ToolResults) != 1 {
+		t.Fatalf("got %d tool results, want 1", len(turn.ToolResults))
+	}
+	tr := turn.ToolResults[0]
+	if tr.CallID != "toolu_1" {
+		t.Errorf("ToolResults[0].CallID = %q, want toolu_1", tr.CallID)
+	}
+	if tr.Content != "file content" {
+		t.Errorf("ToolResults[0].Content = %q", tr.Content)
+	}
+	if tr.IsError {
+		t.Error("ToolResults[0].IsError = true, want false")
+	}
+}
+
+// is_error on a tool_result block must be preserved, and array-shaped
+// result content (text blocks) must be flattened.
+func TestClaudeAdapter_ExtractTurn_ToolResultErrorAndBlockContent(t *testing.T) {
+	line := `{"type":"user","sessionId":"s-test","isSidechain":false,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_9","is_error":true,"content":[{"type":"text","text":"command failed"}]}]}}`
+	a := NewClaudeAdapter()
+	turn, ok := a.ExtractTurn([]byte(line), "s")
+	if !ok {
+		t.Fatal("expected ok=true")
+	}
+	if len(turn.ToolResults) != 1 {
+		t.Fatalf("got %d tool results, want 1", len(turn.ToolResults))
+	}
+	if !turn.ToolResults[0].IsError {
+		t.Error("IsError = false, want true")
+	}
+	if turn.ToolResults[0].Content != "command failed" {
+		t.Errorf("Content = %q, want flattened text-block content", turn.ToolResults[0].Content)
 	}
 }
 

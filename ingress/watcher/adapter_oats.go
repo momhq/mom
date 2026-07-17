@@ -1,7 +1,9 @@
 package watcher
 
 import (
+	"bufio"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -19,9 +21,10 @@ import (
 // conversational ones are type=="message" with roles user/assistant/tool.
 //
 // Per OATS §2 (forward compatibility) lines with an unrecognized `type`
-// are skipped — this includes momOS's type=="event" extension lines
-// (session.titled, delegation.spawned, ...): MOM's turn.observed payload
-// has no session-metadata slot for them.
+// are skipped. momOS's type=="event" extension lines (session.titled,
+// delegation.spawned, ...) ARE recognized: ExtractEvent (EventExtractor)
+// surfaces them as SessionEvents the watcher publishes as
+// capture.event.observed.
 //
 // The adapter caches each session's header (keyed by the watcher-supplied
 // session key, i.e. the filename stem) and stamps every subsequent Turn
@@ -91,13 +94,18 @@ type oatsLine struct {
 	Model     string          `json:"model"`
 	Content   json.RawMessage `json:"content"`
 	Usage     *oatsUsage      `json:"usage"`
+	// Tool-result lines (role=="tool") only:
+	CallID  string `json:"call_id"`
+	Name    string `json:"name"`
+	IsError bool   `json:"is_error"`
 }
 
 type oatsUsage struct {
-	InputTokens      int `json:"input_tokens"`
-	OutputTokens     int `json:"output_tokens"`
-	CacheReadTokens  int `json:"cache_read_tokens"`
-	CacheWriteTokens int `json:"cache_write_tokens"`
+	InputTokens      int     `json:"input_tokens"`
+	OutputTokens     int     `json:"output_tokens"`
+	CacheReadTokens  int     `json:"cache_read_tokens"`
+	CacheWriteTokens int     `json:"cache_write_tokens"`
+	CostUSD          float64 `json:"cost_usd"`
 }
 
 // ExtractTurn implements Adapter. Returns the rich per-turn shape the
@@ -106,10 +114,10 @@ type oatsUsage struct {
 // Line handling:
 //   - type=="session"  → cache the header for attribution, no Turn
 //   - type=="message", role user/assistant → Turn
-//   - type=="message", role "tool" → skipped: MOM's Turn model carries
-//     tool *calls*, not tool results (the Claude adapter drops
-//     tool_result blocks for the same reason)
-//   - any other type (momOS "event" lines included) → skipped per OATS §2
+//   - type=="message", role "tool" → role:"tool" Turn carrying the
+//     ToolResult (name, call_id, content, is_error)
+//   - type=="event" → no Turn; surfaced separately via ExtractEvent
+//   - any other type → skipped per OATS §2
 func (a *OatsAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 	line = trimLine(line)
 	if len(line) == 0 {
@@ -139,7 +147,7 @@ func (a *OatsAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 	if err := json.Unmarshal(line, &tl); err != nil {
 		return Turn{}, false
 	}
-	if tl.Role != "user" && tl.Role != "assistant" {
+	if tl.Role != "user" && tl.Role != "assistant" && tl.Role != "tool" {
 		return Turn{}, false
 	}
 
@@ -177,6 +185,20 @@ func (a *OatsAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 		turn.Timestamp = time.Now().UTC()
 	}
 
+	if tl.Role == "tool" {
+		// Tool-result line: the result text rides on the ToolResult (with
+		// error state), not on Turn.Text — the fold treats these as
+		// non-prose and keeps them out of the vault; the Ledger keeps them.
+		text, _ := walkOatsContent(tl.Content)
+		turn.ToolResults = []ToolResult{{
+			Name:    tl.Name,
+			CallID:  tl.CallID,
+			Content: truncateToolResult(text),
+			IsError: tl.IsError,
+		}}
+		return turn, true
+	}
+
 	turn.Text, turn.ToolCalls = walkOatsContent(tl.Content)
 
 	if tl.Usage != nil {
@@ -185,6 +207,7 @@ func (a *OatsAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 			OutputTokens:     tl.Usage.OutputTokens,
 			CacheReadTokens:  tl.Usage.CacheReadTokens,
 			CacheWriteTokens: tl.Usage.CacheWriteTokens,
+			CostUSD:          tl.Usage.CostUSD,
 		}
 		u.TotalTokens = u.InputTokens + u.OutputTokens
 		turn.Usage = u
@@ -196,6 +219,94 @@ func (a *OatsAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) {
 	}
 
 	return turn, true
+}
+
+// oatsEventLine is the subset of a momOS type=="event" extension line
+// the adapter extracts. momOS writes the event name under `event` and
+// its details under `payload`.
+type oatsEventLine struct {
+	Type      string         `json:"type"`
+	Timestamp string         `json:"timestamp"`
+	SessionID string         `json:"session_id"`
+	Event     string         `json:"event"`
+	Payload   map[string]any `json:"payload"`
+}
+
+// ExtractEvent implements EventExtractor. It surfaces OATS extension
+// event lines (type=="event") — delegation.spawned, session.titled,
+// session.archived, context.compacted, memory.folded, plan/todo
+// updates — as SessionEvents the watcher publishes as
+// capture.event.observed. All event names are captured generically;
+// the payload rides verbatim.
+func (a *OatsAdapter) ExtractEvent(line []byte, sessionID string) (SessionEvent, bool) {
+	line = trimLine(line)
+	if len(line) == 0 {
+		return SessionEvent{}, false
+	}
+	var el oatsEventLine
+	if err := json.Unmarshal(line, &el); err != nil {
+		return SessionEvent{}, false
+	}
+	if el.Type != "event" || el.Event == "" {
+		return SessionEvent{}, false
+	}
+
+	header, _ := a.recallHeader(sessionID)
+
+	ev := SessionEvent{
+		SessionID: el.SessionID,
+		Name:      el.Event,
+		Payload:   el.Payload,
+		Harness:   header.Harness,
+		Cwd:       header.Cwd,
+	}
+	if ev.SessionID == "" {
+		ev.SessionID = sessionID
+	}
+	if ev.Harness == "" {
+		ev.Harness = "oats"
+	}
+	if el.Timestamp != "" {
+		if t, err := time.Parse(time.RFC3339Nano, el.Timestamp); err == nil {
+			ev.Timestamp = t
+		} else if t, err := time.Parse(time.RFC3339, el.Timestamp); err == nil {
+			ev.Timestamp = t
+		}
+	}
+	if ev.Timestamp.IsZero() {
+		ev.Timestamp = time.Now().UTC()
+	}
+	return ev, true
+}
+
+// PrimeSession implements SessionPrimer. When the watcher resumes a
+// transcript from a non-zero cursor (process restart, cold header
+// cache), the session header on line 1 sits before the cursor and would
+// never be re-read — attribution (harness/provider/cwd) would degrade
+// to the generic fallback. PrimeSession re-reads line 1 directly and
+// caches it. No-op when the header is already cached.
+func (a *OatsAdapter) PrimeSession(path string, sessionID string) {
+	if _, ok := a.recallHeader(sessionID); ok {
+		return
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	reader := bufio.NewReaderSize(f, 64*1024)
+	first, err := reader.ReadBytes('\n')
+	if err != nil && len(first) == 0 {
+		return
+	}
+	first = trimLine(first)
+	var head struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(first, &head); err != nil || head.Type != "session" {
+		return
+	}
+	a.rememberHeader(sessionID, first)
 }
 
 // rememberHeader parses and caches the session header line for the given

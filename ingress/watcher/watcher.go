@@ -376,6 +376,18 @@ func (w *Watcher) ingestFile(path string) int {
 	// Read cursor offset.
 	offset := readWatchCursor(cursorFile)
 
+	adapter := w.adapterForPath(path)
+
+	// Resuming mid-file (e.g. after a watcher restart): give the adapter a
+	// chance to re-read its per-session attribution state from the file's
+	// header line, which sits before the cursor and would otherwise never
+	// be seen again (harness/provider/cwd attribution must not degrade).
+	if offset > 0 {
+		if p, ok := adapter.(SessionPrimer); ok {
+			p.PrimeSession(path, sessionID)
+		}
+	}
+
 	// Open and seek.
 	f, err := os.Open(path)
 	if err != nil {
@@ -402,9 +414,10 @@ func (w *Watcher) ingestFile(path string) int {
 	// Read new content. Use ReadBytes('\n') instead of Scanner to distinguish
 	// complete lines (terminated by \n) from truncated trailing data (#153).
 	var turns []Turn
+	var sessEvents []SessionEvent
 	var committedBytes int64
 	reader := bufio.NewReaderSize(f, 2*1024*1024)
-	adapter := w.adapterForPath(path)
+	eventExtractor, _ := adapter.(EventExtractor)
 
 	for {
 		line, err := reader.ReadBytes('\n')
@@ -420,6 +433,10 @@ func (w *Watcher) ingestFile(path string) int {
 
 		if turn, ok := adapter.ExtractTurn(raw, sessionID); ok {
 			turns = append(turns, turn)
+		} else if eventExtractor != nil {
+			if ev, ok := eventExtractor.ExtractEvent(raw, sessionID); ok {
+				sessEvents = append(sessEvents, ev)
+			}
 		}
 	}
 
@@ -468,6 +485,32 @@ func (w *Watcher) ingestFile(path string) int {
 				Cwd:     resolveCwdForTurn(t, w.cfg.ProjectDir),
 			}); err != nil {
 				w.logf("editor publish (%s, session=%s): %v", envelope.TurnObserved, t.SessionID, err)
+			}
+		}
+
+		// Session-level extension events follow the same privacy gate and
+		// per-event cwd resolution as turns: capture only when a project
+		// resolves.
+		for _, ev := range sessEvents {
+			projectId := defaultProjectId
+			if ev.Cwd != "" {
+				if id, _, _, err := project.ResolveProject(ev.Cwd); err == nil {
+					projectId = id
+				}
+			}
+			if projectId == "" {
+				continue
+			}
+			ev.ProjectId = projectId
+			cwd := ev.Cwd
+			if cwd == "" {
+				cwd = w.cfg.ProjectDir
+			}
+			if err := w.cfg.Editor.Publish(ev, editor.Source{
+				Adapter: ev.Harness,
+				Cwd:     cwd,
+			}); err != nil {
+				w.logf("editor publish (%s, session=%s): %v", envelope.EventObserved, ev.SessionID, err)
 			}
 		}
 	}

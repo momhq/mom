@@ -15,12 +15,13 @@ import (
 // decide what to surface; raw text and tool inputs are not shown by the
 // vault. See PRD 0003 + ADR 0014 for the privacy contract.
 type Turn struct {
-	SessionID string
-	Timestamp time.Time
-	Role      string // "user" | "assistant"
-	Text      string
-	ToolCalls []ToolCall
-	Usage     *Usage
+	SessionID   string
+	Timestamp   time.Time
+	Role        string // "user" | "assistant" | "tool"
+	Text        string
+	ToolCalls   []ToolCall
+	ToolResults []ToolResult
+	Usage       *Usage
 
 	// Three orthogonal identity fields, each answering a different
 	// question. Any may be empty when the source transcript does not
@@ -53,6 +54,32 @@ type ToolCall struct {
 	Category string // "mom_memory" | "mom_cli" | "codebase_read" | "codebase_write" | "system"
 }
 
+// ToolResult is the outcome of one tool invocation, observed on a
+// role:"tool" transcript line (OATS) or a tool_result content block
+// (Claude Code). `Content` carries the result text, truncated to
+// maxToolResultChars by the adapters — tool outputs (full file reads,
+// command output) can be megabytes and would bloat the Ledger without
+// adding vault signal. `IsError` preserves the error state so consumers
+// can distinguish failed from successful tool runs.
+type ToolResult struct {
+	Name    string // tool name, when the harness surfaces it on the result
+	CallID  string // back-reference to the originating tool call id
+	Content string
+	IsError bool
+}
+
+// maxToolResultChars caps the result text an adapter carries on a
+// ToolResult. Results beyond the cap are truncated with a marker.
+const maxToolResultChars = 4096
+
+// truncateToolResult enforces maxToolResultChars on result content.
+func truncateToolResult(s string) string {
+	if len(s) <= maxToolResultChars {
+		return s
+	}
+	return s[:maxToolResultChars] + "\n…[truncated]"
+}
+
 // Usage carries token-accounting numbers for a single turn. Optional —
 // not every harness surfaces it (e.g. user turns rarely have usage).
 type Usage struct {
@@ -71,8 +98,8 @@ type Usage struct {
 // don't reinvent extraction.
 //
 // Keys: "role", "text", "tool_calls" ([]map with name/input/category),
-// "usage" (map of token counts), "model", "provider", "harness",
-// "project_id".
+// "tool_results" ([]map with name/call_id/content/is_error), "usage"
+// (map of token counts), "model", "provider", "harness", "project_id".
 func (t Turn) ToPayload() map[string]any {
 	out := map[string]any{
 		"role": t.Role,
@@ -96,6 +123,25 @@ func (t Turn) ToPayload() map[string]any {
 			tcs = append(tcs, m)
 		}
 		out["tool_calls"] = tcs
+	}
+	if len(t.ToolResults) > 0 {
+		trs := make([]map[string]any, 0, len(t.ToolResults))
+		for _, tr := range t.ToolResults {
+			m := map[string]any{
+				"is_error": tr.IsError,
+			}
+			if tr.Name != "" {
+				m["name"] = tr.Name
+			}
+			if tr.CallID != "" {
+				m["call_id"] = tr.CallID
+			}
+			if tr.Content != "" {
+				m["content"] = tr.Content
+			}
+			trs = append(trs, m)
+		}
+		out["tool_results"] = trs
 	}
 	if t.Usage != nil {
 		out["usage"] = map[string]any{

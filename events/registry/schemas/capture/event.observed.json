@@ -1,0 +1,12 @@
+{
+  "name": "capture.event.observed",
+  "description": "A harness-emitted extension event line was observed on a transcript (e.g. OATS type:\"event\" lines from momOS — delegation.spawned, session.titled, session.archived, context.compacted, memory.folded, plan/todo updates). Published by the watcher (ingress/watcher) for adapters implementing EventExtractor. Stored durably in the Ledger for cross-referencing (delegation.spawned links a manager session to the worker session it spawned); not folded into the markdown vault.",
+  "fields": {
+    "session_id":       {"type": "string", "required": true},
+    "project_id":       {"type": "string", "required": false},
+    "provenance_actor": {"type": "string", "required": false},
+    "event":            {"type": "string", "required": true},
+    "payload":          {"type": "object", "required": false},
+    "harness":          {"type": "string", "required": false}
+  }
+}

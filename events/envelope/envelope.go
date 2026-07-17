@@ -24,6 +24,12 @@ const (
 	// producer for it.
 	MemoryRecord EventType = "capture.memory.recorded"
 
+	// EventObserved records a harness-emitted extension event line observed
+	// on a transcript (e.g. OATS type:"event" lines — delegation.spawned,
+	// session.titled). Published by the watcher for adapters implementing
+	// EventExtractor. Durable in the Ledger; not folded into the vault.
+	EventObserved EventType = "capture.event.observed"
+
 	// Operational event types — published by the Toad OS ingest surface
 	// (services/ingest) via the shared Editor + Ledger pipeline. These make
 	// MOM's ledger the canonical company record for agent-centric operations.

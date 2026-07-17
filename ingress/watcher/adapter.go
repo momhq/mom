@@ -20,6 +20,27 @@ type Adapter interface {
 	ExtractTurn(line []byte, sessionID string) (Turn, bool)
 }
 
+// EventExtractor is optionally implemented by adapters whose Harness
+// interleaves session-level extension event lines in its transcripts
+// (e.g. OATS type:"event" lines — delegation.spawned, session.titled).
+// The watcher calls ExtractEvent for lines that did not produce a Turn
+// and publishes each SessionEvent as a capture.event.observed event.
+type EventExtractor interface {
+	// ExtractEvent parses a single JSONL line into a SessionEvent.
+	// Returns (zero, false) for lines that are not extension events.
+	ExtractEvent(line []byte, sessionID string) (SessionEvent, bool)
+}
+
+// SessionPrimer is optionally implemented by adapters whose per-session
+// attribution state lives on the transcript's first line (e.g. the OATS
+// session header). The watcher calls PrimeSession before ingesting a
+// file from a non-zero cursor offset, so a process restart (cold
+// in-memory cache) never degrades attribution: the adapter re-reads the
+// header it would otherwise have missed.
+type SessionPrimer interface {
+	PrimeSession(path string, sessionID string)
+}
+
 // ProjectFilter is optionally implemented by adapters that need to
 // filter transcripts by project (e.g. harnesses that use a flat
 // transcript directory with no per-project subdirectories).

@@ -12,7 +12,9 @@ import (
 //	{ type, message: { role, content, model, usage }, timestamp, sessionId, uuid, cwd, gitBranch, isSidechain }
 //
 // We keep only type=="user" and type=="assistant" entries; everything else
-// (tool_use, tool_result, system, hook_progress) is dropped.
+// (system, hook_progress) is dropped. tool_result content blocks (Claude
+// writes them on type=="user" lines) are extracted as ToolResults;
+// result-only lines surface as role:"tool" turns.
 type ClaudeAdapter struct{}
 
 // NewClaudeAdapter returns a new ClaudeAdapter.
@@ -92,8 +94,15 @@ func (a *ClaudeAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) 
 		turn.Timestamp = time.Now().UTC()
 	}
 
-	// Text + tool calls: walk the structured content blocks.
-	turn.Text, turn.ToolCalls = walkClaudeContent(tl.Message.Content)
+	// Text + tool calls + tool results: walk the structured content blocks.
+	turn.Text, turn.ToolCalls, turn.ToolResults = walkClaudeContent(tl.Message.Content)
+
+	// A user line whose only content is tool_result blocks is the harness
+	// returning results, not the human speaking — surface it as a
+	// role:"tool" turn so consumers can attribute it correctly.
+	if turn.Role == "user" && turn.Text == "" && len(turn.ToolCalls) == 0 && len(turn.ToolResults) > 0 {
+		turn.Role = "tool"
+	}
 
 	// Usage: lift from message.usage if present.
 	if tl.Message.Usage != nil {
@@ -108,9 +117,9 @@ func (a *ClaudeAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) 
 		turn.Usage = u
 	}
 
-	// Drop turns with no text and no tool calls (e.g. tool_result-only
-	// blocks). They carry no signal for the vault.
-	if turn.Text == "" && len(turn.ToolCalls) == 0 {
+	// Drop turns that carry nothing at all (no text, no tool calls, no
+	// tool results). They carry no signal for the Ledger or the vault.
+	if turn.Text == "" && len(turn.ToolCalls) == 0 && len(turn.ToolResults) == 0 {
 		return Turn{}, false
 	}
 
@@ -122,22 +131,25 @@ func (a *ClaudeAdapter) ExtractTurn(line []byte, sessionID string) (Turn, bool) 
 //   - the concatenated text from text-typed blocks
 //   - the tool calls extracted from tool_use-typed blocks (with
 //     pre-computed Category)
+//   - the tool results extracted from tool_result-typed blocks
+//     (content truncated, error state preserved)
 //
-// Other block types (tool_result, image, etc.) are ignored.
-func walkClaudeContent(content any) (string, []ToolCall) {
+// Other block types (image, etc.) are ignored.
+func walkClaudeContent(content any) (string, []ToolCall, []ToolResult) {
 	if content == nil {
-		return "", nil
+		return "", nil, nil
 	}
 	if s, ok := content.(string); ok {
-		return strings.TrimSpace(s), nil
+		return strings.TrimSpace(s), nil, nil
 	}
 	items, ok := content.([]any)
 	if !ok {
-		return "", nil
+		return "", nil, nil
 	}
 	var (
 		textParts []string
 		tcs       []ToolCall
+		trs       []ToolResult
 	)
 	for _, item := range items {
 		m, ok := item.(map[string]any)
@@ -163,9 +175,46 @@ func walkClaudeContent(content any) (string, []ToolCall) {
 				Input:    input,
 				Category: category,
 			})
+		case "tool_result":
+			callID, _ := m["tool_use_id"].(string)
+			isError, _ := m["is_error"].(bool)
+			trs = append(trs, ToolResult{
+				CallID:  callID,
+				Content: truncateToolResult(claudeToolResultText(m["content"])),
+				IsError: isError,
+			})
 		}
 	}
-	return strings.Join(textParts, "\n"), tcs
+	return strings.Join(textParts, "\n"), tcs, trs
+}
+
+// claudeToolResultText flattens a tool_result block's content — a plain
+// string or an array of text-typed blocks — to text.
+func claudeToolResultText(content any) string {
+	if content == nil {
+		return ""
+	}
+	if s, ok := content.(string); ok {
+		return s
+	}
+	items, ok := content.([]any)
+	if !ok {
+		return ""
+	}
+	var parts []string
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if t, _ := m["type"].(string); t != "text" {
+			continue
+		}
+		if text, _ := m["text"].(string); text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // trimLine removes leading/trailing whitespace from a byte slice.
