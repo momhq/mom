@@ -58,6 +58,23 @@ type plistData struct {
 	KeepAlive     bool
 	StartInterval int
 	LogFile       string
+	// Path, when non-empty, is exported as the job's PATH. launchd gives
+	// user agents a bare /usr/bin:/bin:/usr/sbin:/sbin — the daemon's
+	// auto-fold shells out to the user's harness CLI (claude/codex/pi),
+	// which typically lives in a user-level bin dir.
+	Path string
+}
+
+// daemonPath builds the PATH exported to the global daemon: the standard
+// system dirs plus the user-level locations harness CLIs install to
+// (~/.local/bin — claude; /opt/homebrew/bin and /usr/local/bin — brew/npm).
+func daemonPath(home string) string {
+	return strings.Join([]string{
+		filepath.Join(home, ".local", "bin"),
+		"/opt/homebrew/bin",
+		"/usr/local/bin",
+		"/usr/bin", "/bin", "/usr/sbin", "/sbin",
+	}, ":")
 }
 
 func launchAgentsDir() (string, error) {
@@ -250,6 +267,13 @@ const globalPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>{{.WorkingDir}}</string>
+{{- if .Path}}
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>{{.Path}}</string>
+	</dict>
+{{- end}}
 {{- if .KeepAlive}}
 	<key>KeepAlive</key>
 	<true/>
@@ -317,6 +341,7 @@ func InstallGlobal(cfg GlobalServiceConfig) error {
 		WorkingDir: home,
 		KeepAlive:  true,
 		LogFile:    filepath.Join(logsDir, "watch-daemon.log"),
+		Path:       daemonPath(home),
 	}
 
 	if _, err := os.Stat(dPath); err == nil {
@@ -338,6 +363,7 @@ func InstallGlobal(cfg GlobalServiceConfig) error {
 		WorkingDir:    home,
 		StartInterval: 120,
 		LogFile:       filepath.Join(logsDir, "watch-sweep.log"),
+		Path:          daemonPath(home),
 	}
 
 	if _, err := os.Stat(sPath); err == nil {
