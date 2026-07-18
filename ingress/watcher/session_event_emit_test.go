@@ -145,6 +145,42 @@ func TestIngestFile_ResumePrimesHeaderAfterRestart(t *testing.T) {
 	}
 }
 
+// The OnPublish hook fires once per published turn AND per published
+// session event, with the resolved project id and source harness — the
+// daemon's auto-fold tracker depends on this contract.
+func TestIngestFile_OnPublishHookFires(t *testing.T) {
+	transcriptDir := t.TempDir()
+	momDir := t.TempDir()
+	projectDir := t.TempDir()
+	bindProject(t, projectDir, "alpha")
+	w, _ := oatsCaptureWatcher(projectDir, momDir, transcriptDir)
+
+	type obs struct{ project, harness string }
+	var observed []obs
+	w.cfg.OnPublish = func(projectID, harness string) {
+		observed = append(observed, obs{projectID, harness})
+	}
+
+	transcriptPath := filepath.Join(transcriptDir, "2026-07-17T22-36-39-d3446c23.jsonl")
+	body := oatsHeaderWithCwd(projectDir) + "\n" + oatsUserTurn + "\n" + oatsEventFixture + "\n"
+	if err := os.WriteFile(transcriptPath, []byte(body), 0o644); err != nil {
+		t.Fatalf("write transcript: %v", err)
+	}
+	w.ingestFile(transcriptPath)
+
+	if len(observed) != 2 {
+		t.Fatalf("OnPublish fired %d times, want 2 (turn + event)", len(observed))
+	}
+	for i, o := range observed {
+		if o.project != "alpha" {
+			t.Errorf("observed[%d].project = %q, want alpha", i, o.project)
+		}
+		if o.harness != "momos" {
+			t.Errorf("observed[%d].harness = %q, want momos", i, o.harness)
+		}
+	}
+}
+
 // Tool results ride on the canonical turn.observed payload under
 // "tool_results", with name/call_id/content/is_error.
 func TestTurn_ToPayload_EmitsToolResults(t *testing.T) {

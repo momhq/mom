@@ -61,6 +61,12 @@ type Config struct {
 	// canonical event to the Ledger.
 	Editor *editor.Editor
 
+	// OnPublish, when set, is called after every turn/session-event
+	// successfully published through the Editor, with the resolved
+	// project id and the source harness. The global daemon's auto-fold
+	// tracker consumes this to arm fold triggers per project.
+	OnPublish func(projectID, harness string)
+
 	// SweepOnly when true skips fsnotify setup. The watcher can only be
 	// used for one-shot Sweep() calls, not Run().
 	SweepOnly bool
@@ -485,6 +491,8 @@ func (w *Watcher) ingestFile(path string) int {
 				Cwd:     resolveCwdForTurn(t, w.cfg.ProjectDir),
 			}); err != nil {
 				w.logf("editor publish (%s, session=%s): %v", envelope.TurnObserved, t.SessionID, err)
+			} else if w.cfg.OnPublish != nil {
+				w.cfg.OnPublish(projectId, t.Harness)
 			}
 		}
 
@@ -511,6 +519,8 @@ func (w *Watcher) ingestFile(path string) int {
 				Cwd:     cwd,
 			}); err != nil {
 				w.logf("editor publish (%s, session=%s): %v", envelope.EventObserved, ev.SessionID, err)
+			} else if w.cfg.OnPublish != nil {
+				w.cfg.OnPublish(projectId, ev.Harness)
 			}
 		}
 	}

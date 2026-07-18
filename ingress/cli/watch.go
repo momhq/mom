@@ -238,6 +238,14 @@ func runWatchGlobal(sweepOnly bool) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	// Auto-fold (M2): the daemon owns the fold trigger. Ingestion arms
+	// the tracker via the OnPublish hook; the runner folds eligible
+	// projects with the same in-process path as `mom vault fold`.
+	var onPublish func(projectID, harness string)
+	if centralDir, derr := librarian.Dir(); derr == nil {
+		onPublish = startAutofold(ctx, centralDir)
+	}
+
 	type runningWatcher struct {
 		cancel context.CancelFunc
 	}
@@ -260,6 +268,7 @@ func runWatchGlobal(sweepOnly bool) error {
 			Sources:    sources,
 			DebounceMs: 300,
 			Editor:     pipe.ed,
+			OnPublish:  onPublish,
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[mom] watch %s: %v\n", projDir, err)

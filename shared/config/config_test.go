@@ -338,3 +338,48 @@ func TestConfigMultiHarness(t *testing.T) {
 		t.Errorf("expected 3 harnesses, got %d", len(loaded.Harnesses))
 	}
 }
+
+// Autofold defaults: enabled, momos-only trigger, 10m idle, 200 backlog,
+// 30m min interval — all materialized from a zero-value config.
+func TestAutofoldDefaults(t *testing.T) {
+	var a AutofoldConfig
+	if !a.AutofoldEnabled() {
+		t.Error("AutofoldEnabled zero-value = false, want true (default ON)")
+	}
+	if got := a.AutofoldHarnesses(); len(got) != 1 || got[0] != "momos" {
+		t.Errorf("AutofoldHarnesses = %v, want [momos]", got)
+	}
+	if got := a.AutofoldIdle(); got.Minutes() != 10 {
+		t.Errorf("AutofoldIdle = %v, want 10m", got)
+	}
+	if got := a.AutofoldBacklog(); got != 200 {
+		t.Errorf("AutofoldBacklog = %d, want 200", got)
+	}
+	if got := a.AutofoldMinInterval(); got.Minutes() != 30 {
+		t.Errorf("AutofoldMinInterval = %v, want 30m", got)
+	}
+}
+
+// autofold.enabled: false must round-trip through Save/Load and disable.
+func TestAutofoldDisabledRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	off := false
+	cfg := Default()
+	cfg.Autofold = AutofoldConfig{Enabled: &off, IdleMinutes: 1, Harnesses: []string{"momos", "claude-code"}}
+	if err := Save(dir, &cfg); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if loaded.Autofold.AutofoldEnabled() {
+		t.Error("AutofoldEnabled = true after enabled: false round-trip")
+	}
+	if got := loaded.Autofold.AutofoldIdle(); got.Minutes() != 1 {
+		t.Errorf("AutofoldIdle = %v, want 1m override", got)
+	}
+	if got := loaded.Autofold.AutofoldHarnesses(); len(got) != 2 {
+		t.Errorf("AutofoldHarnesses = %v, want 2 entries", got)
+	}
+}

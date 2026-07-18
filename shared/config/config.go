@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,6 +26,69 @@ type Config struct {
 	Watcher WatcherConfig `yaml:"watcher,omitempty"`
 	// Vault controls the vault projection lane (mom vault fold/rebuild).
 	Vault VaultConfig `yaml:"vault,omitempty"`
+	// Autofold controls automatic vault folding by the global watch daemon.
+	Autofold AutofoldConfig `yaml:"autofold,omitempty"`
+}
+
+// AutofoldConfig controls the global watch daemon's automatic vault
+// folding. Triggering is gated per harness: only ingestion activity from
+// a harness in Harnesses makes a project fold-eligible; the fold pass
+// itself is project-wide (identical to `mom vault fold`).
+type AutofoldConfig struct {
+	// Enabled turns auto-folding on. Default: true (nil = on); set
+	// `enabled: false` to opt out.
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// Harnesses lists the harness names whose ingested activity may
+	// trigger an auto-fold. Default: ["momos"].
+	Harnesses []string `yaml:"harnesses,omitempty"`
+	// IdleMinutes is the quiet period after the last ingested event
+	// before an auto-fold fires. Default: 10.
+	IdleMinutes int `yaml:"idle_minutes,omitempty"`
+	// BacklogEvents triggers a fold regardless of idleness once this many
+	// events have been ingested since the last successful fold. Default: 200.
+	BacklogEvents int `yaml:"backlog_events,omitempty"`
+	// MinIntervalMinutes is the minimum spacing between auto-folds of the
+	// same project (the fold synthesizer shells out to the user's harness
+	// CLI — this protects their subscription quota). Default: 30.
+	MinIntervalMinutes int `yaml:"min_interval_minutes,omitempty"`
+}
+
+// AutofoldEnabled reports whether auto-folding is on (default true).
+func (a AutofoldConfig) AutofoldEnabled() bool {
+	return a.Enabled == nil || *a.Enabled
+}
+
+// AutofoldHarnesses returns the harness allowlist with the default applied.
+func (a AutofoldConfig) AutofoldHarnesses() []string {
+	if len(a.Harnesses) == 0 {
+		return []string{"momos"}
+	}
+	return a.Harnesses
+}
+
+// AutofoldIdle returns the idle threshold with the default applied.
+func (a AutofoldConfig) AutofoldIdle() time.Duration {
+	if a.IdleMinutes <= 0 {
+		return 10 * time.Minute
+	}
+	return time.Duration(a.IdleMinutes) * time.Minute
+}
+
+// AutofoldBacklog returns the backlog threshold with the default applied.
+func (a AutofoldConfig) AutofoldBacklog() int {
+	if a.BacklogEvents <= 0 {
+		return 200
+	}
+	return a.BacklogEvents
+}
+
+// AutofoldMinInterval returns the per-project minimum spacing between
+// auto-folds with the default applied.
+func (a AutofoldConfig) AutofoldMinInterval() time.Duration {
+	if a.MinIntervalMinutes <= 0 {
+		return 30 * time.Minute
+	}
+	return time.Duration(a.MinIntervalMinutes) * time.Minute
 }
 
 // VaultConfig controls the vault projection lane (mom vault fold/rebuild).

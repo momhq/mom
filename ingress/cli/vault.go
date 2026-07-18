@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -128,102 +129,32 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		return err
 	}
 
-	// Determine the watermark and existing chunk map to resume from.
-	var fromOffset uint64
-	var existingChunks map[string]string
-	if !rebuild {
-		st, found, serr := projection.LoadFoldState(root)
-		if serr != nil {
-			return serr
-		}
-		if found {
-			fromOffset = st.LastOffset
-			existingChunks = st.Chunks
-		}
-	}
-
-	reader := projection.NewReader(ldir, projectID)
-	read, err := reader.Read(fromOffset)
-	if err != nil {
-		return err
-	}
-
-	existing := map[string]string{}
-	if !rebuild {
-		existing, err = projection.LoadExisting(root)
-		if err != nil {
-			return err
-		}
-	}
-
-	warn := func(msg string) { fmt.Fprintln(os.Stderr, "warning: "+msg) }
-	synth, engineName, err := projection.NewSynthesizer(vaultEngine, resolveFoldModel(), warn)
-	if err != nil {
-		return err
-	}
-
-	chunkSize := vaultChunk
-	if chunkSize <= 0 {
-		chunkSize = 60
-	}
-
-	spinnerMsg := fmt.Sprintf("folding %d events with %s", len(read.Events), engineName)
-
 	spinner := ux.NewSpinner(cmd.OutOrStdout())
-	spinner.Start(spinnerMsg)
+	spinner.Start("folding with " + vaultEngine)
 
-	writer := projection.NewWriter(root)
-	in := projection.FoldInput{
-		ProjectID:       projectID,
-		ProjectRoot:     root,
-		FromOffset:      fromOffset,
-		ToOffset:        read.Head,
-		Existing:        existing,
-		Events:          read.Events,
-		ExistingChunks:  existingChunks,
-		Engine:          engineName,
-		Progress:        spinner.Update,
-		Parallel:        vaultParallel,
-		// Persist every completed synthesis step immediately: a Ctrl-C or
-		// crash mid-fold loses at most one call's work, and the next fold
-		// resumes from the checkpointed watermark + chunk cache.
-		Checkpoint: func(changed, chunks map[string]string, watermark uint64) {
-			if cerr := writer.Checkpoint(changed, chunks, watermark); cerr != nil {
-				warn(fmt.Sprintf("checkpoint failed (%v); continuing — progress since the last good checkpoint is at risk", cerr))
-			}
-		},
-	}
-	chunks := (len(read.Events) + chunkSize - 1) / chunkSize
-	if chunks == 0 {
-		chunks = 1 // single refresh pass even with no new events
-	}
-
-	res, err := projection.Fold(context.Background(), synth, in, chunkSize)
+	// The fold itself is shared with the daemon's auto-fold
+	// (projection.RunProjectFold): same watermark/resume semantics, same
+	// per-project fold lock, same checkpointing.
+	sum, err := projection.RunProjectFold(context.Background(), projection.RunOptions{
+		ProjectID: projectID,
+		Root:      root,
+		LedgerDir: ldir,
+		Rebuild:   rebuild,
+		Engine:    vaultEngine,
+		Model:     resolveFoldModel(),
+		ChunkSize: vaultChunk,
+		Parallel:  vaultParallel,
+		Progress:  spinner.Update,
+		Warn:      func(msg string) { fmt.Fprintln(os.Stderr, "warning: "+msg) },
+	})
 	if err != nil {
 		spinner.StopFail()
-		return fmt.Errorf("synthesis failed: %w", err)
-	}
-	spinner.Stop()
-
-	// Persist the watermark the synthesis actually reached — on a partial
-	// fold that is behind the read head, so the next fold retries the
-	// remaining window instead of skipping it. 0 is a real value here (a
-	// rebuild whose very first window failed): promoting it to read.Head
-	// would mark every event folded when NONE was, silently skipping them
-	// forever — that is how fallout-overseer's fold-state got poisoned.
-	foldedThrough := res.FoldedThrough
-
-	// Prune (delete files absent from the fresh set) ONLY when the rebuild
-	// fully completed: L0 consumed the whole window and L1/L2 were not
-	// interrupted. An aborted rebuild has a near-empty fresh set — pruning
-	// on it deletes the entire existing vault (this destroyed a 2500-episode
-	// vault when a rebuild ran against a logged-out harness CLI).
-	prune := rebuild && foldedThrough >= read.Head && !res.PendingSynthesis
-
-	wres, err := writer.Write(res, foldedThrough, len(read.Events), prune)
-	if err != nil {
+		if errors.Is(err, projection.ErrFoldLocked) {
+			return fmt.Errorf("another fold is already running for this project (daemon auto-fold or another `mom vault fold`) — try again when it finishes")
+		}
 		return err
 	}
+	spinner.Stop()
 
 	verb := "fold"
 	if rebuild {
@@ -232,25 +163,25 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	p.Diamond("vault " + verb)
 	p.Blank()
 	p.Chevron(fmt.Sprintf("project:       %s", p.HighlightValue(projectID)))
-	p.Chevron(fmt.Sprintf("offsets:       %d → %d", fromOffset, foldedThrough))
-	p.Chevron(fmt.Sprintf("events folded: %d", len(read.Events)))
-	p.Chevron(fmt.Sprintf("chunks:        %d (size %d)", chunks, chunkSize))
-	p.Chevron(fmt.Sprintf("files written: %d", wres.FilesWritten))
-	p.Chevron(fmt.Sprintf("engine:        %s", engineName))
-	p.Chevron(fmt.Sprintf("vault:         %s", wres.VaultDir))
+	p.Chevron(fmt.Sprintf("offsets:       %d → %d", sum.FromOffset, sum.FoldedThrough))
+	p.Chevron(fmt.Sprintf("events folded: %d", sum.EventsFolded))
+	p.Chevron(fmt.Sprintf("chunks:        %d (size %d)", sum.ChunksTotal, vaultChunk))
+	p.Chevron(fmt.Sprintf("files written: %d", sum.FilesWritten))
+	p.Chevron(fmt.Sprintf("engine:        %s", sum.EngineName))
+	p.Chevron(fmt.Sprintf("vault:         %s", sum.VaultDir))
 	p.Blank()
-	if res.PendingSynthesis {
+	if sum.PendingSynthesis {
 		p.Chevron("pending: L1/L2 synthesis was interrupted — run `mom vault fold` when the harness recovers to complete it")
 		p.Blank()
-	} else if foldedThrough < read.Head {
-		p.Chevron(fmt.Sprintf("partial: synthesis stopped at offset %d of %d — run `mom vault fold` to retry the rest", foldedThrough, read.Head))
+	} else if sum.Partial {
+		p.Chevron(fmt.Sprintf("partial: synthesis stopped at offset %d of %d — run `mom vault fold` to retry the rest", sum.FoldedThrough, sum.Head))
 		p.Blank()
 	}
-	if rebuild && !prune {
+	if rebuild && !sum.Pruned {
 		p.Chevron("note: rebuild incomplete — existing vault files were KEPT (stale ones are pruned only by a fully completed rebuild)")
 		p.Blank()
 	}
-	p.Checkf("vault written; CLAUDE.md block updated at %s", p.HighlightValue(wres.ClaudePath))
+	p.Checkf("vault written; CLAUDE.md block updated at %s", p.HighlightValue(sum.ClaudePath))
 	return nil
 }
 
