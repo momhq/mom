@@ -162,6 +162,14 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 // runWatchGlobal runs the global watch daemon: watches all registered projects.
 func runWatchGlobal(sweepOnly bool) error {
+	// Sweeps run constantly (Stop/SessionEnd hooks, launchd timer), which
+	// makes them the natural place to notice that the mom binary on disk has
+	// been swapped under the running daemon (make install, brew upgrade) —
+	// a stale daemon keeps executing the old image, silently running
+	// yesterday's autofold. Restart it against the current binary.
+	if sweepOnly {
+		refreshGlobalDaemonIfStale()
+	}
 	if _, err := daemon.PruneInvalidRegistry(); err != nil {
 		return fmt.Errorf("pruning registry: %w", err)
 	}

@@ -114,6 +114,38 @@ func ensureGlobalDaemon(projectRoot, momDir string, harnesses []string) error {
 	return nil
 }
 
+// refreshGlobalDaemonIfStale restarts the global watch daemon when the mom
+// binary on disk no longer matches the one the daemon launched with. Called
+// from the sweep path — sweeps fire within seconds of normal use, so any
+// `make install` / `brew upgrade` is picked up automatically instead of the
+// daemon serving a stale image until the next init/upgrade/bind.
+func refreshGlobalDaemonIfStale() {
+	if os.Getenv("MOM_NO_DAEMON") == "1" {
+		return
+	}
+	bin, err := os.Executable()
+	if err != nil {
+		return
+	}
+	if strings.HasSuffix(bin, ".test") || strings.Contains(bin, "/_test/") {
+		return
+	}
+	h, err := daemon.StatusGlobal()
+	if err != nil || len(h.Services) == 0 || !h.Services[0].DaemonRunning {
+		return // not running — nothing to refresh; ensureGlobalDaemon owns install
+	}
+	if match, _ := daemon.BinaryVersionMatches(bin); match {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "[mom] binary changed on disk; restarting global watch daemon")
+	_ = daemon.UninstallGlobal()
+	if err := daemon.InstallGlobal(daemon.GlobalServiceConfig{MomBinary: bin}); err != nil {
+		fmt.Fprintf(os.Stderr, "[mom] daemon restart failed: %v\n", err)
+		return
+	}
+	_ = daemon.RecordBinaryVersion(bin)
+}
+
 // buildWatcherSources builds watcher.Source entries from config for all
 // watcher-capable Harnesses.
 func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source {
