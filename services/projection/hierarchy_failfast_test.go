@@ -617,3 +617,38 @@ func TestFoldStampsFactTimeRanges(t *testing.T) {
 		t.Errorf("reference index missing Through freshness column:\n%s", res.Files[referenceDir+"/"+indexFileName])
 	}
 }
+
+// TestPromptsStripMachineFrontmatter guards prompt size: files embedded in
+// L1/L2 synthesis hints must not carry sources/children/id — on offset-
+// interleaved projects those lines are tens of KB per file and overflowed the
+// model's context.
+func TestPromptsStripMachineFrontmatter(t *testing.T) {
+	heavy := PrependFrontmatter(Frontmatter{
+		Type: typeReference, Name: "x", Level: 1, Version: 1,
+		ID:      "abcd1234abcd1234",
+		Sources: []uint64{1, 5, 9, 13, 200, 401},
+		Children: []string{"episodes/e.md"},
+	}, "# x\n- fact\n")
+
+	l1 := buildL1SubjectInput(FoldInput{ProjectID: "demo"}, subject{slug: "x", name: "x"},
+		map[string]string{"episodes/e.md": heavy}, "reference/x.md", heavy)
+	for p, c := range l1.Existing {
+		if p == "_l1_hint" {
+			continue
+		}
+		if strings.Contains(c, "sources:") || strings.Contains(c, "children:") || strings.Contains(c, "id:") {
+			t.Errorf("L1 hint file %s still carries machine frontmatter:\n%s", p, c)
+		}
+	}
+
+	l2 := buildL2Input(FoldInput{ProjectID: "demo"},
+		map[string]string{"reference/x.md": heavy}, map[string]string{identityFile: heavy})
+	for p, c := range l2.Existing {
+		if p == "_l2_hint" {
+			continue
+		}
+		if strings.Contains(c, "sources:") || strings.Contains(c, "children:") {
+			t.Errorf("L2 hint file %s still carries machine frontmatter:\n%s", p, c)
+		}
+	}
+}

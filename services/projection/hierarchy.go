@@ -516,6 +516,22 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 	return rightEnd, rerr
 }
 
+// stripMachineFrontmatter removes the machine-owned provenance fields
+// (sources, children, id, folded_at) from a file before it is embedded in a
+// synthesis prompt. The model never needs them — it is told to omit them from
+// its output — and on projects whose Ledger offsets interleave with other
+// projects the sources ranges barely compress, ballooning a prompt by tens of
+// thousands of tokens (an L2 call overflowed the 200k context this way).
+// Type/name/description/tags/time ranges stay: those the model reasons with.
+func stripMachineFrontmatter(content string) string {
+	fm, body := ParseFrontmatter(content)
+	fm.Sources = nil
+	fm.Children = nil
+	fm.ID = ""
+	fm.FoldedAt = time.Time{}
+	return PrependFrontmatter(fm, body)
+}
+
 // knownSubjectTags returns the tag vocabulary already used by episodes in the
 // vault, most frequent first, so new episodes converge on existing subject
 // slugs instead of inventing near-duplicates.
@@ -729,10 +745,10 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 			"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (contracts only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
 		subj.name, target, subj.name, subj.name, subj.slug)
 	if existingPath != "" && existingContent != "" {
-		hint[existingPath] = existingContent
+		hint[existingPath] = stripMachineFrontmatter(existingContent)
 	}
 	for p, c := range episodes {
-		hint[p] = c
+		hint[p] = stripMachineFrontmatter(c)
 	}
 
 	var fromOff, toOff uint64
@@ -752,10 +768,10 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput {
 	existing := map[string]string{}
 	for p, c := range l2Existing {
-		existing[p] = c
+		existing[p] = stripMachineFrontmatter(c)
 	}
 	for p, c := range l1Files {
-		existing[p] = c
+		existing[p] = stripMachineFrontmatter(c)
 	}
 
 	var allOffsets []uint64
