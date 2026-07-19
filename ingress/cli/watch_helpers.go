@@ -131,15 +131,27 @@ func refreshGlobalDaemonIfStale() {
 		return
 	}
 	h, err := daemon.StatusGlobal()
-	if err != nil || len(h.Services) == 0 || !h.Services[0].DaemonRunning {
-		return // not running — nothing to refresh; ensureGlobalDaemon owns install
+	running := err == nil && len(h.Services) > 0 && h.Services[0].DaemonRunning
+	if !running {
+		// Not running at all (crashed, or a past failed refresh left it
+		// uninstalled) — install it fresh. Safe: there is no live service for
+		// this process to boot out from under itself.
+		fmt.Fprintln(os.Stderr, "[mom] global watch daemon not running; installing it")
+		if err := daemon.InstallGlobal(daemon.GlobalServiceConfig{MomBinary: bin}); err != nil {
+			fmt.Fprintf(os.Stderr, "[mom] daemon install failed: %v\n", err)
+			return
+		}
+		_ = daemon.RecordBinaryVersion(bin)
+		return
 	}
 	if match, _ := daemon.BinaryVersionMatches(bin); match {
 		return
 	}
+	// Restart IN PLACE — never uninstall/reinstall here: this code also runs
+	// from the launchd sweep-timer's own process, and booting out the timer
+	// service kills that process mid-refresh, leaving everything uninstalled.
 	fmt.Fprintln(os.Stderr, "[mom] binary changed on disk; restarting global watch daemon")
-	_ = daemon.UninstallGlobal()
-	if err := daemon.InstallGlobal(daemon.GlobalServiceConfig{MomBinary: bin}); err != nil {
+	if err := daemon.RestartGlobal(); err != nil {
 		fmt.Fprintf(os.Stderr, "[mom] daemon restart failed: %v\n", err)
 		return
 	}

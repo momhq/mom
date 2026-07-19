@@ -107,6 +107,10 @@ func runWatch(cmd *cobra.Command, _ []string) error {
 
 	// Sweep mode: one-shot catch-up and exit.
 	if watchSweep {
+		// Hook-driven sweeps are the highest-frequency mom invocation, so
+		// they're where a swapped binary (make install, brew upgrade) gets
+		// noticed and the global daemon restarted onto the current build.
+		refreshGlobalDaemonIfStale()
 		w, err := watcher.New(watcher.Config{
 			ProjectDir: projectDir,
 			MomDir:     momDir,

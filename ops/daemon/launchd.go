@@ -292,6 +292,24 @@ const globalPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `
 
+// RestartGlobal restarts the global watch daemon IN PLACE via launchctl
+// kickstart. The plist's program path is the stable binary location
+// (~/go/bin/mom, brew symlink), so the relaunched process executes whatever
+// binary is on disk NOW — this is how a binary swap propagates to the daemon.
+//
+// Restart-in-place is deliberate: an unload/reinstall cycle (UninstallGlobal +
+// InstallGlobal) boots out the sweep-timer service too, and when the refresh
+// runs FROM that timer's own process, the bootout kills it mid-flight and
+// leaves every service uninstalled.
+func RestartGlobal() error {
+	target := fmt.Sprintf("gui/%d/%s", os.Getuid(), globalDaemonLabel)
+	out, err := exec.Command("launchctl", "kickstart", "-k", target).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("launchctl kickstart %s: %w (%s)", target, err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // InstallGlobal creates and loads a single global daemon and sweep timer via launchd.
 // Before installing, removes ALL legacy per-project agents.
 func InstallGlobal(cfg GlobalServiceConfig) error {

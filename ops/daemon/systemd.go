@@ -313,6 +313,16 @@ WantedBy=timers.target
 	return nil
 }
 
+// RestartGlobal restarts the global watch daemon in place so it picks up the
+// binary currently on disk. See the launchd variant for why this must never
+// be an uninstall/reinstall cycle.
+func RestartGlobal() error {
+	if err := exec.Command("systemctl", "--user", "restart", globalDaemonUnit).Run(); err != nil {
+		return fmt.Errorf("systemctl restart %s: %w", globalDaemonUnit, err)
+	}
+	return nil
+}
+
 // UninstallGlobal stops and removes the global daemon and sweep units.
 func UninstallGlobal() error {
 	unitDir, err := systemdUserDir()

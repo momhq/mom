@@ -29,6 +29,11 @@ func UninstallGlobal() error {
 	return fmt.Errorf("background recording not supported on this platform")
 }
 
+// RestartGlobal is not supported on this platform.
+func RestartGlobal() error {
+	return fmt.Errorf("background recording not supported on this platform")
+}
+
 // StatusGlobal is not supported on this platform.
 func StatusGlobal() (*Health, error) {
 	return &Health{Platform: "unsupported"}, nil
