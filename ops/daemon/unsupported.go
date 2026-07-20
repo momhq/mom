@@ -6,7 +6,7 @@ import "fmt"
 
 // Install is not supported on this platform.
 func Install(_ ServiceConfig) error {
-	return fmt.Errorf("background recording not supported on this platform (requires macOS launchd or Linux systemd)")
+	return fmt.Errorf("background auto-capture needs macOS (launchd) or Linux (systemd); on this platform run `mom watch` in the foreground to capture, and `mom vault fold` to synthesize")
 }
 
 // Uninstall is not supported on this platform.
@@ -21,7 +21,7 @@ func Status(_ ServiceConfig) (*Health, error) {
 
 // InstallGlobal is not supported on this platform.
 func InstallGlobal(_ GlobalServiceConfig) error {
-	return fmt.Errorf("background recording not supported on this platform (requires macOS launchd or Linux systemd)")
+	return fmt.Errorf("background auto-capture needs macOS (launchd) or Linux (systemd); on this platform run `mom watch` in the foreground to capture, and `mom vault fold` to synthesize")
 }
 
 // UninstallGlobal is not supported on this platform.

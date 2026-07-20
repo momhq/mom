@@ -42,7 +42,9 @@ brew-audit:
 # Cross-compilation targets
 .PHONY: build-all
 build-all:
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/mom-darwin-arm64 ./cmd/mom
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/mom-darwin-amd64 ./cmd/mom
-	GOOS=linux  GOARCH=arm64 go build $(LDFLAGS) -o bin/mom-linux-arm64  ./cmd/mom
-	GOOS=linux  GOARCH=amd64 go build $(LDFLAGS) -o bin/mom-linux-amd64  ./cmd/mom
+	GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o bin/mom-darwin-arm64    ./cmd/mom
+	GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o bin/mom-darwin-amd64    ./cmd/mom
+	GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o bin/mom-linux-arm64     ./cmd/mom
+	GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o bin/mom-linux-amd64     ./cmd/mom
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o bin/mom-windows-amd64.exe ./cmd/mom
+	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o bin/mom-windows-arm64.exe ./cmd/mom

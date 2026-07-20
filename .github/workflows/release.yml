@@ -80,8 +80,42 @@ jobs:
           name: linux-binaries
           path: bin/mom-linux-*.gz
 
+  build-windows:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: go.sum
+
+      # mom is pure Go (file-based Ledger, no sqlite/cgo), so Windows
+      # cross-compiles from Linux with CGO disabled — no mingw toolchain.
+      - name: Build windows/amd64
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
+            -ldflags "-s -w -X github.com/momhq/mom/ingress/cli.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/ingress/cli.Commit=${GITHUB_SHA::7}" \
+            -o bin/mom-windows-amd64.exe ./cmd/mom
+
+      - name: Build windows/arm64
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build \
+            -ldflags "-s -w -X github.com/momhq/mom/ingress/cli.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/ingress/cli.Commit=${GITHUB_SHA::7}" \
+            -o bin/mom-windows-arm64.exe ./cmd/mom
+
+      - name: Compress
+        run: cd bin && zip mom-windows-amd64.zip mom-windows-amd64.exe && zip mom-windows-arm64.zip mom-windows-arm64.exe
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: bin/mom-windows-*.zip
+
   release:
-    needs: [build-darwin, build-linux]
+    needs: [build-darwin, build-linux, build-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -98,7 +132,7 @@ jobs:
           # If a release already exists (pre-created with curated notes),
           # just upload the binaries.
           if gh release view "$TAG" &>/dev/null; then
-            gh release upload "$TAG" artifacts/mom-*.gz --clobber
+            gh release upload "$TAG" artifacts/mom-*.gz artifacts/mom-*.zip --clobber
             exit 0
           fi
           # Otherwise prefer the curated CHANGELOG.md section for this tag,
@@ -112,12 +146,12 @@ jobs:
             gh release create "$TAG" \
               --title "$TAG" \
               --notes-file /tmp/relnotes.md \
-              artifacts/mom-*.gz
+              artifacts/mom-*.gz artifacts/mom-*.zip
           else
             gh release create "$TAG" \
               --title "$TAG" \
               --generate-notes \
-              artifacts/mom-*.gz
+              artifacts/mom-*.gz artifacts/mom-*.zip
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
