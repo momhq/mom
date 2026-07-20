@@ -4,6 +4,74 @@ All notable changes to _mom_ are documented here. The format is loosely based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows a
 `vN0.0-alpha` cadence during the alpha line.
 
+## v0.52.0-alpha — The ICM vault
+
+The projected-memory vault is now a proper **ICM** (Interpretable Context
+Methodology) structure in **OKF** (Open Knowledge Format): raw episodes roll up
+into one concept file per subject (`reference/` for durable facts, `contracts/`
+for process rules), then into a living `identity.md`, each folder carrying its
+own `INDEX.md` router. Synthesis is **LLM-only** — the vault's structure depends
+on reasoning, so the templated fallback engine is gone. Folds are now
+interrupt-safe, parallel, cheap by default, and cannot destroy a vault.
+
+This release also lands **operational event ingress** (ADR 0025): a loopback
+HTTP API and the OATS transcript adapter let momOS and any conformant writer
+feed memory, and the global daemon **auto-folds** vaults in the background. And
+_mom_ now builds and runs on **Windows**.
+
+### Added
+
+- **ICM/OKF vault.** The vault is projected from the Ledger into ICM layers —
+  L0 episodes → L1 `reference/`/`contracts/` concepts (one per subject, updated
+  in place) → L2 `identity.md` — written in OKF with per-folder `INDEX.md`
+  routers and `type`/`name`/`description` frontmatter an agent scans before
+  opening. Concepts are structured documents (titled, sectioned) cross-linked
+  into a navigable graph by shared source-provenance.
+- **Operational event ingress (ADR 0025).** A loopback HTTP server inside the
+  watch daemon accepts the `operational.*` event family (8 types), and the
+  **OATS** transcript adapter ingests momOS sessions and any conformant writer.
+- **Automatic vault folding.** The global watch daemon folds project vaults in
+  the background (idle/backlog-triggered, per-project quota-guarded), and
+  restarts itself onto a freshly installed binary from the sweep path.
+- **Parallel, checkpointed folds.** L0/L1 synthesis runs concurrently
+  (`--parallel`, default 4) and every completed step is persisted immediately,
+  so an interrupted fold (Ctrl-C, crash, usage-limit) loses at most one call and
+  resumes exactly where it stopped.
+- **Windows support.** _mom_ cross-compiles and runs on Windows (amd64 + arm64);
+  the release ships `.exe` artifacts. Background auto-capture degrades gracefully
+  (foreground `mom watch` + `mom vault fold`) where launchd/systemd is absent.
+- **Cheap-by-default synthesis.** Folds pin the engine's cheapest model
+  (Claude: haiku); override with `--model` or the `vault.fold_model` config key.
+
+### Changed
+
+- **Harness-agnostic entry files.** The managed context block is written to each
+  enabled harness's entry file — `CLAUDE.md` for Claude Code, `AGENTS.md` for
+  Codex and Pi — instead of assuming Claude.
+- **Fact-time dates.** Concept and episode `time_range` frontmatter now reflects
+  the dates of the underlying captured events, not the fold time, so recency is
+  meaningful.
+
+### Removed
+
+- **`mom vault garden`** (breaking). Its dedup/merge job is now handled
+  structurally by the ICM fold (one concept per subject, update-in-place), and
+  its whole-vault prune path was a latent data-loss hazard.
+- **The deterministic (non-LLM) fold engine.** Synthesis is LLM-only.
+
+### Fixed
+
+- **Vaults are never destroyed by a failed fold.** A rebuild prunes stale files
+  only when it fully completes; an aborted rebuild keeps the existing vault, and
+  the watermark never advances past events that were not actually synthesized.
+- **Synthesis robustness.** Prompts carry no machine-owned provenance (fixed an
+  L2 context overflow), hooks are disabled in fold subprocesses (they no longer
+  fail the call), harness errors surface actionably (e.g. a logged-out CLI), and
+  a systemic failure aborts the pass instead of hammering the CLI.
+- **Security hardening.** The ingest server rejects cross-origin/DNS-rebinding
+  requests, caps body size, and sets server timeouts; watcher logs are no longer
+  world-readable.
+
 ## v0.50.1-alpha
 
 Patch release for the v0.50 line.
