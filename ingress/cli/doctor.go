@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/momhq/mom/ops/daemon"
@@ -104,17 +105,29 @@ func checkHarnessContext() Check {
 	if err != nil {
 		return Check{Name: "harness context", Status: StatusFail, Detail: err.Error()}
 	}
-	path := filepath.Join(home, ".claude", "CLAUDE.md")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return Check{Name: "harness context", Status: StatusFail,
-			Detail: "CLAUDE.md missing", NextAction: "run 'mom init --harnesses claude'"}
+	// MOM is harness-agnostic: the global context block may live in any
+	// supported harness's home file. Pass if the block is present in ANY of
+	// them, so a Codex-only or Pi-only install is not reported as broken.
+	globalContextFiles := map[string]string{
+		"claude": filepath.Join(home, ".claude", "CLAUDE.md"),
+		"codex":  filepath.Join(home, ".codex", "AGENTS.md"),
+		"pi":     filepath.Join(home, ".pi", "AGENTS.md"),
 	}
-	if !strings.Contains(string(data), "BEGIN MOM GENERATED BLOCK") {
-		return Check{Name: "harness context", Status: StatusFail,
-			Detail: "MOM block missing from CLAUDE.md", NextAction: "run 'mom init --harnesses claude'"}
+	var present []string
+	for name, path := range globalContextFiles {
+		data, rerr := os.ReadFile(path)
+		if rerr == nil && strings.Contains(string(data), "BEGIN MOM GENERATED BLOCK") {
+			present = append(present, name)
+		}
 	}
-	return Check{Name: "harness context", Status: StatusPass, Detail: "claude block present"}
+	if len(present) == 0 {
+		return Check{Name: "harness context", Status: StatusFail,
+			Detail:     "no harness context file carries the MOM block",
+			NextAction: "run 'mom init' (add --harnesses to pick claude, codex, or pi)"}
+	}
+	sort.Strings(present)
+	return Check{Name: "harness context", Status: StatusPass,
+		Detail: "MOM block present (" + strings.Join(present, ", ") + ")"}
 }
 
 func checkMomVersion() Check {
