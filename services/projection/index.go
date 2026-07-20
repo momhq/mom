@@ -194,10 +194,10 @@ func dateOrEmpty(t time.Time) string {
 	return t.UTC().Format("2006-01-02")
 }
 
-// buildClaudeBlock emits the tiny always-loaded pointer (ICM Layer 1/2 hook):
+// buildContextBlock emits the tiny always-loaded pointer (ICM Layer 1/2 hook):
 // it tells the agent how to navigate the OKF/ICM vault, since OKF is not yet a
 // standard the agent knows out of the box.
-func buildClaudeBlock(in FoldInput) string {
+func buildContextBlock(in FoldInput) string {
 	var b strings.Builder
 	b.WriteString("## MOM Vault (projected memory)\n\n")
 	b.WriteString("This project's memory is an **ICM** structure in **OKF** format under `.mom/vault/`. ")

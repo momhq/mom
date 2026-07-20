@@ -17,11 +17,12 @@ const (
 	indexFileName = "INDEX.md"
 	// foldStateFileName is the watermark JSON at the vault root.
 	foldStateFileName = ".fold-state.json"
-	// claudeFileName is the project-root managed-block host file.
-	claudeFileName = "CLAUDE.md"
+	// defaultEntryFile hosts the managed context block when no harness
+	// configuration says otherwise.
+	defaultEntryFile = "CLAUDE.md"
 
-	claudeBeginMarker = "<!-- MOM:BEGIN -->"
-	claudeEndMarker   = "<!-- MOM:END -->"
+	blockBeginMarker = "<!-- MOM:BEGIN -->"
+	blockEndMarker   = "<!-- MOM:END -->"
 )
 
 // FoldState is the watermark persisted at .mom/vault/.fold-state.json.
@@ -100,9 +101,14 @@ func LoadExisting(root string) (map[string]string, error) {
 }
 
 // Writer materializes a FoldResult under <root>/.mom/vault and updates
-// the CLAUDE.md managed block.
+// the managed context block in each harness entry file.
 type Writer struct {
 	Root string
+	// EntryFiles are the project-root harness entry files (CLAUDE.md for
+	// Claude Code, AGENTS.md for Codex/Pi and other agents) that receive the
+	// managed context block. Empty → CLAUDE.md only. MOM is harness-agnostic:
+	// which files appear here is the caller's (config-driven) decision.
+	EntryFiles []string
 }
 
 // NewWriter binds a Writer to a project root.
@@ -112,7 +118,9 @@ func NewWriter(root string) *Writer { return &Writer{Root: root} }
 type WriteResult struct {
 	FilesWritten int
 	VaultDir     string
-	ClaudePath   string
+	// EntryPaths are the absolute paths of the entry files whose managed
+	// block was updated.
+	EntryPaths []string
 }
 
 // Checkpoint persists an in-progress fold: the files produced so far and a
@@ -184,8 +192,8 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 		written++
 	}
 
-	claudePath := filepath.Join(w.Root, claudeFileName)
-	if err := updateClaudeBlock(claudePath, res.ClaudeBlock); err != nil {
+	entryPaths, err := w.updateEntryFiles(res.ContextBlock)
+	if err != nil {
 		return WriteResult{}, err
 	}
 
@@ -200,7 +208,25 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 		return WriteResult{}, err
 	}
 
-	return WriteResult{FilesWritten: written, VaultDir: base, ClaudePath: claudePath}, nil
+	return WriteResult{FilesWritten: written, VaultDir: base, EntryPaths: entryPaths}, nil
+}
+
+// updateEntryFiles writes the managed context block into every configured
+// harness entry file and returns their absolute paths.
+func (w *Writer) updateEntryFiles(block string) ([]string, error) {
+	files := w.EntryFiles
+	if len(files) == 0 {
+		files = []string{defaultEntryFile}
+	}
+	paths := make([]string, 0, len(files))
+	for _, name := range files {
+		path := filepath.Join(w.Root, name)
+		if err := updateContextBlock(path, block); err != nil {
+			return nil, err
+		}
+		paths = append(paths, path)
+	}
+	return paths, nil
 }
 
 // pruneStaleConcepts deletes every .md concept file under the known vault
@@ -323,10 +349,10 @@ func writeFoldState(base string, st FoldState) error {
 	return os.WriteFile(filepath.Join(base, foldStateFileName), data, 0o600)
 }
 
-// updateClaudeBlock replaces the MOM-managed block in CLAUDE.md, or
+// updateContextBlock replaces the MOM-managed block in CLAUDE.md, or
 // creates/appends it as needed, never clobbering human content.
-func updateClaudeBlock(path, block string) error {
-	wrapped := claudeBeginMarker + "\n" + strings.TrimRight(block, "\n") + "\n" + claudeEndMarker + "\n"
+func updateContextBlock(path, block string) error {
+	wrapped := blockBeginMarker + "\n" + strings.TrimRight(block, "\n") + "\n" + blockEndMarker + "\n"
 
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
@@ -337,11 +363,11 @@ func updateClaudeBlock(path, block string) error {
 	}
 	existing := string(data)
 
-	bIdx := strings.Index(existing, claudeBeginMarker)
-	eIdx := strings.Index(existing, claudeEndMarker)
+	bIdx := strings.Index(existing, blockBeginMarker)
+	eIdx := strings.Index(existing, blockEndMarker)
 	if bIdx >= 0 && eIdx > bIdx {
 		before := existing[:bIdx]
-		after := existing[eIdx+len(claudeEndMarker):]
+		after := existing[eIdx+len(blockEndMarker):]
 		updated := before + strings.TrimRight(wrapped, "\n") + after
 		return os.WriteFile(path, []byte(updated), 0o600)
 	}

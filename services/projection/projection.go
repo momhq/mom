@@ -31,7 +31,7 @@ const defaultChunkSize = 60
 // single windowed call. The accumulating files map is seeded from
 // in.Existing; each chunk's synthesis sees the files produced so far as its
 // Existing set. The returned Index is the last chunk's Index, and the
-// ClaudeBlock is always the deterministic block for the overall window.
+// ContextBlock is always the deterministic block for the overall window.
 //
 // A chunk that surfaces a hard error is warned about and skipped. FoldAll is
 // the flat driver for plain Synthesizers (tests, custom engines); the CLI's
@@ -72,7 +72,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 			acc[p] = c
 		}
 		lastIndex = res.Index
-		return FoldResult{Files: acc, Index: lastIndex, ClaudeBlock: buildClaudeBlock(in), Chunks: in.ExistingChunks, FoldedThrough: in.ToOffset}, nil
+		return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildContextBlock(in), Chunks: in.ExistingChunks, FoldedThrough: in.ToOffset}, nil
 	}
 
 	// chunkMap accumulates chunkID → vault path across all chunks this fold.
@@ -148,7 +148,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 		}
 	}
 
-	return FoldResult{Files: acc, Index: lastIndex, ClaudeBlock: buildClaudeBlock(in), Chunks: chunkMap, FoldedThrough: in.ToOffset}, nil
+	return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildContextBlock(in), Chunks: chunkMap, FoldedThrough: in.ToOffset}, nil
 }
 
 // FoldEvent is a normalized, projection-facing view of a single Ledger
@@ -207,7 +207,7 @@ type FoldResult struct {
 	// INDEX.md (carried separately as Index).
 	Files       map[string]string
 	Index       string
-	ClaudeBlock string
+	ContextBlock string
 	// Chunks maps chunkID → vault-relative path for every chunk synthesized
 	// (or reused from ExistingChunks) this fold. Written into FoldState so
 	// the next incremental fold can skip unchanged chunks.

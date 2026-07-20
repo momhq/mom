@@ -128,7 +128,7 @@ func (s *LLMSynth) fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 		return FoldResult{}, fmt.Errorf("empty synthesis result from %s", s.invoker.Name())
 	}
 	// index and claude_block are generated deterministically, not by the model.
-	return FoldResult{Files: files, ClaudeBlock: buildClaudeBlock(in)}, nil
+	return FoldResult{Files: files, ContextBlock: buildContextBlock(in)}, nil
 }
 
 // allowedVaultPath reports whether an LLM-emitted file path is a legitimate
@@ -253,7 +253,7 @@ type llmOut struct {
 		Content string `json:"content"`
 	} `json:"files"`
 	Index       string `json:"index"`
-	ClaudeBlock string `json:"claude_block"`
+	ContextBlock string `json:"claude_block"`
 }
 
 // cliEnvelope is the wrapper `claude -p ... --output-format json` emits.

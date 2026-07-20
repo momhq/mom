@@ -22,6 +22,10 @@ type RunOptions struct {
 
 	Progress func(string) // optional step labels (spinner, log)
 	Warn     func(string) // optional non-fatal warnings
+
+	// EntryFiles are the harness entry files that receive the managed
+	// context block (see Writer.EntryFiles). Empty → CLAUDE.md only.
+	EntryFiles []string
 }
 
 // RunSummary reports what a fold pass did — everything the CLI summary
@@ -35,7 +39,7 @@ type RunSummary struct {
 	ChunksTotal   int
 	FilesWritten  int
 	VaultDir      string
-	ClaudePath    string
+	EntryPaths    []string
 	// PendingSynthesis is true when L1/L2 was aborted by a systemic
 	// harness failure (usage limit, auth) — the next fold completes it.
 	PendingSynthesis bool
@@ -111,6 +115,7 @@ func RunProjectFold(ctx context.Context, opts RunOptions) (RunSummary, error) {
 	}
 
 	writer := NewWriter(opts.Root)
+	writer.EntryFiles = opts.EntryFiles
 	in := FoldInput{
 		ProjectID:      opts.ProjectID,
 		ProjectRoot:    opts.Root,
@@ -170,7 +175,7 @@ func RunProjectFold(ctx context.Context, opts RunOptions) (RunSummary, error) {
 		ChunksTotal:      chunks,
 		FilesWritten:     wres.FilesWritten,
 		VaultDir:         wres.VaultDir,
-		ClaudePath:       wres.ClaudePath,
+		EntryPaths:       wres.EntryPaths,
 		PendingSynthesis: res.PendingSynthesis,
 		Partial:          foldedThrough < read.Head,
 		Pruned:           prune,

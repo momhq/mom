@@ -321,8 +321,8 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	linkRelated(acc)
 	buildPerFolderIndexes(acc)
 	index := buildIndex(acc, idxIn)
-	block := buildClaudeBlock(idxIn)
-	return FoldResult{Files: acc, Index: index, ClaudeBlock: block, Chunks: chunkMap, FoldedThrough: foldedThrough, PendingSynthesis: pendingSynthesis}, nil
+	block := buildContextBlock(idxIn)
+	return FoldResult{Files: acc, Index: index, ContextBlock: block, Chunks: chunkMap, FoldedThrough: foldedThrough, PendingSynthesis: pendingSynthesis}, nil
 }
 
 // runL0Pool synthesizes all L0 chunks with up to parallel concurrent calls.

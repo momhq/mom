@@ -56,8 +56,9 @@ func startAutofold(ctx context.Context, momDir string) func(projectID, harness s
 				ProjectID: projectID,
 				Root:      root,
 				LedgerDir: ldir,
-				Engine:    "auto",
-				Model:     cfg.Vault.FoldModel,
+				Engine:     "auto",
+				Model:      cfg.Vault.FoldModel,
+				EntryFiles: cfg.EntryFiles(),
 				Warn: func(msg string) {
 					logf("autofold %s: warning: %s", projectID, msg)
 				},

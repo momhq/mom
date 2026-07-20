@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/momhq/mom/services/projection"
 	"github.com/momhq/mom/shared/config"
@@ -136,16 +137,17 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 	// (projection.RunProjectFold): same watermark/resume semantics, same
 	// per-project fold lock, same checkpointing.
 	sum, err := projection.RunProjectFold(context.Background(), projection.RunOptions{
-		ProjectID: projectID,
-		Root:      root,
-		LedgerDir: ldir,
-		Rebuild:   rebuild,
-		Engine:    vaultEngine,
-		Model:     resolveFoldModel(),
-		ChunkSize: vaultChunk,
-		Parallel:  vaultParallel,
-		Progress:  spinner.Update,
-		Warn:      func(msg string) { fmt.Fprintln(os.Stderr, "warning: "+msg) },
+		ProjectID:  projectID,
+		Root:       root,
+		LedgerDir:  ldir,
+		Rebuild:    rebuild,
+		Engine:     vaultEngine,
+		Model:      resolveFoldModel(),
+		ChunkSize:  vaultChunk,
+		Parallel:   vaultParallel,
+		EntryFiles: resolveEntryFiles(),
+		Progress:   spinner.Update,
+		Warn:       func(msg string) { fmt.Fprintln(os.Stderr, "warning: "+msg) },
 	})
 	if err != nil {
 		spinner.StopFail()
@@ -181,8 +183,23 @@ func runVaultFold(cmd *cobra.Command, rebuild bool) error {
 		p.Chevron("note: rebuild incomplete — existing vault files were KEPT (stale ones are pruned only by a fully completed rebuild)")
 		p.Blank()
 	}
-	p.Checkf("vault written; CLAUDE.md block updated at %s", p.HighlightValue(sum.ClaudePath))
+	p.Checkf("vault written; context block updated at %s", p.HighlightValue(strings.Join(sum.EntryPaths, ", ")))
 	return nil
+}
+
+// resolveEntryFiles maps the enabled harnesses to the entry files that carry
+// the managed context block. Falls back to CLAUDE.md when config is
+// unavailable.
+func resolveEntryFiles() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	cfg, err := config.Load(filepath.Join(home, ".mom"))
+	if err != nil {
+		return nil
+	}
+	return cfg.EntryFiles()
 }
 
 // resolveFoldModel picks the fold synthesis model: the --model flag wins,

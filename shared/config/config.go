@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -181,6 +182,32 @@ func (c *Config) EnabledHarnesses() []string {
 
 // EnabledRuntimes is deprecated: use EnabledHarnesses.
 func (c *Config) EnabledRuntimes() []string { return c.EnabledHarnesses() }
+
+// EntryFiles returns the project-root entry files that carry MOM's managed
+// context block, derived from the enabled harnesses: Claude Code reads
+// CLAUDE.md; Codex and Pi share AGENTS.md (the cross-vendor convention).
+// Sorted and deduped; defaults to CLAUDE.md when nothing is enabled so the
+// block always lands somewhere.
+func (c *Config) EntryFiles() []string {
+	set := map[string]bool{}
+	for _, h := range c.EnabledHarnesses() {
+		switch h {
+		case "claude":
+			set["CLAUDE.md"] = true
+		case "codex", "pi":
+			set["AGENTS.md"] = true
+		}
+	}
+	if len(set) == 0 {
+		set["CLAUDE.md"] = true
+	}
+	out := make([]string, 0, len(set))
+	for f := range set {
+		out = append(out, f)
+	}
+	sort.Strings(out)
+	return out
+}
 
 // PrimaryHarness returns the first enabled harness name, for backward
 // compatibility with code that expects a single harness.
