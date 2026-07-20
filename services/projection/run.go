@@ -146,20 +146,7 @@ func RunProjectFold(ctx context.Context, opts RunOptions) (RunSummary, error) {
 		return RunSummary{}, fmt.Errorf("synthesis failed: %w", err)
 	}
 
-	// Persist the watermark the synthesis actually reached — on a partial
-	// fold that is behind the read head, so the next fold retries the
-	// remaining window instead of skipping it. 0 is a real value here (a
-	// rebuild whose very first window failed): promoting it to read.Head
-	// would mark every event folded when NONE was, silently skipping them
-	// forever — that is how fallout-overseer's fold-state got poisoned.
-	foldedThrough := res.FoldedThrough
-
-	// Prune (delete files absent from the fresh set) ONLY when the rebuild
-	// fully completed: L0 consumed the whole window and L1/L2 were not
-	// interrupted. An aborted rebuild has a near-empty fresh set — pruning
-	// on it deletes the entire existing vault (this destroyed a 2500-episode
-	// vault when a rebuild ran against a logged-out harness CLI).
-	prune := opts.Rebuild && foldedThrough >= read.Head && !res.PendingSynthesis
+	foldedThrough, prune, partial := decideFoldOutcome(opts.Rebuild, read.Head, res)
 
 	wres, err := writer.Write(res, foldedThrough, len(read.Events), prune)
 	if err != nil {
@@ -177,7 +164,28 @@ func RunProjectFold(ctx context.Context, opts RunOptions) (RunSummary, error) {
 		VaultDir:         wres.VaultDir,
 		EntryPaths:       wres.EntryPaths,
 		PendingSynthesis: res.PendingSynthesis,
-		Partial:          foldedThrough < read.Head,
+		Partial:          partial,
 		Pruned:           prune,
 	}, nil
+}
+
+// decideFoldOutcome is the pure decision at the heart of every fold pass:
+// which watermark to persist, whether a rebuild may prune, and whether the
+// fold is partial. Extracted so the incident cases live in a table test
+// (run_test.go) instead of only in comments.
+//
+//   - The watermark is EXACTLY what synthesis reached. 0 is a real value (a
+//     rebuild whose very first window failed); promoting it to head would
+//     mark every event folded when none was, silently skipping them forever —
+//     that is how fallout-overseer's fold-state got poisoned.
+//   - Prune (delete files absent from the fresh set) only when a rebuild
+//     FULLY completed: L0 consumed the whole window and L1/L2 were not
+//     interrupted. An aborted rebuild has a near-empty fresh set — pruning on
+//     it deletes the entire existing vault (this destroyed a 2,500-episode
+//     vault when a rebuild ran against a logged-out harness CLI).
+func decideFoldOutcome(rebuild bool, head uint64, res FoldResult) (watermark uint64, prune, partial bool) {
+	watermark = res.FoldedThrough
+	partial = watermark < head
+	prune = rebuild && !partial && !res.PendingSynthesis
+	return watermark, prune, partial
 }

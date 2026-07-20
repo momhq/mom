@@ -55,23 +55,16 @@ func NewSynthesizer(engine, model string, warn func(string)) (Synthesizer, strin
 	}
 }
 
-// applyModel pins the synthesis model on the invoker. Claude defaults to the
-// cheapest tier when no model was chosen; codex passes the model through only
-// when explicitly set; pi has no known model flag, so a requested model is
-// ignored with a warning.
+// applyModel pins the synthesis model through the invoker seam. Claude
+// defaults to the cheapest tier when no model was chosen (fold prompts are
+// small and templated); an invoker that cannot pin (pi) surfaces a warning
+// and keeps its CLI default.
 func applyModel(inv HarnessInvoker, model string, warn func(string)) {
-	switch v := inv.(type) {
-	case *ClaudeInvoker:
-		if model == "" {
-			model = defaultClaudeFoldModel
-		}
-		v.Model = model
-	case *CodexInvoker:
-		v.Model = model
-	default:
-		if model != "" {
-			warn(fmt.Sprintf("engine %s does not support model pinning; using its CLI default", inv.Name()))
-		}
+	if model == "" && inv.Name() == "claude" {
+		model = defaultClaudeFoldModel
+	}
+	if err := inv.SetModel(model); err != nil {
+		warn(fmt.Sprintf("engine %s: %v; using its CLI default", inv.Name(), err))
 	}
 }
 

@@ -193,3 +193,5 @@ func TestParseJSONFilesFallback(t *testing.T) {
 		t.Errorf("want nil for non-JSON text")
 	}
 }
+
+func (f *fakeInvoker) SetModel(string) error { return nil }

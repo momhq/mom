@@ -24,6 +24,10 @@ type HarnessInvoker interface {
 	Name() string
 	IsAvailable() bool
 	Invoke(ctx context.Context, prompt string) (string, error)
+	// SetModel pins the synthesis model for subsequent Invoke calls. An
+	// invoker whose CLI has no model flag returns an error; an empty model
+	// keeps the invoker's default and always succeeds.
+	SetModel(model string) error
 }
 
 // InvokeError marks a harness PROCESS failure — non-zero exit, timeout — as
@@ -464,6 +468,12 @@ func NewClaudeInvoker(bin string) *ClaudeInvoker {
 
 func (c *ClaudeInvoker) Name() string { return "claude" }
 
+// SetModel pins the model passed as --model.
+func (c *ClaudeInvoker) SetModel(model string) error {
+	c.Model = model
+	return nil
+}
+
 func (c *ClaudeInvoker) IsAvailable() bool {
 	_, err := exec.LookPath(c.Bin)
 	return err == nil
@@ -548,6 +558,12 @@ func NewCodexInvoker(bin string) *CodexInvoker {
 
 func (c *CodexInvoker) Name() string { return "codex" }
 
+// SetModel pins the model passed as -m.
+func (c *CodexInvoker) SetModel(model string) error {
+	c.Model = model
+	return nil
+}
+
 func (c *CodexInvoker) IsAvailable() bool {
 	_, err := exec.LookPath(c.Bin)
 	return err == nil
@@ -587,6 +603,15 @@ func NewPiInvoker(bin string) *PiInvoker {
 }
 
 func (p *PiInvoker) Name() string { return "pi" }
+
+// SetModel: the pi CLI has no model flag; a requested model is an error the
+// factory surfaces as a warning, an empty one is a no-op.
+func (p *PiInvoker) SetModel(model string) error {
+	if model != "" {
+		return fmt.Errorf("pi does not support model pinning")
+	}
+	return nil
+}
 
 func (p *PiInvoker) IsAvailable() bool {
 	_, err := exec.LookPath(p.Bin)
