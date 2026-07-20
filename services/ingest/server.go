@@ -19,6 +19,7 @@ package ingest
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,6 +42,10 @@ type Server struct {
 	mux *http.ServeMux
 }
 
+// maxBodyBytes caps a single ingest request body. Operational events are
+// small; this bounds memory against a hostile or runaway client.
+const maxBodyBytes = 4 << 20 // 4 MiB
+
 // New creates a Server using the shared Editor and Ledger from the watch
 // daemon. Both may be nil, in which case the server starts but writes and
 // reads return 503.
@@ -53,8 +58,42 @@ func New(ed *editor.Editor, led *ledger.Ledger) *Server {
 	return s
 }
 
-// Handler returns the HTTP handler for use with http.Serve.
-func (s *Server) Handler() http.Handler { return s.mux }
+// Handler returns the HTTP handler, wrapped so every request is guarded
+// against cross-origin/DNS-rebinding abuse before reaching a route.
+func (s *Server) Handler() http.Handler { return guardLocalOnly(s.mux) }
+
+// guardLocalOnly rejects requests that a web page in the user's browser
+// could use to reach this loopback daemon. The port is bound to loopback, but
+// loopback is reachable from any site the user visits, so a bare bind is not
+// enough:
+//
+//   - Host allowlist (localhost / 127.0.0.1 / [::1], any port) closes DNS
+//     rebinding — a malicious domain that resolves to 127.0.0.1 arrives with
+//     its own hostname in Host and is refused.
+//   - Any cross-origin request carries an Origin header; since no browser
+//     origin is ever legitimate for this internal API, a present Origin is a
+//     refusal. (Native clients like momOS send none.)
+//
+// Without this, a visited page could POST attacker-controlled operational
+// events that get folded verbatim into the user's LLM memory vault.
+func guardLocalOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Origin") != "" {
+			http.Error(w, "cross-origin requests are not allowed", http.StatusForbidden)
+			return
+		}
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		switch host {
+		case "localhost", "127.0.0.1", "::1", "":
+			next.ServeHTTP(w, r)
+		default:
+			http.Error(w, "host not allowed", http.StatusForbidden)
+		}
+	})
+}
 
 // ---- request/response shapes ------------------------------------------------
 
@@ -104,6 +143,7 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	var raw json.RawMessage
 	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)

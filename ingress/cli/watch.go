@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/momhq/mom/events/editor"
 	"github.com/momhq/mom/services/ingest"
@@ -25,11 +26,11 @@ import (
 )
 
 var (
-	watchStatus  bool
-	watchSweep   bool
-	watchGlobal  bool
-	ingestPort   int
-	noIngest     bool
+	watchStatus bool
+	watchSweep  bool
+	watchGlobal bool
+	ingestPort  int
+	noIngest    bool
 )
 
 var watchCmd = &cobra.Command{
@@ -196,8 +197,17 @@ func runWatchGlobal(sweepOnly bool) error {
 			fmt.Fprintf(os.Stderr, "[mom] ingest: bind port: %v — ingress disabled\n", err)
 		} else {
 			fmt.Fprintf(os.Stderr, "[mom] ingest: listening on %s\n", ln.Addr())
+			// Timeouts mirror the lens server: an unbounded ReadTimeout lets a
+			// slow-loris client pin the daemon's connections open indefinitely.
+			ingestHTTP := &http.Server{
+				Handler:           ingestSrv.Handler(),
+				ReadHeaderTimeout: 5 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      30 * time.Second,
+				IdleTimeout:       120 * time.Second,
+			}
 			go func() {
-				if err := http.Serve(ln, ingestSrv.Handler()); err != nil {
+				if err := ingestHTTP.Serve(ln); err != nil {
 					fmt.Fprintf(os.Stderr, "[mom] ingest: server stopped: %v\n", err)
 				}
 			}()

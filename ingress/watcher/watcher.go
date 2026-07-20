@@ -167,9 +167,9 @@ func New(cfg Config) (*Watcher, error) {
 	}
 
 	logsDir := filepath.Join(cfg.MomDir, "logs")
-	_ = os.MkdirAll(logsDir, 0755)
+	_ = os.MkdirAll(logsDir, 0700)
 	cursorDir := filepath.Join(cfg.MomDir, "cache")
-	_ = os.MkdirAll(cursorDir, 0755)
+	_ = os.MkdirAll(cursorDir, 0700)
 
 	// Migration: PR 4 moved cursors from .mom/raw/.watch-cursor-* to
 	// .mom/cache/.watch-cursor-*. Copy any pre-existing cursors so
@@ -643,7 +643,7 @@ func expandTilde(path string) (string, error) {
 
 // logf appends a timestamped message to the watcher log file, best-effort.
 func (w *Watcher) logf(format string, args ...any) {
-	f, err := os.OpenFile(w.logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(w.logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return
 	}

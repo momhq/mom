@@ -42,6 +42,7 @@ func postJSON(t *testing.T, h http.Handler, body any) *httptest.ResponseRecorder
 		t.Fatalf("marshal: %v", err)
 	}
 	req := httptest.NewRequest(http.MethodPost, "/api/ingest/events", bytes.NewReader(b))
+	req.Host = "localhost"
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
@@ -52,6 +53,7 @@ func postJSON(t *testing.T, h http.Handler, body any) *httptest.ResponseRecorder
 func getJSON(t *testing.T, h http.Handler, url string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, url, nil)
+	req.Host = "localhost"
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 	return rr

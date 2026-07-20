@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
+	"github.com/momhq/mom/shared/flock"
 	"github.com/momhq/mom/shared/pathutil"
 )
 
@@ -174,16 +174,11 @@ func withRegistryLock(fn func() error) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0644)
+	lock, err := flock.Lock(lockPath)
 	if err != nil {
-		return fmt.Errorf("opening lock file: %w", err)
+		return err
 	}
-	defer f.Close()
-
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		return fmt.Errorf("acquiring lock: %w", err)
-	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN) //nolint:errcheck
+	defer lock.Unlock()
 
 	return fn()
 }
