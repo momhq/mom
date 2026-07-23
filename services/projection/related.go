@@ -62,7 +62,7 @@ func linkRelated(files map[string]string) {
 		dset := offsetSet(d.fm.Sources)
 		var children []string
 		for _, o := range docs {
-			if o.path == d.path || o.fm.Level != d.fm.Level-1 {
+			if o.path == d.path || layerRank(o.fm.Layer) != layerRank(d.fm.Layer)-1 {
 				continue
 			}
 			if intersectsSet(o.fm.Sources, dset) {
@@ -73,7 +73,7 @@ func linkRelated(files map[string]string) {
 		d.fm.Children = children
 
 		// Episodes are leaves: no Related section.
-		if d.fm.Level == 0 {
+		if layerRank(d.fm.Layer) == 0 {
 			files[d.path] = PrependFrontmatter(d.fm, ensureTrailingNewline(d.body))
 			continue
 		}
@@ -112,7 +112,7 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 	var sibs []scored
 	for _, o := range docs {
 		// Same level only; episodes (level 0) and INDEX files never link.
-		if o.path == d.path || o.fm.Level != d.fm.Level || o.fm.Level == 0 || o.fm.Type == typeIndex {
+		if o.path == d.path || layerRank(o.fm.Layer) != layerRank(d.fm.Layer) || layerRank(o.fm.Layer) == 0 || o.fm.Type == typeIndex {
 			continue
 		}
 		sharedOff := 0
@@ -153,7 +153,7 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 	// this one's offsets.
 	var parents []scored
 	for _, o := range docs {
-		if o.fm.Level > d.fm.Level && intersectsSet(d.fm.Sources, offsetSet(o.fm.Sources)) {
+		if layerRank(o.fm.Layer) > layerRank(d.fm.Layer) && intersectsSet(d.fm.Sources, offsetSet(o.fm.Sources)) {
 			parents = append(parents, scored{path: o.path, title: o.title})
 		}
 	}

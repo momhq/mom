@@ -23,7 +23,7 @@ func TestBuildIndexEpisodeFallback(t *testing.T) {
 		ts, _ := time.Parse(time.RFC3339, start)
 		te, _ := time.Parse(time.RFC3339, end)
 		return PrependFrontmatter(Frontmatter{
-			Level: 0, Kind: "episode", Version: 1,
+			Layer: "C", Kind: "episode", Version: 1,
 			TimeRangeStart: ts, TimeRangeEnd: te,
 		}, "# Episode\n")
 	}
@@ -53,8 +53,8 @@ func TestBuildIndexEpisodeFallback(t *testing.T) {
 
 func TestBuildIndexEpisodesHiddenOnceReferenceExists(t *testing.T) {
 	files := map[string]string{
-		"episodes/aaaa.md":   PrependFrontmatter(Frontmatter{Type: typeEpisode, Level: 0, Version: 1}, "# Episode\n"),
-		"reference/voice.md": PrependFrontmatter(Frontmatter{Type: typeReference, Name: "Voice", Level: 1, Version: 1}, "# Voice\n"),
+		"episodes/aaaa.md":   PrependFrontmatter(Frontmatter{Type: typeEpisode, Layer: "C", Version: 1}, "# Episode\n"),
+		"reference/voice.md": PrependFrontmatter(Frontmatter{Type: typeReference, Name: "Voice", Layer: "B", Version: 1}, "# Voice\n"),
 	}
 	idx := buildIndex(files, FoldInput{ProjectID: "demo"})
 	if strings.Contains(idx, "episodes/aaaa.md") {
@@ -71,14 +71,14 @@ func TestBuildIndexEpisodesHiddenOnceReferenceExists(t *testing.T) {
 func TestBuildIndexRoutesICMLayout(t *testing.T) {
 	files := map[string]string{
 		"identity.md": PrependFrontmatter(
-			Frontmatter{Type: typeIdentity, Name: "Demo", Description: "A demo project.", Level: 2, Version: 1},
+			Frontmatter{Type: typeIdentity, Name: "Demo", Description: "A demo project.", Layer: "A", Version: 1},
 			"# Demo\n"),
 		"reference/harness-mcp.md": PrependFrontmatter(
-			Frontmatter{Type: typeReference, Name: "Harness MCP removal", Level: 1, Version: 1},
+			Frontmatter{Type: typeReference, Name: "Harness MCP removal", Layer: "B", Version: 1},
 			"# Harness MCP removal\nDecision: drop MCP.\n"),
 		"reference/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Reference — index\n"),
 		"contracts/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Contracts — index\n"),
-		"contracts/release.md": PrependFrontmatter(Frontmatter{Type: typeContract, Name: "Release flow", Level: 1, Version: 1}, "# Release flow\n"),
+		"contracts/release.md": PrependFrontmatter(Frontmatter{Type: typeContract, Name: "Release flow", Layer: "B", Version: 1}, "# Release flow\n"),
 	}
 
 	idx := buildIndex(files, FoldInput{ProjectID: "demo"})

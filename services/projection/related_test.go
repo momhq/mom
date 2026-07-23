@@ -8,22 +8,22 @@ import (
 )
 
 func TestLinkRelated_ChildrenAndSiblings(t *testing.T) {
-	mk := func(level int, kind string, sources []uint64, tags []string, title string) string {
+	mk := func(layer, kind string, sources []uint64, tags []string, title string) string {
 		return PrependFrontmatter(Frontmatter{
-			Level: level, Kind: kind, Version: 1, Sources: sources, Tags: tags,
+			Layer: layer, Kind: kind, Version: 1, Sources: sources, Tags: tags,
 		}, "# "+title+"\nbody\n")
 	}
 
 	files := map[string]string{
 		// Two episodes feeding the architecture topic.
-		"episodes/e1.md": mk(0, "episode", []uint64{10, 11}, []string{"architecture"}, "Episode 1"),
-		"episodes/e2.md": mk(0, "episode", []uint64{12}, []string{"architecture"}, "Episode 2"),
+		"episodes/e1.md": mk("C", "episode", []uint64{10, 11}, []string{"architecture"}, "Episode 1"),
+		"episodes/e2.md": mk("C", "episode", []uint64{12}, []string{"architecture"}, "Episode 2"),
 		// Topics: architecture + ledger share the "architecture" tag; voice is unrelated.
-		"topics/architecture.md": mk(1, "topic", []uint64{10, 11, 12}, []string{"architecture"}, "Topic: Architecture"),
-		"topics/ledger.md":       mk(1, "topic", []uint64{20, 21}, []string{"architecture", "ledger"}, "Topic: Ledger"),
-		"topics/voice.md":        mk(1, "topic", []uint64{30}, []string{"voice"}, "Topic: Voice"),
+		"topics/architecture.md": mk("B", "topic", []uint64{10, 11, 12}, []string{"architecture"}, "Topic: Architecture"),
+		"topics/ledger.md":       mk("B", "topic", []uint64{20, 21}, []string{"architecture", "ledger"}, "Topic: Ledger"),
+		"topics/voice.md":        mk("B", "topic", []uint64{30}, []string{"voice"}, "Topic: Voice"),
 		// Overview rolls up every topic offset.
-		"summaries/overview.md": mk(2, "summary", []uint64{10, 11, 12, 20, 21, 30}, []string{"architecture"}, "Project overview"),
+		"summaries/overview.md": mk("A", "summary", []uint64{10, 11, 12, 20, 21, 30}, []string{"architecture"}, "Project overview"),
 	}
 
 	linkRelated(files)
@@ -66,12 +66,12 @@ func TestLinkRelated_ChildrenAndSiblings(t *testing.T) {
 func TestBuildPerFolderIndexes(t *testing.T) {
 	files := map[string]string{
 		"reference/voice.md": PrependFrontmatter(
-			Frontmatter{Type: typeReference, Name: "Voice & tone", Description: "How the product speaks.", Level: 1, Version: 1},
+			Frontmatter{Type: typeReference, Name: "Voice & tone", Description: "How the product speaks.", Layer: "B", Version: 1},
 			"# Voice & tone\nbody\n"),
 		"reference/ledger.md": PrependFrontmatter(
-			Frontmatter{Type: typeReference, Name: "Ledger", Level: 1, Version: 1},
+			Frontmatter{Type: typeReference, Name: "Ledger", Layer: "B", Version: 1},
 			"# Ledger\nThe append-only source of truth. More detail here.\n"),
-		"episodes/e1.md": PrependFrontmatter(Frontmatter{Type: typeEpisode, Level: 0, Version: 1}, "# Episode\n"),
+		"episodes/e1.md": PrependFrontmatter(Frontmatter{Type: typeEpisode, Layer: "C", Version: 1}, "# Episode\n"),
 	}
 
 	buildPerFolderIndexes(files)
@@ -103,7 +103,7 @@ func TestBuildPerFolderIndexes(t *testing.T) {
 func TestLinkRelated_ICMTypeSiblings(t *testing.T) {
 	mkICM := func(typ string, sources []uint64, tags []string, title string) string {
 		return PrependFrontmatter(Frontmatter{
-			Type: typ, Level: 1, Version: 1, Sources: sources, Tags: tags,
+			Type: typ, Layer: "B", Version: 1, Sources: sources, Tags: tags,
 		}, "# "+title+"\nbody\n")
 	}
 
@@ -132,8 +132,8 @@ func TestLinkRelated_ICMTypeSiblings(t *testing.T) {
 func TestLinkRelated_Idempotent(t *testing.T) {
 	mk := func(p string) map[string]string {
 		return map[string]string{
-			"topics/a.md": PrependFrontmatter(Frontmatter{Level: 1, Kind: "topic", Version: 1, Sources: []uint64{1}, Tags: []string{"x"}}, "# A\nbody\n"),
-			"topics/b.md": PrependFrontmatter(Frontmatter{Level: 1, Kind: "topic", Version: 1, Sources: []uint64{2}, Tags: []string{"x"}}, "# B\nbody\n"),
+			"topics/a.md": PrependFrontmatter(Frontmatter{Layer: "B", Kind: "topic", Version: 1, Sources: []uint64{1}, Tags: []string{"x"}}, "# A\nbody\n"),
+			"topics/b.md": PrependFrontmatter(Frontmatter{Layer: "B", Kind: "topic", Version: 1, Sources: []uint64{2}, Tags: []string{"x"}}, "# B\nbody\n"),
 		}
 	}
 	files := mk("")
@@ -155,7 +155,7 @@ func TestLinkRelated_Idempotent(t *testing.T) {
 func TestLinkRelated_OffsetOverlapSiblings(t *testing.T) {
 	mk := func(typ string, sources []uint64, tag, title string) string {
 		return PrependFrontmatter(Frontmatter{
-			Type: typ, Name: title, Level: 1, Version: 1, Sources: sources, Tags: []string{tag},
+			Type: typ, Name: title, Layer: "B", Version: 1, Sources: sources, Tags: []string{tag},
 		}, "# "+title+"\nbody\n")
 	}
 	files := map[string]string{

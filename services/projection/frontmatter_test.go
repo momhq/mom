@@ -10,7 +10,7 @@ func TestFrontmatterRoundTrip(t *testing.T) {
 	now := time.Date(2026, 5, 14, 12, 0, 0, 0, time.UTC)
 	fm := Frontmatter{
 		ID:             "abc123def456",
-		Level:          1,
+		Layer:          "B",
 		Kind:           "topic",
 		Sources:        []uint64{10, 20, 30},
 		Tags:           []string{"jwt", "auth"},
@@ -28,8 +28,8 @@ func TestFrontmatterRoundTrip(t *testing.T) {
 	if got.ID != fm.ID {
 		t.Errorf("ID: got %q, want %q", got.ID, fm.ID)
 	}
-	if got.Level != fm.Level {
-		t.Errorf("Level: got %d, want %d", got.Level, fm.Level)
+	if got.Layer != fm.Layer {
+		t.Errorf("Layer: got %q, want %q", got.Layer, fm.Layer)
 	}
 	if got.Kind != fm.Kind {
 		t.Errorf("Kind: got %q, want %q", got.Kind, fm.Kind)
@@ -58,7 +58,7 @@ func TestFrontmatterRoundTrip(t *testing.T) {
 }
 
 func TestFrontmatterZeroTimesOmitted(t *testing.T) {
-	fm := Frontmatter{Level: 0, Kind: "episode", Version: 1}
+	fm := Frontmatter{Layer: "C", Kind: "episode", Version: 1}
 	rendered := RenderFrontmatter(fm)
 	if strings.Contains(rendered, "time_range_start") {
 		t.Error("zero TimeRangeStart should be omitted")
@@ -71,7 +71,7 @@ func TestFrontmatterZeroTimesOmitted(t *testing.T) {
 func TestFrontmatterMissingBlock(t *testing.T) {
 	content := "# Just a heading\n\nNo frontmatter.\n"
 	fm, body := ParseFrontmatter(content)
-	if fm.Level != 0 || fm.Kind != "" || fm.ID != "" {
+	if fm.Layer != "" || fm.Kind != "" || fm.ID != "" {
 		t.Errorf("expected zero-value fm, got %+v", fm)
 	}
 	if body != content {
@@ -110,7 +110,7 @@ func TestSourcesRangeCompression(t *testing.T) {
 	fm := Frontmatter{
 		Type:    "reference",
 		Name:    "demo",
-		Level:   1,
+		Layer:   "B",
 		Version: 1,
 		Sources: []uint64{1, 2, 3, 4, 7, 9, 10, 11, 20},
 	}

@@ -30,13 +30,13 @@ func (s *failingSynth) Fold(_ context.Context, in FoldInput) (FoldResult, error)
 		}
 		cid := chunkID(in.ProjectID, offs)
 		files["episodes/"+cid+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n")
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n")
 	case has(in.Existing, "_l1_hint"):
 		files[referenceDir+"/arch.md"] = PrependFrontmatter(
-			Frontmatter{Type: typeReference, Name: "arch", Level: 1, Version: 1}, "# arch\n")
+			Frontmatter{Type: typeReference, Name: "arch", Layer: "B", Version: 1}, "# arch\n")
 	case has(in.Existing, "_l2_hint"):
 		files[identityFile] = PrependFrontmatter(
-			Frontmatter{Type: typeIdentity, Name: "Demo", Level: 2, Version: 1}, "# Demo\n")
+			Frontmatter{Type: typeIdentity, Name: "Demo", Layer: "A", Version: 1}, "# Demo\n")
 	}
 	return FoldResult{Files: files}, nil
 }
@@ -145,7 +145,7 @@ func (s *sizeLimitedSynth) Fold(_ context.Context, in FoldInput) (FoldResult, er
 	cid := chunkID(in.ProjectID, offs)
 	return FoldResult{Files: map[string]string{
 		"episodes/" + cid + ".md": PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
 	}}, nil
 }
 
@@ -197,7 +197,7 @@ func (s *refStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 		s.l1++
 		return FoldResult{Files: map[string]string{
 			referenceDir + "/arch.md": PrependFrontmatter(
-				Frontmatter{Type: typeReference, Name: "arch", Level: 1, Version: 1}, "# arch\n"),
+				Frontmatter{Type: typeReference, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
 		}}, nil
 	}
 	return s.icmStub.Fold(ctx, in)
@@ -212,7 +212,7 @@ func (s *contractStub) Fold(ctx context.Context, in FoldInput) (FoldResult, erro
 		s.l1++
 		return FoldResult{Files: map[string]string{
 			contractsDir + "/arch.md": PrependFrontmatter(
-				Frontmatter{Type: typeContract, Name: "arch", Level: 1, Version: 1}, "# arch\n"),
+				Frontmatter{Type: typeContract, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
 		}}, nil
 	}
 	return s.icmStub.Fold(ctx, in)
@@ -279,7 +279,7 @@ func (s *systemicSynth) Fold(_ context.Context, in FoldInput) (FoldResult, error
 	cid := chunkID(in.ProjectID, offs)
 	return FoldResult{Files: map[string]string{
 		"episodes/" + cid + ".md": PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
 	}}, nil
 }
 
@@ -336,7 +336,7 @@ func (s *multiSubjectL0Stub) Fold(_ context.Context, in FoldInput) (FoldResult, 
 		cid := chunkID(in.ProjectID, offs)
 		// Tag every episode with ALL subject tags so each subject has enough episodes.
 		files[episodesDir+"/"+cid+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: s.subjectTags},
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: s.subjectTags},
 			"# Episode\n")
 	case has(in.Existing, "_l1_hint"):
 		s.l1++
@@ -346,18 +346,18 @@ func (s *multiSubjectL0Stub) Fold(_ context.Context, in FoldInput) (FoldResult, 
 			if (strings.HasPrefix(k, referenceDir+"/") || strings.HasPrefix(k, contractsDir+"/")) &&
 				!strings.HasSuffix(k, "/"+indexFileName) {
 				files[k] = PrependFrontmatter(
-					Frontmatter{Type: typeReference, Level: 1, Version: 1}, "# concept\n")
+					Frontmatter{Type: typeReference, Layer: "B", Version: 1}, "# concept\n")
 				return FoldResult{Files: files}, nil
 			}
 		}
 		// New subject: derive slug from the hint text.
 		slug := subjectSlugFromHint(in.Existing["_l1_hint"])
 		files[referenceDir+"/"+slug+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeReference, Level: 1, Version: 1}, "# concept\n")
+			Frontmatter{Type: typeReference, Layer: "B", Version: 1}, "# concept\n")
 	case has(in.Existing, "_l2_hint"):
 		s.l2++
 		files[identityFile] = PrependFrontmatter(
-			Frontmatter{Type: typeIdentity, Level: 2, Version: 1}, "# identity\n")
+			Frontmatter{Type: typeIdentity, Layer: "A", Version: 1}, "# identity\n")
 	}
 	return FoldResult{Files: files}, nil
 }
@@ -624,7 +624,7 @@ func TestFoldStampsFactTimeRanges(t *testing.T) {
 // model's context.
 func TestPromptsStripMachineFrontmatter(t *testing.T) {
 	heavy := PrependFrontmatter(Frontmatter{
-		Type: typeReference, Name: "x", Level: 1, Version: 1,
+		Type: typeReference, Name: "x", Layer: "B", Version: 1,
 		ID:      "abcd1234abcd1234",
 		Sources: []uint64{1, 5, 9, 13, 200, 401},
 		Children: []string{"episodes/e.md"},
