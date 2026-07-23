@@ -1,0 +1,14 @@
+{
+  "name": "capture.document_chapter.observed",
+  "description": "One chapter of a book/document ingested via `mom ingest`. Published by ingress/cli/ingest.go via the shared Editor + Ledger pipeline, mirroring capture.turn.observed but for document sources.",
+  "fields": {
+    "project_id":     {"type": "string", "required": true},
+    "doc_id":         {"type": "string", "required": false},
+    "doc_title":      {"type": "string", "required": false},
+    "doc_author":     {"type": "string", "required": false},
+    "chapter_index":  {"type": "number", "required": false},
+    "chapter_title":  {"type": "string", "required": false},
+    "text":           {"type": "string", "required": true},
+    "source_class":   {"type": "string", "required": false, "values": ["document"]}
+  }
+}
