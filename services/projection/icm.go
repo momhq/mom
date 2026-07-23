@@ -38,8 +38,8 @@ const (
 // adding "<dir>/INDEX.md" entries. Episodes are provenance — no index.
 func buildPerFolderIndexes(files map[string]string) {
 	for _, dir := range []string{referenceDir, conventionsDir} {
-		type row struct{ path, name, desc, through string }
-		var rows []row
+		type row struct{ path, name, desc, through, author string }
+		var rows, docRows []row
 		for p, c := range files {
 			if !strings.HasPrefix(p, dir+"/") || strings.HasSuffix(p, "/"+indexFileName) {
 				continue
@@ -59,20 +59,25 @@ func buildPerFolderIndexes(files map[string]string) {
 			if !fm.TimeRangeEnd.IsZero() {
 				through = fm.TimeRangeEnd.UTC().Format("2006-01-02")
 			}
-			rows = append(rows, row{p, name, desc, through})
+			r := row{p, name, desc, through, sourceAuthor(body)}
+			if fm.Subtype == "document" {
+				docRows = append(docRows, r)
+			} else {
+				rows = append(rows, r)
+			}
 		}
-		if len(rows) == 0 {
+		if len(rows) == 0 && len(docRows) == 0 {
 			continue
 		}
 		sort.Slice(rows, func(i, j int) bool { return rows[i].path < rows[j].path })
+		sort.Slice(docRows, func(i, j int) bool { return docRows[i].path < docRows[j].path })
 
 		var b strings.Builder
 		b.WriteString(RenderFrontmatter(Frontmatter{Type: typeIndex, Version: 1}))
 		fmt.Fprintf(&b, "# %s — index\n\n", strings.Title(dir)) //nolint:staticcheck
 		b.WriteString("_\"Through\" is the date of the last captured fact in the concept — its freshness, not its fold time._\n\n")
-		b.WriteString("| Concept | What it covers | Through |\n|---|---|---|\n")
-		for _, r := range rows {
-			// Link is relative to this folder, so just the base filename.
+
+		writeRow := func(b *strings.Builder, r row) {
 			base := strings.TrimPrefix(r.path, dir+"/")
 			name := r.name
 			if name == "" {
@@ -83,6 +88,28 @@ func buildPerFolderIndexes(files map[string]string) {
 				b.WriteString(" — " + r.desc)
 			}
 			b.WriteString(" | " + r.through + " |\n")
+		}
+
+		if len(rows) > 0 {
+			b.WriteString("| Concept | What it covers | Through |\n|---|---|---|\n")
+			for _, r := range rows {
+				writeRow(&b, r)
+			}
+		}
+		if len(docRows) > 0 {
+			if len(rows) > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString("## 📖 Documents\n\n")
+			b.WriteString("| Book | Author | Through |\n|---|---|---|\n")
+			for _, r := range docRows {
+				base := strings.TrimPrefix(r.path, dir+"/")
+				name := r.name
+				if name == "" {
+					name = base
+				}
+				b.WriteString("| [`" + base + "`](" + base + ") | " + name + " | " + r.author + " | " + r.through + " |\n")
+			}
 		}
 		files[dir+"/"+indexFileName] = b.String()
 	}
@@ -105,6 +132,22 @@ func firstHeadingTitle(content string) string {
 			t = strings.TrimSpace(strings.TrimPrefix(t, p))
 		}
 		return t
+	}
+	return ""
+}
+
+// sourceAuthor extracts the author from a document concept's trailing
+// "Source: <title> by <author>" line (see buildDocumentConceptHint), empty
+// when absent (the model omits "by <author>" when the text never states one).
+func sourceAuthor(body string) string {
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "Source:") {
+			continue
+		}
+		if i := strings.LastIndex(line, " by "); i >= 0 {
+			return strings.TrimSpace(line[i+len(" by "):])
+		}
 	}
 	return ""
 }

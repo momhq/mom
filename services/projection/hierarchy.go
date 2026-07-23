@@ -334,8 +334,8 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 // the next fold re-reads the window. A systemic harness failure cancels the
 // pool; an isolated window failure lets the other windows finish.
 func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize, parallel int, acc, chunkMap map[string]string, progress, warn func(string), checkpoint func(map[string]string, map[string]string, uint64)) (foldedThrough uint64, systemic, stopped bool) {
-	events := in.Events
-	total := (len(events) + chunkSize - 1) / chunkSize
+	chunks := classChunks(in.Events, chunkSize)
+	total := len(chunks)
 
 	type result struct {
 		endOff uint64
@@ -367,14 +367,7 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 		}
 	}
 
-	for i := 0; i < len(events); i += chunkSize {
-		idx := i / chunkSize
-		end := i + chunkSize
-		if end > len(events) {
-			end = len(events)
-		}
-		chunk := events[i:end]
-
+	for idx, chunk := range chunks {
 		offsets := make([]uint64, len(chunk))
 		for j, e := range chunk {
 			offsets[j] = e.Offset
@@ -451,6 +444,26 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 	return frontier, systemic, stopped
 }
 
+// classChunks splits events into offset-ordered windows of at most chunkSize,
+// the same as plain striding, EXCEPT it never lets a window cross a
+// SourceClass boundary — a transcript event and a document event are never
+// synthesized in the same L0 call. Event order is preserved; only chunk
+// boundaries move, so the consecutive-offset watermark guarantee is
+// unaffected.
+func classChunks(events []FoldEvent, chunkSize int) [][]FoldEvent {
+	var chunks [][]FoldEvent
+	for i := 0; i < len(events); {
+		class := events[i].SourceClass
+		end := i + 1
+		for end < len(events) && end-i < chunkSize && events[end].SourceClass == class {
+			end++
+		}
+		chunks = append(chunks, events[i:end])
+		i = end
+	}
+	return chunks
+}
+
 // foldL0Chunk synthesizes one episode for a window of events, bisecting on
 // size-related failure (timeout, truncated/malformed output) so one bad
 // window cannot stall the whole fold. A systemic harness failure (usage
@@ -473,7 +486,13 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 		ToOffset:    chunk[len(chunk)-1].Offset,
 		Events:      chunk,
 	}
-	res, err := hs.inner.Fold(ctx, buildL0Input(chunkIn, cid, knownTags))
+	var l0In FoldInput
+	if len(chunk) > 0 && chunk[0].SourceClass == "document" {
+		l0In = buildDocumentCaptureInput(chunkIn, cid)
+	} else {
+		l0In = buildL0Input(chunkIn, cid, knownTags)
+	}
+	res, err := hs.inner.Fold(ctx, l0In)
 	if err == nil {
 		start, end := eventTimeRange(chunk)
 		for p, c := range res.Files {
@@ -584,6 +603,29 @@ func buildL0Input(in FoldInput, cid string, knownTags []string) FoldInput {
 	return out
 }
 
+// buildDocumentCaptureInput returns a FoldInput tailored for a document
+// (book chapter) capture chunk — the sibling of buildL0Input for
+// SourceClass=="document" chunks. It writes the same episodes/<cid>.md shape
+// but tags episodes with a doc: slug and asks for durable KNOWLEDGE
+// (frameworks, models, principles, techniques, anti-patterns, tells) instead
+// of decisions/preferences.
+func buildDocumentCaptureInput(in FoldInput, cid string) FoldInput {
+	out := in
+	var docTitle string
+	if len(in.Events) > 0 {
+		docTitle = in.Events[0].DocTitle
+	}
+	slug := tagSlug(docTitle)
+	hint := fmt.Sprintf(
+		"WORK ITEM (L0 document capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
+			"Frontmatter: type:episode, subtype:document, layer:C access_tier:raw, name (<=8 words), description (<=1 sentence), tags:[doc:%s, plus 2-4 kebab-case tags chosen from: frameworks, mental-models, principles, techniques, anti-patterns, tells]. OMIT sources and time_range fields — MOM fills provenance and dates.\n"+
+			"Body: extract the durable, reusable KNOWLEDGE from the chapter text below as a FLAT bullet list — named frameworks, mental models, principles, techniques, anti-patterns, tells. Quote at least one distinctive author term verbatim (in quotes). "+
+			"HARD LIMITS: AT MOST 12 bullets, no headings, no code blocks, no sub-bullets, no narrative; keep the whole file under 220 words.",
+		cid, slug)
+	out.Existing = map[string]string{"_l0_hint": hint}
+	return out
+}
+
 // stampProvenance rewrites a synthesized file's machine-owned frontmatter:
 // sources (deduped/sorted), children, the content-addressed id, and the FACT
 // time range. The model is told to OMIT all of these — provenance is MOM's to
@@ -688,6 +730,19 @@ type subject struct {
 	slug         string
 	name         string
 	episodePaths []string
+	// isDocument marks a subject collected from `doc:` tagged episodes — one
+	// book/document, pinned to reference/ regardless of episode count.
+	isDocument bool
+}
+
+// docTagSlug reports whether t is a `doc:<slug>` episode tag (case-insensitive)
+// and, if so, returns the book slug.
+func docTagSlug(t string) (string, bool) {
+	tl := strings.ToLower(strings.TrimSpace(t))
+	if !strings.HasPrefix(tl, "doc:") {
+		return "", false
+	}
+	return tagSlug(strings.TrimPrefix(tl, "doc:")), true
 }
 
 // collectSubjects groups capture episodes by the tags their frontmatter carries. Each
@@ -695,12 +750,25 @@ type subject struct {
 // concept. The project-name tag and one-off tags are dropped as noise; the
 // result is capped at maxSubjects by frequency, then ordered by slug for a
 // deterministic fold.
+//
+// `doc:<slug>` tags are handled separately: they group into a document
+// subject keyed by the book slug that BYPASSES the min-episodes filter (a
+// single-chapter book still yields a concept) and never participates in
+// ordinary tag aggregation.
 func collectSubjects(l0Files map[string]string, projectID string) []subject {
 	tagEps := map[string][]string{}
+	docEps := map[string][]string{}
 	for p, c := range l0Files {
 		fm, _ := ParseFrontmatter(c)
 		seen := map[string]bool{}
 		for _, t := range fm.Tags {
+			if bookSlug, ok := docTagSlug(t); ok {
+				if !seen["doc:"+bookSlug] {
+					seen["doc:"+bookSlug] = true
+					docEps[bookSlug] = append(docEps[bookSlug], p)
+				}
+				continue
+			}
 			slug := tagSlug(t)
 			if slug == "" || seen[slug] {
 				continue
@@ -711,7 +779,7 @@ func collectSubjects(l0Files map[string]string, projectID string) []subject {
 	}
 
 	projSlug := tagSlug(projectID)
-	subs := make([]subject, 0, len(tagEps))
+	subs := make([]subject, 0, len(tagEps)+len(docEps))
 	for slug, eps := range tagEps {
 		if slug == projSlug || len(eps) < l1SubjectMinEpisodes {
 			continue
@@ -724,8 +792,17 @@ func collectSubjects(l0Files map[string]string, projectID string) []subject {
 		}
 		subs = append(subs, subject{slug: slug, name: strings.ReplaceAll(slug, "-", " "), episodePaths: eps})
 	}
+	for slug, eps := range docEps {
+		sort.Strings(eps)
+		if len(eps) > maxEpisodesPerSubject {
+			eps = eps[len(eps)-maxEpisodesPerSubject:]
+		}
+		subs = append(subs, subject{slug: slug, name: strings.ReplaceAll(slug, "-", " "), episodePaths: eps, isDocument: true})
+	}
 
-	// Keep the top maxSubjects by episode count, then order by slug.
+	// Keep the top maxSubjects by episode count, then order by slug. Document
+	// subjects are exempt — a book is always worth a concept regardless of
+	// how it ranks against tag-frequency subjects.
 	sort.Slice(subs, func(i, j int) bool {
 		if len(subs[i].episodePaths) != len(subs[j].episodePaths) {
 			return len(subs[i].episodePaths) > len(subs[j].episodePaths)
@@ -733,10 +810,59 @@ func collectSubjects(l0Files map[string]string, projectID string) []subject {
 		return subs[i].slug < subs[j].slug
 	})
 	if len(subs) > maxSubjects {
-		subs = subs[:maxSubjects]
+		kept := subs[:maxSubjects]
+		hasSlug := make(map[string]bool, len(kept))
+		for _, s := range kept {
+			hasSlug[s.slug] = true
+		}
+		for _, s := range subs[maxSubjects:] {
+			if s.isDocument && !hasSlug[s.slug] {
+				kept = append(kept, s)
+			}
+		}
+		subs = kept
 	}
 	sort.Slice(subs, func(i, j int) bool { return subs[i].slug < subs[j].slug })
 	return subs
+}
+
+// buildDocumentConceptHint builds the _l1_hint for a document (book) subject:
+// forced to reference/<slug>.md with subtype:document, forbidden from the
+// conventions/ branch, and asked for a book-concept body instead of the
+// decisions/gotchas shape ordinary subjects get. It propagates the broader
+// taxonomy tags seen across the book's episodes so related.go can pair this
+// concept with the ordinary subject concepts sharing those tags.
+func buildDocumentConceptHint(subj subject, episodes map[string]string, existingPath string) string {
+	tagSeen := map[string]bool{}
+	var broaderTags []string
+	for _, c := range episodes {
+		fm, _ := ParseFrontmatter(c)
+		for _, t := range fm.Tags {
+			if _, isDoc := docTagSlug(t); isDoc {
+				continue
+			}
+			slug := tagSlug(t)
+			if slug == "" || tagSeen[slug] {
+				continue
+			}
+			tagSeen[slug] = true
+			broaderTags = append(broaderTags, slug)
+		}
+	}
+	sort.Strings(broaderTags)
+
+	var target string
+	if existingPath != "" {
+		target = fmt.Sprintf("A concept file for this book already exists at %s — UPDATE it IN PLACE at that EXACT path.", existingPath)
+	} else {
+		target = fmt.Sprintf("Write reference/%s.md — book/document concepts ALWAYS live in reference/, never conventions/.", subj.slug)
+	}
+
+	return fmt.Sprintf(
+		"WORK ITEM (L1 document concept synthesis): Write EXACTLY ONE concept file for the book/document \"%s\", from its episode files below (each episode is one chapter's extracted knowledge).\n%s\n"+
+			"Frontmatter: type:reference, subtype:document, name:<book title>, description:<one line>, layer:B access_tier:distilled, tags:[doc:%s, %s]. OMIT sources — MOM fills provenance.\n"+
+			"Body: sections for whichever of these the episodes actually cover — \"## Frameworks\", \"## Mental models\", \"## Principles\", \"## Techniques\", \"## Anti-patterns\", \"## Tells\" — each a short bullet list; omit empty sections. End with one line \"Source: <title> by <author>\" (author only if stated in the episode text, otherwise omit \" by <author>\"). NO H1 title (MOM stamps it), no code blocks, no sub-bullets. Under 400 words total. Do NOT write any other file.",
+		subj.name, target, subj.slug, strings.Join(broaderTags, ", "))
 }
 
 // buildL1SubjectInput returns a FoldInput that asks for a SINGLE concept file
@@ -752,26 +878,29 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 	}
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
 
-	var target string
-	if existingPath != "" {
-		target = fmt.Sprintf(
-			"A concept file for this subject already exists at %s — UPDATE it IN PLACE at that EXACT path, keeping its type. Do NOT create a file at any other path.",
-			existingPath)
-	} else {
-		target = fmt.Sprintf(
-			"Classify the subject, then pick the path:\n"+
-				"- conventions/%s.md with type:convention — if the subject is a recurring PROCESS or set of workflow rules (how a kind of work is done: releases, reviews, testing, branching).\n"+
-			"- reference/%s.md with type:reference — otherwise (durable decisions, conventions, architecture, facts).",
-			subj.slug, subj.slug)
-	}
-
 	hint := map[string]string{}
-	hint["_l1_hint"] = fmt.Sprintf(
-		"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file about the subject \"%s\".\n%s\n"+
-			"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
-			"Frontmatter: type (as above), name:\"%s\", description:<one line>, layer:B access_tier:distilled, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
-			"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (conventions only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
-		subj.name, target, subj.name, subj.name, subj.slug)
+	if subj.isDocument {
+		hint["_l1_hint"] = buildDocumentConceptHint(subj, episodes, existingPath)
+	} else {
+		var target string
+		if existingPath != "" {
+			target = fmt.Sprintf(
+				"A concept file for this subject already exists at %s — UPDATE it IN PLACE at that EXACT path, keeping its type. Do NOT create a file at any other path.",
+				existingPath)
+		} else {
+			target = fmt.Sprintf(
+				"Classify the subject, then pick the path:\n"+
+					"- conventions/%s.md with type:convention — if the subject is a recurring PROCESS or set of workflow rules (how a kind of work is done: releases, reviews, testing, branching).\n"+
+					"- reference/%s.md with type:reference — otherwise (durable decisions, conventions, architecture, facts).",
+				subj.slug, subj.slug)
+		}
+		hint["_l1_hint"] = fmt.Sprintf(
+			"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file about the subject \"%s\".\n%s\n"+
+				"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
+				"Frontmatter: type (as above), name:\"%s\", description:<one line>, layer:B access_tier:distilled, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
+				"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (conventions only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
+			subj.name, target, subj.name, subj.name, subj.slug)
+	}
 	if existingPath != "" && existingContent != "" {
 		hint[existingPath] = stripMachineFrontmatter(existingContent)
 	}

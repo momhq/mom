@@ -163,6 +163,15 @@ type FoldEvent struct {
 	Text      string    `json:"text,omitempty"`
 	Tags      []string  `json:"tags,omitempty"`
 	Summary   string    `json:"summary,omitempty"`
+	// SourceClass distinguishes a document-derived event ("document") from a
+	// transcript turn (""). The L0 capture pass hard-splits chunks at a
+	// SourceClass boundary and never mixes the two in one prompt.
+	SourceClass  string `json:"source_class,omitempty"`
+	DocID        string `json:"doc_id,omitempty"`
+	DocTitle     string `json:"doc_title,omitempty"`
+	DocAuthor    string `json:"doc_author,omitempty"`
+	ChapterIndex int    `json:"chapter_index,omitempty"`
+	ChapterTitle string `json:"chapter_title,omitempty"`
 }
 
 // FoldInput is the full context handed to a Synthesizer: the project

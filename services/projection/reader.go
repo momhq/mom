@@ -114,6 +114,23 @@ func (r *Reader) convert(rec ledger.Record) (FoldEvent, bool) {
 			Role:      role,
 			Text:      text,
 		}, true
+	case envelope.DocumentChapterObserved:
+		return FoldEvent{
+			Offset:       rec.Offset,
+			Type:         string(ev.Type),
+			SessionID:    ev.SessionID,
+			CreatedAt:    created,
+			Role:         payloadString(ev.Payload, "doc_title"),
+			Text:         payloadString(ev.Payload, "text"),
+			Summary:      payloadString(ev.Payload, "chapter_title"),
+			SourceClass:  "document",
+			DocID:        payloadString(ev.Payload, "doc_id"),
+			DocTitle:     payloadString(ev.Payload, "doc_title"),
+			DocAuthor:    payloadString(ev.Payload, "doc_author"),
+			ChapterIndex: payloadInt(ev.Payload, "chapter_index"),
+			ChapterTitle: payloadString(ev.Payload, "chapter_title"),
+		}, true
+
 	case envelope.MemoryRecord:
 		content := payloadString(ev.Payload, "content")
 		summary := payloadString(ev.Payload, "summary")
@@ -226,6 +243,24 @@ func payloadString(p map[string]any, key string) string {
 		}
 	}
 	return ""
+}
+
+// payloadInt reads an integer payload field, tolerating the numeric types a
+// JSON-decoded map[string]any actually carries (float64 from json.Unmarshal,
+// int/int64 from in-process construction).
+func payloadInt(p map[string]any, key string) int {
+	if p == nil {
+		return 0
+	}
+	switch v := p[key].(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	}
+	return 0
 }
 
 func payloadStrings(p map[string]any, key string) []string {
