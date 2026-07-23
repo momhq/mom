@@ -14,22 +14,22 @@ import (
 //	INDEX.md       — L2 Routing: root OKF index (identity blurb + folder routing)
 //	identity.md    — L1 Identity: what the project is (one concept)
 //	reference/     — L4 Reference: canonical, deduped decisions/subjects
-//	contracts/     — L3 Stage Contract: process, conventions, workflow rules
+//	conventions/   — L3 Stage Contract: process, conventions, workflow rules
 //	episodes/      — raw L0 capture: provenance, hidden from routing
 //
 // There is deliberately no history/dev-log layer: ICM has none, and chronology
 // is provenance (episodes + the Ledger), not a synthesized concept.
 const (
-	identityFile = "identity.md"
-	referenceDir = "reference"
-	contractsDir = "contracts"
-	episodesDir  = "episodes"
+	identityFile   = "identity.md"
+	referenceDir   = "reference"
+	conventionsDir = "conventions"
+	episodesDir    = "episodes"
 
-	typeIdentity  = "identity"
-	typeReference = "reference"
-	typeContract  = "contract"
-	typeEpisode   = "episode"
-	typeIndex     = "index"
+	typeIdentity   = "identity"
+	typeReference  = "reference"
+	typeConvention = "convention"
+	typeEpisode    = "episode"
+	typeIndex      = "index"
 )
 
 // icmFolder describes one routable ICM folder for the root router.
@@ -42,15 +42,15 @@ type icmFolder struct {
 // icmFolders is the routing order shown in the root INDEX.
 var icmFolders = []icmFolder{
 	{referenceDir, "Reference", "you need a decision, convention, or durable fact about a subject"},
-	{contractsDir, "Stage Contract", "you need the process/rules for a kind of work (workflow, release, review)"},
+	{conventionsDir, "Conventions", "you need the process, workflow rule, or convention for a kind of work"},
 }
 
 // buildPerFolderIndexes generates an OKF INDEX.md inside each routable folder
-// (reference/, contracts/), listing every concept with its name and description
+// (reference/, conventions/), listing every concept with its name and description
 // so the agent can pick a file without opening any. It mutates files in place,
 // adding "<dir>/INDEX.md" entries. Episodes are provenance — no index.
 func buildPerFolderIndexes(files map[string]string) {
-	for _, dir := range []string{referenceDir, contractsDir} {
+	for _, dir := range []string{referenceDir, conventionsDir} {
 		type row struct{ path, name, desc, through string }
 		var rows []row
 		for p, c := range files {

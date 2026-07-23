@@ -203,41 +203,41 @@ func (s *refStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 	return s.icmStub.Fold(ctx, in)
 }
 
-// contractStub classifies its single subject as a contract, exercising the
-// contracts/ path end-to-end.
-type contractStub struct{ icmStub }
+// conventionStub classifies its single subject as a convention, exercising the
+// conventions/ path end-to-end.
+type conventionStub struct{ icmStub }
 
-func (s *contractStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
+func (s *conventionStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 	if has(in.Existing, "_l1_hint") {
 		s.l1++
 		return FoldResult{Files: map[string]string{
-			contractsDir + "/arch.md": PrependFrontmatter(
-				Frontmatter{Type: typeContract, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
+			conventionsDir + "/arch.md": PrependFrontmatter(
+				Frontmatter{Type: typeConvention, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
 		}}, nil
 	}
 	return s.icmStub.Fold(ctx, in)
 }
 
-// TestFoldHierarchicalContractClassification verifies a subject the model
-// classifies as a contract lands in contracts/, is indexed, and is skipped as
+// TestFoldHierarchicalConventionClassification verifies a subject the model
+// classifies as a convention lands in conventions/, is indexed, and is skipped as
 // unchanged on the next fold (the skip check covers both folders).
-func TestFoldHierarchicalContractClassification(t *testing.T) {
+func TestFoldHierarchicalConventionClassification(t *testing.T) {
 	var events []FoldEvent
 	for i := 1; i <= 10; i++ {
 		events = append(events, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "m", nil))
 	}
-	stub := &contractStub{}
+	stub := &conventionStub{}
 	hs := &HierarchySynth{inner: stub, l1Threshold: 5, l2Threshold: 1000}
 
 	res1, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events, ToOffset: 10}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := res1.Files[contractsDir+"/arch.md"]; !ok {
-		t.Fatalf("contract concept not written; files: %v", fileKeys(res1.Files))
+	if _, ok := res1.Files[conventionsDir+"/arch.md"]; !ok {
+		t.Fatalf("convention concept not written; files: %v", fileKeys(res1.Files))
 	}
-	if _, ok := res1.Files[contractsDir+"/"+indexFileName]; !ok {
-		t.Errorf("contracts folder missing its OKF index")
+	if _, ok := res1.Files[conventionsDir+"/"+indexFileName]; !ok {
+		t.Errorf("conventions folder missing its OKF index")
 	}
 
 	l1Before := stub.l1
@@ -251,7 +251,7 @@ func TestFoldHierarchicalContractClassification(t *testing.T) {
 		t.Fatal(err)
 	}
 	if stub.l1 != l1Before {
-		t.Errorf("unchanged contract subject was re-synthesized: %d → %d calls", l1Before, stub.l1)
+		t.Errorf("unchanged convention subject was re-synthesized: %d → %d calls", l1Before, stub.l1)
 	}
 }
 
@@ -343,7 +343,7 @@ func (s *multiSubjectL0Stub) Fold(_ context.Context, in FoldInput) (FoldResult, 
 		// If an existing concept path is present in Existing (update-in-place),
 		// use it. Otherwise extract the slug from the _l1_hint text.
 		for k := range in.Existing {
-			if (strings.HasPrefix(k, referenceDir+"/") || strings.HasPrefix(k, contractsDir+"/")) &&
+			if (strings.HasPrefix(k, referenceDir+"/") || strings.HasPrefix(k, conventionsDir+"/")) &&
 				!strings.HasSuffix(k, "/"+indexFileName) {
 				files[k] = PrependFrontmatter(
 					Frontmatter{Type: typeReference, Layer: "B", Version: 1}, "# concept\n")

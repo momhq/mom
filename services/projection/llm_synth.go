@@ -139,7 +139,7 @@ func (s *LLMSynth) fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 // vault concept path. Models occasionally emit junk (scripts, echoed `_l0_hint`
 // keys, nested paths); this is the single allowlist chokepoint where their
 // output enters the result set. Allowed: INDEX.md, identity.md at the root, and
-// <name>.md directly under reference/, contracts/, or episodes/ — nothing
+// <name>.md directly under reference/, conventions/, or episodes/ — nothing
 // nested deeper, nothing without a .md suffix, no traversal, no `_`-prefixed
 // hint names.
 func allowedVaultPath(p string) bool {
@@ -153,7 +153,7 @@ func allowedVaultPath(p string) bool {
 		return parts[0] == indexFileName || parts[0] == identityFile
 	case 2:
 		dir, name := parts[0], parts[1]
-		if dir != referenceDir && dir != contractsDir && dir != episodesDir {
+		if dir != referenceDir && dir != conventionsDir && dir != episodesDir {
 			return false // covers traversal too: ".." is not an allowed dir
 		}
 		if name == ".md" || strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".") {
@@ -398,7 +398,7 @@ func buildPrompt(in FoldInput) (string, bool) {
 	b.WriteString("2. Produce RESIDUE ONLY: decisions, preferences, corrections, recurring procedures, identity. Drop chatter and transient status.\n")
 	b.WriteString("3. Follow the WORK ITEM hint in the existing files (a `_l0_hint`/`_l1_hint`/`_l2_hint` entry): it tells you which layer and paths to write this pass.\n")
 	b.WriteString("4. MINIMALISM (OKF): one concept = ONE subject per file. NEVER create two files about the same subject. If a `reference/<subject>.md` already exists for a subject, UPDATE it in place — do not make `<subject>-v2`, `<subject>-view`, etc.\n")
-	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|contract|episode), name (short title), description (one line), level, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance.\n")
+	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|convention|episode), name (short title), description (one line), level, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance.\n")
 	b.WriteString("6. SCOPE: only write concepts for subjects DIRECTLY worked on in THIS project. Ignore other projects mentioned in passing.\n\n")
 	b.WriteString("OUTPUT FORMAT — emit each file as a delimited block and NOTHING else (no JSON, no prose, no code fences). Write the file content as plain markdown between the delimiters — do NOT escape quotes or newlines:\n")
 	b.WriteString(fileBlockOpen + "<vault-relative path>" + "@@@\n<full markdown file content, starting with the --- frontmatter>\n" + fileBlockClose + "\n\n")

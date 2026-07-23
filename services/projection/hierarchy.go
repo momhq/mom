@@ -27,7 +27,7 @@ const (
 )
 
 // HierarchySynth wraps an LLMSynth to produce the ICM vault:
-// L0 episodes (one per chunk) → L1 reference/contract concepts (one per
+// L0 episodes (one per chunk) → L1 reference/convention concepts (one per
 // subject, grouped by L0 tags) → L2 identity.md (from the concept layer).
 type HierarchySynth struct {
 	inner       Synthesizer
@@ -130,7 +130,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		}
 	}
 
-	// ── L1 pass: one reference/contract concept per SUBJECT ─────────────────
+	// ── L1 pass: one reference/convention concept per SUBJECT ─────────────────
 	// Subject-oriented, not batch-oriented. The L0 episodes already carry the
 	// subjects in their `tags`; we group episodes by tag and synthesize exactly
 	// ONE concept file per subject from only that subject's episodes. This
@@ -162,11 +162,11 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				subOffsets = append(subOffsets, fm.Sources...)
 			}
 
-			// The concept may live in reference/ or contracts/ — the model
+			// The concept may live in reference/ or conventions/ — the model
 			// classifies the subject. Check both for the skip and for
 			// update-in-place pinning.
 			refPath := referenceDir + "/" + subj.slug + ".md"
-			conPath := contractsDir + "/" + subj.slug + ".md"
+			conPath := conventionsDir + "/" + subj.slug + ".md"
 			mu.Lock()
 			existingPath := ""
 			for _, p := range []string{refPath, conPath} {
@@ -222,7 +222,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 					// Stamp provenance MOM owns: the union of the subject's
 					// episode offsets, the episodes as children, and the span
 					// of the episodes' fact time. The model omits all of these.
-					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
+					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, conventionsDir+"/") {
 						c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths, subStart, subEnd)
 						wrote = p
 						l1Changed = true
@@ -246,13 +246,13 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		l1cancel()
 	}
 
-	// Collect L1 concept files (reference + contracts), excluding folder indexes.
+	// Collect L1 concept files (reference + conventions), excluding folder indexes.
 	l1Files := map[string]string{}
 	for p, c := range acc {
 		if strings.HasSuffix(p, "/"+indexFileName) {
 			continue
 		}
-		if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
+		if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, conventionsDir+"/") {
 			l1Files[p] = c
 		}
 	}
@@ -266,7 +266,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		if !l1Changed && hasIdentity {
 			progress("L2 identity — unchanged")
 		} else {
-			progress(fmt.Sprintf("L2 synthesis — identity from %d reference/contract files", len(l1Files)))
+			progress(fmt.Sprintf("L2 synthesis — identity from %d reference/convention files", len(l1Files)))
 			l2Existing := map[string]string{}
 			if c, ok := acc[identityFile]; ok {
 				l2Existing[identityFile] = c
@@ -714,7 +714,7 @@ func collectSubjects(l0Files map[string]string, projectID string) []subject {
 // buildL1SubjectInput returns a FoldInput that asks for a SINGLE concept file
 // about one subject, synthesized from only that subject's episodes. The model
 // classifies the subject as reference (durable facts/decisions/conventions) or
-// contract (recurring process/workflow rules) — unless a concept file already
+// convention (recurring process/workflow rules) — unless a concept file already
 // exists, in which case it must update that exact path in place.
 func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string, existingPath, existingContent string) FoldInput {
 	var offsets []uint64
@@ -732,7 +732,7 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 	} else {
 		target = fmt.Sprintf(
 			"Classify the subject, then pick the path:\n"+
-				"- contracts/%s.md with type:contract — if the subject is a recurring PROCESS or set of workflow rules (how a kind of work is done: releases, reviews, testing, branching).\n"+
+				"- conventions/%s.md with type:convention — if the subject is a recurring PROCESS or set of workflow rules (how a kind of work is done: releases, reviews, testing, branching).\n"+
 			"- reference/%s.md with type:reference — otherwise (durable decisions, conventions, architecture, facts).",
 			subj.slug, subj.slug)
 	}
@@ -742,7 +742,7 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 		"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file about the subject \"%s\".\n%s\n"+
 			"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
 			"Frontmatter: type (as above), name:\"%s\", description:<one line>, level:1, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
-			"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (contracts only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
+			"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (conventions only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
 		subj.name, target, subj.name, subj.name, subj.slug)
 	if existingPath != "" && existingContent != "" {
 		hint[existingPath] = stripMachineFrontmatter(existingContent)
@@ -790,7 +790,7 @@ func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput
 	}
 
 	hint := map[string]string{}
-	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/contract files in the existing set, write a SINGLE file identity.md (type:identity).\n" +
+	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/convention files in the existing set, write a SINGLE file identity.md (type:identity).\n" +
 		"It states what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A LIVING orientation, NOT a chronological recap — no dates, no history log. UPDATE the existing identity.md in place.\n" +
 		"Frontmatter: type:identity, name, description, level:2, tags. OMIT sources and children — MOM fills provenance.\n" +
 		"Body: synthesized from the existing files. No inventing."

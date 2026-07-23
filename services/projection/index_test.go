@@ -77,8 +77,8 @@ func TestBuildIndexRoutesICMLayout(t *testing.T) {
 			Frontmatter{Type: typeReference, Name: "Harness MCP removal", Layer: "B", Version: 1},
 			"# Harness MCP removal\nDecision: drop MCP.\n"),
 		"reference/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Reference — index\n"),
-		"contracts/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Contracts — index\n"),
-		"contracts/release.md": PrependFrontmatter(Frontmatter{Type: typeContract, Name: "Release flow", Layer: "B", Version: 1}, "# Release flow\n"),
+		"conventions/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Conventions — index\n"),
+		"conventions/release.md": PrependFrontmatter(Frontmatter{Type: typeConvention, Name: "Release flow", Layer: "B", Version: 1}, "# Release flow\n"),
 	}
 
 	idx := buildIndex(files, FoldInput{ProjectID: "demo"})
@@ -93,8 +93,8 @@ func TestBuildIndexRoutesICMLayout(t *testing.T) {
 		t.Errorf("router did not use the OKF concept name:\n%s", idx)
 	}
 	// Folder routing points at the per-folder index, not individual files.
-	if !strings.Contains(idx, "[`contracts/INDEX.md`](contracts/INDEX.md)") {
-		t.Errorf("router missing the contracts folder routing:\n%s", idx)
+	if !strings.Contains(idx, "[`conventions/INDEX.md`](conventions/INDEX.md)") {
+		t.Errorf("router missing the conventions folder routing:\n%s", idx)
 	}
 	if strings.Contains(idx, "the task touches") {
 		t.Errorf("router still emits the stale slug-echo hint:\n%s", idx)

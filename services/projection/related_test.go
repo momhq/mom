@@ -110,7 +110,7 @@ func TestLinkRelated_ICMTypeSiblings(t *testing.T) {
 	files := map[string]string{
 		"reference/auth.md":    mkICM(typeReference, []uint64{1, 2}, []string{"auth", "security"}, "Auth"),
 		"reference/session.md": mkICM(typeReference, []uint64{3, 4}, []string{"auth", "session"}, "Session"),
-		"contracts/release.md": mkICM(typeContract, []uint64{5, 6}, []string{"release"}, "Release"),
+		"conventions/release.md": mkICM(typeConvention, []uint64{5, 6}, []string{"release"}, "Release"),
 	}
 
 	linkRelated(files)
@@ -123,7 +123,7 @@ func TestLinkRelated_ICMTypeSiblings(t *testing.T) {
 	if !strings.Contains(auth, "](session.md)") {
 		t.Errorf("auth.md should link sibling session.md (same type, shared tag):\n%s", auth)
 	}
-	// release.md is type:contract — must NOT appear as a sibling of auth.md.
+	// release.md is type:convention — must NOT appear as a sibling of auth.md.
 	if strings.Contains(auth, "release.md") {
 		t.Errorf("auth.md should NOT link cross-type release.md:\n%s", auth)
 	}
@@ -161,7 +161,7 @@ func TestLinkRelated_OffsetOverlapSiblings(t *testing.T) {
 	files := map[string]string{
 		// fold and release co-occur in offsets 10-12; voice is disjoint.
 		"reference/fold.md":    mk(typeReference, []uint64{10, 11, 12, 13}, "fold", "Fold"),
-		"contracts/release.md": mk(typeContract, []uint64{11, 12, 20}, "release", "Release"),
+		"conventions/release.md": mk(typeConvention, []uint64{11, 12, 20}, "release", "Release"),
 		"reference/voice.md":   mk(typeReference, []uint64{30, 31}, "voice", "Voice"),
 	}
 
@@ -171,16 +171,16 @@ func TestLinkRelated_OffsetOverlapSiblings(t *testing.T) {
 	if !strings.Contains(fold, relatedHeading) {
 		t.Fatalf("fold.md missing Related section despite offset overlap:\n%s", fold)
 	}
-	// Cross-type links are wanted: the release contract shares fold's windows.
-	if !strings.Contains(fold, "](../contracts/release.md)") {
+	// Cross-type links are wanted: the release convention shares fold's windows.
+	if !strings.Contains(fold, "](../conventions/release.md)") {
 		t.Errorf("fold.md should link co-occurring release.md:\n%s", fold)
 	}
 	if strings.Contains(fold, "voice.md") {
 		t.Errorf("fold.md should NOT link disjoint voice.md:\n%s", fold)
 	}
 	// And the link is mutual.
-	if !strings.Contains(files["contracts/release.md"], "](../reference/fold.md)") {
-		t.Errorf("release.md should link back to fold.md:\n%s", files["contracts/release.md"])
+	if !strings.Contains(files["conventions/release.md"], "](../reference/fold.md)") {
+		t.Errorf("release.md should link back to fold.md:\n%s", files["conventions/release.md"])
 	}
 }
 

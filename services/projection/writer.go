@@ -246,8 +246,8 @@ func (w *Writer) updateEntryFiles(block string) ([]string, error) {
 // dev-log) are removed; a dir still holding stray non-.md user content is
 // left alone.
 func pruneStaleConcepts(base string, keep map[string]bool) error {
-	legacyDirs := []string{"topics", "timeline", "summaries", "dev-log"}
-	pruneDirs := append([]string{referenceDir, contractsDir, episodesDir}, legacyDirs...)
+	legacyDirs := []string{"topics", "timeline", "summaries", "dev-log", "contracts"}
+	pruneDirs := append([]string{referenceDir, conventionsDir, episodesDir}, legacyDirs...)
 	for _, d := range pruneDirs {
 		dir := filepath.Join(base, d)
 		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
