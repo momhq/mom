@@ -29,9 +29,11 @@ var allowedTopLevelFiles = map[string]bool{
 	".golangci.yml":      true,
 	".mcp.json":          true,
 	".mom-project.yaml":  true,
+	"AGENTS.md":          true, // MOM-managed routing entry file
 	"CHANGELOG.md":       true,
 	"CLAUDE.md":          true, // gitignored — local agent context
 	"CODE_OF_CONDUCT.md": true,
+	"CONTEXT.md":         true, // MOM-managed human vault seed
 	"CONTRIBUTING.md":    true,
 	"LICENSE":            true,
 	"Makefile":           true,
