@@ -275,10 +275,11 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			if err != nil {
 				warn(fmt.Sprintf("identity synthesis failed (%v); keeping existing identity", err))
 			} else {
-				// Stamp identity provenance MOM owns: the union of the concept
-				// layer's offsets, with the concept files as children. Without
-				// this the parent "(overview)" links in every concept's Related
-				// section have nothing to anchor to (the model omits sources).
+				// Stamp identity provenance MOM owns: an id derived from the
+				// concept layer's offsets (so an unchanged layer skips re-synthesis)
+				// and the concept files as children. identity.md itself carries no
+				// sources — layerRank makes it every B concept's parent without
+				// needing offset overlap.
 				var l1Offsets []uint64
 				l1Paths := make([]string, 0, len(l1Files))
 				for p, c := range l1Files {
@@ -290,7 +291,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				idStart, idEnd := fmTimeRange(l1Files)
 				for p, c := range l2Res.Files {
 					if p == identityFile {
-						c = stampProvenance(c, in.ProjectID, l1Offsets, l1Paths, idStart, idEnd)
+						c = stampIdentityProvenance(c, in.ProjectID, l1Offsets, l1Paths, idStart, idEnd)
 					}
 					acc[p] = c
 					stamped[p] = c
@@ -571,7 +572,7 @@ func buildL0Input(in FoldInput, cid string, knownTags []string) FoldInput {
 	// Inject a synthetic "context" file so the LLM knows its output path.
 	hint := fmt.Sprintf(
 		"WORK ITEM (L0 capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
-			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), level:0, tags:[2-4 kebab-case subject slugs]. OMIT sources and time_range fields — MOM fills provenance and dates.\n"+
+			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), layer:C access_tier:raw, tags:[2-4 kebab-case subject slugs]. OMIT sources and time_range fields — MOM fills provenance and dates.\n"+
 			"Body: a FLAT bullet list — AT MOST 10 short bullets of durable decisions/corrections/preferences and what was built. "+
 			"HARD LIMITS: no headings, no code blocks, no sub-bullets, no multi-line bullets; keep the whole file under 180 words. "+
 			"This must stay short enough to fit in one response — terseness is mandatory, not optional.",
@@ -604,6 +605,33 @@ func stampProvenance(content, projectID string, sources []uint64, children []str
 		fm.TimeRangeEnd = end.UTC()
 	}
 	fm.ID = chunkID(projectID, fm.Sources)
+	return PrependFrontmatter(fm, ensureTitle(fm, body))
+}
+
+// stampIdentityProvenance stamps identity.md's machine-owned frontmatter like
+// stampProvenance, with one difference: identity carries NO sources line.
+// Layer A is the union of every B concept by definition (see linkRelated's
+// layer-based parent/child rule), so echoing thousands of offsets back onto
+// identity.md would only bloat the file MOM keeps tightest. The content-
+// addressed id is still computed from childOffsets so an unchanged concept
+// layer skips re-synthesis, same as any other concept file.
+func stampIdentityProvenance(content, projectID string, childOffsets []uint64, children []string, start, end time.Time) string {
+	fm, body := ParseFrontmatter(content)
+	fm.ID = chunkID(projectID, sortedUniqueOffsets(childOffsets))
+	fm.Sources = nil
+	if len(children) > 0 {
+		ch := append([]string(nil), children...)
+		sort.Strings(ch)
+		fm.Children = ch
+	}
+	if !start.IsZero() {
+		fm.TimeRangeStart = start.UTC()
+	}
+	if !end.IsZero() {
+		fm.TimeRangeEnd = end.UTC()
+	}
+	fm.Layer = "A"
+	fm.AccessTier = "distilled"
 	return PrependFrontmatter(fm, ensureTitle(fm, body))
 }
 
@@ -741,7 +769,7 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 	hint["_l1_hint"] = fmt.Sprintf(
 		"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file about the subject \"%s\".\n%s\n"+
 			"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
-			"Frontmatter: type (as above), name:\"%s\", description:<one line>, level:1, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
+			"Frontmatter: type (as above), name:\"%s\", description:<one line>, layer:B access_tier:distilled, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
 			"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (conventions only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
 		subj.name, target, subj.name, subj.name, subj.slug)
 	if existingPath != "" && existingContent != "" {
@@ -790,9 +818,10 @@ func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput
 	}
 
 	hint := map[string]string{}
-	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/convention files in the existing set, write a SINGLE file identity.md (type:identity).\n" +
-		"It states what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A LIVING orientation, NOT a chronological recap — no dates, no history log. UPDATE the existing identity.md in place.\n" +
-		"Frontmatter: type:identity, name, description, level:2, tags. OMIT sources and children — MOM fills provenance.\n" +
+	hint["_l2_hint"] = "WORK ITEM (identity synthesis): From the reference/convention concept files, write ONE file identity.md (type:identity, layer:A, access_tier:distilled).\n" +
+		"A TIGHT orientation node, NOT a recap. HARD LIMIT under 250 words. Exactly three short sections: \"## Invariants\" (3-6 bullets), \"## Flow\" (2-4 bullets), \"## Where detail lives\" (2-5 plain pointers like \"releases → conventions/\").\n" +
+		"Do NOT enumerate every concept. Do NOT include dates, history, or a sources list. UPDATE existing identity.md in place.\n" +
+		"Frontmatter: type:identity, name, description, layer:A, access_tier:distilled, tags. OMIT sources and children — MOM owns provenance.\n" +
 		"Body: synthesized from the existing files. No inventing."
 	for p, c := range existing {
 		hint[p] = c

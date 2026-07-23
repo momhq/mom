@@ -398,7 +398,7 @@ func buildPrompt(in FoldInput) (string, bool) {
 	b.WriteString("2. Produce RESIDUE ONLY: decisions, preferences, corrections, recurring procedures, identity. Drop chatter and transient status.\n")
 	b.WriteString("3. Follow the WORK ITEM hint in the existing files (a `_l0_hint`/`_l1_hint`/`_l2_hint` entry): it tells you which layer and paths to write this pass.\n")
 	b.WriteString("4. MINIMALISM (OKF): one concept = ONE subject per file. NEVER create two files about the same subject. If a `reference/<subject>.md` already exists for a subject, UPDATE it in place — do not make `<subject>-v2`, `<subject>-view`, etc.\n")
-	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|convention|episode), name (short title), description (one line), level, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance.\n")
+	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|convention|episode), name (short title), description (one line), layer, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance.\n")
 	b.WriteString("6. SCOPE: only write concepts for subjects DIRECTLY worked on in THIS project. Ignore other projects mentioned in passing.\n\n")
 	b.WriteString("OUTPUT FORMAT — emit each file as a delimited block and NOTHING else (no JSON, no prose, no code fences). Write the file content as plain markdown between the delimiters — do NOT escape quotes or newlines:\n")
 	b.WriteString(fileBlockOpen + "<vault-relative path>" + "@@@\n<full markdown file content, starting with the --- frontmatter>\n" + fileBlockClose + "\n\n")

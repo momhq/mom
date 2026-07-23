@@ -59,14 +59,25 @@ func linkRelated(files map[string]string) {
 		// (frontmatter), mirroring how sources is provenance, not navigation.
 		// The source set is built once per doc — with thousands of episodes a
 		// per-pair set rebuild dominates the fold's post-pass.
-		dset := offsetSet(d.fm.Sources)
 		var children []string
-		for _, o := range docs {
-			if o.path == d.path || layerRank(o.fm.Layer) != layerRank(d.fm.Layer)-1 {
-				continue
+		if d.fm.Layer == "A" {
+			// identity.md carries no sources (see stampIdentityProvenance) —
+			// it is the overview of the WHOLE concept layer by layer alone,
+			// no offset overlap needed.
+			for _, o := range docs {
+				if o.path != d.path && layerRank(o.fm.Layer) == layerRank(d.fm.Layer)-1 {
+					children = append(children, o.path)
+				}
 			}
-			if intersectsSet(o.fm.Sources, dset) {
-				children = append(children, o.path)
+		} else {
+			dset := offsetSet(d.fm.Sources)
+			for _, o := range docs {
+				if o.path == d.path || layerRank(o.fm.Layer) != layerRank(d.fm.Layer)-1 {
+					continue
+				}
+				if intersectsSet(o.fm.Sources, dset) {
+					children = append(children, o.path)
+				}
 			}
 		}
 		sort.Strings(children)
@@ -149,11 +160,17 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 		links = append(links, "- "+markdownLink(d.path, s.path, s.title))
 	}
 
-	// Parent overview: the lowest-pathed higher-level file whose sources cover
-	// this one's offsets.
+	// Parent overview: a doc exactly one layer up is the overview by layer
+	// alone (this is how identity.md — carrying no sources — becomes the
+	// overview of every B concept); anything further above still needs
+	// offset overlap to qualify.
 	var parents []scored
 	for _, o := range docs {
-		if layerRank(o.fm.Layer) > layerRank(d.fm.Layer) && intersectsSet(d.fm.Sources, offsetSet(o.fm.Sources)) {
+		if o.path == d.path {
+			continue
+		}
+		if layerRank(o.fm.Layer) == layerRank(d.fm.Layer)+1 ||
+			(layerRank(o.fm.Layer) > layerRank(d.fm.Layer) && intersectsSet(d.fm.Sources, offsetSet(o.fm.Sources))) {
 			parents = append(parents, scored{path: o.path, title: o.title})
 		}
 	}

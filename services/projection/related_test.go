@@ -184,8 +184,9 @@ func TestLinkRelated_OffsetOverlapSiblings(t *testing.T) {
 	}
 }
 
-// TestFoldStampsIdentityProvenance: identity.md gets machine-stamped sources
-// (union of the concept layer) so concept files can link it as their parent.
+// TestFoldStampsIdentityProvenance: identity.md gets a content-addressed id
+// from the concept layer's offsets but carries NO sources of its own — layer
+// alone (not offset overlap) makes it the overview of every B concept.
 func TestFoldStampsIdentityProvenance(t *testing.T) {
 	var events []FoldEvent
 	for i := 1; i <= 10; i++ {
@@ -199,15 +200,40 @@ func TestFoldStampsIdentityProvenance(t *testing.T) {
 		t.Fatal(err)
 	}
 	fm, _ := ParseFrontmatter(res.Files[identityFile])
-	if len(fm.Sources) == 0 {
-		t.Fatalf("identity.md has no stamped sources:\n%s", res.Files[identityFile])
+	if len(fm.Sources) != 0 {
+		t.Fatalf("identity.md should carry no sources:\n%s", res.Files[identityFile])
 	}
 	if fm.ID == "" {
 		t.Errorf("identity.md missing content-addressed id")
+	}
+	// identity lists the B concept as its child despite having no sources.
+	if len(fm.Children) != 1 || fm.Children[0] != referenceDir+"/arch.md" {
+		t.Errorf("identity.md children = %v, want [%s]", fm.Children, referenceDir+"/arch.md")
 	}
 	// The concept file links identity as its parent overview.
 	ref := res.Files[referenceDir+"/arch.md"]
 	if !strings.Contains(ref, "](../identity.md) _(overview)_") {
 		t.Errorf("concept missing parent overview link to identity:\n%s", ref)
+	}
+}
+
+// TestSynthesizedIdentityStaysUnderSizeCeiling guards the D1 hint's hard word
+// limit at the frontmatter/render layer: a plausible synthesized identity.md
+// (three tight sections, a handful of tags/children) must render compact.
+func TestSynthesizedIdentityStaysUnderSizeCeiling(t *testing.T) {
+	body := "# Demo\n\n## Invariants\n" +
+		strings.Repeat("- A short invariant bullet about the project.\n", 5) +
+		"\n## Flow\n" +
+		strings.Repeat("- A short flow bullet describing a step.\n", 3) +
+		"\n## Where detail lives\n" +
+		"- releases → conventions/\n- architecture → reference/\n"
+	fm := Frontmatter{
+		Type: typeIdentity, Name: "Demo", Description: "A demo project.",
+		Layer: "A", AccessTier: "distilled", Version: 1,
+		Children: []string{"reference/arch.md", "reference/voice.md"},
+	}
+	rendered := PrependFrontmatter(fm, body)
+	if len(rendered) >= 4000 {
+		t.Errorf("synthesized identity.md fixture is %d bytes, want under 4000:\n%s", len(rendered), rendered)
 	}
 }
