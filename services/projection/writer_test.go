@@ -186,6 +186,62 @@ func TestPruneStaleConcepts_KeepsNewIdentity(t *testing.T) {
 	}
 }
 
+// TestWriteUpdatesBothClaudeAndAgentsEntryFiles guards the harness-agnostic
+// invariant: every fold writes the byte-identical managed block into both
+// CLAUDE.md and AGENTS.md, with no config needed.
+func TestWriteUpdatesBothClaudeAndAgentsEntryFiles(t *testing.T) {
+	root := t.TempDir()
+	w := NewWriter(root)
+
+	res := FoldResult{Files: map[string]string{"episodes/aaa.md": "# Episode\n"}, Index: "# idx\n", ContextBlock: "## MOM Vault\n\nblock\n"}
+	if _, err := w.Write(res, 10, 1, false); err != nil {
+		t.Fatal(err)
+	}
+
+	claude, err := os.ReadFile(filepath.Join(root, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("CLAUDE.md not written: %v", err)
+	}
+	agents, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("AGENTS.md not written: %v", err)
+	}
+	if string(claude) != string(agents) {
+		t.Errorf("CLAUDE.md and AGENTS.md diverge:\nCLAUDE.md:\n%s\nAGENTS.md:\n%s", claude, agents)
+	}
+}
+
+// TestSeedContextFileCreatedOnceAndNeverOverwritten guards CONTEXT.md's
+// one-way seeding: written when absent, left untouched on every later fold.
+func TestSeedContextFileCreatedOnceAndNeverOverwritten(t *testing.T) {
+	root := t.TempDir()
+	w := NewWriter(root)
+
+	res := FoldResult{Files: map[string]string{"episodes/aaa.md": "# Episode\n"}, Index: "# idx\n"}
+	if _, err := w.Write(res, 10, 1, false); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "CONTEXT.md")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("CONTEXT.md not seeded: %v", err)
+	}
+
+	// Human edits it; a later fold must not touch it.
+	if err := os.WriteFile(path, []byte("human edit\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write(res, 20, 1, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "human edit\n" {
+		t.Errorf("CONTEXT.md was overwritten by a later fold: %q", got)
+	}
+}
+
 // TestWritePruneRefusesEmptyFreshSet guards against the failure that wiped a
 // 2500-episode vault: a rebuild whose synthesis aborted immediately returns an
 // empty file set, and pruning against it would delete every existing file.

@@ -72,7 +72,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 			acc[p] = c
 		}
 		lastIndex = res.Index
-		return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildContextBlock(in), Chunks: in.ExistingChunks, FoldedThrough: in.ToOffset}, nil
+		return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildEntryRouter(in), Chunks: in.ExistingChunks, FoldedThrough: in.ToOffset}, nil
 	}
 
 	// chunkMap accumulates chunkID → vault path across all chunks this fold.
@@ -148,7 +148,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 		}
 	}
 
-	return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildContextBlock(in), Chunks: chunkMap, FoldedThrough: in.ToOffset}, nil
+	return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildEntryRouter(in), Chunks: chunkMap, FoldedThrough: in.ToOffset}, nil
 }
 
 // FoldEvent is a normalized, projection-facing view of a single Ledger

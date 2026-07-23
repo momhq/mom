@@ -58,16 +58,20 @@ func TestBuildIndexEpisodesHiddenOnceReferenceExists(t *testing.T) {
 	}
 	idx := buildIndex(files, FoldInput{ProjectID: "demo"})
 	if strings.Contains(idx, "episodes/aaaa.md") {
-		t.Errorf("episodes should be hidden once reference concepts exist:\n%s", idx)
+		t.Errorf("episodes should never be individually enumerated:\n%s", idx)
 	}
-	if !strings.Contains(idx, "reference/voice.md") {
-		t.Errorf("router missing the reference concept:\n%s", idx)
+	if strings.Contains(idx, "reference/voice.md") {
+		t.Errorf("root router should not enumerate individual concepts:\n%s", idx)
+	}
+	if !strings.Contains(idx, "reference/INDEX.md") {
+		t.Errorf("router missing the reference folder routing:\n%s", idx)
 	}
 }
 
-// TestBuildIndexRoutesICMLayout guards the OKF root router: reference concepts
-// are clickable links described by their OKF name, identity is surfaced, and the
-// folder routing points at each layer's own index.
+// TestBuildIndexRoutesICMLayout guards the OKF root router: it is
+// routing-ONLY — identity is surfaced with its description, and each
+// populated layer points at its own per-folder INDEX, with no individual
+// concept enumerated.
 func TestBuildIndexRoutesICMLayout(t *testing.T) {
 	files := map[string]string{
 		"identity.md": PrependFrontmatter(
@@ -76,7 +80,7 @@ func TestBuildIndexRoutesICMLayout(t *testing.T) {
 		"reference/harness-mcp.md": PrependFrontmatter(
 			Frontmatter{Type: typeReference, Name: "Harness MCP removal", Layer: "B", Version: 1},
 			"# Harness MCP removal\nDecision: drop MCP.\n"),
-		"reference/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Reference — index\n"),
+		"reference/INDEX.md":     PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Reference — index\n"),
 		"conventions/INDEX.md":   PrependFrontmatter(Frontmatter{Type: typeIndex, Version: 1}, "# Conventions — index\n"),
 		"conventions/release.md": PrependFrontmatter(Frontmatter{Type: typeConvention, Name: "Release flow", Layer: "B", Version: 1}, "# Release flow\n"),
 	}
@@ -86,17 +90,17 @@ func TestBuildIndexRoutesICMLayout(t *testing.T) {
 	if !strings.Contains(idx, "[`identity.md`](identity.md)") || !strings.Contains(idx, "A demo project.") {
 		t.Errorf("router missing identity with its description:\n%s", idx)
 	}
-	if !strings.Contains(idx, "[`reference/harness-mcp.md`](reference/harness-mcp.md)") {
-		t.Errorf("reference concept not rendered as a markdown link:\n%s", idx)
+	// Folder routing points at the per-folder index, never individual concepts.
+	if !strings.Contains(idx, "[`reference/INDEX.md`](reference/INDEX.md)") {
+		t.Errorf("router missing the reference folder routing:\n%s", idx)
 	}
-	if !strings.Contains(idx, "Harness MCP removal") {
-		t.Errorf("router did not use the OKF concept name:\n%s", idx)
-	}
-	// Folder routing points at the per-folder index, not individual files.
 	if !strings.Contains(idx, "[`conventions/INDEX.md`](conventions/INDEX.md)") {
 		t.Errorf("router missing the conventions folder routing:\n%s", idx)
 	}
-	if strings.Contains(idx, "the task touches") {
-		t.Errorf("router still emits the stale slug-echo hint:\n%s", idx)
+	if strings.Contains(idx, "reference/harness-mcp.md") || strings.Contains(idx, "Harness MCP removal") {
+		t.Errorf("root router must not enumerate individual concepts:\n%s", idx)
+	}
+	if strings.Contains(idx, "conventions/release.md") {
+		t.Errorf("root router must not enumerate individual concepts:\n%s", idx)
 	}
 }

@@ -27,12 +27,12 @@ const (
 )
 
 // HierarchySynth wraps an LLMSynth to produce the ICM vault:
-// L0 episodes (one per chunk) → L1 reference/convention concepts (one per
-// subject, grouped by L0 tags) → L2 identity.md (from the concept layer).
+// capture episodes (one per chunk) → concept reference/convention files (one per
+// subject, grouped by capture tags) → identity.md (from the concept layer).
 type HierarchySynth struct {
 	inner       Synthesizer
-	l1Threshold int // min episodes before triggering L1 synthesis (default 5)
-	l2Threshold int // min L1 files before triggering L2 synthesis (default 10)
+	l1Threshold int // min episodes before triggering concept synthesis (default 5)
+	l2Threshold int // min concept files before triggering identity synthesis (default 10)
 }
 
 // NewHierarchySynth builds a hierarchy synthesizer wrapping inner.
@@ -122,7 +122,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		}
 	}
 
-	// Collect L0 episode files.
+	// Collect capture episode files.
 	l0Files := map[string]string{}
 	for p, c := range acc {
 		if strings.HasPrefix(p, episodesDir+"/") {
@@ -131,7 +131,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	}
 
 	// ── L1 pass: one reference/convention concept per SUBJECT ─────────────────
-	// Subject-oriented, not batch-oriented. The L0 episodes already carry the
+	// Subject-oriented, not batch-oriented. The capture episodes already carry the
 	// subjects in their `tags`; we group episodes by tag and synthesize exactly
 	// ONE concept file per subject from only that subject's episodes. This
 	// makes dedup structural (one file per subject — no near-duplicates), bounds
@@ -146,7 +146,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	l1Changed := false
 	if !systemicAbort && len(l0Files) >= hs.l1Threshold {
 		subjects := collectSubjects(l0Files, in.ProjectID)
-		progress(fmt.Sprintf("L1 synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
+		progress(fmt.Sprintf("concept synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
 
 		l1ctx, l1cancel := context.WithCancel(ctx)
 		var mu sync.Mutex
@@ -179,7 +179,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			if existingPath != "" {
 				if fm, _ := ParseFrontmatter(acc[existingPath]); fm.ID == expectID {
 					mu.Unlock()
-					progress(fmt.Sprintf("L1 subject %d/%d — %s (unchanged)", i+1, len(subjects), existingPath))
+					progress(fmt.Sprintf("concept %d/%d — %s (unchanged)", i+1, len(subjects), existingPath))
 					continue
 				}
 			}
@@ -197,7 +197,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			go func(i int, subj subject, subEps map[string]string, subOffsets []uint64, refPath, conPath, existingPath, existingContent string) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				progress(fmt.Sprintf("L1 subject %d/%d — %s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
+				progress(fmt.Sprintf("concept %d/%d — %s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
 				l1Res, err := hs.inner.Fold(l1ctx, buildL1SubjectInput(in, subj, subEps, existingPath, existingContent))
 				mu.Lock()
 				defer mu.Unlock()
@@ -207,7 +207,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 					} else if l1ctx.Err() == nil {
 						// Safe to skip: the id mismatch persists, so the next
 						// fold retries this subject.
-						warn(fmt.Sprintf("L1 subject %q failed (%v); skipping — next fold retries it", subj.slug, err))
+						warn(fmt.Sprintf("concept %q failed (%v); skipping — next fold retries it", subj.slug, err))
 					}
 					if IsSystemicError(err) {
 						systemicAbort = true
@@ -264,16 +264,16 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	if !systemicAbort && len(l1Files) >= hs.l2Threshold {
 		_, hasIdentity := acc[identityFile]
 		if !l1Changed && hasIdentity {
-			progress("L2 identity — unchanged")
+			progress("identity synthesis — unchanged")
 		} else {
-			progress(fmt.Sprintf("L2 synthesis — identity from %d reference/convention files", len(l1Files)))
+			progress(fmt.Sprintf("identity synthesis — from %d reference/convention files", len(l1Files)))
 			l2Existing := map[string]string{}
 			if c, ok := acc[identityFile]; ok {
 				l2Existing[identityFile] = c
 			}
 			l2Res, err := hs.inner.Fold(ctx, buildL2Input(in, l1Files, l2Existing))
 			if err != nil {
-				warn(fmt.Sprintf("L2 synthesis failed (%v); keeping existing identity", err))
+				warn(fmt.Sprintf("identity synthesis failed (%v); keeping existing identity", err))
 			} else {
 				// Stamp identity provenance MOM owns: the union of the concept
 				// layer's offsets, with the concept files as children. Without
@@ -321,7 +321,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	linkRelated(acc)
 	buildPerFolderIndexes(acc)
 	index := buildIndex(acc, idxIn)
-	block := buildContextBlock(idxIn)
+	block := buildEntryRouter(idxIn)
 	return FoldResult{Files: acc, Index: index, ContextBlock: block, Chunks: chunkMap, FoldedThrough: foldedThrough, PendingSynthesis: pendingSynthesis}, nil
 }
 
@@ -392,7 +392,7 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 				results[idx] = result{endOff: chunk[len(chunk)-1].Offset, ok: true, done: true}
 				advanceFrontier()
 				mu.Unlock()
-				progress(fmt.Sprintf("L0 episode %d/%d (cached)", idx+1, total))
+				progress(fmt.Sprintf("capture %d/%d (cached)", idx+1, total))
 				continue
 			}
 			mu.Unlock()
@@ -409,7 +409,7 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 		go func(idx int, chunk []FoldEvent) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			label := fmt.Sprintf("L0 episode %d/%d", idx+1, total)
+			label := fmt.Sprintf("capture %d/%d", idx+1, total)
 			progress(fmt.Sprintf("%s — synthesizing %d events", label, len(chunk)))
 
 			files := map[string]string{}
@@ -662,7 +662,7 @@ type subject struct {
 	episodePaths []string
 }
 
-// collectSubjects groups L0 episodes by the tags their frontmatter carries. Each
+// collectSubjects groups capture episodes by the tags their frontmatter carries. Each
 // tag that recurs across at least l1SubjectMinEpisodes episodes becomes one
 // concept. The project-name tag and one-off tags are dropped as noise; the
 // result is capped at maxSubjects by frequency, then ordered by slug for a

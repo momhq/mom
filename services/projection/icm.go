@@ -32,19 +32,6 @@ const (
 	typeIndex      = "index"
 )
 
-// icmFolder describes one routable ICM folder for the root router.
-type icmFolder struct {
-	dir     string
-	layer   string // ICM layer label
-	whenFor string // "read these when…"
-}
-
-// icmFolders is the routing order shown in the root INDEX.
-var icmFolders = []icmFolder{
-	{referenceDir, "Reference", "you need a decision, convention, or durable fact about a subject"},
-	{conventionsDir, "Conventions", "you need the process, workflow rule, or convention for a kind of work"},
-}
-
 // buildPerFolderIndexes generates an OKF INDEX.md inside each routable folder
 // (reference/, conventions/), listing every concept with its name and description
 // so the agent can pick a file without opening any. It mutates files in place,
