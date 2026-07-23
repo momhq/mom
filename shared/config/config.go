@@ -98,6 +98,10 @@ type VaultConfig struct {
 	// CLI, e.g. `claude --model`). Empty = the engine's cheap default
 	// (claude: haiku); codex/pi fall back to their CLI defaults.
 	FoldModel string `yaml:"fold_model,omitempty"`
+	// IngestExtractor overrides the path to the book-to-skill extract.py
+	// script used by `mom ingest`. Empty = the default install path under
+	// ~/.claude/skills/book-to-skill/scripts/extract.py.
+	IngestExtractor string `yaml:"ingest_extractor,omitempty"`
 }
 
 // WatcherConfig controls the filesystem transcript watcher (mom watch).
