@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/momhq/mom/shared/project"
@@ -52,6 +53,38 @@ func TestSplitChapters(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSplitChapters_WindowsOversizedHeadinglessDocument(t *testing.T) {
+	// A heading-less document becomes ONE chapter (see the "no headings"
+	// case above). Build one far larger than documentEventCharBudget so it
+	// must be windowed into multiple bounded, ordered events — otherwise the
+	// fold can never bisect the resulting 1-event chunk (hierarchy.go
+	// foldL0Chunk) and the watermark wedges forever.
+	words := make([]string, 0, 3000)
+	for i := 0; i < 3000; i++ {
+		words = append(words, "word")
+	}
+	text := strings.Join(words, " ") // ~15000 chars, no "Chapter N" heading anywhere
+
+	chapters := splitChapters(text)
+	if len(chapters) < 2 {
+		t.Fatalf("got %d window(s), want > 1 for a %d-char heading-less document", len(chapters), len(text))
+	}
+
+	var rebuilt []string
+	for i, ch := range chapters {
+		if len(ch.Text) > documentEventCharBudget {
+			t.Errorf("window %d text is %d chars, want <= %d", i, len(ch.Text), documentEventCharBudget)
+		}
+		if ch.Index != 1 {
+			t.Errorf("window %d index = %d, want 1 (single logical chapter)", i, ch.Index)
+		}
+		rebuilt = append(rebuilt, ch.Text)
+	}
+	if got, want := strings.Join(rebuilt, " "), text; got != want {
+		t.Errorf("windowed text does not reconstruct the original (order/content lost)")
 	}
 }
 
@@ -168,6 +201,56 @@ func TestRunIngest_EndToEnd(t *testing.T) {
 	}
 	if titles[0] != "Chapter 1" || titles[1] != "Chapter 2" {
 		t.Errorf("chapter titles = %v, want [Chapter 1, Chapter 2]", titles)
+	}
+}
+
+func TestRunIngest_SecondIngestOfSameContentAppendsNothing(t *testing.T) {
+	bindTestProject(t, "test-proj")
+
+	extractor := stubExtractorScript(t, "Chapter 1\nIntro text.\n\nChapter 2\nMore text.\n")
+	writeTestMomConfig(t, extractor)
+
+	docFile := filepath.Join(t.TempDir(), "input.pdf")
+	if err := os.WriteFile(docFile, []byte("fake pdf bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	run := func() string {
+		cmd := &cobra.Command{}
+		out := new(bytes.Buffer)
+		cmd.SetOut(out)
+		if err := runIngest(cmd, []string{docFile}); err != nil {
+			t.Fatalf("runIngest: %v", err)
+		}
+		return out.String()
+	}
+
+	run()
+
+	ldir, err := ledgerDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	led, err := ledger.Open(ldir)
+	if err != nil {
+		t.Fatalf("opening ledger: %v", err)
+	}
+	headAfterFirst, _ := led.HeadOffset()
+	led.Close()
+
+	secondOut := run()
+	if !strings.Contains(secondOut, "already ingested") {
+		t.Errorf("second ingest output = %q, want it to report already-ingested", secondOut)
+	}
+
+	led, err = ledger.Open(ldir)
+	if err != nil {
+		t.Fatalf("re-opening ledger: %v", err)
+	}
+	defer led.Close()
+	headAfterSecond, _ := led.HeadOffset()
+	if headAfterSecond != headAfterFirst {
+		t.Errorf("ledger head after second ingest = %d, want unchanged %d (no new events appended)", headAfterSecond, headAfterFirst)
 	}
 }
 

@@ -108,7 +108,7 @@ func buildPerFolderIndexes(files map[string]string) {
 				if name == "" {
 					name = base
 				}
-				b.WriteString("| [`" + base + "`](" + base + ") | " + name + " | " + r.author + " | " + r.through + " |\n")
+				b.WriteString("| [`" + base + "`](" + base + ") — " + name + " | " + r.author + " | " + r.through + " |\n")
 			}
 		}
 		files[dir+"/"+indexFileName] = b.String()
