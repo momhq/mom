@@ -68,6 +68,72 @@ func TestFrontmatterZeroTimesOmitted(t *testing.T) {
 	}
 }
 
+func TestFrontmatterNumericLayerCoerced(t *testing.T) {
+	content := "---\nid: abc123\ntype: reference\nlayer: 1\nversion: 1\n---\n\n# Body\n"
+	fm, _ := ParseFrontmatter(content)
+	if fm.Layer != "B" {
+		t.Errorf("Layer: got %q, want %q", fm.Layer, "B")
+	}
+
+	rendered := RenderFrontmatter(fm)
+	if !strings.Contains(rendered, "layer: B") {
+		t.Errorf("rendered frontmatter should contain %q, got %q", "layer: B", rendered)
+	}
+}
+
+func TestStampProvenanceForcesLayerByPath(t *testing.T) {
+	cases := []struct {
+		name       string
+		path       string
+		inputLayer string
+		wantLayer  string
+		wantTier   string
+	}{
+		{"reference numeric layer", "reference/architecture.md", "1", "B", "distilled"},
+		{"reference garbage layer", "reference/architecture.md", "banana", "B", "distilled"},
+		{"conventions numeric layer", "conventions/workflow.md", "1", "B", "distilled"},
+		{"episode numeric layer", "episodes/abc123.md", "0", "C", "raw"},
+		{"episode garbage layer", "episodes/abc123.md", "banana", "C", "raw"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			content := "---\nlayer: " + tc.inputLayer + "\n---\n\n# Body\n"
+			stamped := stampProvenance(content, "proj", tc.path, []uint64{1, 2, 3}, nil, time.Time{}, time.Time{})
+			fm, _ := ParseFrontmatter(stamped)
+			if fm.Layer != tc.wantLayer {
+				t.Errorf("Layer: got %q, want %q", fm.Layer, tc.wantLayer)
+			}
+			if fm.AccessTier != tc.wantTier {
+				t.Errorf("AccessTier: got %q, want %q", fm.AccessTier, tc.wantTier)
+			}
+		})
+	}
+}
+
+func TestLayerForPath(t *testing.T) {
+	cases := []struct {
+		path      string
+		wantLayer string
+		wantTier  string
+		wantOK    bool
+	}{
+		{"identity.md", "A", "distilled", true},
+		{"reference/architecture.md", "B", "distilled", true},
+		{"conventions/workflow.md", "B", "distilled", true},
+		{"episodes/abc123.md", "C", "raw", true},
+		{"INDEX.md", "", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			layer, tier, ok := layerForPath(tc.path)
+			if layer != tc.wantLayer || tier != tc.wantTier || ok != tc.wantOK {
+				t.Errorf("layerForPath(%q) = (%q, %q, %v), want (%q, %q, %v)",
+					tc.path, layer, tier, ok, tc.wantLayer, tc.wantTier, tc.wantOK)
+			}
+		})
+	}
+}
+
 func TestFrontmatterMissingBlock(t *testing.T) {
 	content := "# Just a heading\n\nNo frontmatter.\n"
 	fm, body := ParseFrontmatter(content)

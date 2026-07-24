@@ -45,6 +45,13 @@ func linkRelated(files map[string]string) {
 			continue
 		}
 		fm, body := ParseFrontmatter(c)
+		// Force layer/access_tier by path on every re-render: an LLM mislabel
+		// that isn't a bare numeral (e.g. "layer: A" on a reference file)
+		// parses as a valid layer and would otherwise survive folds forever.
+		if layer, tier, ok := layerForPath(p); ok {
+			fm.Layer = layer
+			fm.AccessTier = tier
+		}
 		docs = append(docs, &relDoc{
 			path:  p,
 			fm:    fm,

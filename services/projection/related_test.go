@@ -63,6 +63,32 @@ func TestLinkRelated_ChildrenAndSiblings(t *testing.T) {
 	}
 }
 
+func TestLinkRelated_ForcesLayerByPath(t *testing.T) {
+	files := map[string]string{
+		// Model mislabeled a reference concept with the wrong letter — not a
+		// bare numeral, so ParseFrontmatter's coercion doesn't catch it.
+		"reference/ledger-architecture.md": PrependFrontmatter(
+			Frontmatter{Type: typeReference, Name: "Ledger architecture", Layer: "A", Version: 1},
+			"# Ledger architecture\nbody\n"),
+		// An episode mislabeled as B.
+		"episodes/abc123.md": PrependFrontmatter(
+			Frontmatter{Kind: "episode", Layer: "B", Version: 1},
+			"# Episode\nbody\n"),
+	}
+
+	linkRelated(files)
+
+	refFm, _ := ParseFrontmatter(files["reference/ledger-architecture.md"])
+	if refFm.Layer != "B" || refFm.AccessTier != "distilled" {
+		t.Errorf("reference doc layer/tier = %q/%q, want B/distilled", refFm.Layer, refFm.AccessTier)
+	}
+
+	epFm, _ := ParseFrontmatter(files["episodes/abc123.md"])
+	if epFm.Layer != "C" || epFm.AccessTier != "raw" {
+		t.Errorf("episode layer/tier = %q/%q, want C/raw", epFm.Layer, epFm.AccessTier)
+	}
+}
+
 func TestBuildPerFolderIndexes(t *testing.T) {
 	files := map[string]string{
 		"reference/voice.md": PrependFrontmatter(

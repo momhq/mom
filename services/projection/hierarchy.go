@@ -223,7 +223,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 					// episode offsets, the episodes as children, and the span
 					// of the episodes' fact time. The model omits all of these.
 					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, conventionsDir+"/") {
-						c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths, subStart, subEnd)
+						c = stampProvenance(c, in.ProjectID, p, subOffsets, subj.episodePaths, subStart, subEnd)
 						wrote = p
 						l1Changed = true
 					}
@@ -500,7 +500,7 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 			// bloats output and truncates the JSON). Stamp the chunk's offsets
 			// and the events' real time span.
 			if strings.HasPrefix(p, episodesDir+"/") {
-				c = stampProvenance(c, in.ProjectID, offsets, nil, start, end)
+				c = stampProvenance(c, in.ProjectID, p, offsets, nil, start, end)
 			}
 			files[p] = c
 		}
@@ -627,12 +627,17 @@ func buildDocumentCaptureInput(in FoldInput, cid string) FoldInput {
 }
 
 // stampProvenance rewrites a synthesized file's machine-owned frontmatter:
-// sources (deduped/sorted), children, the content-addressed id, and the FACT
-// time range. The model is told to OMIT all of these — provenance is MOM's to
-// compute, not the model's. Time ranges especially: the model never sees the
-// event timestamps, so anything it writes is a guess (in practice it stamped
-// the fold date on months-old facts, destroying the agent's recency signal).
-func stampProvenance(content, projectID string, sources []uint64, children []string, start, end time.Time) string {
+// sources (deduped/sorted), children, the content-addressed id, the FACT time
+// range, and — from path — the ICM layer/access_tier. The model is told to
+// OMIT all of these — provenance is MOM's to compute, not the model's. Time
+// ranges especially: the model never sees the event timestamps, so anything
+// it writes is a guess (in practice it stamped the fold date on months-old
+// facts, destroying the agent's recency signal). Layer is stamped rather than
+// trusted from the model because the model sometimes emits a legacy numeric
+// value (e.g. "layer: 1") instead of the letter the prompt asks for, which
+// silently drops the file out of ICM cross-linking (layerRank falls through
+// to episode rank for anything that isn't A/B).
+func stampProvenance(content, projectID, path string, sources []uint64, children []string, start, end time.Time) string {
 	fm, body := ParseFrontmatter(content)
 	fm.Sources = sortedUniqueOffsets(sources)
 	if len(children) > 0 {
@@ -645,6 +650,10 @@ func stampProvenance(content, projectID string, sources []uint64, children []str
 	}
 	if !end.IsZero() {
 		fm.TimeRangeEnd = end.UTC()
+	}
+	if layer, tier, ok := layerForPath(path); ok {
+		fm.Layer = layer
+		fm.AccessTier = tier
 	}
 	fm.ID = chunkID(projectID, fm.Sources)
 	return PrependFrontmatter(fm, ensureTitle(fm, body))
@@ -672,8 +681,10 @@ func stampIdentityProvenance(content, projectID string, childOffsets []uint64, c
 	if !end.IsZero() {
 		fm.TimeRangeEnd = end.UTC()
 	}
-	fm.Layer = "A"
-	fm.AccessTier = "distilled"
+	if layer, tier, ok := layerForPath(identityFile); ok {
+		fm.Layer = layer
+		fm.AccessTier = tier
+	}
 	return PrependFrontmatter(fm, ensureTitle(fm, body))
 }
 

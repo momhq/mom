@@ -46,6 +46,25 @@ func layerRank(layer string) int {
 	}
 }
 
+// layerForPath derives a vault file's ICM layer/access_tier purely from its
+// path, so it can be forced at every write site regardless of what the model
+// emitted (a bare numeral coerces fine in ParseFrontmatter, but a wrong
+// letter like "layer: A" on a reference file parses as a valid layer and
+// would otherwise survive forever). ok is false for paths outside the three
+// known roots (e.g. INDEX.md), which callers leave untouched.
+func layerForPath(vaultRelPath string) (layer, accessTier string, ok bool) {
+	switch {
+	case vaultRelPath == identityFile:
+		return "A", "distilled", true
+	case strings.HasPrefix(vaultRelPath, referenceDir+"/"), strings.HasPrefix(vaultRelPath, conventionsDir+"/"):
+		return "B", "distilled", true
+	case strings.HasPrefix(vaultRelPath, episodesDir+"/"):
+		return "C", "raw", true
+	default:
+		return "", "", false
+	}
+}
+
 // RenderFrontmatter serializes fm as a YAML block wrapped in --- delimiters.
 // Zero-value fields are omitted to keep output compact.
 func RenderFrontmatter(fm Frontmatter) string {
@@ -155,7 +174,19 @@ func ParseFrontmatter(content string) (Frontmatter, string) {
 		case "description":
 			fm.Description = unquoteYAML(val)
 		case "layer":
-			fm.Layer = val
+			// Tolerant: the model sometimes emits the legacy numeric level
+			// instead of the letter the prompt asks for; coerce it so
+			// downstream layer-rank logic (related.go, lint) still works.
+			switch val {
+			case "2":
+				fm.Layer = "A"
+			case "1":
+				fm.Layer = "B"
+			case "0":
+				fm.Layer = "C"
+			default:
+				fm.Layer = val
+			}
 		case "access_tier":
 			fm.AccessTier = val
 		case "subtype":
