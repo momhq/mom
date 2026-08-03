@@ -121,10 +121,14 @@ func ensureGlobalDaemon(projectRoot, momDir string, harnesses []string) error {
 }
 
 // refreshGlobalDaemonIfStale restarts the global watch daemon when the mom
-// binary on disk no longer matches the one the daemon launched with. Called
-// from the sweep path — sweeps fire within seconds of normal use, so any
-// `make install` / `brew upgrade` is picked up automatically instead of the
-// daemon serving a stale image until the next init/upgrade/bind.
+// binary on disk no longer matches the one the daemon launched with. The
+// daemon is registered against the stable path (see StableBinaryPath), so
+// once it's running, ReconcileStableBinary here always finds running ==
+// stable and this is a no-op — an installed daemon never observes a stale
+// binary via the sweep. Actual `make install` / `brew upgrade` pickup
+// happens on the next foreground `mom` invocation (running from the
+// non-stable path), which reconciles and restarts the daemon. This sweep
+// path only self-heals a crashed/not-yet-running daemon.
 func refreshGlobalDaemonIfStale() {
 	if os.Getenv("MOM_NO_DAEMON") == "1" {
 		return
