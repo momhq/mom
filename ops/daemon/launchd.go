@@ -294,8 +294,9 @@ const globalPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 
 // RestartGlobal restarts the global watch daemon IN PLACE via launchctl
 // kickstart. The plist's program path is the stable binary location
-// (~/go/bin/mom, brew symlink), so the relaunched process executes whatever
-// binary is on disk NOW — this is how a binary swap propagates to the daemon.
+// (~/.mom/bin/mom), so the relaunched process executes whatever binary is on
+// disk NOW — this is how a binary swap (via ReconcileStableBinary) propagates
+// to the daemon.
 //
 // Restart-in-place is deliberate: an unload/reinstall cycle (UninstallGlobal +
 // InstallGlobal) boots out the sweep-timer service too, and when the refresh

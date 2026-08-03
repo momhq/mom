@@ -81,34 +81,40 @@ func ensureGlobalDaemon(projectRoot, momDir string, harnesses []string) error {
 		return nil
 	}
 
-	// Do NOT resolve symlinks — global daemon uses the symlink path so
-	// brew upgrade / package updates are picked up on restart.
+	// Install/update the stable copy the daemon is always registered
+	// against — never os.Executable() directly, which orphans the daemon
+	// once the caller's own path stops being stable (e.g. a Tauri sidecar
+	// path that changes on every app update). A Homebrew install
+	// reconciles the same way: `brew upgrade` leaves a newer binary behind
+	// /opt/homebrew/bin/mom, so the next reconcile copies it in like any
+	// other caller.
+	stableBin, copied, err := daemon.ReconcileStableBinary(bin)
+	if err != nil {
+		return fmt.Errorf("reconciling stable binary: %w", err)
+	}
 
 	// Start global daemon if not already running.
 	h, err := daemon.StatusGlobal()
 	if err == nil && len(h.Services) > 0 && h.Services[0].DaemonRunning {
 		// Daemon process is alive, but a running daemon executes the
-		// binary it was launched with — `brew upgrade mom` (or any
-		// rebuild) leaves the daemon serving the old code. The sentinel
-		// recorded at install time tells us whether the binary on disk
-		// has moved. Mismatch → unload so the install path below
-		// re-spawns against the current binary (ADR-pointer: #338).
-		match, _ := daemon.BinaryVersionMatches(bin)
-		if match {
+		// binary it was launched with. If the stable copy didn't change,
+		// the daemon is already serving the current code.
+		if !copied {
 			_ = daemon.CleanupLegacy(projectRoot)
 			return nil
 		}
-		_ = daemon.UninstallGlobal()
+		// The stable copy just changed — restart in place so the daemon
+		// picks up the new binary (ADR-pointer: #338).
+		if err := daemon.RestartGlobal(); err != nil {
+			return fmt.Errorf("restarting global daemon: %w", err)
+		}
+		_ = daemon.CleanupLegacy(projectRoot)
+		return nil
 	}
 
-	if err := daemon.InstallGlobal(daemon.GlobalServiceConfig{MomBinary: bin}); err != nil {
+	if err := daemon.InstallGlobal(daemon.GlobalServiceConfig{MomBinary: stableBin}); err != nil {
 		return fmt.Errorf("installing global daemon: %w", err)
 	}
-	// Best-effort: record the binary identity so the next ensureGlobal
-	// call can detect a future upgrade. Failure to write the sentinel
-	// is non-fatal — at worst the next call treats the daemon as stale
-	// and reinstalls unnecessarily.
-	_ = daemon.RecordBinaryVersion(bin)
 
 	_ = daemon.CleanupLegacy(projectRoot)
 	return nil
@@ -130,6 +136,11 @@ func refreshGlobalDaemonIfStale() {
 	if strings.HasSuffix(bin, ".test") || strings.Contains(bin, "/_test/") {
 		return
 	}
+	stableBin, copied, err := daemon.ReconcileStableBinary(bin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[mom] reconciling stable binary: %v\n", err)
+		return
+	}
 	h, err := daemon.StatusGlobal()
 	running := err == nil && len(h.Services) > 0 && h.Services[0].DaemonRunning
 	if !running {
@@ -137,14 +148,12 @@ func refreshGlobalDaemonIfStale() {
 		// uninstalled) — install it fresh. Safe: there is no live service for
 		// this process to boot out from under itself.
 		fmt.Fprintln(os.Stderr, "[mom] global watch daemon not running; installing it")
-		if err := daemon.InstallGlobal(daemon.GlobalServiceConfig{MomBinary: bin}); err != nil {
+		if err := daemon.InstallGlobal(daemon.GlobalServiceConfig{MomBinary: stableBin}); err != nil {
 			fmt.Fprintf(os.Stderr, "[mom] daemon install failed: %v\n", err)
-			return
 		}
-		_ = daemon.RecordBinaryVersion(bin)
 		return
 	}
-	if match, _ := daemon.BinaryVersionMatches(bin); match {
+	if !copied {
 		return
 	}
 	// Restart IN PLACE — never uninstall/reinstall here: this code also runs
@@ -153,9 +162,7 @@ func refreshGlobalDaemonIfStale() {
 	fmt.Fprintln(os.Stderr, "[mom] binary changed on disk; restarting global watch daemon")
 	if err := daemon.RestartGlobal(); err != nil {
 		fmt.Fprintf(os.Stderr, "[mom] daemon restart failed: %v\n", err)
-		return
 	}
-	_ = daemon.RecordBinaryVersion(bin)
 }
 
 // buildWatcherSources builds watcher.Source entries from config for all
