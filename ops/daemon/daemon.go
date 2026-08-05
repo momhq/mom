@@ -48,3 +48,11 @@ type GlobalServiceConfig struct {
 	// launch, so it must stay valid across the process that registered it.
 	MomBinary string
 }
+
+// RunWindowsServiceIfNeeded is overridden by windows.go's init() on Windows
+// builds, where it checks whether this process was launched by the Windows
+// Service Control Manager and, if so, hands control to it — this call never
+// returns and the process exits when the service stops. On every other
+// platform it is a no-op. main() calls this unconditionally on startup,
+// before parsing any CLI args.
+var RunWindowsServiceIfNeeded = func() {}
