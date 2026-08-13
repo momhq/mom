@@ -42,6 +42,9 @@ type Health struct {
 
 // GlobalServiceConfig holds info for the single global daemon.
 type GlobalServiceConfig struct {
-	// MomBinary is the path to the mom binary (use symlink path, not resolved).
+	// MomBinary is the path to the mom binary. Callers should pass the
+	// stable path from ReconcileStableBinary (~/.mom/bin/mom), never
+	// os.Executable() directly — the daemon executes this path on every
+	// launch, so it must stay valid across the process that registered it.
 	MomBinary string
 }
