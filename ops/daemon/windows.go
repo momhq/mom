@@ -126,7 +126,7 @@ func superviseWatch(ctx context.Context, exePath string, done chan<- struct{}) {
 
 		if err := cmd.Start(); err != nil {
 			if logFile != nil {
-				logFile.Close()
+				_ = logFile.Close()
 			}
 			select {
 			case <-ctx.Done():
@@ -146,12 +146,12 @@ func superviseWatch(ctx context.Context, exePath string, done chan<- struct{}) {
 			_ = cmd.Process.Kill()
 			<-waitErr
 			if logFile != nil {
-				logFile.Close()
+				_ = logFile.Close()
 			}
 			return
 		case <-waitErr:
 			if logFile != nil {
-				logFile.Close()
+				_ = logFile.Close()
 			}
 		}
 
@@ -170,7 +170,7 @@ func installService(name, binary string, args []string, displayName string) erro
 	if err != nil {
 		return fmt.Errorf("connecting to service manager: %w", err)
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 
 	// Idempotent like launchd's unload-before-overwrite and systemd's
 	// enable --now on rewritten units: stop and delete any prior
@@ -179,7 +179,7 @@ func installService(name, binary string, args []string, displayName string) erro
 		_, _ = s.Control(svc.Stop)
 		waitForStop(s, 10*time.Second)
 		_ = s.Delete()
-		s.Close()
+		_ = s.Close()
 	}
 
 	cfg := mgr.Config{
@@ -204,7 +204,7 @@ func removeService(name string) error {
 	if err != nil {
 		return fmt.Errorf("connecting to service manager: %w", err)
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 
 	s, err := m.OpenService(name)
 	if err != nil {
@@ -225,12 +225,12 @@ func serviceInstalled(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 	s, err := m.OpenService(name)
 	if err != nil {
 		return false, nil
 	}
-	s.Close()
+	_ = s.Close()
 	return true, nil
 }
 
@@ -239,7 +239,7 @@ func serviceRunning(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 	s, err := m.OpenService(name)
 	if err != nil {
 		return false, err
@@ -339,7 +339,7 @@ func RestartGlobal() error {
 	if err != nil {
 		return fmt.Errorf("connecting to service manager: %w", err)
 	}
-	defer m.Disconnect()
+	defer func() { _ = m.Disconnect() }()
 
 	s, err := m.OpenService(globalServiceName)
 	if err != nil {
