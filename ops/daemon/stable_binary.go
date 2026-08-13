@@ -126,11 +126,11 @@ func copyBinary(src, dst string, srcMtime time.Time) error {
 	defer os.Remove(tmp) // best-effort cleanup; no-op once renamed away
 
 	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
+		_ = out.Close()
 		return err
 	}
 	if err := out.Chmod(0o755); err != nil {
-		out.Close()
+		_ = out.Close()
 		return err
 	}
 	if err := out.Close(); err != nil {
