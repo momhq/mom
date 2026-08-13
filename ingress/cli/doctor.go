@@ -83,21 +83,19 @@ func checkLedger() Check {
 }
 
 func checkWatchDaemon() Check {
-	path, err := daemon.GlobalDaemonFile()
+	// GlobalDaemonInstalled is platform-specific: darwin/linux stat the
+	// launchd plist / systemd unit file, Windows queries the Service
+	// Control Manager for the registered service.
+	installed, detail, err := daemon.GlobalDaemonInstalled()
 	if err != nil {
 		return Check{Name: "watch daemon", Status: StatusFail, Detail: err.Error()}
 	}
-	if path == "" {
+	if !installed {
 		return Check{Name: "watch daemon", Status: StatusFail,
-			Detail:     "not supported on this platform",
-			NextAction: "background recording requires macOS launchd or Linux systemd"}
-	}
-	if _, err := os.Stat(path); err != nil {
-		return Check{Name: "watch daemon", Status: StatusFail,
-			Detail:     "service file missing at " + path,
+			Detail:     detail,
 			NextAction: "run 'mom init' to install the global watch daemon"}
 	}
-	return Check{Name: "watch daemon", Status: StatusPass, Detail: path}
+	return Check{Name: "watch daemon", Status: StatusPass, Detail: detail}
 }
 
 func checkHarnessContext() Check {

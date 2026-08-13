@@ -1,4 +1,4 @@
-//go:build !darwin && !linux
+//go:build !darwin && !linux && !windows
 
 package daemon
 
@@ -6,7 +6,7 @@ import "fmt"
 
 // Install is not supported on this platform.
 func Install(_ ServiceConfig) error {
-	return fmt.Errorf("background auto-capture needs macOS (launchd) or Linux (systemd); on this platform run `mom watch` in the foreground to capture, and `mom vault fold` to synthesize")
+	return fmt.Errorf("background auto-capture needs macOS (launchd), Linux (systemd), or Windows (service control manager); on this platform run `mom watch` in the foreground to capture, and `mom vault fold` to synthesize")
 }
 
 // Uninstall is not supported on this platform.
@@ -21,7 +21,7 @@ func Status(_ ServiceConfig) (*Health, error) {
 
 // InstallGlobal is not supported on this platform.
 func InstallGlobal(_ GlobalServiceConfig) error {
-	return fmt.Errorf("background auto-capture needs macOS (launchd) or Linux (systemd); on this platform run `mom watch` in the foreground to capture, and `mom vault fold` to synthesize")
+	return fmt.Errorf("background auto-capture needs macOS (launchd), Linux (systemd), or Windows (service control manager); on this platform run `mom watch` in the foreground to capture, and `mom vault fold` to synthesize")
 }
 
 // UninstallGlobal is not supported on this platform.
@@ -42,6 +42,11 @@ func StatusGlobal() (*Health, error) {
 // GlobalDaemonFile is not supported on this platform.
 func GlobalDaemonFile() (string, error) {
 	return "", nil
+}
+
+// GlobalDaemonInstalled is not supported on this platform.
+func GlobalDaemonInstalled() (bool, string, error) {
+	return false, "not supported on this platform", nil
 }
 
 // CleanupLegacy is not supported on this platform.

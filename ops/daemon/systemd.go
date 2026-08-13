@@ -207,6 +207,19 @@ func GlobalDaemonFile() (string, error) {
 	return filepath.Join(unitDir, globalDaemonUnit), nil
 }
 
+// GlobalDaemonInstalled reports whether the global watch daemon's systemd
+// unit file is present on disk.
+func GlobalDaemonInstalled() (bool, string, error) {
+	path, err := GlobalDaemonFile()
+	if err != nil {
+		return false, "", err
+	}
+	if _, err := os.Stat(path); err != nil {
+		return false, "service file missing at " + path, nil
+	}
+	return true, path, nil
+}
+
 // InstallGlobal creates and enables a single global daemon and sweep timer via systemd.
 // Before installing, removes ALL legacy per-project units.
 func InstallGlobal(cfg GlobalServiceConfig) error {

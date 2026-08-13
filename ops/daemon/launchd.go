@@ -252,6 +252,19 @@ func GlobalDaemonFile() (string, error) {
 	return filepath.Join(agentsDir, globalDaemonLabel+".plist"), nil
 }
 
+// GlobalDaemonInstalled reports whether the global watch daemon's launchd
+// plist is present on disk.
+func GlobalDaemonInstalled() (bool, string, error) {
+	path, err := GlobalDaemonFile()
+	if err != nil {
+		return false, "", err
+	}
+	if _, err := os.Stat(path); err != nil {
+		return false, "service file missing at " + path, nil
+	}
+	return true, path, nil
+}
+
 const globalPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
