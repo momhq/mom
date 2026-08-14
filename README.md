@@ -35,7 +35,7 @@ _Mom_ is the memory layer beside them:
 - **Persistent** — memory survives `/clear`, compaction, restarts, and tool switches.
 - **Local-first** — captured turns live in an append-only Ledger at `$HOME/.mom/ledger/`; the projected vault lives per-project under `.mom/vault/`.
 - **Plain markdown** — memory is `.md` files you can open, read, and diff. The agent reads them with its normal file tools; there is no query server.
-- **Harness-agnostic** — Pi, Claude Code, and Codex are integration targets, not storage silos.
+- **Harness-agnostic** — Pi, Claude Code, Codex, and Factory Droid are integration targets, not storage silos.
 - **Agent-integrated** — memory is delivered through the harness context file and _mom_ skills.
 - **Continuously recorded** — supported harness transcripts are watched and folded into the vault.
 
@@ -83,7 +83,7 @@ Then open your agent and work normally. _Mom_ records sessions in the background
 The write path is a straight line; agents read the projected markdown directly.
 
 ```text
-AI harnesses (Pi · Claude Code · Codex)
+AI harnesses (Pi · Claude Code · Codex · Factory Droid)
         │  transcripts
         ▼
 mom watcher → Editor → Ledger          ($HOME/.mom/ledger/, append-only)
@@ -139,6 +139,7 @@ Lens is local (loopback only) and reads the append-only Ledger.
 | Pi | Validated | Native extension support via `pi install npm:pi-mom`. Gold standard for _mom_. |
 | Claude Code | Validated | Fluent speaker. Provides all the necessary tools _mom_ needs. |
 | Codex | Validated | Hooks and per-turn project scoping working end-to-end. |
+| Factory Droid | Validated | Hooks registered in `settings.json`; entry file is `AGENTS.md`. |
 
 > [!NOTE]
 > _Mom_ uses **harness** to mean the agent framework around the model: tools, hooks, transcripts, and prompt/context files.
