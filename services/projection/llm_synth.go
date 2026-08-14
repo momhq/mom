@@ -256,7 +256,7 @@ type llmOut struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 	} `json:"files"`
-	Index       string `json:"index"`
+	Index        string `json:"index"`
 	ContextBlock string `json:"claude_block"`
 }
 
@@ -585,6 +585,59 @@ func (c *CodexInvoker) Invoke(ctx context.Context, prompt string) (string, error
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return "", invokeExitError(ctx, "codex", err, stdout.String(), stderr.String())
+	}
+	return stdout.String(), nil
+}
+
+// DroidInvoker shells out to the Factory Droid CLI (`droid`).
+// Invocation: droid exec --output-format json [-m <model>] (prompt via stdin)
+type DroidInvoker struct {
+	Bin string
+	// Model pins the synthesis model (passed as -m). Empty = the droid CLI's
+	// own default.
+	Model string
+}
+
+func NewDroidInvoker(bin string) *DroidInvoker {
+	if bin == "" {
+		bin = "droid"
+	}
+	return &DroidInvoker{Bin: bin}
+}
+
+func (d *DroidInvoker) Name() string { return "droid" }
+
+// SetModel pins the model passed as -m.
+func (d *DroidInvoker) SetModel(model string) error {
+	d.Model = model
+	return nil
+}
+
+func (d *DroidInvoker) IsAvailable() bool {
+	_, err := exec.LookPath(d.Bin)
+	return err == nil
+}
+
+func (d *DroidInvoker) Invoke(ctx context.Context, prompt string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	// droid exec is read-only by default (no --auto flag), so synthesis
+	// cannot mutate files. --output-format json emits {"result": "...", ...},
+	// which extractAssistantText already unwraps via cliEnvelope.Result.
+	args := []string{"exec", "--output-format", "json"}
+	if d.Model != "" {
+		args = append(args, "-m", d.Model)
+	}
+	cmd := exec.CommandContext(ctx, d.Bin, args...)
+	cmd.Dir = os.TempDir()
+	// The prompt goes over stdin, not argv, matching ClaudeInvoker: prompts
+	// carry whole vault files and can exceed the OS argv limit as a vault grows.
+	cmd.Stdin = strings.NewReader(prompt)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", invokeExitError(ctx, "droid", err, stdout.String(), stderr.String())
 	}
 	return stdout.String(), nil
 }

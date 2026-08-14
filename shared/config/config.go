@@ -113,6 +113,9 @@ type WatcherConfig struct {
 	// CodexTranscriptDir overrides the default Codex session directory.
 	// Defaults to $CODEX_HOME/sessions (or ~/.codex/sessions) when empty.
 	CodexTranscriptDir string `yaml:"codex_transcript_dir,omitempty"`
+	// DroidTranscriptDir overrides the default Factory Droid session directory.
+	// Defaults to ~/.factory/sessions/ when empty.
+	DroidTranscriptDir string `yaml:"droid_transcript_dir,omitempty"`
 	// OatsTranscriptDir overrides the default OATS transcript root
 	// (Open Agent Transcript Standard — momOS and any conformant writer).
 	// Defaults to ~/.transcripts/ when empty.
@@ -185,7 +188,7 @@ func (c *Config) EnabledRuntimes() []string { return c.EnabledHarnesses() }
 
 // EntryFiles returns the project-root entry files that carry MOM's managed
 // context block, derived from the enabled harnesses: Claude Code reads
-// CLAUDE.md; Codex and Pi share AGENTS.md (the cross-vendor convention).
+// CLAUDE.md; Codex, Pi, and Droid share AGENTS.md (the cross-vendor convention).
 // Sorted and deduped; defaults to CLAUDE.md when nothing is enabled so the
 // block always lands somewhere.
 func (c *Config) EntryFiles() []string {
@@ -194,7 +197,7 @@ func (c *Config) EntryFiles() []string {
 		switch h {
 		case "claude":
 			set["CLAUDE.md"] = true
-		case "codex", "pi":
+		case "codex", "pi", "droid":
 			set["AGENTS.md"] = true
 		}
 	}

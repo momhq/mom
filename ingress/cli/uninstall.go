@@ -126,6 +126,7 @@ func removeGlobalHarnessContext(p *ux.Printer) error {
 	paths := []string{
 		filepath.Join(home, ".claude", "CLAUDE.md"),
 		filepath.Join(home, ".codex", "AGENTS.md"),
+		filepath.Join(home, ".factory", "AGENTS.md"),
 	}
 	for _, path := range paths {
 		if err := harness.RemoveManagedBlock(path); err != nil {

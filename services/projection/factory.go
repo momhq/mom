@@ -38,20 +38,20 @@ func NewSynthesizer(engine, model string, warn func(string)) (Synthesizer, strin
 
 	switch engine {
 	case "auto", "":
-		for _, inv := range []HarnessInvoker{NewClaudeInvoker(""), NewCodexInvoker(""), NewPiInvoker("")} {
+		for _, inv := range []HarnessInvoker{NewClaudeInvoker(""), NewCodexInvoker(""), NewPiInvoker(""), NewDroidInvoker("")} {
 			if inv.IsAvailable() {
 				return build(inv), inv.Name(), nil
 			}
 		}
-		return nil, "", fmt.Errorf("no supported harness found (tried claude, codex, pi) — install one or pass --engine explicitly")
-	case "claude", "codex", "pi":
+		return nil, "", fmt.Errorf("no supported harness found (tried claude, codex, pi, droid) — install one or pass --engine explicitly")
+	case "claude", "codex", "pi", "droid":
 		inv := invokerFor(engine)
 		if !inv.IsAvailable() {
 			return nil, "", fmt.Errorf("%s CLI not found; install %s or use --engine auto", engine, engine)
 		}
 		return build(inv), engine, nil
 	default:
-		return nil, "", fmt.Errorf("invalid engine %q (want auto|claude|codex|pi)", engine)
+		return nil, "", fmt.Errorf("invalid engine %q (want auto|claude|codex|pi|droid)", engine)
 	}
 }
 
@@ -76,6 +76,8 @@ func invokerFor(engine string) HarnessInvoker {
 		return NewCodexInvoker("")
 	case "pi":
 		return NewPiInvoker("")
+	case "droid":
+		return NewDroidInvoker("")
 	default:
 		return nil
 	}

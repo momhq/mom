@@ -110,6 +110,7 @@ func checkHarnessContext() Check {
 		"claude": filepath.Join(home, ".claude", "CLAUDE.md"),
 		"codex":  filepath.Join(home, ".codex", "AGENTS.md"),
 		"pi":     filepath.Join(home, ".pi", "AGENTS.md"),
+		"droid":  filepath.Join(home, ".factory", "AGENTS.md"),
 	}
 	var present []string
 	for name, path := range globalContextFiles {
