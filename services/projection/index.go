@@ -195,7 +195,6 @@ func buildEntryRouter(in FoldInput) string {
 	b.WriteString("| state what this project IS | `.mom/vault/identity.md` | identity.md |\n")
 	b.WriteString("| recall a decision, convention, or fact | `.mom/vault/reference/INDEX.md` | the matching concept file |\n")
 	b.WriteString("| follow a process or workflow rule | `.mom/vault/conventions/INDEX.md` | the matching convention file |\n")
-	b.WriteString("| apply a book or author framework | `.mom/vault/reference/INDEX.md` → 📖 Documents | the matching document file |\n")
 	b.WriteString("| find raw provenance for a claim | `.mom/vault/INDEX.md` → Layer C | the episode file |\n\n")
 	b.WriteString("Never invent past decisions — if no vault file matches, say so. The vault is regenerated ")
 	b.WriteString("from the Ledger on every fold. **Do not edit vault files by hand** — changes are lost on the next fold.\n")

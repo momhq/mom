@@ -60,7 +60,7 @@ var vaultStatusCmd = &cobra.Command{
 
 var vaultLintCmd = &cobra.Command{
 	Use:   "lint",
-	Short: "Walk-test the vault: reachability, no payload in routers, size budgets",
+	Short: "Walk-test the vault: reachability, no payload in routers",
 	Args:  cobra.NoArgs,
 	RunE:  runVaultLint,
 }

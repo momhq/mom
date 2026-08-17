@@ -6,6 +6,11 @@
 // event per chapter to the Ledger via the same Editor pipeline `mom watch`
 // uses — so ingested books fold into the vault alongside transcript turns.
 // No external tools required: the shipped binary is enough.
+//
+// NOT REGISTERED on rootCmd: this command is fully implemented and tested,
+// but document ingestion lacks PDF support (the format most users actually
+// have), so it's held back until v0.54. Do not re-add
+// rootCmd.AddCommand(ingestCmd) without PDF support landing first.
 package cli
 
 import (

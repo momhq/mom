@@ -38,7 +38,6 @@ func init() {
 	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(watchCmd)
-	rootCmd.AddCommand(ingestCmd)
 	rootCmd.AddCommand(demoCmd)
 	rootCmd.AddCommand(lensCmd)
 	rootCmd.AddCommand(projectCmd)
