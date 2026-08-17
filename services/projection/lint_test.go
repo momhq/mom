@@ -3,7 +3,6 @@ package projection
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -51,35 +50,26 @@ func TestLintVault_GoodFixturePasses(t *testing.T) {
 	}
 }
 
-func TestLintVault_OrphanAndOversizedIdentityFail(t *testing.T) {
+func TestLintVault_OrphanFails(t *testing.T) {
 	root := goodFixtureVault(t)
 	vault := VaultDir(root)
 
 	// Orphan: a reference concept the folder INDEX.md never links to.
 	writeLintFile(t, vault, "reference/orphan.md", "---\ntype: reference\nname: Orphan\n---\n# Orphan\n- Unreachable.\n")
 
-	// Oversized identity: well past the 4KB budget.
-	writeLintFile(t, vault, "identity.md", "---\ntype: identity\nname: Test\n---\n# Test\n"+strings.Repeat("- filler line padding out the file\n", 200))
-
 	findings, err := LintVault(root)
 	if err != nil {
 		t.Fatalf("LintVault: %v", err)
 	}
 
-	var gotOrphan, gotOversized bool
+	var gotOrphan bool
 	for _, f := range findings {
 		if f.Path == "reference/orphan.md" && f.Rule == "reachability" {
 			gotOrphan = true
 		}
-		if f.Path == "identity.md" && f.Rule == "size-budget" {
-			gotOversized = true
-		}
 	}
 	if !gotOrphan {
 		t.Errorf("expected a reachability finding for reference/orphan.md, got %+v", findings)
-	}
-	if !gotOversized {
-		t.Errorf("expected a size-budget finding for identity.md, got %+v", findings)
 	}
 }
 

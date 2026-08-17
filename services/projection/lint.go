@@ -16,18 +16,10 @@ type LintFinding struct {
 	Detail string
 }
 
-// Size budgets per ICM layer (Phase F). Heuristic ceilings, not hard schema
-// limits — a fold that drifts past them is a signal the synthesis prompt
-// terseness rules slipped, not a corrupt vault.
-const (
-	maxIdentityBytes = 4 * 1024
-	maxConceptBytes  = 8 * 1024
-	maxEpisodeBytes  = 2 * 1024
-	// routerBulletBudget bounds how many consecutive bullet lines a router
-	// file (INDEX.md) may carry before it looks like leaked concept payload
-	// rather than a table/link list.
-	routerBulletBudget = 10
-)
+// routerBulletBudget bounds how many consecutive bullet lines a router
+// file (INDEX.md) may carry before it looks like leaked concept payload
+// rather than a table/link list.
+const routerBulletBudget = 10
 
 var mdLinkRe = regexp.MustCompile(`\]\(([^)\s]+)\)`)
 
@@ -43,8 +35,6 @@ var payloadHeadingRe = regexp.MustCompile(`(?m)^##\s+(Decisions|Gotchas|Current 
 //  2. No payload in routers — INDEX.md, */INDEX.md, and the MOM-managed
 //     block in harness entry files (CLAUDE.md, AGENTS.md) must carry only
 //     headings/tables/links, never concept payload.
-//  3. Size budget — identity.md / reference & conventions concepts /
-//     episodes each stay under their layer's ceiling.
 //
 // root is the project root (the same root VaultDir/LoadExisting take).
 func LintVault(root string) ([]LintFinding, error) {
@@ -56,7 +46,6 @@ func LintVault(root string) ([]LintFinding, error) {
 	var findings []LintFinding
 	findings = append(findings, lintReachability(files)...)
 	findings = append(findings, lintNoPayloadInRouters(files)...)
-	findings = append(findings, lintSizeBudget(files)...)
 	findings = append(findings, lintEntryFiles(root)...)
 
 	sort.Slice(findings, func(i, j int) bool {
@@ -208,39 +197,6 @@ func longBulletRunLength(content string) int {
 		}
 	}
 	return best
-}
-
-// lintSizeBudget flags files exceeding their ICM layer's size budget.
-func lintSizeBudget(files map[string]string) []LintFinding {
-	var findings []LintFinding
-	for p, c := range files {
-		size := len(c)
-		switch {
-		case p == identityFile:
-			if size > maxIdentityBytes {
-				findings = append(findings, sizeFinding(p, size, maxIdentityBytes, "identity"))
-			}
-		case strings.HasPrefix(p, referenceDir+"/"), strings.HasPrefix(p, conventionsDir+"/"):
-			if strings.HasSuffix(p, "/"+indexFileName) {
-				continue
-			}
-			if size > maxConceptBytes {
-				findings = append(findings, sizeFinding(p, size, maxConceptBytes, "concept"))
-			}
-		case strings.HasPrefix(p, episodesDir+"/"):
-			if size > maxEpisodeBytes {
-				findings = append(findings, sizeFinding(p, size, maxEpisodeBytes, "episode"))
-			}
-		}
-	}
-	return findings
-}
-
-func sizeFinding(path string, size, budget int, layer string) LintFinding {
-	return LintFinding{
-		Path: path, Rule: "size-budget",
-		Detail: fmt.Sprintf("%d bytes exceeds %s budget of %d bytes", size, layer, budget),
-	}
 }
 
 // lintEntryFiles flags a harness entry file's MOM-managed block carrying
