@@ -89,6 +89,39 @@ func TestLinkRelated_ForcesLayerByPath(t *testing.T) {
 	}
 }
 
+// TestLinkRelated_SkipsFolderIndexes guards against folder routers
+// (reference/INDEX.md, conventions/INDEX.md) being treated as ordinary
+// layer-B concepts: layerForPath matches their path prefix, so without an
+// explicit skip they'd get stamped with a layer/access_tier, an injected
+// Related section, and be listed as identity's children.
+func TestLinkRelated_SkipsFolderIndexes(t *testing.T) {
+	files := map[string]string{
+		"reference/INDEX.md": "# Reference\nrouter body, no frontmatter\n",
+		"reference/arch.md": PrependFrontmatter(
+			Frontmatter{Type: typeReference, Name: "arch", Layer: "B", Version: 1},
+			"# arch\nbody\n"),
+		identityFile: PrependFrontmatter(
+			Frontmatter{Type: typeIdentity, Name: "Demo", Layer: "A", Version: 1}, "# Demo\n"),
+	}
+
+	linkRelated(files)
+
+	if strings.Contains(files["reference/INDEX.md"], relatedHeading) {
+		t.Errorf("folder INDEX.md must not get a Related section:\n%s", files["reference/INDEX.md"])
+	}
+	fm, _ := ParseFrontmatter(files["reference/INDEX.md"])
+	if fm.Layer != "" || fm.AccessTier != "" {
+		t.Errorf("folder INDEX.md must not be stamped with layer/access_tier, got %q/%q", fm.Layer, fm.AccessTier)
+	}
+
+	idFm, _ := ParseFrontmatter(files[identityFile])
+	for _, c := range idFm.Children {
+		if c == "reference/INDEX.md" {
+			t.Errorf("identity.md must not list reference/INDEX.md as a child: %v", idFm.Children)
+		}
+	}
+}
+
 func TestBuildPerFolderIndexes(t *testing.T) {
 	files := map[string]string{
 		"reference/voice.md": PrependFrontmatter(

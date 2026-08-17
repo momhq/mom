@@ -41,7 +41,7 @@ type relDoc struct {
 func linkRelated(files map[string]string) {
 	docs := make([]*relDoc, 0, len(files))
 	for p, c := range files {
-		if p == indexFileName {
+		if p == indexFileName || strings.HasSuffix(p, "/"+indexFileName) {
 			continue
 		}
 		fm, body := ParseFrontmatter(c)
