@@ -23,6 +23,12 @@ const (
 	blockEndMarker   = "<!-- MOM:END -->"
 )
 
+// legacyDirs lists vault directories the current ICM engine can never
+// legitimately produce. A vault folded by an older engine may still carry
+// them on disk; they are pruned unconditionally (every fold, not just a
+// rebuild) and excluded from LoadExisting so they never feed synthesis.
+var legacyDirs = []string{"topics", "timeline", "summaries", "dev-log", "contracts"}
+
 // FoldState is the watermark persisted at .mom/vault/.fold-state.json.
 type FoldState struct {
 	LastOffset   uint64    `json:"last_offset"`
@@ -82,6 +88,14 @@ func LoadExisting(root string) (map[string]string, error) {
 		if !strings.HasSuffix(rel, ".md") {
 			return nil
 		}
+		relSlash := filepath.ToSlash(rel)
+		if topDir, _, ok := strings.Cut(relSlash, "/"); ok {
+			for _, d := range legacyDirs {
+				if topDir == d {
+					return nil
+				}
+			}
+		}
 		data, rerr := os.ReadFile(path)
 		if rerr != nil {
 			return rerr
@@ -119,6 +133,9 @@ type WriteResult struct {
 	// EntryPaths are the absolute paths of the entry files whose managed
 	// block was updated.
 	EntryPaths []string
+	// LegacyPruned is true when this write removed files left over from a
+	// pre-ICM vault layout (topics/, timeline/, summaries/, dev-log/, contracts/).
+	LegacyPruned bool
 }
 
 // Checkpoint persists an in-progress fold: the files produced so far and a
@@ -152,6 +169,11 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 	base := VaultDir(w.Root)
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		return WriteResult{}, fmt.Errorf("mkdir vault: %w", err)
+	}
+
+	legacyPruned, err := pruneLegacyDirs(base)
+	if err != nil {
+		return WriteResult{}, err
 	}
 
 	// Refuse to prune against an empty fresh set regardless of what the
@@ -210,7 +232,7 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 		return WriteResult{}, err
 	}
 
-	return WriteResult{FilesWritten: written, VaultDir: base, EntryPaths: entryPaths}, nil
+	return WriteResult{FilesWritten: written, VaultDir: base, EntryPaths: entryPaths, LegacyPruned: legacyPruned}, nil
 }
 
 // updateEntryFiles writes the managed context block into every configured
@@ -309,7 +331,6 @@ func unionStrings(base, extra []string) []string {
 // dev-log) are removed; a dir still holding stray non-.md user content is
 // left alone.
 func pruneStaleConcepts(base string, keep map[string]bool) error {
-	legacyDirs := []string{"topics", "timeline", "summaries", "dev-log", "contracts"}
 	pruneDirs := append([]string{referenceDir, conventionsDir, episodesDir}, legacyDirs...)
 	for _, d := range pruneDirs {
 		dir := filepath.Join(base, d)
@@ -385,6 +406,40 @@ func pruneStaleConcepts(base string, keep map[string]bool) error {
 		_ = os.Remove(filepath.Join(base, d))
 	}
 	return nil
+}
+
+// pruneLegacyDirs unconditionally deletes every .md file under the known
+// legacy vault dirs and removes any dir left empty. It runs on EVERY fold,
+// not just a rebuild (unlike pruneStaleConcepts, which is destructive to
+// gate on a fully-completed fold) — the current ICM engine can never
+// legitimately produce these dirs, so removing them is always safe. Reports
+// whether anything was removed, so the caller can warn once about the
+// migration.
+func pruneLegacyDirs(base string) (removed bool, err error) {
+	for _, d := range legacyDirs {
+		dir := filepath.Join(base, d)
+		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil
+				}
+				return err
+			}
+			if info.IsDir() || !strings.HasSuffix(path, ".md") {
+				return nil
+			}
+			if rerr := os.Remove(path); rerr != nil {
+				return rerr
+			}
+			removed = true
+			return nil
+		})
+		if walkErr != nil && !os.IsNotExist(walkErr) {
+			return removed, fmt.Errorf("prune legacy dir %s: %w", d, walkErr)
+		}
+		_ = os.Remove(dir) // no-op if non-empty or already gone
+	}
+	return removed, nil
 }
 
 func writeVaultFile(base, rel, content string) error {

@@ -186,6 +186,59 @@ func TestPruneStaleConcepts_KeepsNewIdentity(t *testing.T) {
 	}
 }
 
+// TestWritePlainFoldPrunesLegacyDirs guards against contracts/ (and its
+// siblings) surviving a plain `mom vault fold`: the current ICM engine can
+// never legitimately produce these dirs, so a fold started against a vault
+// left by an old engine must remove them even when prune=false (not a
+// rebuild).
+func TestWritePlainFoldPrunesLegacyDirs(t *testing.T) {
+	root := t.TempDir()
+	base := VaultDir(root)
+	if err := os.MkdirAll(filepath.Join(base, "contracts"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "contracts", "foo.md"), []byte("# legacy\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	w := NewWriter(root)
+	res := FoldResult{Files: map[string]string{"episodes/aaa.md": "# Episode\n"}, Index: "# idx\n", ContextBlock: "## MOM Vault\n\nblock\n"}
+	wres, err := w.Write(res, 10, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !wres.LegacyPruned {
+		t.Error("want LegacyPruned=true when contracts/ held stale content")
+	}
+	if _, err := os.Stat(filepath.Join(base, "contracts")); !os.IsNotExist(err) {
+		t.Error("contracts/ should have been removed by a plain (non-rebuild) fold")
+	}
+}
+
+// TestLoadExistingExcludesLegacyDirs guards synthesis against legacy
+// concepts leaking back in: LoadExisting must never surface files under
+// contracts/ (or its siblings) to the fold accumulator, even before the
+// write-time prune runs.
+func TestLoadExistingExcludesLegacyDirs(t *testing.T) {
+	root := t.TempDir()
+	base := VaultDir(root)
+	if err := os.MkdirAll(filepath.Join(base, "contracts"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "contracts", "foo.md"), []byte("# legacy\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	existing, err := LoadExisting(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := existing["contracts/foo.md"]; ok {
+		t.Error("LoadExisting must not surface contracts/foo.md into the synthesis accumulator")
+	}
+}
+
 // TestWriteUpdatesBothClaudeAndAgentsEntryFiles guards the harness-agnostic
 // invariant: every fold writes the byte-identical managed block into both
 // CLAUDE.md and AGENTS.md, with no config needed.
