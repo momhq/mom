@@ -29,6 +29,7 @@ import (
 var canonicalCLISurface = []string{
 	"demo",
 	"doctor",
+	"ingest",
 	"init",
 	"lens",
 	"project",

@@ -1,80 +1,33 @@
 package cli
 
 import (
+	"archive/zip"
 	"bytes"
-	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/momhq/mom/ingress/docparse"
 	"github.com/momhq/mom/shared/project"
 	"github.com/momhq/mom/storage/ledger"
 	"github.com/spf13/cobra"
 )
 
-func TestSplitChapters(t *testing.T) {
-	cases := []struct {
-		name  string
-		text  string
-		count int
-		want  []string // expected chapter titles (first line of each chapter)
-	}{
-		{
-			name:  "no headings falls back to one chapter",
-			text:  "Just some prose.\nMore prose.\n",
-			count: 1,
-		},
-		{
-			name:  "two arabic chapters",
-			text:  "Front matter.\n\nChapter 1\nIntro text.\n\nChapter 2\nMore text.\n",
-			count: 2,
-			want:  []string{"Chapter 1", "Chapter 2"},
-		},
-		{
-			name:  "capitulo variant",
-			text:  "Capítulo 1: Início\nTexto.\n\nCapítulo 2: Meio\nMais texto.\n",
-			count: 2,
-			want:  []string{"Capítulo 1: Início", "Capítulo 2: Meio"},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			chapters := splitChapters(tc.text)
-			if len(chapters) != tc.count {
-				t.Fatalf("got %d chapters, want %d: %+v", len(chapters), tc.count, chapters)
-			}
-			for i, want := range tc.want {
-				if chapters[i].Title != want {
-					t.Errorf("chapter %d title = %q, want %q", i, chapters[i].Title, want)
-				}
-				if chapters[i].Index != i+1 {
-					t.Errorf("chapter %d index = %d, want %d", i, chapters[i].Index, i+1)
-				}
-			}
-		})
-	}
-}
-
-func TestSplitChapters_WindowsOversizedHeadinglessDocument(t *testing.T) {
-	// A heading-less document becomes ONE chapter (see the "no headings"
-	// case above). Build one far larger than documentEventCharBudget so it
-	// must be windowed into multiple bounded, ordered events — otherwise the
-	// fold can never bisect the resulting 1-event chunk (hierarchy.go
-	// foldL0Chunk) and the watermark wedges forever.
+func TestWindowOversizedChapters_HeadinglessDocument(t *testing.T) {
 	words := make([]string, 0, 3000)
 	for i := 0; i < 3000; i++ {
 		words = append(words, "word")
 	}
-	text := strings.Join(words, " ") // ~15000 chars, no "Chapter N" heading anywhere
+	text := strings.Join(words, " ") // ~15000 chars, no heading
 
-	chapters := splitChapters(text)
-	if len(chapters) < 2 {
-		t.Fatalf("got %d window(s), want > 1 for a %d-char heading-less document", len(chapters), len(text))
+	got := windowOversizedChapters(docparse.SplitFlatText(text))
+	if len(got) < 2 {
+		t.Fatalf("got %d window(s), want > 1 for a %d-char heading-less document", len(got), len(text))
 	}
 
 	var rebuilt []string
-	for i, ch := range chapters {
+	for i, ch := range got {
 		if len(ch.Text) > documentEventCharBudget {
 			t.Errorf("window %d text is %d chars, want <= %d", i, len(ch.Text), documentEventCharBudget)
 		}
@@ -86,33 +39,6 @@ func TestSplitChapters_WindowsOversizedHeadinglessDocument(t *testing.T) {
 	if got, want := strings.Join(rebuilt, " "), text; got != want {
 		t.Errorf("windowed text does not reconstruct the original (order/content lost)")
 	}
-}
-
-// stubExtractorScript writes a python3 script that mimics book-to-skill's
-// extract.py surface: `--check` exits 0, and `<file> --mode text` writes a
-// deterministic full_text.txt + metadata.json into $BOOK_SKILL_WORKDIR.
-func stubExtractorScript(t *testing.T, fullText string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "extract.py")
-	encoded := base64.StdEncoding.EncodeToString([]byte(fullText))
-	script := `import sys, os, json, base64
-from pathlib import Path
-
-if "--check" in sys.argv[1:]:
-    print("ok")
-    sys.exit(0)
-
-workdir = Path(os.environ["BOOK_SKILL_WORKDIR"])
-workdir.mkdir(parents=True, exist_ok=True)
-text = base64.b64decode("` + encoded + `").decode("utf-8")
-(workdir / "full_text.txt").write_text(text)
-(workdir / "metadata.json").write_text(json.dumps({"filename": "test-book.pdf"}))
-`
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return path
 }
 
 // bindTestProject creates a temp project dir bound via .mom-project.yaml,
@@ -137,31 +63,14 @@ func bindTestProject(t *testing.T, projectID string) {
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 }
 
-func TestRunIngest_EndToEnd(t *testing.T) {
-	bindTestProject(t, "test-proj")
+func resetIngestFlags(t *testing.T) {
+	t.Helper()
+	ingestAuthor, ingestTitle, ingestText = "", "", false
+	t.Cleanup(func() { ingestAuthor, ingestTitle, ingestText = "", "", false })
+}
 
-	extractor := stubExtractorScript(t, "Chapter 1\nIntro text.\n\nChapter 2\nMore text.\n")
-	writeTestMomConfig(t, extractor)
-
-	docFile := filepath.Join(t.TempDir(), "input.pdf")
-	if err := os.WriteFile(docFile, []byte("fake pdf bytes"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	cmd := &cobra.Command{}
-	out := new(bytes.Buffer)
-	cmd.SetOut(out)
-	ingestAuthor = "Jane Author"
-	t.Cleanup(func() { ingestAuthor = "" })
-
-	if err := runIngest(cmd, []string{docFile}); err != nil {
-		t.Fatalf("runIngest: %v", err)
-	}
-
-	ldir, err := ledgerDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+func documentChapterEvents(t *testing.T, ldir string) (titles []string, payloads []map[string]any) {
+	t.Helper()
 	led, err := ledger.Open(ldir)
 	if err != nil {
 		t.Fatalf("opening ledger: %v", err)
@@ -170,8 +79,6 @@ func TestRunIngest_EndToEnd(t *testing.T) {
 
 	it := led.Iterate(0)
 	defer it.Close()
-	var records []string
-	var titles []string
 	for {
 		rec, ok := it.Next()
 		if !ok {
@@ -180,38 +87,136 @@ func TestRunIngest_EndToEnd(t *testing.T) {
 		if string(rec.Event.Type) != "capture.document_chapter.observed" {
 			continue
 		}
-		records = append(records, rec.Event.SessionID)
 		title, _ := rec.Event.Payload["chapter_title"].(string)
 		titles = append(titles, title)
-		if got, _ := rec.Event.Payload["project_id"].(string); got != "test-proj" {
-			t.Errorf("project_id = %q, want test-proj", got)
-		}
-		if got, _ := rec.Event.Payload["doc_author"].(string); got != "Jane Author" {
-			t.Errorf("doc_author = %q, want Jane Author", got)
-		}
-		if got, _ := rec.Event.Payload["source_class"].(string); got != "document" {
-			t.Errorf("source_class = %q, want document", got)
-		}
+		payloads = append(payloads, rec.Event.Payload)
 	}
 	if err := it.Err(); err != nil {
 		t.Fatal(err)
 	}
+	return titles, payloads
+}
+
+func TestRunIngest_EndToEnd_Markdown(t *testing.T) {
+	bindTestProject(t, "test-proj")
+	resetIngestFlags(t)
+	ingestAuthor = "Jane Author"
+
+	docFile := filepath.Join(t.TempDir(), "book.md")
+	content := "# Chapter 1\nIntro text.\n\n# Chapter 2\nMore text.\n"
+	if err := os.WriteFile(docFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := &cobra.Command{}
+	out := new(bytes.Buffer)
+	cmd.SetOut(out)
+	if err := runIngest(cmd, []string{docFile}); err != nil {
+		t.Fatalf("runIngest: %v", err)
+	}
+
+	ldir, err := ledgerDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	titles, payloads := documentChapterEvents(t, ldir)
 	if len(titles) != 2 {
 		t.Fatalf("got %d document_chapter events, want 2: %v", len(titles), titles)
 	}
 	if titles[0] != "Chapter 1" || titles[1] != "Chapter 2" {
 		t.Errorf("chapter titles = %v, want [Chapter 1, Chapter 2]", titles)
 	}
+	for _, p := range payloads {
+		if got, _ := p["project_id"].(string); got != "test-proj" {
+			t.Errorf("project_id = %q, want test-proj", got)
+		}
+		if got, _ := p["doc_author"].(string); got != "Jane Author" {
+			t.Errorf("doc_author = %q, want Jane Author", got)
+		}
+		if got, _ := p["source_class"].(string); got != "document" {
+			t.Errorf("source_class = %q, want document", got)
+		}
+	}
+}
+
+func TestRunIngest_EndToEnd_EPUB(t *testing.T) {
+	bindTestProject(t, "test-proj")
+	resetIngestFlags(t)
+
+	opf := `<?xml version="1.0"?>
+<package>
+  <metadata><dc:title>Test Book</dc:title><dc:creator>Test Author</dc:creator></metadata>
+  <manifest>
+    <item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>
+    <item id="b" href="b.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="a"/>
+    <itemref idref="b"/>
+  </spine>
+</package>`
+	entries := map[string]string{
+		"META-INF/container.xml": `<?xml version="1.0"?>
+<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>`,
+		"OEBPS/content.opf": opf,
+		"OEBPS/a.xhtml":     `<html><body><h1>A</h1><p>Text A</p></body></html>`,
+		"OEBPS/b.xhtml":     `<html><body><h1>B</h1><p>Text B</p></body></html>`,
+	}
+	docFile := filepath.Join(t.TempDir(), "book.epub")
+	f, err := os.Create(docFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	for name, content := range entries {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write([]byte(content)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	cmd := &cobra.Command{}
+	out := new(bytes.Buffer)
+	cmd.SetOut(out)
+	if err := runIngest(cmd, []string{docFile}); err != nil {
+		t.Fatalf("runIngest: %v", err)
+	}
+
+	ldir, err := ledgerDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	titles, payloads := documentChapterEvents(t, ldir)
+	if len(titles) != 2 {
+		t.Fatalf("got %d document_chapter events, want 2: %v", len(titles), titles)
+	}
+	if titles[0] != "A" || titles[1] != "B" {
+		t.Errorf("chapter titles = %v, want [A, B] (spine order)", titles)
+	}
+	for _, p := range payloads {
+		if got, _ := p["doc_title"].(string); got != "Test Book" {
+			t.Errorf("doc_title = %q, want Test Book (from OPF metadata, not filename)", got)
+		}
+		if got, _ := p["doc_author"].(string); got != "Test Author" {
+			t.Errorf("doc_author = %q, want Test Author", got)
+		}
+	}
 }
 
 func TestRunIngest_SecondIngestOfSameContentAppendsNothing(t *testing.T) {
 	bindTestProject(t, "test-proj")
+	resetIngestFlags(t)
 
-	extractor := stubExtractorScript(t, "Chapter 1\nIntro text.\n\nChapter 2\nMore text.\n")
-	writeTestMomConfig(t, extractor)
-
-	docFile := filepath.Join(t.TempDir(), "input.pdf")
-	if err := os.WriteFile(docFile, []byte("fake pdf bytes"), 0o644); err != nil {
+	docFile := filepath.Join(t.TempDir(), "book.md")
+	content := "# Chapter 1\nIntro text.\n\n# Chapter 2\nMore text.\n"
+	if err := os.WriteFile(docFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -254,57 +259,100 @@ func TestRunIngest_SecondIngestOfSameContentAppendsNothing(t *testing.T) {
 	}
 }
 
-// writeTestMomConfig points vault.ingest_extractor at the given path via
-// $HOME/.mom/config.yaml (config.Load's expected location).
-func writeTestMomConfig(t *testing.T, extractorPath string) {
-	t.Helper()
-	home, err := os.UserHomeDir()
+func TestRunIngest_UnsupportedFormatIsActionable(t *testing.T) {
+	bindTestProject(t, "test-proj")
+	resetIngestFlags(t)
+
+	docFile := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(docFile, []byte("%PDF-1.4 fake"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := &cobra.Command{}
+	cmd.SetOut(new(bytes.Buffer))
+	err := runIngest(cmd, []string{docFile})
+	if err == nil {
+		t.Fatal("expected an error for an unsupported .pdf input")
+	}
+	if !strings.Contains(err.Error(), "--text") || !strings.Contains(err.Error(), "pdftotext") {
+		t.Errorf("error = %q, want it to mention --text and pdftotext", err.Error())
+	}
+}
+
+func TestRunIngest_TextFlagAcceptsAnyExtension(t *testing.T) {
+	bindTestProject(t, "test-proj")
+	resetIngestFlags(t)
+	ingestText = true
+
+	docFile := filepath.Join(t.TempDir(), "book.pdf") // plain text under a .pdf name
+	if err := os.WriteFile(docFile, []byte("Chapter 1\nIntro.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := &cobra.Command{}
+	out := new(bytes.Buffer)
+	cmd.SetOut(out)
+	if err := runIngest(cmd, []string{docFile}); err != nil {
+		t.Fatalf("runIngest: %v", err)
+	}
+
+	ldir, err := ledgerDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	momDir := filepath.Join(home, ".mom")
-	if err := os.MkdirAll(momDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	content := "version: \"1\"\nvault:\n  ingest_extractor: " + extractorPath + "\n"
-	if err := os.WriteFile(filepath.Join(momDir, "config.yaml"), []byte(content), 0o644); err != nil {
-		t.Fatal(err)
+	titles, _ := documentChapterEvents(t, ldir)
+	if len(titles) != 1 {
+		t.Fatalf("got %d document_chapter events, want 1: %v", len(titles), titles)
 	}
 }
 
-func TestRunIngest_MissingExtractor(t *testing.T) {
+func TestRunIngest_StdinRequiresTitle(t *testing.T) {
 	bindTestProject(t, "test-proj")
-	writeTestMomConfig(t, filepath.Join(t.TempDir(), "does-not-exist.py"))
-
-	docFile := filepath.Join(t.TempDir(), "input.pdf")
-	if err := os.WriteFile(docFile, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	resetIngestFlags(t)
+	ingestText = true
 
 	cmd := &cobra.Command{}
 	cmd.SetOut(new(bytes.Buffer))
-	if err := runIngest(cmd, []string{docFile}); err == nil {
-		t.Fatal("expected a clean error for a missing extractor, got nil")
+	cmd.SetIn(strings.NewReader("Chapter 1\nIntro.\n"))
+	err := runIngest(cmd, []string{"-"})
+	if err == nil {
+		t.Fatal("expected an error for stdin input without --title")
+	}
+
+	ldir, err := ledgerDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	titles, _ := documentChapterEvents(t, ldir)
+	if len(titles) != 0 {
+		t.Fatalf("got %d document_chapter events, want 0 (no ledger write before the --title check)", len(titles))
 	}
 }
 
-func TestRunIngest_MissingPython3(t *testing.T) {
-	bindTestProject(t, "test-proj")
-	extractor := stubExtractorScript(t, "text")
-	writeTestMomConfig(t, extractor)
-
-	// Empty PATH — exec.LookPath("python3") must fail.
-	emptyPathDir := t.TempDir()
-	t.Setenv("PATH", emptyPathDir)
-
-	docFile := filepath.Join(t.TempDir(), "input.pdf")
-	if err := os.WriteFile(docFile, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
+func TestRunIngest_NoExternalProcessReferences(t *testing.T) {
+	forbidden := []string{"python3", "extract.py", "book-to-skill", "ingest_extractor"}
+	roots := []string{
+		".",
+		filepath.Join("..", "..", "shared", "config"),
 	}
-
-	cmd := &cobra.Command{}
-	cmd.SetOut(new(bytes.Buffer))
-	if err := runIngest(cmd, []string{docFile}); err == nil {
-		t.Fatal("expected a clean error when python3 is unavailable, got nil")
+	for _, root := range roots {
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(root, e.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, term := range forbidden {
+				if strings.Contains(string(data), term) {
+					t.Errorf("%s contains forbidden term %q (external-process ingestion path must be fully removed)", filepath.Join(root, e.Name()), term)
+				}
+			}
+		}
 	}
 }
