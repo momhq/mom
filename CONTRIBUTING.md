@@ -52,7 +52,7 @@ go.sum
 ├── config.yaml                  # preferences
 ├── identity.json                # project identity
 ├── ledger/                      # append-only captured events
-└── vault/                       # projected markdown memory (INDEX.md, topics/, timeline/, …)
+└── vault/                       # projected markdown memory (INDEX.md, identity.md, reference/, conventions/, episodes/)
 ```
 
 See [.github/repo-surface.md](.github/repo-surface.md) for the full one-line

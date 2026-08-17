@@ -24,7 +24,7 @@ _Mom_ gives AI coding agents persistent memory across sessions, projects, and to
 Instead of re-explaining architecture, decisions, conventions, and constraints every time you start a new chat, _mom_ records them to an append-only Ledger and projects them into a per-project **markdown vault** your agent reads with its normal file tools.
 
 > [!IMPORTANT]
-> `v0.50.0-alpha` is the current public alpha. It replaces the SQLite vault and MCP server with a per-project markdown vault projected from an append-only Ledger (see [ADR 0024](adr/0024-v050-markdown-vault-memory.md)). Pi, Claude Code, and Codex flows are validated end-to-end. Upgrading from an older install? See [Upgrade](#upgrade-from-older-mom-installs).
+> `v0.53.0-alpha` is the current public alpha. It replaces the SQLite vault and MCP server with a per-project markdown vault projected from an append-only Ledger (see [ADR 0024](adr/0024-v050-markdown-vault-memory.md)). Pi, Claude Code, and Codex flows are validated end-to-end. Upgrading from an older install? See [Upgrade](#upgrade-from-older-mom-installs).
 
 ## Why _mom_?
 
@@ -94,10 +94,11 @@ services/projection  (Reader → Synthesizer → Writer)
         │
         ▼
 .mom/vault/*.md   ← the agent reads these with its file tools
-  ├─ INDEX.md           # router: "read X when the task looks like Y"
-  ├─ topics/<slug>.md   # decisions, patterns, preferences by subject
-  ├─ timeline/<YYYY-MM>.md
-  └─ summaries/overview.md
+  ├─ INDEX.md               # routing-only: what to read for what task
+  ├─ identity.md             # layer A: always-load project orientation
+  ├─ reference/INDEX.md      # layer B: decisions, facts, ingested books
+  ├─ conventions/INDEX.md    # layer B: process/workflow rules
+  └─ episodes/<hash>.md      # layer C: raw provenance, evidence-loaded last
 ```
 
 Lose the vault and `mom vault rebuild` regenerates it from the Ledger; the Ledger is the durable backbone and is never derived.
