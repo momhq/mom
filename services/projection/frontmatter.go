@@ -23,6 +23,7 @@ type Frontmatter struct {
 	Layer          string    // ICM layer: "A"=identity, "B"=reference+conventions, "C"=episodes
 	AccessTier     string    // "distilled" for A/B, "raw" for C
 	Subtype        string    // "" or "document"
+	DocAuthor      string    // document concepts/episodes only: the book's author, MOM-stamped from ingest metadata
 	Kind           string    // legacy: "episode" | "topic" | "timeline" | "summary" | "index"
 	Sources        []uint64  // sorted ledger offsets that contributed to this file
 	Tags           []string  // topic tags
@@ -92,6 +93,9 @@ func RenderFrontmatter(fm Frontmatter) string {
 	}
 	if fm.Subtype != "" {
 		fmt.Fprintf(&b, "subtype: %s\n", fm.Subtype)
+	}
+	if fm.DocAuthor != "" {
+		fmt.Fprintf(&b, "doc_author: %s\n", yamlScalar(fm.DocAuthor))
 	}
 	if fm.Kind != "" {
 		fmt.Fprintf(&b, "kind: %s\n", fm.Kind)
@@ -191,6 +195,8 @@ func ParseFrontmatter(content string) (Frontmatter, string) {
 			fm.AccessTier = val
 		case "subtype":
 			fm.Subtype = val
+		case "doc_author":
+			fm.DocAuthor = unquoteYAML(val)
 		case "level":
 			// Tolerant: legacy numeric level so half-migrated files still parse.
 			switch val {

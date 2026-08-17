@@ -98,7 +98,7 @@ func TestStampProvenanceForcesLayerByPath(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			content := "---\nlayer: " + tc.inputLayer + "\n---\n\n# Body\n"
-			stamped := stampProvenance(content, "proj", tc.path, []uint64{1, 2, 3}, nil, time.Time{}, time.Time{})
+			stamped := stampProvenance(content, "proj", tc.path, []uint64{1, 2, 3}, nil, time.Time{}, time.Time{}, "")
 			fm, _ := ParseFrontmatter(stamped)
 			if fm.Layer != tc.wantLayer {
 				t.Errorf("Layer: got %q, want %q", fm.Layer, tc.wantLayer)

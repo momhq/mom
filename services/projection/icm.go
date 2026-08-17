@@ -59,7 +59,11 @@ func buildPerFolderIndexes(files map[string]string) {
 			if !fm.TimeRangeEnd.IsZero() {
 				through = fm.TimeRangeEnd.UTC().Format("2006-01-02")
 			}
-			r := row{p, name, desc, through, sourceAuthor(body)}
+			author := fm.DocAuthor
+			if author == "" {
+				author = sourceAuthor(body)
+			}
+			r := row{p, name, desc, through, author}
 			if fm.Subtype == "document" {
 				docRows = append(docRows, r)
 			} else {

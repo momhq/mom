@@ -58,6 +58,10 @@ func (s *docThresholdStub) Fold(_ context.Context, in FoldInput) (FoldResult, er
 }
 
 func makeDocumentEvent(offset uint64, docTitle string, t time.Time) FoldEvent {
+	return makeDocumentEventWithAuthor(offset, docTitle, "", t)
+}
+
+func makeDocumentEventWithAuthor(offset uint64, docTitle, docAuthor string, t time.Time) FoldEvent {
 	return FoldEvent{
 		Offset:       offset,
 		Type:         "capture.document_chapter.observed",
@@ -66,6 +70,7 @@ func makeDocumentEvent(offset uint64, docTitle string, t time.Time) FoldEvent {
 		SourceClass:  "document",
 		DocID:        "doc1",
 		DocTitle:     docTitle,
+		DocAuthor:    docAuthor,
 		ChapterIndex: int(offset),
 	}
 }
@@ -129,6 +134,42 @@ func TestHierarchicalTranscriptStaysGatedByThreshold(t *testing.T) {
 		if strings.HasPrefix(p, referenceDir+"/") && !strings.HasSuffix(p, indexFileName) {
 			t.Errorf("unexpected concept file below threshold: %s", p)
 		}
+	}
+}
+
+// TestHierarchicalDocumentAuthorStamped proves doc_author flows from the
+// ingest events' payload — never trusted from the LLM — through the episode
+// and into the document concept's frontmatter, and that the rendered
+// reference/INDEX.md Author cell is populated from it.
+func TestHierarchicalDocumentAuthorStamped(t *testing.T) {
+	when := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	events := []FoldEvent{
+		makeDocumentEventWithAuthor(1, "My Book", "Jane Author", when),
+		makeDocumentEventWithAuthor(2, "My Book", "Jane Author", when),
+	}
+	stub := &docThresholdStub{}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 5, l2Threshold: 100}
+
+	res, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c, ok := res.Files[referenceDir+"/my-book.md"]
+	if !ok {
+		t.Fatalf("missing reference/my-book.md concept; files: %v", keysOf(res.Files))
+	}
+	fm, _ := ParseFrontmatter(c)
+	if fm.DocAuthor != "Jane Author" {
+		t.Errorf("want doc_author %q in concept frontmatter, got %q", "Jane Author", fm.DocAuthor)
+	}
+
+	idx, ok := res.Files[referenceDir+"/"+indexFileName]
+	if !ok {
+		t.Fatalf("missing reference/INDEX.md")
+	}
+	if !strings.Contains(idx, "| Jane Author |") {
+		t.Errorf("reference/INDEX.md Author cell not populated; got:\n%s", idx)
 	}
 }
 

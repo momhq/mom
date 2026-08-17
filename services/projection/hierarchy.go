@@ -232,12 +232,13 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				changed := map[string]string{}
 				wrote := ""
 				subStart, subEnd := fmTimeRange(subEps)
+				subDocAuthor := subjectDocAuthor(subEps)
 				for p, c := range l1Res.Files {
 					// Stamp provenance MOM owns: the union of the subject's
 					// episode offsets, the episodes as children, and the span
 					// of the episodes' fact time. The model omits all of these.
 					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, conventionsDir+"/") {
-						c = stampProvenance(c, in.ProjectID, p, subOffsets, subj.episodePaths, subStart, subEnd)
+						c = stampProvenance(c, in.ProjectID, p, subOffsets, subj.episodePaths, subStart, subEnd, subDocAuthor)
 						wrote = p
 						l1Changed = true
 					}
@@ -514,7 +515,7 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 			// bloats output and truncates the JSON). Stamp the chunk's offsets
 			// and the events' real time span.
 			if strings.HasPrefix(p, episodesDir+"/") {
-				c = stampProvenance(c, in.ProjectID, p, offsets, nil, start, end)
+				c = stampProvenance(c, in.ProjectID, p, offsets, nil, start, end, chunkDocAuthor(chunk))
 			}
 			files[p] = c
 		}
@@ -640,6 +641,32 @@ func buildDocumentCaptureInput(in FoldInput, cid string) FoldInput {
 	return out
 }
 
+// subjectDocAuthor returns the document author carried by a document
+// subject's episode frontmatter, empty when absent. Episodes already carry
+// doc_author stamped by chunkDocAuthor at L0 time — this just propagates it
+// up to the L1 concept.
+func subjectDocAuthor(episodes map[string]string) string {
+	for _, c := range episodes {
+		fm, _ := ParseFrontmatter(c)
+		if fm.DocAuthor != "" {
+			return fm.DocAuthor
+		}
+	}
+	return ""
+}
+
+// chunkDocAuthor returns the document author carried by a document chunk's
+// events, empty for a transcript chunk or a document with no author on
+// record. Stamped by MOM from ingest metadata — never trusted from the LLM.
+func chunkDocAuthor(chunk []FoldEvent) string {
+	for _, e := range chunk {
+		if e.DocAuthor != "" {
+			return e.DocAuthor
+		}
+	}
+	return ""
+}
+
 // stampProvenance rewrites a synthesized file's machine-owned frontmatter:
 // sources (deduped/sorted), children, the content-addressed id, the FACT time
 // range, and — from path — the ICM layer/access_tier. The model is told to
@@ -651,13 +678,16 @@ func buildDocumentCaptureInput(in FoldInput, cid string) FoldInput {
 // value (e.g. "layer: 1") instead of the letter the prompt asks for, which
 // silently drops the file out of ICM cross-linking (layerRank falls through
 // to episode rank for anything that isn't A/B).
-func stampProvenance(content, projectID, path string, sources []uint64, children []string, start, end time.Time) string {
+func stampProvenance(content, projectID, path string, sources []uint64, children []string, start, end time.Time, docAuthor string) string {
 	fm, body := ParseFrontmatter(content)
 	fm.Sources = sortedUniqueOffsets(sources)
 	if len(children) > 0 {
 		ch := append([]string(nil), children...)
 		sort.Strings(ch)
 		fm.Children = ch
+	}
+	if docAuthor != "" {
+		fm.DocAuthor = docAuthor
 	}
 	if !start.IsZero() {
 		fm.TimeRangeStart = start.UTC()
