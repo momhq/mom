@@ -1,6 +1,6 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
-LDFLAGS  = -ldflags "-X github.com/momhq/mom/ingress/cli.Version=$(VERSION) -X github.com/momhq/mom/ingress/cli.Commit=$(COMMIT)"
+LDFLAGS  = -ldflags "-X github.com/momhq/mom/shared/buildinfo.Version=$(VERSION) -X github.com/momhq/mom/shared/buildinfo.Commit=$(COMMIT)"
 
 .PHONY: build test lint clean install brew-audit verify-registry
 

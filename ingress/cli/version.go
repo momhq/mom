@@ -3,14 +3,16 @@ package cli
 import (
 	"fmt"
 
+	"github.com/momhq/mom/shared/buildinfo"
 	"github.com/momhq/mom/shared/ux"
 	"github.com/spf13/cobra"
 )
 
-// Set via ldflags at build time.
+// Version and Commit are aliases of shared/buildinfo, kept here so existing
+// call sites in this package (and the ldflags target) don't change.
 var (
-	Version = "dev"
-	Commit  = "none"
+	Version = buildinfo.Version
+	Commit  = buildinfo.Commit
 )
 
 // shortCommit returns the commit truncated to its short form.

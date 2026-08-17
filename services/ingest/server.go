@@ -26,11 +26,9 @@ import (
 
 	"github.com/momhq/mom/events/editor"
 	"github.com/momhq/mom/events/envelope"
+	"github.com/momhq/mom/shared/buildinfo"
 	"github.com/momhq/mom/storage/ledger"
 )
-
-// version is stamped into the health response.
-const version = "0.50.0"
 
 // ingestSource is the provenance adapter name stamped by the Editor.
 const ingestSource = "ingest"
@@ -302,7 +300,7 @@ func (s *Server) handleHead(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	jsonResponse(w, healthResponse{OK: true, Version: version})
+	jsonResponse(w, healthResponse{OK: true, Version: buildinfo.Version})
 }
 
 // ---- helpers ----------------------------------------------------------------
