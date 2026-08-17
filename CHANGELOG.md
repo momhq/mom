@@ -60,7 +60,27 @@ on the next fold instead of persisting.
 - **Fold pass names.** L0/L1/L2 are renamed `capture`/`concept`/`identity` to
   match what each pass actually does.
 
-<!-- TODO: add Windows Service (#34) bullets here if that branch is merged before tagging -->
+- **Windows Service keepalive (#34).** The global watch daemon now registers
+  as a real Windows Service via `windows/svc` + `mgr`, closing the keepalive
+  gap left by v0.52.0-alpha's Windows support: the service supervises `mom
+  watch --global` as a child process, restarting it if it exits, so the
+  watcher survives reboots and crashes the same way launchd/systemd keep it
+  alive on macOS/Linux.
+- **Stable-path install with reconcile on upgrade.** The daemon binary is
+  installed to a fixed path and reconciled against the currently running
+  binary on every relevant entry point, so an in-place binary upgrade (e.g.
+  `brew upgrade`) is picked up without a stale daemon silently continuing to
+  serve the old binary.
+- **Content-based reconcile, not mtime-based.** Reconcile now compares
+  source and destination by size + SHA-256 instead of modification time —
+  Homebrew bottles can carry an older build mtime than what's already
+  installed, which previously caused upgrades to be silently skipped. Each
+  writer copies through its own uniquely-named temp file before renaming
+  into place, so concurrent reconciles (e.g. daemon init racing the
+  background sweep) can't interleave writes and publish a corrupt binary.
+- **Hardened Windows Service Close()/Disconnect() handling.** Service
+  Control Manager handle-close and disconnect calls now check and report
+  their errors instead of discarding them silently.
 
 ## v0.52.0-alpha — The ICM vault
 
