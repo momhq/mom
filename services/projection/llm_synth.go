@@ -409,7 +409,7 @@ func buildPrompt(in FoldInput) (string, bool) {
 	b.WriteString("OUTPUT FORMAT — emit each file as a delimited block and NOTHING else (no JSON, no prose, no code fences). Write the file content as plain markdown between the delimiters — do NOT escape quotes or newlines:\n")
 	b.WriteString(fileBlockOpen + "<vault-relative path>" + "@@@\n<full markdown file content, starting with the --- frontmatter>\n" + fileBlockClose + "\n\n")
 	b.WriteString("Example:\n")
-	b.WriteString(fileBlockOpen + "reference/voice.md@@@\n---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlevel: 1\ntags: [voice]\n---\n# Voice & tone\n- Terse, direct, no filler.\n" + fileBlockClose + "\n\n")
+	b.WriteString(fileBlockOpen + "reference/voice.md@@@\n---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlayer: B\naccess_tier: distilled\ntags: [voice]\n---\n# Voice & tone\n- Terse, direct, no filler.\n" + fileBlockClose + "\n\n")
 	fmt.Fprintf(&b, "PROJECT: %s\n", in.ProjectID)
 	fmt.Fprintf(&b, "WATERMARK: offset %d\n", in.ToOffset)
 	if windowed {
