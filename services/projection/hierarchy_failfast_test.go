@@ -720,8 +720,8 @@ func TestFoldStampsFactTimeRanges(t *testing.T) {
 func TestPromptsStripMachineFrontmatter(t *testing.T) {
 	heavy := PrependFrontmatter(Frontmatter{
 		Type: typeReference, Name: "x", Layer: "B", Version: 1,
-		ID:      "abcd1234abcd1234",
-		Sources: []uint64{1, 5, 9, 13, 200, 401},
+		ID:       "abcd1234abcd1234",
+		Sources:  []uint64{1, 5, 9, 13, 200, 401},
 		Children: []string{"episodes/e.md"},
 	}, "# x\n- fact\n")
 

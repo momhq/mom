@@ -167,8 +167,8 @@ func TestLinkRelated_ICMTypeSiblings(t *testing.T) {
 	}
 
 	files := map[string]string{
-		"reference/auth.md":    mkICM(typeReference, []uint64{1, 2}, []string{"auth", "security"}, "Auth"),
-		"reference/session.md": mkICM(typeReference, []uint64{3, 4}, []string{"auth", "session"}, "Session"),
+		"reference/auth.md":      mkICM(typeReference, []uint64{1, 2}, []string{"auth", "security"}, "Auth"),
+		"reference/session.md":   mkICM(typeReference, []uint64{3, 4}, []string{"auth", "session"}, "Session"),
 		"conventions/release.md": mkICM(typeConvention, []uint64{5, 6}, []string{"release"}, "Release"),
 	}
 
@@ -219,9 +219,9 @@ func TestLinkRelated_OffsetOverlapSiblings(t *testing.T) {
 	}
 	files := map[string]string{
 		// fold and release co-occur in offsets 10-12; voice is disjoint.
-		"reference/fold.md":    mk(typeReference, []uint64{10, 11, 12, 13}, "fold", "Fold"),
+		"reference/fold.md":      mk(typeReference, []uint64{10, 11, 12, 13}, "fold", "Fold"),
 		"conventions/release.md": mk(typeConvention, []uint64{11, 12, 20}, "release", "Release"),
-		"reference/voice.md":   mk(typeReference, []uint64{30, 31}, "voice", "Voice"),
+		"reference/voice.md":     mk(typeReference, []uint64{30, 31}, "voice", "Voice"),
 	}
 
 	linkRelated(files)

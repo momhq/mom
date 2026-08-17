@@ -214,8 +214,8 @@ type FoldInput struct {
 type FoldResult struct {
 	// Files maps a vault-relative path → content. Does NOT include
 	// INDEX.md (carried separately as Index).
-	Files       map[string]string
-	Index       string
+	Files        map[string]string
+	Index        string
 	ContextBlock string
 	// Chunks maps chunkID → vault-relative path for every chunk synthesized
 	// (or reused from ExistingChunks) this fold. Written into FoldState so

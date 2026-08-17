@@ -157,7 +157,7 @@ func TestAllowedVaultPath(t *testing.T) {
 		"INDEX.md":               true,
 		"identity.md":            true,
 		"reference/voice.md":     true,
-		"conventions/release.md":   true,
+		"conventions/release.md": true,
 		"episodes/abc123.md":     true,
 		"reference/x.py":         false, // not .md
 		"_l0_hint":               false, // hint key, no extension

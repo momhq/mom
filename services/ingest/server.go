@@ -109,10 +109,10 @@ type postResponse struct {
 
 // getRecord is one record in the GET /api/ingest/events response.
 type getRecord struct {
-	Offset      uint64         `json:"offset"`
-	AppendedAt  string         `json:"appended_at"`
-	Type        string         `json:"type"`
-	Payload     map[string]any `json:"payload"`
+	Offset     uint64         `json:"offset"`
+	AppendedAt string         `json:"appended_at"`
+	Type       string         `json:"type"`
+	Payload    map[string]any `json:"payload"`
 }
 
 // getResponse is returned by GET /api/ingest/events.

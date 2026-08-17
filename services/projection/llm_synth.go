@@ -256,7 +256,7 @@ type llmOut struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 	} `json:"files"`
-	Index       string `json:"index"`
+	Index        string `json:"index"`
 	ContextBlock string `json:"claude_block"`
 }
 

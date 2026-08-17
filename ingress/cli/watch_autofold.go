@@ -53,9 +53,9 @@ func startAutofold(ctx context.Context, momDir string) func(projectID, harness s
 		RootFor: registryRootForProject,
 		Fold: func(ctx context.Context, projectID, root string) (projection.RunSummary, error) {
 			return projection.RunProjectFold(ctx, projection.RunOptions{
-				ProjectID: projectID,
-				Root:      root,
-				LedgerDir: ldir,
+				ProjectID:  projectID,
+				Root:       root,
+				LedgerDir:  ldir,
 				Engine:     "auto",
 				Model:      cfg.Vault.FoldModel,
 				EntryFiles: cfg.EntryFiles(),

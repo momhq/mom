@@ -154,9 +154,9 @@ func (w *Writer) Checkpoint(files map[string]string, chunks map[string]string, w
 		}
 	}
 	return writeFoldState(base, FoldState{
-		LastOffset:       watermark,
-		FoldedAt:         time.Now().UTC(),
-		Chunks:           chunks,
+		LastOffset: watermark,
+		FoldedAt:   time.Now().UTC(),
+		Chunks:     chunks,
 	})
 }
 
@@ -222,11 +222,11 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 	}
 
 	st := FoldState{
-		LastOffset:       head,
-		FoldedAt:         time.Now().UTC(),
-		FilesWritten:     written,
-		EventsFolded:     eventsFolded,
-		Chunks:           res.Chunks,
+		LastOffset:   head,
+		FoldedAt:     time.Now().UTC(),
+		FilesWritten: written,
+		EventsFolded: eventsFolded,
+		Chunks:       res.Chunks,
 	}
 	if err := writeFoldState(base, st); err != nil {
 		return WriteResult{}, err
@@ -256,12 +256,16 @@ func (w *Writer) updateEntryFiles(block string) ([]string, error) {
 // touched again — it is a human map of MOM, not machine-owned output.
 func (w *Writer) seedContextFile() error {
 	path := filepath.Join(w.Root, "CONTEXT.md")
-	if _, err := os.Stat(path); err == nil {
-		return nil
-	} else if !os.IsNotExist(err) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			return nil
+		}
 		return err
 	}
-	return os.WriteFile(path, []byte(contextFileSeed), 0o600)
+	defer f.Close()
+	_, err = f.Write([]byte(contextFileSeed))
+	return err
 }
 
 // contextFileSeed is the one-time CONTEXT.md content: a human orientation to
