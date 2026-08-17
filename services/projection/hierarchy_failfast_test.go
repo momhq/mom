@@ -188,6 +188,101 @@ func TestFoldHierarchicalL1SkipsUnchangedSubjects(t *testing.T) {
 	}
 }
 
+// identityFailOnceStub always writes the subject's concept (like refStub) but
+// fails the first l2Fails identity-synthesis attempts with a non-systemic
+// error, then succeeds. Used to reproduce a fold where identity synthesis
+// fails on a fold that DID change a concept, leaving a stale identity.md
+// behind that a later unchanged fold must still notice and retry.
+type identityFailOnceStub struct {
+	icmStub
+	failOnAttempt int // 0 means never fail; N means the Nth L2 call fails
+	l2Attempted   int
+}
+
+func (s *identityFailOnceStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
+	if has(in.Existing, "_l1_hint") {
+		s.l1++
+		return FoldResult{Files: map[string]string{
+			referenceDir + "/arch.md": PrependFrontmatter(
+				Frontmatter{Type: typeReference, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
+		}}, nil
+	}
+	if has(in.Existing, "_l2_hint") {
+		s.l2Attempted++
+		if s.l2Attempted == s.failOnAttempt {
+			return FoldResult{}, errors.New("synthetic identity failure")
+		}
+		return FoldResult{Files: map[string]string{
+			identityFile: PrependFrontmatter(
+				Frontmatter{Type: typeIdentity, Name: "Demo", Layer: "A", Version: 1}, "# Demo\n"),
+		}}, nil
+	}
+	return s.icmStub.Fold(ctx, in)
+}
+
+// TestFoldHierarchicalIdentityRetriesAfterFailure guards against identity.md
+// freezing stale forever: a fold that changes a concept (l1Changed=true) but
+// whose identity synthesis fails must have the NEXT fold retry identity
+// synthesis even when no concept changes in between — the skip must be gated
+// on the concept layer's content-addressed id actually matching what's on
+// disk, not merely on "did this fold's L1 pass change anything".
+func TestFoldHierarchicalIdentityRetriesAfterFailure(t *testing.T) {
+	var events1 []FoldEvent
+	for i := 1; i <= 5; i++ {
+		events1 = append(events1, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), fmt.Sprintf("m%d", i), nil))
+	}
+	stub := &identityFailOnceStub{}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 5, l2Threshold: 1}
+
+	res1, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events1, ToOffset: 5}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := res1.Files[identityFile]; !ok {
+		t.Fatal("fold 1 must have written identity.md")
+	}
+	if stub.l2Attempted != 1 {
+		t.Fatalf("want 1 L2 attempt after fold 1, got %d", stub.l2Attempted)
+	}
+
+	// Fold 2: new events change the concept (l1Changed=true), but identity
+	// synthesis fails — identity.md stays stale, pinned to fold 1's id.
+	var events2 []FoldEvent
+	for i := 6; i <= 10; i++ {
+		events2 = append(events2, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), fmt.Sprintf("m%d", i), nil))
+	}
+	stub.failOnAttempt = 2
+	res2, err := FoldHierarchical(context.Background(), hs, FoldInput{
+		ProjectID: "demo", Events: events2, Existing: res1.Files, ExistingChunks: res1.Chunks, ToOffset: 10,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stub.l2Attempted != 2 {
+		t.Fatalf("want 2 L2 attempts after fold 2's failure, got %d", stub.l2Attempted)
+	}
+	fm1, _ := ParseFrontmatter(res1.Files[identityFile])
+	fm2, _ := ParseFrontmatter(res2.Files[identityFile])
+	if fm2.ID != fm1.ID {
+		t.Fatal("fold 2's failed identity synthesis must leave identity.md's content-addressed id untouched")
+	}
+
+	// Fold 3: zero new events (concept unchanged since fold 2) — but identity
+	// is still stale relative to fold 2's concept change, so it must retry.
+	res3, err := FoldHierarchical(context.Background(), hs, FoldInput{
+		ProjectID: "demo", Existing: res2.Files, ExistingChunks: res2.Chunks, ToOffset: 10,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stub.l2Attempted != 3 {
+		t.Fatalf("fold 3 must retry identity synthesis (stale since fold 2): want 3 L2 attempts, got %d", stub.l2Attempted)
+	}
+	if _, ok := res3.Files[identityFile]; !ok {
+		t.Fatal("fold 3 must have refreshed identity.md")
+	}
+}
+
 // refStub writes the subject's concept at its slug path (reference/arch.md),
 // the way the L1 prompt instructs a real model to.
 type refStub struct{ icmStub }

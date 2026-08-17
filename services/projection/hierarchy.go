@@ -277,8 +277,21 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// than the episode corpus), so a single identity call is tractable. Skipped
 	// when no concept changed this fold — identity depends only on that layer.
 	if !systemicAbort && len(l1Files) >= hs.l2Threshold {
-		_, hasIdentity := acc[identityFile]
-		if !l1Changed && hasIdentity {
+		var l1Offsets []uint64
+		l1Paths := make([]string, 0, len(l1Files))
+		for p, c := range l1Files {
+			fm, _ := ParseFrontmatter(c)
+			l1Offsets = append(l1Offsets, fm.Sources...)
+			l1Paths = append(l1Paths, p)
+		}
+		expectID := chunkID(in.ProjectID, sortedUniqueOffsets(l1Offsets))
+		existingIdentity, hasIdentity := acc[identityFile]
+		upToDate := false
+		if hasIdentity {
+			fm, _ := ParseFrontmatter(existingIdentity)
+			upToDate = fm.ID == expectID
+		}
+		if !l1Changed && upToDate {
 			progress("identity synthesis — unchanged")
 		} else {
 			progress(fmt.Sprintf("identity synthesis — from %d reference/convention files", len(l1Files)))
@@ -295,13 +308,6 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				// and the concept files as children. identity.md itself carries no
 				// sources — layerRank makes it every B concept's parent without
 				// needing offset overlap.
-				var l1Offsets []uint64
-				l1Paths := make([]string, 0, len(l1Files))
-				for p, c := range l1Files {
-					fm, _ := ParseFrontmatter(c)
-					l1Offsets = append(l1Offsets, fm.Sources...)
-					l1Paths = append(l1Paths, p)
-				}
 				stamped := map[string]string{}
 				idStart, idEnd := fmTimeRange(l1Files)
 				for p, c := range l2Res.Files {
