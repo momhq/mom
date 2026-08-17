@@ -144,8 +144,22 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// the call is skipped — an incremental fold only pays for subjects whose
 	// episode set actually changed.
 	l1Changed := false
-	if !systemicAbort && len(l0Files) >= hs.l1Threshold {
+	belowThreshold := len(l0Files) < hs.l1Threshold
+	hasDocEpisodes := belowThreshold && hasDocumentEpisodes(l0Files)
+	if !systemicAbort && (!belowThreshold || hasDocEpisodes) {
 		subjects := collectSubjects(l0Files, in.ProjectID)
+		if belowThreshold {
+			// The global L1 floor isn't met yet — only document subjects
+			// bypass it (a single-book fold still gets its concept file);
+			// transcript subjects keep waiting for l1Threshold episodes.
+			docSubjects := subjects[:0]
+			for _, s := range subjects {
+				if s.isDocument {
+					docSubjects = append(docSubjects, s)
+				}
+			}
+			subjects = docSubjects
+		}
 		progress(fmt.Sprintf("concept synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
 
 		l1ctx, l1cancel := context.WithCancel(ctx)
@@ -312,7 +326,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// but L1/L2 was aborted due to a systemic harness failure. This signals the
 	// CLI to persist the flag so the next fold can resume L1/L2 without
 	// re-synthesizing L0.
-	pendingSynthesis := systemicAbort && len(l0Files) >= hs.l1Threshold
+	pendingSynthesis := systemicAbort && (!belowThreshold || hasDocEpisodes)
 
 	// The INDEX and CLAUDE.md watermark must state what is actually folded,
 	// which on a partial fold is behind the read head.
@@ -754,6 +768,20 @@ func docTagSlug(t string) (string, bool) {
 		return "", false
 	}
 	return tagSlug(strings.TrimPrefix(tl, "doc:")), true
+}
+
+// hasDocumentEpisodes reports whether any episode in l0Files carries a
+// `doc:<slug>` tag.
+func hasDocumentEpisodes(l0Files map[string]string) bool {
+	for _, c := range l0Files {
+		fm, _ := ParseFrontmatter(c)
+		for _, t := range fm.Tags {
+			if _, ok := docTagSlug(t); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // collectSubjects groups capture episodes by the tags their frontmatter carries. Each
