@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/momhq/mom/ops/daemon"
+	"github.com/momhq/mom/shared/buildinfo"
 	"github.com/momhq/mom/shared/ux"
 	"github.com/momhq/mom/storage/ledger"
 	"github.com/momhq/mom/storage/librarian"
@@ -132,7 +133,7 @@ func checkHarnessContext() Check {
 
 func checkMomVersion() Check {
 	return Check{Name: "mom version", Status: StatusPass,
-		Detail: fmt.Sprintf("%s (%s)", Version, Commit)}
+		Detail: fmt.Sprintf("%s (%s)", buildinfo.Version, buildinfo.Commit)}
 }
 
 // ─── command wiring ──────────────────────────────────────────────────────────

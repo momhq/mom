@@ -35,13 +35,13 @@ jobs:
       - name: Build darwin/arm64
         run: |
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build \
-            -ldflags "-s -w -X github.com/momhq/mom/ingress/cli.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/ingress/cli.Commit=${GITHUB_SHA::7}" \
+            -ldflags "-s -w -X github.com/momhq/mom/shared/buildinfo.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/shared/buildinfo.Commit=${GITHUB_SHA::7}" \
             -o bin/mom-darwin-arm64 ./cmd/mom
 
       - name: Build darwin/amd64
         run: |
           GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build \
-            -ldflags "-s -w -X github.com/momhq/mom/ingress/cli.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/ingress/cli.Commit=${GITHUB_SHA::7}" \
+            -ldflags "-s -w -X github.com/momhq/mom/shared/buildinfo.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/shared/buildinfo.Commit=${GITHUB_SHA::7}" \
             -o bin/mom-darwin-amd64 ./cmd/mom
 
       - name: Compress
@@ -68,7 +68,7 @@ jobs:
       - name: Build linux/amd64
         run: |
           CGO_ENABLED=1 go build \
-            -ldflags "-s -w -X github.com/momhq/mom/ingress/cli.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/ingress/cli.Commit=${GITHUB_SHA::7}" \
+            -ldflags "-s -w -X github.com/momhq/mom/shared/buildinfo.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/shared/buildinfo.Commit=${GITHUB_SHA::7}" \
             -o bin/mom-linux-amd64 ./cmd/mom
 
       - name: Compress
@@ -96,13 +96,13 @@ jobs:
       - name: Build windows/amd64
         run: |
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
-            -ldflags "-s -w -X github.com/momhq/mom/ingress/cli.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/ingress/cli.Commit=${GITHUB_SHA::7}" \
+            -ldflags "-s -w -X github.com/momhq/mom/shared/buildinfo.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/shared/buildinfo.Commit=${GITHUB_SHA::7}" \
             -o bin/mom-windows-amd64.exe ./cmd/mom
 
       - name: Build windows/arm64
         run: |
           CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build \
-            -ldflags "-s -w -X github.com/momhq/mom/ingress/cli.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/ingress/cli.Commit=${GITHUB_SHA::7}" \
+            -ldflags "-s -w -X github.com/momhq/mom/shared/buildinfo.Version=${GITHUB_REF#refs/tags/} -X github.com/momhq/mom/shared/buildinfo.Commit=${GITHUB_SHA::7}" \
             -o bin/mom-windows-arm64.exe ./cmd/mom
 
       - name: Compress
