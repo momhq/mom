@@ -4,7 +4,7 @@ All notable changes to _mom_ are documented here. The format is loosely based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows a
 `vN0.0-alpha` cadence during the alpha line.
 
-## v0.53.0-alpha — A faithful ICM bundle, and books as memory
+## v0.53.0-alpha — A faithful ICM bundle
 
 The vault now matches the ICM (Interpretable Context Methodology) method as
 specified, not just its spirit: routing files hold no payload, generated
@@ -15,13 +15,6 @@ reserves "contract" for step-governance, and process/workflow rules were never
 that. Layer and access tier are now force-stamped by MOM from each file's path
 in both the synthesis and re-render passes, so an LLM mislabel self-corrects
 on the next fold instead of persisting.
-
-_mom_ can now also **ingest books and documents** (`mom ingest`) as first-class
-memory: EPUB (spine-ordered), DOCX, HTML, Markdown and plain text are native;
-anything else (PDF included) via `mom ingest --text` after converting it
-yourself. Each document folds into one `reference/<book-slug>.md` concept per
-book, cross-linked into the subject concepts it informs and surfaced under a
-📖 Documents section in `reference/INDEX.md`.
 
 ### BREAKING CHANGES
 
@@ -34,11 +27,6 @@ book, cross-linked into the subject concepts it informs and surfaced under a
 - **No opt-in flag.** This is alpha; the change ships directly rather than
   behind a compatibility switch. `mom vault rebuild` handles every existing
   project.
-- **`vault.ingest_extractor` config key is removed** (silently ignored if
-  present in an existing config).
-- **`doc_id` is derived from the new pure-Go extractor's output**, so a
-  document previously ingested via the Python extractor will be re-ingested
-  as a new document if `mom ingest` is run on it again — acceptable in alpha.
 
 ### Added
 
@@ -52,26 +40,11 @@ book, cross-linked into the subject concepts it informs and surfaced under a
   `layer:` — `A` (identity, always-loaded), `B` (reference/conventions,
   loaded by task), `C` (episodes, evidence-loaded last) — plus `access_tier:`
   (`distilled` for A/B, `raw` for C, a privacy gate: raw episode text is
-  machine-only) and `subtype:` (e.g. `document`). Both are force-stamped by
-  MOM from the file's path in the synthesis and re-render passes.
-- **`mom ingest <file> [--author] [--title] [--text]`.** Ingests a book or
-  document as `capture.document_chapter.observed` Ledger events, one per
-  chapter, using MOM's own pure-Go extractor — no Python, no external tools,
-  no third-party skill: the shipped binary is enough. Native formats: `.txt`
-  `.md` `.html` `.epub` (spine-ordered) `.docx`. `--text` treats the input as
-  plain text/markdown regardless of extension (composes with `-` for stdin,
-  which requires `--title`); `--title`/`--author` override parsed metadata.
-  PDF is deliberately deferred — convert first: `pdftotext -layout book.pdf
-  book.txt && mom ingest --text book.txt --title "..." --author "..."`.
-  Events are bounded in size and deduped by content-hash `doc_id`, so
-  re-ingesting the same file is a no-op. Fold synthesizes a book's chapters
-  into one `reference/<book-slug>.md` concept (`subtype: document`, layer B)
-  organized by a frameworks/mental-models/principles/techniques/anti-patterns
-  taxonomy, and cross-links it into the subject concepts it touches without
-  merging the two.
+  machine-only). Both are force-stamped by MOM from the file's path in the
+  synthesis and re-render passes.
 - **`mom vault lint`.** An ICM walk-test: asserts every concept is reachable
-  from a routing file in at most two reads, routing files carry no payload,
-  and concepts stay within their size budgets.
+  from a routing file in at most two reads, and routing files carry no
+  payload.
 - **MOM-owned situational routers in both entry files.** A byte-identical
   "Route by what you're about to do" table (If / Go to / Then stop at) is
   written into both `CLAUDE.md` and `AGENTS.md` inside `<!-- MOM:BEGIN -->`

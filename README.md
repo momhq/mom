@@ -96,7 +96,7 @@ services/projection  (Reader → Synthesizer → Writer)
 .mom/vault/*.md   ← the agent reads these with its file tools
   ├─ INDEX.md               # routing-only: what to read for what task
   ├─ identity.md             # layer A: always-load project orientation
-  ├─ reference/INDEX.md      # layer B: decisions, facts, ingested books
+  ├─ reference/INDEX.md      # layer B: decisions, facts
   ├─ conventions/INDEX.md    # layer B: process/workflow rules
   └─ episodes/<hash>.md      # layer C: raw provenance, evidence-loaded last
 ```
