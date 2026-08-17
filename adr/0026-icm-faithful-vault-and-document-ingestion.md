@@ -22,11 +22,14 @@ further from the spec every release) costs more.
 
 Separately, MOM had no path for durable knowledge that doesn't originate from
 a captured coding session — books, docs, framework write-ups an agent should
-reason from. The `book-to-skill` extraction pipeline already turns a document
-into structured frameworks/mental-models/principles/techniques/anti-patterns;
-MOM needed a way to fold that extraction into the vault without introducing a
-second, non-regenerable knowledge tree that breaks the "vault is a pure
-projection of the Ledger" invariant (ADR 0021, ADR 0024).
+reason from. MOM ships as a single binary; it cannot depend on a third-party
+Python skill being installed on the user's machine, so it needs to parse
+documents itself. (The `book-to-skill` skill's frameworks/mental-models/
+principles/techniques/anti-patterns extraction shape was the design
+reference for what MOM's own extractor produces.) MOM also needed a way to
+fold that extraction into the vault without introducing a second,
+non-regenerable knowledge tree that breaks the "vault is a pure projection of
+the Ledger" invariant (ADR 0021, ADR 0024).
 
 ## Decision
 
@@ -76,19 +79,40 @@ no capture pipeline can derive.
 
 ### Documents fold into one concept per book, never a sidecar tree
 
-`mom ingest <file>` runs the file through the `book-to-skill` extractor and
-appends one `capture.document_chapter.observed` Ledger event per chapter —
-bounded in size, deduped by content-hash `doc_id`, so re-ingesting the same
-file is a no-op. This keeps ingestion inside the existing write path: the
-Ledger is still the sole source of truth, and `mom vault rebuild` still
-regenerates everything, including ingested books, from offset 0. The fold
-synthesizes a book's chapter events into exactly one
+`mom ingest <file>` parses the file with MOM's own pure-Go extractor
+(`ingress/docparse`) and appends one `capture.document_chapter.observed`
+Ledger event per chapter — bounded in size, deduped by content-hash `doc_id`,
+so re-ingesting the same file is a no-op. `docparse` natively handles `.txt`
+`.md` `.html` `.epub` (spine-ordered) and `.docx`; `--text` treats any other
+input as plain text/markdown after the user converts it themselves; anything
+else is rejected with an actionable error. PDF is deliberately not a native
+format: a weak PDF parser writes plausible-looking garbage into an
+append-only Ledger, and bad memory cannot be retracted — the vault is
+regenerated *from* those events, so a bad extraction poisons every future
+fold rather than one. Requiring a manual `pdftotext` conversion keeps that
+failure mode a visible, one-time human decision instead of a silent parser
+guess baked permanently into the Ledger. This keeps ingestion inside the
+existing write path: the Ledger is still the sole source of truth, and
+`mom vault rebuild` still regenerates everything, including ingested books,
+from offset 0. The fold synthesizes a book's chapter events into exactly one
 `reference/<book-slug>.md` concept (`subtype: document`, layer B), organized
-by the extractor's own taxonomy (frameworks / mental models / principles /
-techniques / anti-patterns), and cross-links it into the subject concepts it
-informs rather than merging the two — a book stays a distinct, addressable
-concept. Ingested books surface under a 📖 Documents section of
-`reference/INDEX.md`.
+by MOM's own fold-prompt taxonomy (frameworks / mental models / principles /
+techniques / anti-patterns — `services/projection/hierarchy.go`), and
+cross-links it into the subject concepts it informs rather than merging the
+two — a book stays a distinct, addressable concept. Ingested books surface
+under a 📖 Documents section of `reference/INDEX.md`.
+
+## Considered alternatives
+
+- **Take a pure-Go PDF-parsing dependency now, instead of deferring PDF.**
+  Rejected: every pure-Go PDF library available at time of writing trades
+  correctness for coverage on real-world PDFs (scanned pages, complex
+  layouts, non-standard encodings) and fails silently rather than loudly —
+  it returns *some* text instead of an error. That is the wrong failure mode
+  for an append-only, non-retractable Ledger: a loud "unsupported format,
+  convert first" error costs the user one command; a quiet bad extraction
+  costs every future fold that touches that book. Deferring PDF until a
+  library clears that bar is asymmetric in the safe direction.
 
 ## What this supersedes
 
