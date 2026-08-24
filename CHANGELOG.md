@@ -52,7 +52,7 @@ on the next fold instead of persisting.
   concept enumeration — only pointers into the generated folder indexes.
 - **Human-owned `CONTEXT.md`.** A repo-root file MOM seeds once and never
   overwrites again — the one hand-authored file that survives every fold.
-- **Windows Service keepalive (#34).** The global watch daemon now registers
+- **Windows Service keepalive (#392).** The global watch daemon now registers
   as a real Windows Service via `windows/svc` + `mgr`, closing the keepalive
   gap left by v0.52.0-alpha's Windows support: the service supervises `mom
   watch --global` as a child process, restarting it if it exits, so the
