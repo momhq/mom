@@ -115,7 +115,7 @@ func TestFoldDropsDisallowedPaths(t *testing.T) {
 	// Mixed batch: two valid concept files plus LLM junk of every rejected
 	// shape — a script, an echoed hint key, a nested path, and traversal.
 	out := block("reference/good.md") +
-		block("contracts/release.md") +
+		block("conventions/release.md") +
 		block("reference/generate_image.py") +
 		block("_l0_hint") +
 		block("episodes/sub/nested.md") +
@@ -132,7 +132,7 @@ func TestFoldDropsDisallowedPaths(t *testing.T) {
 	if len(res.Files) != 2 {
 		t.Fatalf("want exactly the 2 valid files, got %d: %v", len(res.Files), res.Files)
 	}
-	for _, p := range []string{"reference/good.md", "contracts/release.md"} {
+	for _, p := range []string{"reference/good.md", "conventions/release.md"} {
 		if _, ok := res.Files[p]; !ok {
 			t.Errorf("valid file %s missing from result", p)
 		}
@@ -157,7 +157,7 @@ func TestAllowedVaultPath(t *testing.T) {
 		"INDEX.md":               true,
 		"identity.md":            true,
 		"reference/voice.md":     true,
-		"contracts/release.md":   true,
+		"conventions/release.md": true,
 		"episodes/abc123.md":     true,
 		"reference/x.py":         false, // not .md
 		"_l0_hint":               false, // hint key, no extension

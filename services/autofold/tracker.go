@@ -39,12 +39,12 @@ const maxBackoffShift = 4
 
 // projectState is the per-project trigger state.
 type projectState struct {
-	lastEvent    time.Time // last ingested event (any harness)
-	pending      int       // events ingested since the last successful fold
-	armed        bool      // pending activity from an enabled harness exists
-	lastAttempt  time.Time // last fold attempt (success or failure)
-	failures     int       // consecutive fold failures
-	notBefore    time.Time // failure backoff gate
+	lastEvent   time.Time // last ingested event (any harness)
+	pending     int       // events ingested since the last successful fold
+	armed       bool      // pending activity from an enabled harness exists
+	lastAttempt time.Time // last fold attempt (success or failure)
+	failures    int       // consecutive fold failures
+	notBefore   time.Time // failure backoff gate
 }
 
 // Tracker is the eligibility/debounce state machine. It is clock-injected

@@ -12,7 +12,7 @@ class Mom < Formula
     cd "cli" do
       system "go", "build",
         "-o", "#{bin}/mom",
-        "-ldflags", "-s -w -X github.com/momhq/mom/cli/internal/cmd.Version=#{version}",
+        "-ldflags", "-s -w -X github.com/momhq/mom/shared/buildinfo.Version=#{version}",
         "./cmd/mom"
     end
   end

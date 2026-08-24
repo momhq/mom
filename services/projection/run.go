@@ -152,6 +152,9 @@ func RunProjectFold(ctx context.Context, opts RunOptions) (RunSummary, error) {
 	if err != nil {
 		return RunSummary{}, err
 	}
+	if wres.LegacyPruned {
+		warn("legacy vault layout migrated; removed stale files under topics/, timeline/, summaries/, dev-log/, or contracts/")
+	}
 
 	return RunSummary{
 		EngineName:       engineName,

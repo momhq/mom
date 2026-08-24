@@ -30,13 +30,13 @@ func (s *failingSynth) Fold(_ context.Context, in FoldInput) (FoldResult, error)
 		}
 		cid := chunkID(in.ProjectID, offs)
 		files["episodes/"+cid+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n")
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n")
 	case has(in.Existing, "_l1_hint"):
 		files[referenceDir+"/arch.md"] = PrependFrontmatter(
-			Frontmatter{Type: typeReference, Name: "arch", Level: 1, Version: 1}, "# arch\n")
+			Frontmatter{Type: typeReference, Name: "arch", Layer: "B", Version: 1}, "# arch\n")
 	case has(in.Existing, "_l2_hint"):
 		files[identityFile] = PrependFrontmatter(
-			Frontmatter{Type: typeIdentity, Name: "Demo", Level: 2, Version: 1}, "# Demo\n")
+			Frontmatter{Type: typeIdentity, Name: "Demo", Layer: "A", Version: 1}, "# Demo\n")
 	}
 	return FoldResult{Files: files}, nil
 }
@@ -145,7 +145,7 @@ func (s *sizeLimitedSynth) Fold(_ context.Context, in FoldInput) (FoldResult, er
 	cid := chunkID(in.ProjectID, offs)
 	return FoldResult{Files: map[string]string{
 		"episodes/" + cid + ".md": PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
 	}}, nil
 }
 
@@ -188,6 +188,101 @@ func TestFoldHierarchicalL1SkipsUnchangedSubjects(t *testing.T) {
 	}
 }
 
+// identityFailOnceStub always writes the subject's concept (like refStub) but
+// fails the first l2Fails identity-synthesis attempts with a non-systemic
+// error, then succeeds. Used to reproduce a fold where identity synthesis
+// fails on a fold that DID change a concept, leaving a stale identity.md
+// behind that a later unchanged fold must still notice and retry.
+type identityFailOnceStub struct {
+	icmStub
+	failOnAttempt int // 0 means never fail; N means the Nth L2 call fails
+	l2Attempted   int
+}
+
+func (s *identityFailOnceStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
+	if has(in.Existing, "_l1_hint") {
+		s.l1++
+		return FoldResult{Files: map[string]string{
+			referenceDir + "/arch.md": PrependFrontmatter(
+				Frontmatter{Type: typeReference, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
+		}}, nil
+	}
+	if has(in.Existing, "_l2_hint") {
+		s.l2Attempted++
+		if s.l2Attempted == s.failOnAttempt {
+			return FoldResult{}, errors.New("synthetic identity failure")
+		}
+		return FoldResult{Files: map[string]string{
+			identityFile: PrependFrontmatter(
+				Frontmatter{Type: typeIdentity, Name: "Demo", Layer: "A", Version: 1}, "# Demo\n"),
+		}}, nil
+	}
+	return s.icmStub.Fold(ctx, in)
+}
+
+// TestFoldHierarchicalIdentityRetriesAfterFailure guards against identity.md
+// freezing stale forever: a fold that changes a concept (l1Changed=true) but
+// whose identity synthesis fails must have the NEXT fold retry identity
+// synthesis even when no concept changes in between — the skip must be gated
+// on the concept layer's content-addressed id actually matching what's on
+// disk, not merely on "did this fold's L1 pass change anything".
+func TestFoldHierarchicalIdentityRetriesAfterFailure(t *testing.T) {
+	var events1 []FoldEvent
+	for i := 1; i <= 5; i++ {
+		events1 = append(events1, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), fmt.Sprintf("m%d", i), nil))
+	}
+	stub := &identityFailOnceStub{}
+	hs := &HierarchySynth{inner: stub, l1Threshold: 5, l2Threshold: 1}
+
+	res1, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events1, ToOffset: 5}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := res1.Files[identityFile]; !ok {
+		t.Fatal("fold 1 must have written identity.md")
+	}
+	if stub.l2Attempted != 1 {
+		t.Fatalf("want 1 L2 attempt after fold 1, got %d", stub.l2Attempted)
+	}
+
+	// Fold 2: new events change the concept (l1Changed=true), but identity
+	// synthesis fails — identity.md stays stale, pinned to fold 1's id.
+	var events2 []FoldEvent
+	for i := 6; i <= 10; i++ {
+		events2 = append(events2, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), fmt.Sprintf("m%d", i), nil))
+	}
+	stub.failOnAttempt = 2
+	res2, err := FoldHierarchical(context.Background(), hs, FoldInput{
+		ProjectID: "demo", Events: events2, Existing: res1.Files, ExistingChunks: res1.Chunks, ToOffset: 10,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stub.l2Attempted != 2 {
+		t.Fatalf("want 2 L2 attempts after fold 2's failure, got %d", stub.l2Attempted)
+	}
+	fm1, _ := ParseFrontmatter(res1.Files[identityFile])
+	fm2, _ := ParseFrontmatter(res2.Files[identityFile])
+	if fm2.ID != fm1.ID {
+		t.Fatal("fold 2's failed identity synthesis must leave identity.md's content-addressed id untouched")
+	}
+
+	// Fold 3: zero new events (concept unchanged since fold 2) — but identity
+	// is still stale relative to fold 2's concept change, so it must retry.
+	res3, err := FoldHierarchical(context.Background(), hs, FoldInput{
+		ProjectID: "demo", Existing: res2.Files, ExistingChunks: res2.Chunks, ToOffset: 10,
+	}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stub.l2Attempted != 3 {
+		t.Fatalf("fold 3 must retry identity synthesis (stale since fold 2): want 3 L2 attempts, got %d", stub.l2Attempted)
+	}
+	if _, ok := res3.Files[identityFile]; !ok {
+		t.Fatal("fold 3 must have refreshed identity.md")
+	}
+}
+
 // refStub writes the subject's concept at its slug path (reference/arch.md),
 // the way the L1 prompt instructs a real model to.
 type refStub struct{ icmStub }
@@ -197,47 +292,47 @@ func (s *refStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 		s.l1++
 		return FoldResult{Files: map[string]string{
 			referenceDir + "/arch.md": PrependFrontmatter(
-				Frontmatter{Type: typeReference, Name: "arch", Level: 1, Version: 1}, "# arch\n"),
+				Frontmatter{Type: typeReference, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
 		}}, nil
 	}
 	return s.icmStub.Fold(ctx, in)
 }
 
-// contractStub classifies its single subject as a contract, exercising the
-// contracts/ path end-to-end.
-type contractStub struct{ icmStub }
+// conventionStub classifies its single subject as a convention, exercising the
+// conventions/ path end-to-end.
+type conventionStub struct{ icmStub }
 
-func (s *contractStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
+func (s *conventionStub) Fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 	if has(in.Existing, "_l1_hint") {
 		s.l1++
 		return FoldResult{Files: map[string]string{
-			contractsDir + "/arch.md": PrependFrontmatter(
-				Frontmatter{Type: typeContract, Name: "arch", Level: 1, Version: 1}, "# arch\n"),
+			conventionsDir + "/arch.md": PrependFrontmatter(
+				Frontmatter{Type: typeConvention, Name: "arch", Layer: "B", Version: 1}, "# arch\n"),
 		}}, nil
 	}
 	return s.icmStub.Fold(ctx, in)
 }
 
-// TestFoldHierarchicalContractClassification verifies a subject the model
-// classifies as a contract lands in contracts/, is indexed, and is skipped as
+// TestFoldHierarchicalConventionClassification verifies a subject the model
+// classifies as a convention lands in conventions/, is indexed, and is skipped as
 // unchanged on the next fold (the skip check covers both folders).
-func TestFoldHierarchicalContractClassification(t *testing.T) {
+func TestFoldHierarchicalConventionClassification(t *testing.T) {
 	var events []FoldEvent
 	for i := 1; i <= 10; i++ {
 		events = append(events, makeMemoryEvent(uint64(i), "s", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "m", nil))
 	}
-	stub := &contractStub{}
+	stub := &conventionStub{}
 	hs := &HierarchySynth{inner: stub, l1Threshold: 5, l2Threshold: 1000}
 
 	res1, err := FoldHierarchical(context.Background(), hs, FoldInput{ProjectID: "demo", Events: events, ToOffset: 10}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := res1.Files[contractsDir+"/arch.md"]; !ok {
-		t.Fatalf("contract concept not written; files: %v", fileKeys(res1.Files))
+	if _, ok := res1.Files[conventionsDir+"/arch.md"]; !ok {
+		t.Fatalf("convention concept not written; files: %v", fileKeys(res1.Files))
 	}
-	if _, ok := res1.Files[contractsDir+"/"+indexFileName]; !ok {
-		t.Errorf("contracts folder missing its OKF index")
+	if _, ok := res1.Files[conventionsDir+"/"+indexFileName]; !ok {
+		t.Errorf("conventions folder missing its OKF index")
 	}
 
 	l1Before := stub.l1
@@ -251,7 +346,7 @@ func TestFoldHierarchicalContractClassification(t *testing.T) {
 		t.Fatal(err)
 	}
 	if stub.l1 != l1Before {
-		t.Errorf("unchanged contract subject was re-synthesized: %d → %d calls", l1Before, stub.l1)
+		t.Errorf("unchanged convention subject was re-synthesized: %d → %d calls", l1Before, stub.l1)
 	}
 }
 
@@ -279,7 +374,7 @@ func (s *systemicSynth) Fold(_ context.Context, in FoldInput) (FoldResult, error
 	cid := chunkID(in.ProjectID, offs)
 	return FoldResult{Files: map[string]string{
 		"episodes/" + cid + ".md": PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n"),
 	}}, nil
 }
 
@@ -336,28 +431,28 @@ func (s *multiSubjectL0Stub) Fold(_ context.Context, in FoldInput) (FoldResult, 
 		cid := chunkID(in.ProjectID, offs)
 		// Tag every episode with ALL subject tags so each subject has enough episodes.
 		files[episodesDir+"/"+cid+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: s.subjectTags},
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: s.subjectTags},
 			"# Episode\n")
 	case has(in.Existing, "_l1_hint"):
 		s.l1++
 		// If an existing concept path is present in Existing (update-in-place),
 		// use it. Otherwise extract the slug from the _l1_hint text.
 		for k := range in.Existing {
-			if (strings.HasPrefix(k, referenceDir+"/") || strings.HasPrefix(k, contractsDir+"/")) &&
+			if (strings.HasPrefix(k, referenceDir+"/") || strings.HasPrefix(k, conventionsDir+"/")) &&
 				!strings.HasSuffix(k, "/"+indexFileName) {
 				files[k] = PrependFrontmatter(
-					Frontmatter{Type: typeReference, Level: 1, Version: 1}, "# concept\n")
+					Frontmatter{Type: typeReference, Layer: "B", Version: 1}, "# concept\n")
 				return FoldResult{Files: files}, nil
 			}
 		}
 		// New subject: derive slug from the hint text.
 		slug := subjectSlugFromHint(in.Existing["_l1_hint"])
 		files[referenceDir+"/"+slug+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeReference, Level: 1, Version: 1}, "# concept\n")
+			Frontmatter{Type: typeReference, Layer: "B", Version: 1}, "# concept\n")
 	case has(in.Existing, "_l2_hint"):
 		s.l2++
 		files[identityFile] = PrependFrontmatter(
-			Frontmatter{Type: typeIdentity, Level: 2, Version: 1}, "# identity\n")
+			Frontmatter{Type: typeIdentity, Layer: "A", Version: 1}, "# identity\n")
 	}
 	return FoldResult{Files: files}, nil
 }
@@ -624,9 +719,9 @@ func TestFoldStampsFactTimeRanges(t *testing.T) {
 // model's context.
 func TestPromptsStripMachineFrontmatter(t *testing.T) {
 	heavy := PrependFrontmatter(Frontmatter{
-		Type: typeReference, Name: "x", Level: 1, Version: 1,
-		ID:      "abcd1234abcd1234",
-		Sources: []uint64{1, 5, 9, 13, 200, 401},
+		Type: typeReference, Name: "x", Layer: "B", Version: 1,
+		ID:       "abcd1234abcd1234",
+		Sources:  []uint64{1, 5, 9, 13, 200, 401},
 		Children: []string{"episodes/e.md"},
 	}, "# x\n- fact\n")
 

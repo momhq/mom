@@ -30,6 +30,17 @@ const (
 	// EventExtractor. Durable in the Ledger; not folded into the vault.
 	EventObserved EventType = "capture.event.observed"
 
+	// DocumentChapterObserved records one chapter of a book/document ingested
+	// via `mom ingest`. Payload: project_id, doc_id, doc_title, doc_author,
+	// chapter_index, chapter_title, text, source_class:"document". Folded into
+	// the vault alongside transcript turns, but never mixed with them in the
+	// same capture chunk (source_class distinguishes the two).
+	//
+	// Named "document_chapter" (not "document.chapter") — ADR 0018's
+	// family.subject.verb taxonomy allows exactly three dot-separated
+	// segments; the registry's EventNameRegex rejects a fourth.
+	DocumentChapterObserved EventType = "capture.document_chapter.observed"
+
 	// Operational event types — published by the Toad OS ingest surface
 	// (services/ingest) via the shared Editor + Ledger pipeline. These make
 	// MOM's ledger the canonical company record for agent-centric operations.

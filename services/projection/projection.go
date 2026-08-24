@@ -72,7 +72,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 			acc[p] = c
 		}
 		lastIndex = res.Index
-		return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildContextBlock(in), Chunks: in.ExistingChunks, FoldedThrough: in.ToOffset}, nil
+		return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildEntryRouter(in), Chunks: in.ExistingChunks, FoldedThrough: in.ToOffset}, nil
 	}
 
 	// chunkMap accumulates chunkID → vault path across all chunks this fold.
@@ -148,7 +148,7 @@ func FoldAll(ctx context.Context, synth Synthesizer, in FoldInput, chunkSize int
 		}
 	}
 
-	return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildContextBlock(in), Chunks: chunkMap, FoldedThrough: in.ToOffset}, nil
+	return FoldResult{Files: acc, Index: lastIndex, ContextBlock: buildEntryRouter(in), Chunks: chunkMap, FoldedThrough: in.ToOffset}, nil
 }
 
 // FoldEvent is a normalized, projection-facing view of a single Ledger
@@ -163,6 +163,15 @@ type FoldEvent struct {
 	Text      string    `json:"text,omitempty"`
 	Tags      []string  `json:"tags,omitempty"`
 	Summary   string    `json:"summary,omitempty"`
+	// SourceClass distinguishes a document-derived event ("document") from a
+	// transcript turn (""). The L0 capture pass hard-splits chunks at a
+	// SourceClass boundary and never mixes the two in one prompt.
+	SourceClass  string `json:"source_class,omitempty"`
+	DocID        string `json:"doc_id,omitempty"`
+	DocTitle     string `json:"doc_title,omitempty"`
+	DocAuthor    string `json:"doc_author,omitempty"`
+	ChapterIndex int    `json:"chapter_index,omitempty"`
+	ChapterTitle string `json:"chapter_title,omitempty"`
 }
 
 // FoldInput is the full context handed to a Synthesizer: the project
@@ -205,8 +214,8 @@ type FoldInput struct {
 type FoldResult struct {
 	// Files maps a vault-relative path → content. Does NOT include
 	// INDEX.md (carried separately as Index).
-	Files       map[string]string
-	Index       string
+	Files        map[string]string
+	Index        string
 	ContextBlock string
 	// Chunks maps chunkID → vault-relative path for every chunk synthesized
 	// (or reused from ExistingChunks) this fold. Written into FoldState so

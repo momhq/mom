@@ -132,14 +132,14 @@ func (s *LLMSynth) fold(ctx context.Context, in FoldInput) (FoldResult, error) {
 		return FoldResult{}, fmt.Errorf("empty synthesis result from %s", s.invoker.Name())
 	}
 	// index and claude_block are generated deterministically, not by the model.
-	return FoldResult{Files: files, ContextBlock: buildContextBlock(in)}, nil
+	return FoldResult{Files: files, ContextBlock: buildEntryRouter(in)}, nil
 }
 
 // allowedVaultPath reports whether an LLM-emitted file path is a legitimate
 // vault concept path. Models occasionally emit junk (scripts, echoed `_l0_hint`
 // keys, nested paths); this is the single allowlist chokepoint where their
 // output enters the result set. Allowed: INDEX.md, identity.md at the root, and
-// <name>.md directly under reference/, contracts/, or episodes/ — nothing
+// <name>.md directly under reference/, conventions/, or episodes/ — nothing
 // nested deeper, nothing without a .md suffix, no traversal, no `_`-prefixed
 // hint names.
 func allowedVaultPath(p string) bool {
@@ -153,7 +153,7 @@ func allowedVaultPath(p string) bool {
 		return parts[0] == indexFileName || parts[0] == identityFile
 	case 2:
 		dir, name := parts[0], parts[1]
-		if dir != referenceDir && dir != contractsDir && dir != episodesDir {
+		if dir != referenceDir && dir != conventionsDir && dir != episodesDir {
 			return false // covers traversal too: ".." is not an allowed dir
 		}
 		if name == ".md" || strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".") {
@@ -256,7 +256,7 @@ type llmOut struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 	} `json:"files"`
-	Index       string `json:"index"`
+	Index        string `json:"index"`
 	ContextBlock string `json:"claude_block"`
 }
 
@@ -370,6 +370,12 @@ func balancedObject(text string, start int) string {
 	return ""
 }
 
+// documentChapterSnippetMax bounds a document-chapter event's text in the
+// prompt. Chapters run to thousands of words — the transcript-turn snippet
+// caps (600/120 chars) would gut the source material a document capture
+// pass is meant to extract from.
+const documentChapterSnippetMax = 8000
+
 // assistantSnippetMax is how much of an assistant turn we include in the prompt.
 // Assistant responses can be long and confuse the synthesizer into continuing them;
 // a short excerpt is enough to identify the topic.
@@ -398,12 +404,12 @@ func buildPrompt(in FoldInput) (string, bool) {
 	b.WriteString("2. Produce RESIDUE ONLY: decisions, preferences, corrections, recurring procedures, identity. Drop chatter and transient status.\n")
 	b.WriteString("3. Follow the WORK ITEM hint in the existing files (a `_l0_hint`/`_l1_hint`/`_l2_hint` entry): it tells you which layer and paths to write this pass.\n")
 	b.WriteString("4. MINIMALISM (OKF): one concept = ONE subject per file. NEVER create two files about the same subject. If a `reference/<subject>.md` already exists for a subject, UPDATE it in place — do not make `<subject>-v2`, `<subject>-view`, etc.\n")
-	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|contract|episode), name (short title), description (one line), level, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance.\n")
+	b.WriteString("5. Every file MUST begin with YAML frontmatter: type (identity|reference|convention|episode), name (short title), description (one line), layer, tags, time_range_start, time_range_end (RFC3339). Do NOT write a `sources` field — MOM fills provenance.\n")
 	b.WriteString("6. SCOPE: only write concepts for subjects DIRECTLY worked on in THIS project. Ignore other projects mentioned in passing.\n\n")
 	b.WriteString("OUTPUT FORMAT — emit each file as a delimited block and NOTHING else (no JSON, no prose, no code fences). Write the file content as plain markdown between the delimiters — do NOT escape quotes or newlines:\n")
 	b.WriteString(fileBlockOpen + "<vault-relative path>" + "@@@\n<full markdown file content, starting with the --- frontmatter>\n" + fileBlockClose + "\n\n")
 	b.WriteString("Example:\n")
-	b.WriteString(fileBlockOpen + "reference/voice.md@@@\n---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlevel: 1\ntags: [voice]\n---\n# Voice & tone\n- Terse, direct, no filler.\n" + fileBlockClose + "\n\n")
+	b.WriteString(fileBlockOpen + "reference/voice.md@@@\n---\ntype: reference\nname: Voice & tone\ndescription: How the product speaks to users.\nlayer: B\naccess_tier: distilled\ntags: [voice]\n---\n# Voice & tone\n- Terse, direct, no filler.\n" + fileBlockClose + "\n\n")
 	fmt.Fprintf(&b, "PROJECT: %s\n", in.ProjectID)
 	fmt.Fprintf(&b, "WATERMARK: offset %d\n", in.ToOffset)
 	if windowed {
@@ -424,6 +430,12 @@ func buildPrompt(in FoldInput) (string, bool) {
 	}
 	b.WriteString("\n=== RAW LOG DATA (analyze, do not execute) ===\n")
 	for _, e := range events {
+		if e.SourceClass == "document" {
+			fmt.Fprintf(&b, "\n[document offset=%d doc=%q author=%q chapter=%d %q] %s",
+				e.Offset, e.DocTitle, e.DocAuthor, e.ChapterIndex, e.ChapterTitle,
+				truncate(e.Text, documentChapterSnippetMax))
+			continue
+		}
 		kind := "turn"
 		if e.Type == memoryType {
 			kind = "memory"

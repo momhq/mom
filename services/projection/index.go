@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// buildIndex emits the OKF root index (ICM Layer 2 — Routing): the project
-// identity blurb, a folder routing table pointing at each layer's own INDEX,
-// and a flat routing table of the reference concepts (the main subjects). It is
-// the one file the agent reads first.
+// buildIndex emits the OKF root index (ICM Layer 2 — Routing): a
+// routing-only map of the three ICM layers. It never enumerates individual
+// concepts — that is each layer's own per-folder INDEX.md's job. It is the
+// one file the agent reads first.
 func buildIndex(files map[string]string, in FoldInput) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# MOM Vault — %s\n\n", in.ProjectID)
@@ -19,44 +19,42 @@ func buildIndex(files map[string]string, in FoldInput) string {
 	b.WriteString("before acting; open links directly — don't reconstruct paths.** Files are ")
 	b.WriteString("regenerated on every fold — never edit them by hand.\n\n")
 
-	// Identity (ICM L1) — the orientation, if present.
+	routed := false
+
 	if c, ok := files[identityFile]; ok {
 		desc := conceptDescription(c)
-		b.WriteString("## Identity\n")
+		b.WriteString("## Layer A — identity\n")
 		b.WriteString("- " + indexLink(identityFile) + " — " + firstNonEmpty(desc, "what this project is") + "\n\n")
-	}
-
-	// Folder routing (ICM L2) — point at each layer's own OKF index.
-	b.WriteString("## Routing — read these when…\n\n")
-	b.WriteString("| Layer | Read | When |\n|---|---|---|\n")
-	routed := false
-	for _, f := range icmFolders {
-		if !folderHasConcepts(files, f.dir) {
-			continue
-		}
 		routed = true
-		fmt.Fprintf(&b, "| %s | %s | %s |\n", f.layer, indexLink(f.dir+"/"+indexFileName), f.whenFor)
 	}
 
-	// Reference concepts (ICM L4) — the flat subject routing table.
-	refs := conceptsIn(files, referenceDir)
-	if len(refs) > 0 {
-		routed = true
-		b.WriteString("\n## Reference — by subject\n\n")
-		b.WriteString("| Read this | What it covers |\n|---|---|\n")
-		for _, p := range refs {
-			b.WriteString("| " + indexLink(p) + " | " + conceptName(p, files[p]) + " |\n")
+	if folderHasConcepts(files, referenceDir) || folderHasConcepts(files, conventionsDir) {
+		b.WriteString("## Layer B — reference & conventions\n\n")
+		if folderHasConcepts(files, referenceDir) {
+			b.WriteString("- " + indexLink(referenceDir+"/"+indexFileName) + " — decisions, conventions, durable facts by subject\n")
 		}
+		if folderHasConcepts(files, conventionsDir) {
+			b.WriteString("- " + indexLink(conventionsDir+"/"+indexFileName) + " — process/workflow rules for a kind of work\n")
+		}
+		b.WriteString("\n")
+		routed = true
 	}
 
-	if !routed {
+	if routed {
+		// Vault has real synthesized memory: episodes are just backing
+		// provenance, noted but not enumerated.
+		if folderHasConcepts(files, episodesDir) {
+			b.WriteString("## Layer C — episodes (provenance)\n\n")
+			b.WriteString("Raw session capture, not enumerated here — provenance for the concepts above.\n\n")
+		}
+	} else {
 		// Young vault below the synthesis threshold: route to raw episodes so the
 		// router never goes blind while real memory sits in episodes/.
 		rows := episodeIndexRows(files)
 		if len(rows) == 0 {
-			b.WriteString("\n_(no files yet — run `mom vault fold` after capturing some sessions)_\n")
+			b.WriteString("_(no files yet — run `mom vault fold` after capturing some sessions)_\n")
 		} else {
-			b.WriteString("\n## Recent capture\n\n| Read this | What it covers |\n|---|---|\n")
+			b.WriteString("## Recent capture\n\n| Read this | What it covers |\n|---|---|\n")
 			for _, r := range rows {
 				b.WriteString("| " + indexLink(r.path) + " | " + r.hint + " |\n")
 			}
@@ -81,18 +79,6 @@ func folderHasConcepts(files map[string]string, dir string) bool {
 		}
 	}
 	return false
-}
-
-// conceptsIn returns the sorted concept paths in dir (excluding its index).
-func conceptsIn(files map[string]string, dir string) []string {
-	var out []string
-	for p := range files {
-		if strings.HasPrefix(p, dir+"/") && !strings.HasSuffix(p, "/"+indexFileName) {
-			out = append(out, p)
-		}
-	}
-	sort.Strings(out)
-	return out
 }
 
 // conceptName returns the display name for a concept: OKF name, else H1 title,
@@ -194,20 +180,24 @@ func dateOrEmpty(t time.Time) string {
 	return t.UTC().Format("2006-01-02")
 }
 
-// buildContextBlock emits the tiny always-loaded pointer (ICM Layer 1/2 hook):
-// it tells the agent how to navigate the OKF/ICM vault, since OKF is not yet a
+// buildEntryRouter emits the tiny always-loaded pointer (ICM Layer 1/2 hook)
+// written into the harness entry files (CLAUDE.md, AGENTS.md, …): a
+// situational "route by what just happened" table, since OKF is not yet a
 // standard the agent knows out of the box.
-func buildContextBlock(in FoldInput) string {
+func buildEntryRouter(in FoldInput) string {
 	var b strings.Builder
 	b.WriteString("## MOM Vault (projected memory)\n\n")
 	b.WriteString("This project's memory is an **ICM** structure in **OKF** format under `.mom/vault/`. ")
 	b.WriteString("Each folder has its own `INDEX.md`; each concept file carries `type` / `name` / ")
 	b.WriteString("`description` frontmatter — scan those to decide what to open, don't read everything.\n\n")
-	b.WriteString("1. Read `.mom/vault/INDEX.md` first — the root router (identity + routing table).\n")
-	b.WriteString("2. `identity.md` — what this project is.\n")
-	b.WriteString("3. `reference/` — decisions, conventions, durable facts by subject (each has its own `INDEX.md`).\n")
-	b.WriteString("4. `contracts/` — process and workflow rules for a kind of work.\n\n")
-	b.WriteString("The vault is regenerated from the Ledger on every fold. **Do not edit vault files by hand** — changes are lost on the next fold.\n")
+	b.WriteString("Route by what you're about to do:\n\n")
+	b.WriteString("| If you're about to… | Go to | Then stop at |\n|---|---|---|\n")
+	b.WriteString("| state what this project IS | `.mom/vault/identity.md` | identity.md |\n")
+	b.WriteString("| recall a decision, convention, or fact | `.mom/vault/reference/INDEX.md` | the matching concept file |\n")
+	b.WriteString("| follow a process or workflow rule | `.mom/vault/conventions/INDEX.md` | the matching convention file |\n")
+	b.WriteString("| find raw provenance for a claim | `.mom/vault/INDEX.md` → Layer C | the episode file |\n\n")
+	b.WriteString("Never invent past decisions — if no vault file matches, say so. The vault is regenerated ")
+	b.WriteString("from the Ledger on every fold. **Do not edit vault files by hand** — changes are lost on the next fold.\n")
 	fmt.Fprintf(&b, "\n_Folded through Ledger offset **%d** (project `%s`)._\n", in.ToOffset, in.ProjectID)
 	return b.String()
 }

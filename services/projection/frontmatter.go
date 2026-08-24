@@ -20,7 +20,10 @@ type Frontmatter struct {
 	Type           string    // OKF concept type / ICM layer: identity|reference|contract|dev-log|episode|index
 	Name           string    // OKF: short human/agent-facing title of the concept
 	Description    string    // OKF: one-line description of what the file holds
-	Level          int       // 0=episode, 1=topic/timeline, 2=summary
+	Layer          string    // ICM layer: "A"=identity, "B"=reference+conventions, "C"=episodes
+	AccessTier     string    // "distilled" for A/B, "raw" for C
+	Subtype        string    // "" or "document"
+	DocAuthor      string    // document concepts/episodes only: the book's author, MOM-stamped from ingest metadata
 	Kind           string    // legacy: "episode" | "topic" | "timeline" | "summary" | "index"
 	Sources        []uint64  // sorted ledger offsets that contributed to this file
 	Tags           []string  // topic tags
@@ -29,6 +32,38 @@ type Frontmatter struct {
 	FoldedAt       time.Time
 	Version        int      // schema version, always 1 for now
 	Children       []string // vault-relative paths of contributing files (L1+ only)
+}
+
+// layerRank orders ICM layers for parent/child comparisons: A (identity) is
+// the highest-level overview, C (episodes) the rawest.
+func layerRank(layer string) int {
+	switch layer {
+	case "A":
+		return 2
+	case "B":
+		return 1
+	default:
+		return 0
+	}
+}
+
+// layerForPath derives a vault file's ICM layer/access_tier purely from its
+// path, so it can be forced at every write site regardless of what the model
+// emitted (a bare numeral coerces fine in ParseFrontmatter, but a wrong
+// letter like "layer: A" on a reference file parses as a valid layer and
+// would otherwise survive forever). ok is false for paths outside the three
+// known roots (e.g. INDEX.md), which callers leave untouched.
+func layerForPath(vaultRelPath string) (layer, accessTier string, ok bool) {
+	switch {
+	case vaultRelPath == identityFile:
+		return "A", "distilled", true
+	case strings.HasPrefix(vaultRelPath, referenceDir+"/"), strings.HasPrefix(vaultRelPath, conventionsDir+"/"):
+		return "B", "distilled", true
+	case strings.HasPrefix(vaultRelPath, episodesDir+"/"):
+		return "C", "raw", true
+	default:
+		return "", "", false
+	}
 }
 
 // RenderFrontmatter serializes fm as a YAML block wrapped in --- delimiters.
@@ -50,7 +85,18 @@ func RenderFrontmatter(fm Frontmatter) string {
 	if fm.Description != "" {
 		fmt.Fprintf(&b, "description: %s\n", yamlScalar(fm.Description))
 	}
-	fmt.Fprintf(&b, "level: %d\n", fm.Level)
+	if fm.Layer != "" {
+		fmt.Fprintf(&b, "layer: %s\n", fm.Layer)
+	}
+	if fm.AccessTier != "" {
+		fmt.Fprintf(&b, "access_tier: %s\n", fm.AccessTier)
+	}
+	if fm.Subtype != "" {
+		fmt.Fprintf(&b, "subtype: %s\n", fm.Subtype)
+	}
+	if fm.DocAuthor != "" {
+		fmt.Fprintf(&b, "doc_author: %s\n", yamlScalar(fm.DocAuthor))
+	}
 	if fm.Kind != "" {
 		fmt.Fprintf(&b, "kind: %s\n", fm.Kind)
 	}
@@ -131,9 +177,35 @@ func ParseFrontmatter(content string) (Frontmatter, string) {
 			fm.Name = unquoteYAML(val)
 		case "description":
 			fm.Description = unquoteYAML(val)
+		case "layer":
+			// Tolerant: the model sometimes emits the legacy numeric level
+			// instead of the letter the prompt asks for; coerce it so
+			// downstream layer-rank logic (related.go, lint) still works.
+			switch val {
+			case "2":
+				fm.Layer = "A"
+			case "1":
+				fm.Layer = "B"
+			case "0":
+				fm.Layer = "C"
+			default:
+				fm.Layer = val
+			}
+		case "access_tier":
+			fm.AccessTier = val
+		case "subtype":
+			fm.Subtype = val
+		case "doc_author":
+			fm.DocAuthor = unquoteYAML(val)
 		case "level":
-			if n, err := strconv.Atoi(val); err == nil {
-				fm.Level = n
+			// Tolerant: legacy numeric level so half-migrated files still parse.
+			switch val {
+			case "2":
+				fm.Layer = "A"
+			case "1":
+				fm.Layer = "B"
+			case "0":
+				fm.Layer = "C"
 			}
 		case "kind":
 			fm.Kind = val

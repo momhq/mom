@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/momhq/mom/shared/buildinfo"
 )
 
 const githubReleasesURL = "https://api.github.com/repos/momhq/mom/releases/latest"
@@ -54,7 +56,7 @@ func checkVersionCache() string {
 		return ""
 	}
 
-	if semverGreater(cache.LatestVersion, Version) {
+	if semverGreater(cache.LatestVersion, buildinfo.Version) {
 		return fmt.Sprintf("MOM %s available. Run `brew upgrade mom` then `mom upgrade`", cache.LatestVersion)
 	}
 

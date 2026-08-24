@@ -4,6 +4,64 @@ All notable changes to _mom_ are documented here. The format is loosely based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows a
 `vN0.0-alpha` cadence during the alpha line.
 
+## v0.53.0-alpha — A faithful ICM bundle
+
+The vault now matches the ICM (Interpretable Context Methodology) method as
+specified, not just its spirit: routing files hold no payload, generated
+folder indexes hold the exhaustive catalog, and every concept carries a
+canonical `layer` (A/B/C) with an `access_tier` privacy gate instead of a
+numeric level. `contracts/` is renamed to `conventions/` — the ICM method
+reserves "contract" for step-governance, and process/workflow rules were never
+that. Layer and access tier are now force-stamped by MOM from each file's path
+in both the synthesis and re-render passes, so an LLM mislabel self-corrects
+on the next fold instead of persisting.
+
+### BREAKING CHANGES
+
+- **Existing vaults must be regenerated: run `mom vault rebuild`.** The
+  folder rename (`contracts/` → `conventions/`), the frontmatter schema
+  change (`level:` → `layer:` + `access_tier:`), and the rewritten entry-file
+  managed blocks are not migrated in place. The Ledger itself is untouched —
+  it is the source of truth, so nothing is lost — but the projected `.mom/vault/`
+  on disk needs a fresh fold to reflect the new shape.
+- **No opt-in flag.** This is alpha; the change ships directly rather than
+  behind a compatibility switch. `mom vault rebuild` handles every existing
+  project.
+
+### Added
+
+- **ICM-faithful vault structure.** `INDEX.md` (root and per-folder) is now
+  routing-only — no inline concept enumeration — and routes to generated
+  folder indexes (`reference/INDEX.md`, `conventions/INDEX.md`) that hold the
+  exhaustive catalog. `identity.md` is a tight layer-A orientation node
+  (invariants / flow / where-detail-lives) and no longer carries the sources
+  offset array.
+- **Layer + access-tier frontmatter.** Numeric `level:` is replaced by ICM
+  `layer:` — `A` (identity, always-loaded), `B` (reference/conventions,
+  loaded by task), `C` (episodes, evidence-loaded last) — plus `access_tier:`
+  (`distilled` for A/B, `raw` for C, a privacy gate: raw episode text is
+  machine-only). Both are force-stamped by MOM from the file's path in the
+  synthesis and re-render passes.
+- **`mom vault lint`.** An ICM walk-test: asserts every concept is reachable
+  from a routing file in at most two reads, and routing files carry no
+  payload.
+- **MOM-owned situational routers in both entry files.** A byte-identical
+  "Route by what you're about to do" table (If / Go to / Then stop at) is
+  written into both `CLAUDE.md` and `AGENTS.md` inside `<!-- MOM:BEGIN -->`
+  / `<!-- MOM:END -->` markers, overwritten on every fold. Routers carry no
+  concept enumeration — only pointers into the generated folder indexes.
+- **Human-owned `CONTEXT.md`.** A repo-root file MOM seeds once and never
+  overwrites again — the one hand-authored file that survives every fold.
+
+### Changed
+
+- **`contracts/` renamed to `conventions/`.** Frontmatter `type: contract` is
+  now `type: convention`. The old `contracts/` directory is pruned on rebuild.
+- **Fold pass names.** L0/L1/L2 are renamed `capture`/`concept`/`identity` to
+  match what each pass actually does.
+
+<!-- TODO: add Windows Service (#34) bullets here if that branch is merged before tagging -->
+
 ## v0.52.0-alpha — The ICM vault
 
 The projected-memory vault is now a proper **ICM** (Interpretable Context

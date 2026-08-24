@@ -25,17 +25,17 @@ func (s *icmStub) Fold(_ context.Context, in FoldInput) (FoldResult, error) {
 		// Every episode carries the same subject tag so L1 groups them into one
 		// subject.
 		files["episodes/"+cid+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeEpisode, Level: 0, Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n")
+			Frontmatter{Type: typeEpisode, Layer: "C", Version: 1, Sources: offs, Tags: []string{"arch"}}, "# Episode\n")
 	case has(in.Existing, "_l1_hint"):
 		s.l1++
 		name := fmt.Sprintf("subject-%d", s.l1)
 		files[referenceDir+"/"+name+".md"] = PrependFrontmatter(
-			Frontmatter{Type: typeReference, Name: name, Level: 1, Version: 1, Sources: []uint64{uint64(s.l1)}},
+			Frontmatter{Type: typeReference, Name: name, Layer: "B", Version: 1, Sources: []uint64{uint64(s.l1)}},
 			"# "+name+"\n")
 	case has(in.Existing, "_l2_hint"):
 		s.l2++
 		files[identityFile] = PrependFrontmatter(
-			Frontmatter{Type: typeIdentity, Name: "Demo", Level: 2, Version: 1}, "# Demo\n")
+			Frontmatter{Type: typeIdentity, Name: "Demo", Layer: "A", Version: 1}, "# Demo\n")
 	}
 	return FoldResult{Files: files}, nil
 }

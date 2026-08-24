@@ -3,6 +3,7 @@ package projection
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,13 +18,16 @@ const (
 	indexFileName = "INDEX.md"
 	// foldStateFileName is the watermark JSON at the vault root.
 	foldStateFileName = ".fold-state.json"
-	// defaultEntryFile hosts the managed context block when no harness
-	// configuration says otherwise.
-	defaultEntryFile = "CLAUDE.md"
 
 	blockBeginMarker = "<!-- MOM:BEGIN -->"
 	blockEndMarker   = "<!-- MOM:END -->"
 )
+
+// legacyDirs lists vault directories the current ICM engine can never
+// legitimately produce. A vault folded by an older engine may still carry
+// them on disk; they are pruned unconditionally (every fold, not just a
+// rebuild) and excluded from LoadExisting so they never feed synthesis.
+var legacyDirs = []string{"topics", "timeline", "summaries", "dev-log", "contracts"}
 
 // FoldState is the watermark persisted at .mom/vault/.fold-state.json.
 type FoldState struct {
@@ -84,6 +88,14 @@ func LoadExisting(root string) (map[string]string, error) {
 		if !strings.HasSuffix(rel, ".md") {
 			return nil
 		}
+		relSlash := filepath.ToSlash(rel)
+		if topDir, _, ok := strings.Cut(relSlash, "/"); ok {
+			for _, d := range legacyDirs {
+				if topDir == d {
+					return nil
+				}
+			}
+		}
 		data, rerr := os.ReadFile(path)
 		if rerr != nil {
 			return rerr
@@ -104,10 +116,10 @@ func LoadExisting(root string) (map[string]string, error) {
 // the managed context block in each harness entry file.
 type Writer struct {
 	Root string
-	// EntryFiles are the project-root harness entry files (CLAUDE.md for
-	// Claude Code, AGENTS.md for Codex/Pi and other agents) that receive the
-	// managed context block. Empty → CLAUDE.md only. MOM is harness-agnostic:
-	// which files appear here is the caller's (config-driven) decision.
+	// EntryFiles are additional project-root harness entry files that receive
+	// the managed context block, beyond the always-written CLAUDE.md and
+	// AGENTS.md. MOM is harness-agnostic: which extra files appear here is
+	// the caller's (config-driven) decision.
 	EntryFiles []string
 }
 
@@ -121,6 +133,9 @@ type WriteResult struct {
 	// EntryPaths are the absolute paths of the entry files whose managed
 	// block was updated.
 	EntryPaths []string
+	// LegacyPruned is true when this write removed files left over from a
+	// pre-ICM vault layout (topics/, timeline/, summaries/, dev-log/, contracts/).
+	LegacyPruned bool
 }
 
 // Checkpoint persists an in-progress fold: the files produced so far and a
@@ -139,9 +154,9 @@ func (w *Writer) Checkpoint(files map[string]string, chunks map[string]string, w
 		}
 	}
 	return writeFoldState(base, FoldState{
-		LastOffset:       watermark,
-		FoldedAt:         time.Now().UTC(),
-		Chunks:           chunks,
+		LastOffset: watermark,
+		FoldedAt:   time.Now().UTC(),
+		Chunks:     chunks,
 	})
 }
 
@@ -154,6 +169,11 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 	base := VaultDir(w.Root)
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		return WriteResult{}, fmt.Errorf("mkdir vault: %w", err)
+	}
+
+	legacyPruned, err := pruneLegacyDirs(base)
+	if err != nil {
+		return WriteResult{}, err
 	}
 
 	// Refuse to prune against an empty fresh set regardless of what the
@@ -197,27 +217,29 @@ func (w *Writer) Write(res FoldResult, head uint64, eventsFolded int, prune bool
 		return WriteResult{}, err
 	}
 
+	if err := w.seedContextFile(); err != nil {
+		log.Printf("mom: seed CONTEXT.md: %v", err)
+	}
+
 	st := FoldState{
-		LastOffset:       head,
-		FoldedAt:         time.Now().UTC(),
-		FilesWritten:     written,
-		EventsFolded:     eventsFolded,
-		Chunks:           res.Chunks,
+		LastOffset:   head,
+		FoldedAt:     time.Now().UTC(),
+		FilesWritten: written,
+		EventsFolded: eventsFolded,
+		Chunks:       res.Chunks,
 	}
 	if err := writeFoldState(base, st); err != nil {
 		return WriteResult{}, err
 	}
 
-	return WriteResult{FilesWritten: written, VaultDir: base, EntryPaths: entryPaths}, nil
+	return WriteResult{FilesWritten: written, VaultDir: base, EntryPaths: entryPaths, LegacyPruned: legacyPruned}, nil
 }
 
 // updateEntryFiles writes the managed context block into every configured
-// harness entry file and returns their absolute paths.
+// harness entry file, always including CLAUDE.md and AGENTS.md, and returns
+// their absolute paths.
 func (w *Writer) updateEntryFiles(block string) ([]string, error) {
-	files := w.EntryFiles
-	if len(files) == 0 {
-		files = []string{defaultEntryFile}
-	}
+	files := unionStrings(w.EntryFiles, []string{"CLAUDE.md", "AGENTS.md"})
 	paths := make([]string, 0, len(files))
 	for _, name := range files {
 		path := filepath.Join(w.Root, name)
@@ -227,6 +249,73 @@ func (w *Writer) updateEntryFiles(block string) ([]string, error) {
 		paths = append(paths, path)
 	}
 	return paths, nil
+}
+
+// seedContextFile writes the repo-root CONTEXT.md once, if absent. Unlike the
+// entry files' managed block, CONTEXT.md carries no markers and is never
+// touched again — it is a human map of MOM, not machine-owned output.
+func (w *Writer) seedContextFile() error {
+	path := filepath.Join(w.Root, "CONTEXT.md")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write([]byte(contextFileSeed))
+	return err
+}
+
+// contextFileSeed is the one-time CONTEXT.md content: a human orientation to
+// MOM's architecture, written once and never overwritten by a fold.
+const contextFileSeed = `# CONTEXT.md — human map of MOM
+
+MOM writes this file once, the first time it folds this project, and never
+overwrites it again. Edit it freely — unlike ` + "`.mom/vault/`" + `, it is yours.
+
+## The one-way rule
+
+corpus (the Ledger) → extraction (fold) → bundle (` + "`.mom/vault/`" + `)
+
+Memory only ever flows this direction. Never edit the vault bundle by hand —
+a fold regenerates it from the Ledger and any hand edits are lost.
+
+## Vocabulary
+
+- **Ledger** — the append-only source of truth: every captured event.
+- **Librarian** — the only component allowed to read/write project data.
+- **Editor / Watcher / Lens** — the capture pipeline that turns a session into Ledger events.
+- **Fold** — the extraction step that projects the Ledger into the vault.
+- **Concept / Episode** — a distilled subject file (concept) vs. a raw capture (episode).
+
+## Invariants
+
+- All data access routes through Librarian; nothing else touches the DB.
+- Capture is privacy-gated — nothing is recorded without consent.
+- English, TDD.
+
+## Where to look
+
+- ` + "`.mom/vault/identity.md`" + ` — what this project is.
+- ` + "`.mom/vault/reference/INDEX.md`" + ` — decisions, conventions, durable facts.
+- ` + "`.mom/vault/conventions/INDEX.md`" + ` — process/workflow rules.
+`
+
+// unionStrings returns the deduplicated concatenation of base then extra, in
+// that stable order, first-occurrence wins.
+func unionStrings(base, extra []string) []string {
+	seen := make(map[string]bool, len(base)+len(extra))
+	out := make([]string, 0, len(base)+len(extra))
+	for _, s := range append(append([]string{}, base...), extra...) {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 // pruneStaleConcepts deletes every .md concept file under the known vault
@@ -246,8 +335,7 @@ func (w *Writer) updateEntryFiles(block string) ([]string, error) {
 // dev-log) are removed; a dir still holding stray non-.md user content is
 // left alone.
 func pruneStaleConcepts(base string, keep map[string]bool) error {
-	legacyDirs := []string{"topics", "timeline", "summaries", "dev-log"}
-	pruneDirs := append([]string{referenceDir, contractsDir, episodesDir}, legacyDirs...)
+	pruneDirs := append([]string{referenceDir, conventionsDir, episodesDir}, legacyDirs...)
 	for _, d := range pruneDirs {
 		dir := filepath.Join(base, d)
 		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -322,6 +410,40 @@ func pruneStaleConcepts(base string, keep map[string]bool) error {
 		_ = os.Remove(filepath.Join(base, d))
 	}
 	return nil
+}
+
+// pruneLegacyDirs unconditionally deletes every .md file under the known
+// legacy vault dirs and removes any dir left empty. It runs on EVERY fold,
+// not just a rebuild (unlike pruneStaleConcepts, which is destructive to
+// gate on a fully-completed fold) — the current ICM engine can never
+// legitimately produce these dirs, so removing them is always safe. Reports
+// whether anything was removed, so the caller can warn once about the
+// migration.
+func pruneLegacyDirs(base string) (removed bool, err error) {
+	for _, d := range legacyDirs {
+		dir := filepath.Join(base, d)
+		walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil
+				}
+				return err
+			}
+			if info.IsDir() || !strings.HasSuffix(path, ".md") {
+				return nil
+			}
+			if rerr := os.Remove(path); rerr != nil {
+				return rerr
+			}
+			removed = true
+			return nil
+		})
+		if walkErr != nil && !os.IsNotExist(walkErr) {
+			return removed, fmt.Errorf("prune legacy dir %s: %w", d, walkErr)
+		}
+		_ = os.Remove(dir) // no-op if non-empty or already gone
+	}
+	return removed, nil
 }
 
 func writeVaultFile(base, rel, content string) error {

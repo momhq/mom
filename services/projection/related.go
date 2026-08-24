@@ -41,10 +41,17 @@ type relDoc struct {
 func linkRelated(files map[string]string) {
 	docs := make([]*relDoc, 0, len(files))
 	for p, c := range files {
-		if p == indexFileName {
+		if p == indexFileName || strings.HasSuffix(p, "/"+indexFileName) {
 			continue
 		}
 		fm, body := ParseFrontmatter(c)
+		// Force layer/access_tier by path on every re-render: an LLM mislabel
+		// that isn't a bare numeral (e.g. "layer: A" on a reference file)
+		// parses as a valid layer and would otherwise survive folds forever.
+		if layer, tier, ok := layerForPath(p); ok {
+			fm.Layer = layer
+			fm.AccessTier = tier
+		}
 		docs = append(docs, &relDoc{
 			path:  p,
 			fm:    fm,
@@ -59,21 +66,32 @@ func linkRelated(files map[string]string) {
 		// (frontmatter), mirroring how sources is provenance, not navigation.
 		// The source set is built once per doc — with thousands of episodes a
 		// per-pair set rebuild dominates the fold's post-pass.
-		dset := offsetSet(d.fm.Sources)
 		var children []string
-		for _, o := range docs {
-			if o.path == d.path || o.fm.Level != d.fm.Level-1 {
-				continue
+		if d.fm.Layer == "A" {
+			// identity.md carries no sources (see stampIdentityProvenance) —
+			// it is the overview of the WHOLE concept layer by layer alone,
+			// no offset overlap needed.
+			for _, o := range docs {
+				if o.path != d.path && layerRank(o.fm.Layer) == layerRank(d.fm.Layer)-1 {
+					children = append(children, o.path)
+				}
 			}
-			if intersectsSet(o.fm.Sources, dset) {
-				children = append(children, o.path)
+		} else {
+			dset := offsetSet(d.fm.Sources)
+			for _, o := range docs {
+				if o.path == d.path || layerRank(o.fm.Layer) != layerRank(d.fm.Layer)-1 {
+					continue
+				}
+				if intersectsSet(o.fm.Sources, dset) {
+					children = append(children, o.path)
+				}
 			}
 		}
 		sort.Strings(children)
 		d.fm.Children = children
 
 		// Episodes are leaves: no Related section.
-		if d.fm.Level == 0 {
+		if layerRank(d.fm.Layer) == 0 {
 			files[d.path] = PrependFrontmatter(d.fm, ensureTrailingNewline(d.body))
 			continue
 		}
@@ -112,7 +130,7 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 	var sibs []scored
 	for _, o := range docs {
 		// Same level only; episodes (level 0) and INDEX files never link.
-		if o.path == d.path || o.fm.Level != d.fm.Level || o.fm.Level == 0 || o.fm.Type == typeIndex {
+		if o.path == d.path || layerRank(o.fm.Layer) != layerRank(d.fm.Layer) || layerRank(o.fm.Layer) == 0 || o.fm.Type == typeIndex {
 			continue
 		}
 		sharedOff := 0
@@ -149,11 +167,17 @@ func relatedLinks(d *relDoc, docs []*relDoc) []string {
 		links = append(links, "- "+markdownLink(d.path, s.path, s.title))
 	}
 
-	// Parent overview: the lowest-pathed higher-level file whose sources cover
-	// this one's offsets.
+	// Parent overview: a doc exactly one layer up is the overview by layer
+	// alone (this is how identity.md — carrying no sources — becomes the
+	// overview of every B concept); anything further above still needs
+	// offset overlap to qualify.
 	var parents []scored
 	for _, o := range docs {
-		if o.fm.Level > d.fm.Level && intersectsSet(d.fm.Sources, offsetSet(o.fm.Sources)) {
+		if o.path == d.path {
+			continue
+		}
+		if layerRank(o.fm.Layer) == layerRank(d.fm.Layer)+1 ||
+			(layerRank(o.fm.Layer) > layerRank(d.fm.Layer) && intersectsSet(d.fm.Sources, offsetSet(o.fm.Sources))) {
 			parents = append(parents, scored{path: o.path, title: o.title})
 		}
 	}

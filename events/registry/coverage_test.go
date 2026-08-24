@@ -20,6 +20,8 @@ var activeEventTypes = []envelope.EventType{
 	// Harness extension event lines (OATS type:"event") — published by
 	// the watcher for adapters implementing EventExtractor.
 	envelope.EventObserved,
+	// mom ingest — book/document chapters folded alongside transcript turns.
+	envelope.DocumentChapterObserved,
 	// Operational family — published by services/ingest via the shared
 	// Editor + Ledger pipeline (ADR 0025).
 	envelope.OperationalMessagePosted,

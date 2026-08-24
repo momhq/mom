@@ -27,12 +27,12 @@ const (
 )
 
 // HierarchySynth wraps an LLMSynth to produce the ICM vault:
-// L0 episodes (one per chunk) → L1 reference/contract concepts (one per
-// subject, grouped by L0 tags) → L2 identity.md (from the concept layer).
+// capture episodes (one per chunk) → concept reference/convention files (one per
+// subject, grouped by capture tags) → identity.md (from the concept layer).
 type HierarchySynth struct {
 	inner       Synthesizer
-	l1Threshold int // min episodes before triggering L1 synthesis (default 5)
-	l2Threshold int // min L1 files before triggering L2 synthesis (default 10)
+	l1Threshold int // min episodes before triggering concept synthesis (default 5)
+	l2Threshold int // min concept files before triggering identity synthesis (default 10)
 }
 
 // NewHierarchySynth builds a hierarchy synthesizer wrapping inner.
@@ -122,7 +122,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		}
 	}
 
-	// Collect L0 episode files.
+	// Collect capture episode files.
 	l0Files := map[string]string{}
 	for p, c := range acc {
 		if strings.HasPrefix(p, episodesDir+"/") {
@@ -130,8 +130,8 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		}
 	}
 
-	// ── L1 pass: one reference/contract concept per SUBJECT ─────────────────
-	// Subject-oriented, not batch-oriented. The L0 episodes already carry the
+	// ── L1 pass: one reference/convention concept per SUBJECT ─────────────────
+	// Subject-oriented, not batch-oriented. The capture episodes already carry the
 	// subjects in their `tags`; we group episodes by tag and synthesize exactly
 	// ONE concept file per subject from only that subject's episodes. This
 	// makes dedup structural (one file per subject — no near-duplicates), bounds
@@ -144,9 +144,23 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// the call is skipped — an incremental fold only pays for subjects whose
 	// episode set actually changed.
 	l1Changed := false
-	if !systemicAbort && len(l0Files) >= hs.l1Threshold {
+	belowThreshold := len(l0Files) < hs.l1Threshold
+	hasDocEpisodes := belowThreshold && hasDocumentEpisodes(l0Files)
+	if !systemicAbort && (!belowThreshold || hasDocEpisodes) {
 		subjects := collectSubjects(l0Files, in.ProjectID)
-		progress(fmt.Sprintf("L1 synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
+		if belowThreshold {
+			// The global L1 floor isn't met yet — only document subjects
+			// bypass it (a single-book fold still gets its concept file);
+			// transcript subjects keep waiting for l1Threshold episodes.
+			docSubjects := subjects[:0]
+			for _, s := range subjects {
+				if s.isDocument {
+					docSubjects = append(docSubjects, s)
+				}
+			}
+			subjects = docSubjects
+		}
+		progress(fmt.Sprintf("concept synthesis — %d subjects from %d episodes", len(subjects), len(l0Files)))
 
 		l1ctx, l1cancel := context.WithCancel(ctx)
 		var mu sync.Mutex
@@ -162,11 +176,11 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				subOffsets = append(subOffsets, fm.Sources...)
 			}
 
-			// The concept may live in reference/ or contracts/ — the model
+			// The concept may live in reference/ or conventions/ — the model
 			// classifies the subject. Check both for the skip and for
 			// update-in-place pinning.
 			refPath := referenceDir + "/" + subj.slug + ".md"
-			conPath := contractsDir + "/" + subj.slug + ".md"
+			conPath := conventionsDir + "/" + subj.slug + ".md"
 			mu.Lock()
 			existingPath := ""
 			for _, p := range []string{refPath, conPath} {
@@ -179,7 +193,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			if existingPath != "" {
 				if fm, _ := ParseFrontmatter(acc[existingPath]); fm.ID == expectID {
 					mu.Unlock()
-					progress(fmt.Sprintf("L1 subject %d/%d — %s (unchanged)", i+1, len(subjects), existingPath))
+					progress(fmt.Sprintf("concept %d/%d — %s (unchanged)", i+1, len(subjects), existingPath))
 					continue
 				}
 			}
@@ -197,7 +211,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 			go func(i int, subj subject, subEps map[string]string, subOffsets []uint64, refPath, conPath, existingPath, existingContent string) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				progress(fmt.Sprintf("L1 subject %d/%d — %s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
+				progress(fmt.Sprintf("concept %d/%d — %s (%d episodes)", i+1, len(subjects), subj.slug, len(subj.episodePaths)))
 				l1Res, err := hs.inner.Fold(l1ctx, buildL1SubjectInput(in, subj, subEps, existingPath, existingContent))
 				mu.Lock()
 				defer mu.Unlock()
@@ -207,7 +221,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 					} else if l1ctx.Err() == nil {
 						// Safe to skip: the id mismatch persists, so the next
 						// fold retries this subject.
-						warn(fmt.Sprintf("L1 subject %q failed (%v); skipping — next fold retries it", subj.slug, err))
+						warn(fmt.Sprintf("concept %q failed (%v); skipping — next fold retries it", subj.slug, err))
 					}
 					if IsSystemicError(err) {
 						systemicAbort = true
@@ -218,12 +232,13 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 				changed := map[string]string{}
 				wrote := ""
 				subStart, subEnd := fmTimeRange(subEps)
+				subDocAuthor := subjectDocAuthor(subEps)
 				for p, c := range l1Res.Files {
 					// Stamp provenance MOM owns: the union of the subject's
 					// episode offsets, the episodes as children, and the span
 					// of the episodes' fact time. The model omits all of these.
-					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
-						c = stampProvenance(c, in.ProjectID, subOffsets, subj.episodePaths, subStart, subEnd)
+					if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, conventionsDir+"/") {
+						c = stampProvenance(c, in.ProjectID, p, subOffsets, subj.episodePaths, subStart, subEnd, subDocAuthor)
 						wrote = p
 						l1Changed = true
 					}
@@ -246,13 +261,13 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 		l1cancel()
 	}
 
-	// Collect L1 concept files (reference + contracts), excluding folder indexes.
+	// Collect L1 concept files (reference + conventions), excluding folder indexes.
 	l1Files := map[string]string{}
 	for p, c := range acc {
 		if strings.HasSuffix(p, "/"+indexFileName) {
 			continue
 		}
-		if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, contractsDir+"/") {
+		if strings.HasPrefix(p, referenceDir+"/") || strings.HasPrefix(p, conventionsDir+"/") {
 			l1Files[p] = c
 		}
 	}
@@ -262,35 +277,42 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// than the episode corpus), so a single identity call is tractable. Skipped
 	// when no concept changed this fold — identity depends only on that layer.
 	if !systemicAbort && len(l1Files) >= hs.l2Threshold {
-		_, hasIdentity := acc[identityFile]
-		if !l1Changed && hasIdentity {
-			progress("L2 identity — unchanged")
+		var l1Offsets []uint64
+		l1Paths := make([]string, 0, len(l1Files))
+		for p, c := range l1Files {
+			fm, _ := ParseFrontmatter(c)
+			l1Offsets = append(l1Offsets, fm.Sources...)
+			l1Paths = append(l1Paths, p)
+		}
+		expectID := chunkID(in.ProjectID, sortedUniqueOffsets(l1Offsets))
+		existingIdentity, hasIdentity := acc[identityFile]
+		upToDate := false
+		if hasIdentity {
+			fm, _ := ParseFrontmatter(existingIdentity)
+			upToDate = fm.ID == expectID
+		}
+		if !l1Changed && upToDate {
+			progress("identity synthesis — unchanged")
 		} else {
-			progress(fmt.Sprintf("L2 synthesis — identity from %d reference/contract files", len(l1Files)))
+			progress(fmt.Sprintf("identity synthesis — from %d reference/convention files", len(l1Files)))
 			l2Existing := map[string]string{}
 			if c, ok := acc[identityFile]; ok {
 				l2Existing[identityFile] = c
 			}
 			l2Res, err := hs.inner.Fold(ctx, buildL2Input(in, l1Files, l2Existing))
 			if err != nil {
-				warn(fmt.Sprintf("L2 synthesis failed (%v); keeping existing identity", err))
+				warn(fmt.Sprintf("identity synthesis failed (%v); keeping existing identity", err))
 			} else {
-				// Stamp identity provenance MOM owns: the union of the concept
-				// layer's offsets, with the concept files as children. Without
-				// this the parent "(overview)" links in every concept's Related
-				// section have nothing to anchor to (the model omits sources).
-				var l1Offsets []uint64
-				l1Paths := make([]string, 0, len(l1Files))
-				for p, c := range l1Files {
-					fm, _ := ParseFrontmatter(c)
-					l1Offsets = append(l1Offsets, fm.Sources...)
-					l1Paths = append(l1Paths, p)
-				}
+				// Stamp identity provenance MOM owns: an id derived from the
+				// concept layer's offsets (so an unchanged layer skips re-synthesis)
+				// and the concept files as children. identity.md itself carries no
+				// sources — layerRank makes it every B concept's parent without
+				// needing offset overlap.
 				stamped := map[string]string{}
 				idStart, idEnd := fmTimeRange(l1Files)
 				for p, c := range l2Res.Files {
 					if p == identityFile {
-						c = stampProvenance(c, in.ProjectID, l1Offsets, l1Paths, idStart, idEnd)
+						c = stampIdentityProvenance(c, in.ProjectID, l1Offsets, l1Paths, idStart, idEnd)
 					}
 					acc[p] = c
 					stamped[p] = c
@@ -311,7 +333,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	// but L1/L2 was aborted due to a systemic harness failure. This signals the
 	// CLI to persist the flag so the next fold can resume L1/L2 without
 	// re-synthesizing L0.
-	pendingSynthesis := systemicAbort && len(l0Files) >= hs.l1Threshold
+	pendingSynthesis := systemicAbort && (!belowThreshold || hasDocEpisodes)
 
 	// The INDEX and CLAUDE.md watermark must state what is actually folded,
 	// which on a partial fold is behind the read head.
@@ -321,7 +343,7 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 	linkRelated(acc)
 	buildPerFolderIndexes(acc)
 	index := buildIndex(acc, idxIn)
-	block := buildContextBlock(idxIn)
+	block := buildEntryRouter(idxIn)
 	return FoldResult{Files: acc, Index: index, ContextBlock: block, Chunks: chunkMap, FoldedThrough: foldedThrough, PendingSynthesis: pendingSynthesis}, nil
 }
 
@@ -333,8 +355,8 @@ func FoldHierarchical(ctx context.Context, hs *HierarchySynth, in FoldInput, chu
 // the next fold re-reads the window. A systemic harness failure cancels the
 // pool; an isolated window failure lets the other windows finish.
 func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize, parallel int, acc, chunkMap map[string]string, progress, warn func(string), checkpoint func(map[string]string, map[string]string, uint64)) (foldedThrough uint64, systemic, stopped bool) {
-	events := in.Events
-	total := (len(events) + chunkSize - 1) / chunkSize
+	chunks := classChunks(in.Events, chunkSize)
+	total := len(chunks)
 
 	type result struct {
 		endOff uint64
@@ -366,14 +388,7 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 		}
 	}
 
-	for i := 0; i < len(events); i += chunkSize {
-		idx := i / chunkSize
-		end := i + chunkSize
-		if end > len(events) {
-			end = len(events)
-		}
-		chunk := events[i:end]
-
+	for idx, chunk := range chunks {
 		offsets := make([]uint64, len(chunk))
 		for j, e := range chunk {
 			offsets[j] = e.Offset
@@ -392,7 +407,7 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 				results[idx] = result{endOff: chunk[len(chunk)-1].Offset, ok: true, done: true}
 				advanceFrontier()
 				mu.Unlock()
-				progress(fmt.Sprintf("L0 episode %d/%d (cached)", idx+1, total))
+				progress(fmt.Sprintf("capture %d/%d (cached)", idx+1, total))
 				continue
 			}
 			mu.Unlock()
@@ -409,7 +424,7 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 		go func(idx int, chunk []FoldEvent) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			label := fmt.Sprintf("L0 episode %d/%d", idx+1, total)
+			label := fmt.Sprintf("capture %d/%d", idx+1, total)
 			progress(fmt.Sprintf("%s — synthesizing %d events", label, len(chunk)))
 
 			files := map[string]string{}
@@ -450,6 +465,26 @@ func (hs *HierarchySynth) runL0Pool(ctx context.Context, in FoldInput, chunkSize
 	return frontier, systemic, stopped
 }
 
+// classChunks splits events into offset-ordered windows of at most chunkSize,
+// the same as plain striding, EXCEPT it never lets a window cross a
+// SourceClass boundary — a transcript event and a document event are never
+// synthesized in the same L0 call. Event order is preserved; only chunk
+// boundaries move, so the consecutive-offset watermark guarantee is
+// unaffected.
+func classChunks(events []FoldEvent, chunkSize int) [][]FoldEvent {
+	var chunks [][]FoldEvent
+	for i := 0; i < len(events); {
+		class := events[i].SourceClass
+		end := i + 1
+		for end < len(events) && end-i < chunkSize && events[end].SourceClass == class {
+			end++
+		}
+		chunks = append(chunks, events[i:end])
+		i = end
+	}
+	return chunks
+}
+
 // foldL0Chunk synthesizes one episode for a window of events, bisecting on
 // size-related failure (timeout, truncated/malformed output) so one bad
 // window cannot stall the whole fold. A systemic harness failure (usage
@@ -472,7 +507,13 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 		ToOffset:    chunk[len(chunk)-1].Offset,
 		Events:      chunk,
 	}
-	res, err := hs.inner.Fold(ctx, buildL0Input(chunkIn, cid, knownTags))
+	var l0In FoldInput
+	if len(chunk) > 0 && chunk[0].SourceClass == "document" {
+		l0In = buildDocumentCaptureInput(chunkIn, cid)
+	} else {
+		l0In = buildL0Input(chunkIn, cid, knownTags)
+	}
+	res, err := hs.inner.Fold(ctx, l0In)
 	if err == nil {
 		start, end := eventTimeRange(chunk)
 		for p, c := range res.Files {
@@ -480,7 +521,7 @@ func (hs *HierarchySynth) foldL0Chunk(ctx context.Context, in FoldInput, chunk [
 			// bloats output and truncates the JSON). Stamp the chunk's offsets
 			// and the events' real time span.
 			if strings.HasPrefix(p, episodesDir+"/") {
-				c = stampProvenance(c, in.ProjectID, offsets, nil, start, end)
+				c = stampProvenance(c, in.ProjectID, p, offsets, nil, start, end, chunkDocAuthor(chunk))
 			}
 			files[p] = c
 		}
@@ -571,7 +612,7 @@ func buildL0Input(in FoldInput, cid string, knownTags []string) FoldInput {
 	// Inject a synthetic "context" file so the LLM knows its output path.
 	hint := fmt.Sprintf(
 		"WORK ITEM (L0 capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
-			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), level:0, tags:[2-4 kebab-case subject slugs]. OMIT sources and time_range fields — MOM fills provenance and dates.\n"+
+			"Frontmatter: type:episode, name (<=8 words), description (<=1 sentence), layer:C access_tier:raw, tags:[2-4 kebab-case subject slugs]. OMIT sources and time_range fields — MOM fills provenance and dates.\n"+
 			"Body: a FLAT bullet list — AT MOST 10 short bullets of durable decisions/corrections/preferences and what was built. "+
 			"HARD LIMITS: no headings, no code blocks, no sub-bullets, no multi-line bullets; keep the whole file under 180 words. "+
 			"This must stay short enough to fit in one response — terseness is mandatory, not optional.",
@@ -583,15 +624,102 @@ func buildL0Input(in FoldInput, cid string, knownTags []string) FoldInput {
 	return out
 }
 
+// buildDocumentCaptureInput returns a FoldInput tailored for a document
+// (book chapter) capture chunk — the sibling of buildL0Input for
+// SourceClass=="document" chunks. It writes the same episodes/<cid>.md shape
+// but tags episodes with a doc: slug and asks for durable KNOWLEDGE
+// (frameworks, models, principles, techniques, anti-patterns, tells) instead
+// of decisions/preferences.
+func buildDocumentCaptureInput(in FoldInput, cid string) FoldInput {
+	out := in
+	var docTitle string
+	if len(in.Events) > 0 {
+		docTitle = in.Events[0].DocTitle
+	}
+	slug := tagSlug(docTitle)
+	hint := fmt.Sprintf(
+		"WORK ITEM (L0 document capture): Write a SINGLE episode file at path episodes/%s.md.\n"+
+			"Frontmatter: type:episode, subtype:document, layer:C access_tier:raw, name (<=8 words), description (<=1 sentence), tags:[doc:%s, plus 2-4 kebab-case tags chosen from: frameworks, mental-models, principles, techniques, anti-patterns, tells]. OMIT sources and time_range fields — MOM fills provenance and dates.\n"+
+			"Body: extract the durable, reusable KNOWLEDGE from the chapter text below as a FLAT bullet list — named frameworks, mental models, principles, techniques, anti-patterns, tells. Quote at least one distinctive author term verbatim (in quotes). "+
+			"HARD LIMITS: AT MOST 12 bullets, no headings, no code blocks, no sub-bullets, no narrative; keep the whole file under 220 words.",
+		cid, slug)
+	out.Existing = map[string]string{"_l0_hint": hint}
+	return out
+}
+
+// subjectDocAuthor returns the document author carried by a document
+// subject's episode frontmatter, empty when absent. Episodes already carry
+// doc_author stamped by chunkDocAuthor at L0 time — this just propagates it
+// up to the L1 concept.
+func subjectDocAuthor(episodes map[string]string) string {
+	for _, c := range episodes {
+		fm, _ := ParseFrontmatter(c)
+		if fm.DocAuthor != "" {
+			return fm.DocAuthor
+		}
+	}
+	return ""
+}
+
+// chunkDocAuthor returns the document author carried by a document chunk's
+// events, empty for a transcript chunk or a document with no author on
+// record. Stamped by MOM from ingest metadata — never trusted from the LLM.
+func chunkDocAuthor(chunk []FoldEvent) string {
+	for _, e := range chunk {
+		if e.DocAuthor != "" {
+			return e.DocAuthor
+		}
+	}
+	return ""
+}
+
 // stampProvenance rewrites a synthesized file's machine-owned frontmatter:
-// sources (deduped/sorted), children, the content-addressed id, and the FACT
-// time range. The model is told to OMIT all of these — provenance is MOM's to
-// compute, not the model's. Time ranges especially: the model never sees the
-// event timestamps, so anything it writes is a guess (in practice it stamped
-// the fold date on months-old facts, destroying the agent's recency signal).
-func stampProvenance(content, projectID string, sources []uint64, children []string, start, end time.Time) string {
+// sources (deduped/sorted), children, the content-addressed id, the FACT time
+// range, and — from path — the ICM layer/access_tier. The model is told to
+// OMIT all of these — provenance is MOM's to compute, not the model's. Time
+// ranges especially: the model never sees the event timestamps, so anything
+// it writes is a guess (in practice it stamped the fold date on months-old
+// facts, destroying the agent's recency signal). Layer is stamped rather than
+// trusted from the model because the model sometimes emits a legacy numeric
+// value (e.g. "layer: 1") instead of the letter the prompt asks for, which
+// silently drops the file out of ICM cross-linking (layerRank falls through
+// to episode rank for anything that isn't A/B).
+func stampProvenance(content, projectID, path string, sources []uint64, children []string, start, end time.Time, docAuthor string) string {
 	fm, body := ParseFrontmatter(content)
 	fm.Sources = sortedUniqueOffsets(sources)
+	if len(children) > 0 {
+		ch := append([]string(nil), children...)
+		sort.Strings(ch)
+		fm.Children = ch
+	}
+	if docAuthor != "" {
+		fm.DocAuthor = docAuthor
+	}
+	if !start.IsZero() {
+		fm.TimeRangeStart = start.UTC()
+	}
+	if !end.IsZero() {
+		fm.TimeRangeEnd = end.UTC()
+	}
+	if layer, tier, ok := layerForPath(path); ok {
+		fm.Layer = layer
+		fm.AccessTier = tier
+	}
+	fm.ID = chunkID(projectID, fm.Sources)
+	return PrependFrontmatter(fm, ensureTitle(fm, body))
+}
+
+// stampIdentityProvenance stamps identity.md's machine-owned frontmatter like
+// stampProvenance, with one difference: identity carries NO sources line.
+// Layer A is the union of every B concept by definition (see linkRelated's
+// layer-based parent/child rule), so echoing thousands of offsets back onto
+// identity.md would only bloat the file MOM keeps tightest. The content-
+// addressed id is still computed from childOffsets so an unchanged concept
+// layer skips re-synthesis, same as any other concept file.
+func stampIdentityProvenance(content, projectID string, childOffsets []uint64, children []string, start, end time.Time) string {
+	fm, body := ParseFrontmatter(content)
+	fm.ID = chunkID(projectID, sortedUniqueOffsets(childOffsets))
+	fm.Sources = nil
 	if len(children) > 0 {
 		ch := append([]string(nil), children...)
 		sort.Strings(ch)
@@ -603,7 +731,10 @@ func stampProvenance(content, projectID string, sources []uint64, children []str
 	if !end.IsZero() {
 		fm.TimeRangeEnd = end.UTC()
 	}
-	fm.ID = chunkID(projectID, fm.Sources)
+	if layer, tier, ok := layerForPath(identityFile); ok {
+		fm.Layer = layer
+		fm.AccessTier = tier
+	}
 	return PrependFrontmatter(fm, ensureTitle(fm, body))
 }
 
@@ -660,19 +791,59 @@ type subject struct {
 	slug         string
 	name         string
 	episodePaths []string
+	// isDocument marks a subject collected from `doc:` tagged episodes — one
+	// book/document, pinned to reference/ regardless of episode count.
+	isDocument bool
 }
 
-// collectSubjects groups L0 episodes by the tags their frontmatter carries. Each
+// docTagSlug reports whether t is a `doc:<slug>` episode tag (case-insensitive)
+// and, if so, returns the book slug.
+func docTagSlug(t string) (string, bool) {
+	tl := strings.ToLower(strings.TrimSpace(t))
+	if !strings.HasPrefix(tl, "doc:") {
+		return "", false
+	}
+	return tagSlug(strings.TrimPrefix(tl, "doc:")), true
+}
+
+// hasDocumentEpisodes reports whether any episode in l0Files carries a
+// `doc:<slug>` tag.
+func hasDocumentEpisodes(l0Files map[string]string) bool {
+	for _, c := range l0Files {
+		fm, _ := ParseFrontmatter(c)
+		for _, t := range fm.Tags {
+			if _, ok := docTagSlug(t); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// collectSubjects groups capture episodes by the tags their frontmatter carries. Each
 // tag that recurs across at least l1SubjectMinEpisodes episodes becomes one
 // concept. The project-name tag and one-off tags are dropped as noise; the
 // result is capped at maxSubjects by frequency, then ordered by slug for a
 // deterministic fold.
+//
+// `doc:<slug>` tags are handled separately: they group into a document
+// subject keyed by the book slug that BYPASSES the min-episodes filter (a
+// single-chapter book still yields a concept) and never participates in
+// ordinary tag aggregation.
 func collectSubjects(l0Files map[string]string, projectID string) []subject {
 	tagEps := map[string][]string{}
+	docEps := map[string][]string{}
 	for p, c := range l0Files {
 		fm, _ := ParseFrontmatter(c)
 		seen := map[string]bool{}
 		for _, t := range fm.Tags {
+			if bookSlug, ok := docTagSlug(t); ok {
+				if !seen["doc:"+bookSlug] {
+					seen["doc:"+bookSlug] = true
+					docEps[bookSlug] = append(docEps[bookSlug], p)
+				}
+				continue
+			}
 			slug := tagSlug(t)
 			if slug == "" || seen[slug] {
 				continue
@@ -683,7 +854,7 @@ func collectSubjects(l0Files map[string]string, projectID string) []subject {
 	}
 
 	projSlug := tagSlug(projectID)
-	subs := make([]subject, 0, len(tagEps))
+	subs := make([]subject, 0, len(tagEps)+len(docEps))
 	for slug, eps := range tagEps {
 		if slug == projSlug || len(eps) < l1SubjectMinEpisodes {
 			continue
@@ -696,8 +867,17 @@ func collectSubjects(l0Files map[string]string, projectID string) []subject {
 		}
 		subs = append(subs, subject{slug: slug, name: strings.ReplaceAll(slug, "-", " "), episodePaths: eps})
 	}
+	for slug, eps := range docEps {
+		sort.Strings(eps)
+		if len(eps) > maxEpisodesPerSubject {
+			eps = eps[len(eps)-maxEpisodesPerSubject:]
+		}
+		subs = append(subs, subject{slug: slug, name: strings.ReplaceAll(slug, "-", " "), episodePaths: eps, isDocument: true})
+	}
 
-	// Keep the top maxSubjects by episode count, then order by slug.
+	// Keep the top maxSubjects by episode count, then order by slug. Document
+	// subjects are exempt — a book is always worth a concept regardless of
+	// how it ranks against tag-frequency subjects.
 	sort.Slice(subs, func(i, j int) bool {
 		if len(subs[i].episodePaths) != len(subs[j].episodePaths) {
 			return len(subs[i].episodePaths) > len(subs[j].episodePaths)
@@ -705,16 +885,65 @@ func collectSubjects(l0Files map[string]string, projectID string) []subject {
 		return subs[i].slug < subs[j].slug
 	})
 	if len(subs) > maxSubjects {
-		subs = subs[:maxSubjects]
+		kept := subs[:maxSubjects]
+		hasSlug := make(map[string]bool, len(kept))
+		for _, s := range kept {
+			hasSlug[s.slug] = true
+		}
+		for _, s := range subs[maxSubjects:] {
+			if s.isDocument && !hasSlug[s.slug] {
+				kept = append(kept, s)
+			}
+		}
+		subs = kept
 	}
 	sort.Slice(subs, func(i, j int) bool { return subs[i].slug < subs[j].slug })
 	return subs
 }
 
+// buildDocumentConceptHint builds the _l1_hint for a document (book) subject:
+// forced to reference/<slug>.md with subtype:document, forbidden from the
+// conventions/ branch, and asked for a book-concept body instead of the
+// decisions/gotchas shape ordinary subjects get. It propagates the broader
+// taxonomy tags seen across the book's episodes so related.go can pair this
+// concept with the ordinary subject concepts sharing those tags.
+func buildDocumentConceptHint(subj subject, episodes map[string]string, existingPath string) string {
+	tagSeen := map[string]bool{}
+	var broaderTags []string
+	for _, c := range episodes {
+		fm, _ := ParseFrontmatter(c)
+		for _, t := range fm.Tags {
+			if _, isDoc := docTagSlug(t); isDoc {
+				continue
+			}
+			slug := tagSlug(t)
+			if slug == "" || tagSeen[slug] {
+				continue
+			}
+			tagSeen[slug] = true
+			broaderTags = append(broaderTags, slug)
+		}
+	}
+	sort.Strings(broaderTags)
+
+	var target string
+	if existingPath != "" {
+		target = fmt.Sprintf("A concept file for this book already exists at %s — UPDATE it IN PLACE at that EXACT path.", existingPath)
+	} else {
+		target = fmt.Sprintf("Write reference/%s.md — book/document concepts ALWAYS live in reference/, never conventions/.", subj.slug)
+	}
+
+	return fmt.Sprintf(
+		"WORK ITEM (L1 document concept synthesis): Write EXACTLY ONE concept file for the book/document \"%s\", from its episode files below (each episode is one chapter's extracted knowledge).\n%s\n"+
+			"Frontmatter: type:reference, subtype:document, name:<book title>, description:<one line>, layer:B access_tier:distilled, tags:[doc:%s, %s]. OMIT sources — MOM fills provenance.\n"+
+			"Body: sections for whichever of these the episodes actually cover — \"## Frameworks\", \"## Mental models\", \"## Principles\", \"## Techniques\", \"## Anti-patterns\", \"## Tells\" — each a short bullet list; omit empty sections. End with one line \"Source: <title> by <author>\" (author only if stated in the episode text, otherwise omit \" by <author>\"). NO H1 title (MOM stamps it), no code blocks, no sub-bullets. Under 400 words total. Do NOT write any other file.",
+		subj.name, target, subj.slug, strings.Join(broaderTags, ", "))
+}
+
 // buildL1SubjectInput returns a FoldInput that asks for a SINGLE concept file
 // about one subject, synthesized from only that subject's episodes. The model
 // classifies the subject as reference (durable facts/decisions/conventions) or
-// contract (recurring process/workflow rules) — unless a concept file already
+// convention (recurring process/workflow rules) — unless a concept file already
 // exists, in which case it must update that exact path in place.
 func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string, existingPath, existingContent string) FoldInput {
 	var offsets []uint64
@@ -724,26 +953,29 @@ func buildL1SubjectInput(in FoldInput, subj subject, episodes map[string]string,
 	}
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
 
-	var target string
-	if existingPath != "" {
-		target = fmt.Sprintf(
-			"A concept file for this subject already exists at %s — UPDATE it IN PLACE at that EXACT path, keeping its type. Do NOT create a file at any other path.",
-			existingPath)
-	} else {
-		target = fmt.Sprintf(
-			"Classify the subject, then pick the path:\n"+
-				"- contracts/%s.md with type:contract — if the subject is a recurring PROCESS or set of workflow rules (how a kind of work is done: releases, reviews, testing, branching).\n"+
-			"- reference/%s.md with type:reference — otherwise (durable decisions, conventions, architecture, facts).",
-			subj.slug, subj.slug)
-	}
-
 	hint := map[string]string{}
-	hint["_l1_hint"] = fmt.Sprintf(
-		"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file about the subject \"%s\".\n%s\n"+
-			"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
-			"Frontmatter: type (as above), name:\"%s\", description:<one line>, level:1, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
-			"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (contracts only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
-		subj.name, target, subj.name, subj.name, subj.slug)
+	if subj.isDocument {
+		hint["_l1_hint"] = buildDocumentConceptHint(subj, episodes, existingPath)
+	} else {
+		var target string
+		if existingPath != "" {
+			target = fmt.Sprintf(
+				"A concept file for this subject already exists at %s — UPDATE it IN PLACE at that EXACT path, keeping its type. Do NOT create a file at any other path.",
+				existingPath)
+		} else {
+			target = fmt.Sprintf(
+				"Classify the subject, then pick the path:\n"+
+					"- conventions/%s.md with type:convention — if the subject is a recurring PROCESS or set of workflow rules (how a kind of work is done: releases, reviews, testing, branching).\n"+
+					"- reference/%s.md with type:reference — otherwise (durable decisions, conventions, architecture, facts).",
+				subj.slug, subj.slug)
+		}
+		hint["_l1_hint"] = fmt.Sprintf(
+			"WORK ITEM (L1 subject synthesis): Write EXACTLY ONE file about the subject \"%s\".\n%s\n"+
+				"Synthesize ONLY what the episode files below say about this subject: durable decisions, conventions, current state, gotchas. Ignore details unrelated to \"%s\".\n"+
+				"Frontmatter: type (as above), name:\"%s\", description:<one line>, layer:B access_tier:distilled, tags:[%s, plus 1-3 BROADER theme tags this subject belongs to (kebab-case)]. OMIT sources — do NOT write a sources field (MOM fills provenance).\n"+
+				"Body: a small structured document. Allowed section headings, in this order and ONLY these: \"## Decisions\", \"## Current state\", \"## Process\" (conventions only), \"## Gotchas\". 2-6 short bullets per section; OMIT any section with nothing durable to say. NO H1 title (MOM stamps it), no other headings, no code blocks, no sub-bullets. Under 300 words total. Do NOT write any other file.",
+			subj.name, target, subj.name, subj.name, subj.slug)
+	}
 	if existingPath != "" && existingContent != "" {
 		hint[existingPath] = stripMachineFrontmatter(existingContent)
 	}
@@ -790,9 +1022,10 @@ func buildL2Input(in FoldInput, l1Files, l2Existing map[string]string) FoldInput
 	}
 
 	hint := map[string]string{}
-	hint["_l2_hint"] = "WORK ITEM (L2 synthesis): From the L1 reference/contract files in the existing set, write a SINGLE file identity.md (type:identity).\n" +
-		"It states what THIS project IS right now: purpose, what it does, current architecture/direction, active concerns. A LIVING orientation, NOT a chronological recap — no dates, no history log. UPDATE the existing identity.md in place.\n" +
-		"Frontmatter: type:identity, name, description, level:2, tags. OMIT sources and children — MOM fills provenance.\n" +
+	hint["_l2_hint"] = "WORK ITEM (identity synthesis): From the reference/convention concept files, write ONE file identity.md (type:identity, layer:A, access_tier:distilled).\n" +
+		"A TIGHT orientation node, NOT a recap. HARD LIMIT under 250 words. Exactly three short sections: \"## Invariants\" (3-6 bullets), \"## Flow\" (2-4 bullets), \"## Where detail lives\" (2-5 plain pointers like \"releases → conventions/\").\n" +
+		"Do NOT enumerate every concept. Do NOT include dates, history, or a sources list. UPDATE existing identity.md in place.\n" +
+		"Frontmatter: type:identity, name, description, layer:A, access_tier:distilled, tags. OMIT sources and children — MOM owns provenance.\n" +
 		"Body: synthesized from the existing files. No inventing."
 	for p, c := range existing {
 		hint[p] = c

@@ -14,45 +14,32 @@ import (
 //	INDEX.md       — L2 Routing: root OKF index (identity blurb + folder routing)
 //	identity.md    — L1 Identity: what the project is (one concept)
 //	reference/     — L4 Reference: canonical, deduped decisions/subjects
-//	contracts/     — L3 Stage Contract: process, conventions, workflow rules
+//	conventions/   — L3 Stage Contract: process, conventions, workflow rules
 //	episodes/      — raw L0 capture: provenance, hidden from routing
 //
 // There is deliberately no history/dev-log layer: ICM has none, and chronology
 // is provenance (episodes + the Ledger), not a synthesized concept.
 const (
-	identityFile = "identity.md"
-	referenceDir = "reference"
-	contractsDir = "contracts"
-	episodesDir  = "episodes"
+	identityFile   = "identity.md"
+	referenceDir   = "reference"
+	conventionsDir = "conventions"
+	episodesDir    = "episodes"
 
-	typeIdentity  = "identity"
-	typeReference = "reference"
-	typeContract  = "contract"
-	typeEpisode   = "episode"
-	typeIndex     = "index"
+	typeIdentity   = "identity"
+	typeReference  = "reference"
+	typeConvention = "convention"
+	typeEpisode    = "episode"
+	typeIndex      = "index"
 )
 
-// icmFolder describes one routable ICM folder for the root router.
-type icmFolder struct {
-	dir     string
-	layer   string // ICM layer label
-	whenFor string // "read these when…"
-}
-
-// icmFolders is the routing order shown in the root INDEX.
-var icmFolders = []icmFolder{
-	{referenceDir, "Reference", "you need a decision, convention, or durable fact about a subject"},
-	{contractsDir, "Stage Contract", "you need the process/rules for a kind of work (workflow, release, review)"},
-}
-
 // buildPerFolderIndexes generates an OKF INDEX.md inside each routable folder
-// (reference/, contracts/), listing every concept with its name and description
+// (reference/, conventions/), listing every concept with its name and description
 // so the agent can pick a file without opening any. It mutates files in place,
 // adding "<dir>/INDEX.md" entries. Episodes are provenance — no index.
 func buildPerFolderIndexes(files map[string]string) {
-	for _, dir := range []string{referenceDir, contractsDir} {
-		type row struct{ path, name, desc, through string }
-		var rows []row
+	for _, dir := range []string{referenceDir, conventionsDir} {
+		type row struct{ path, name, desc, through, author string }
+		var rows, docRows []row
 		for p, c := range files {
 			if !strings.HasPrefix(p, dir+"/") || strings.HasSuffix(p, "/"+indexFileName) {
 				continue
@@ -72,20 +59,29 @@ func buildPerFolderIndexes(files map[string]string) {
 			if !fm.TimeRangeEnd.IsZero() {
 				through = fm.TimeRangeEnd.UTC().Format("2006-01-02")
 			}
-			rows = append(rows, row{p, name, desc, through})
+			author := fm.DocAuthor
+			if author == "" {
+				author = sourceAuthor(body)
+			}
+			r := row{p, name, desc, through, author}
+			if fm.Subtype == "document" {
+				docRows = append(docRows, r)
+			} else {
+				rows = append(rows, r)
+			}
 		}
-		if len(rows) == 0 {
+		if len(rows) == 0 && len(docRows) == 0 {
 			continue
 		}
 		sort.Slice(rows, func(i, j int) bool { return rows[i].path < rows[j].path })
+		sort.Slice(docRows, func(i, j int) bool { return docRows[i].path < docRows[j].path })
 
 		var b strings.Builder
 		b.WriteString(RenderFrontmatter(Frontmatter{Type: typeIndex, Version: 1}))
 		fmt.Fprintf(&b, "# %s — index\n\n", strings.Title(dir)) //nolint:staticcheck
 		b.WriteString("_\"Through\" is the date of the last captured fact in the concept — its freshness, not its fold time._\n\n")
-		b.WriteString("| Concept | What it covers | Through |\n|---|---|---|\n")
-		for _, r := range rows {
-			// Link is relative to this folder, so just the base filename.
+
+		writeRow := func(b *strings.Builder, r row) {
 			base := strings.TrimPrefix(r.path, dir+"/")
 			name := r.name
 			if name == "" {
@@ -96,6 +92,28 @@ func buildPerFolderIndexes(files map[string]string) {
 				b.WriteString(" — " + r.desc)
 			}
 			b.WriteString(" | " + r.through + " |\n")
+		}
+
+		if len(rows) > 0 {
+			b.WriteString("| Concept | What it covers | Through |\n|---|---|---|\n")
+			for _, r := range rows {
+				writeRow(&b, r)
+			}
+		}
+		if len(docRows) > 0 {
+			if len(rows) > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString("## 📖 Documents\n\n")
+			b.WriteString("| Book | Author | Through |\n|---|---|---|\n")
+			for _, r := range docRows {
+				base := strings.TrimPrefix(r.path, dir+"/")
+				name := r.name
+				if name == "" {
+					name = base
+				}
+				b.WriteString("| [`" + base + "`](" + base + ") — " + name + " | " + r.author + " | " + r.through + " |\n")
+			}
 		}
 		files[dir+"/"+indexFileName] = b.String()
 	}
@@ -118,6 +136,22 @@ func firstHeadingTitle(content string) string {
 			t = strings.TrimSpace(strings.TrimPrefix(t, p))
 		}
 		return t
+	}
+	return ""
+}
+
+// sourceAuthor extracts the author from a document concept's trailing
+// "Source: <title> by <author>" line (see buildDocumentConceptHint), empty
+// when absent (the model omits "by <author>" when the text never states one).
+func sourceAuthor(body string) string {
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "Source:") {
+			continue
+		}
+		if i := strings.LastIndex(line, " by "); i >= 0 {
+			return strings.TrimSpace(line[i+len(" by "):])
+		}
 	}
 	return ""
 }

@@ -58,8 +58,15 @@ var vaultStatusCmd = &cobra.Command{
 	RunE:  runVaultStatus,
 }
 
+var vaultLintCmd = &cobra.Command{
+	Use:   "lint",
+	Short: "Walk-test the vault: reachability, no payload in routers",
+	Args:  cobra.NoArgs,
+	RunE:  runVaultLint,
+}
+
 func init() {
-	for _, c := range []*cobra.Command{vaultFoldCmd, vaultRebuildCmd, vaultStatusCmd} {
+	for _, c := range []*cobra.Command{vaultFoldCmd, vaultRebuildCmd, vaultStatusCmd, vaultLintCmd} {
 		c.Flags().StringVar(&vaultProject, "project", "", "Override the resolved project id")
 		c.Flags().StringVar(&vaultRoot, "root", "", "Override the project root for output (default: resolved project root)")
 	}
@@ -72,6 +79,38 @@ func init() {
 	vaultCmd.AddCommand(vaultFoldCmd)
 	vaultCmd.AddCommand(vaultRebuildCmd)
 	vaultCmd.AddCommand(vaultStatusCmd)
+	vaultCmd.AddCommand(vaultLintCmd)
+}
+
+// runVaultLint walk-tests the resolved project's vault and reports every
+// finding. Exits non-zero when any finding is present — a lint failure is a
+// CI-catchable signal, not just an FYI.
+func runVaultLint(cmd *cobra.Command, _ []string) error {
+	p := ux.NewPrinter(cmd.OutOrStdout())
+
+	projectID, root, err := resolveVaultTarget()
+	if err != nil {
+		return err
+	}
+
+	findings, err := projection.LintVault(root)
+	if err != nil {
+		return err
+	}
+
+	p.Diamond("vault lint")
+	p.Blank()
+	p.Chevron(fmt.Sprintf("project: %s", p.HighlightValue(projectID)))
+	if len(findings) == 0 {
+		p.Blank()
+		p.Checkf("no findings")
+		return nil
+	}
+	p.Blank()
+	for _, f := range findings {
+		p.Chevron(fmt.Sprintf("[%s] %s — %s", f.Rule, f.Path, f.Detail))
+	}
+	return fmt.Errorf("vault lint: %d finding(s)", len(findings))
 }
 
 // resolveVaultTarget resolves the project id and output root from cwd /
