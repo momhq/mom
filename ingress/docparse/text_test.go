@@ -21,7 +21,7 @@ func TestSplitFlatText(t *testing.T) {
 			want:  []string{"Chapter 1", "Chapter 2"},
 		},
 		{
-			name:  "capitulo variant",
+			name:  "capítulo variant",
 			text:  "Capítulo 1: Início\nTexto.\n\nCapítulo 2: Meio\nMais texto.\n",
 			count: 2,
 			want:  []string{"Capítulo 1: Início", "Capítulo 2: Meio"},
