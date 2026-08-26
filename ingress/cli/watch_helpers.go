@@ -188,6 +188,9 @@ func buildWatcherSources(cfg *config.Config, projectDir string) []watcher.Source
 		case "codex":
 			override = cfg.Watcher.CodexTranscriptDir
 			adapter = watcher.NewCodexAdapter()
+		case "droid":
+			override = cfg.Watcher.DroidTranscriptDir
+			adapter = watcher.NewDroidAdapter()
 		default:
 			continue
 		}

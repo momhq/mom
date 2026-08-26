@@ -71,7 +71,7 @@ func init() {
 		c.Flags().StringVar(&vaultRoot, "root", "", "Override the project root for output (default: resolved project root)")
 	}
 	for _, c := range []*cobra.Command{vaultFoldCmd, vaultRebuildCmd} {
-		c.Flags().StringVar(&vaultEngine, "engine", "auto", "Synthesis engine: auto | claude | codex | pi")
+		c.Flags().StringVar(&vaultEngine, "engine", "auto", "Synthesis engine: auto | claude | codex | pi | droid")
 		c.Flags().IntVar(&vaultChunk, "chunk", 60, "Events per synthesizer call when folding (iterative, full-history coverage)")
 		c.Flags().StringVar(&vaultFoldModel, "model", "", "Synthesis model (default: vault.fold_model config, else the engine's cheap default — claude: haiku)")
 		c.Flags().IntVar(&vaultParallel, "parallel", 4, "Concurrent synthesis calls for the L0/L1 passes")

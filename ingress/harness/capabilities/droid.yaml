@@ -1,0 +1,8 @@
+adapter: droid
+version: "1.0"
+supports:
+  - session.start
+  - session.end
+experimental:
+  - compact.triggered
+  - clear.triggered

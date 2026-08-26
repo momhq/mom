@@ -33,7 +33,7 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().String("harnesses", "", "AI harnesses to configure as a comma list (claude,codex,pi,all)")
+	initCmd.Flags().String("harnesses", "", "AI harnesses to configure as a comma list (claude,codex,pi,droid,all)")
 	initCmd.Flags().Bool("force", false, "Overwrite existing global MOM configuration")
 	initCmd.Flags().BoolP("no-interactive", "y", false, "Skip the interactive wizard and use defaults/flags")
 }

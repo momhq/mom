@@ -18,6 +18,7 @@ func NewRegistry(projectRoot string) *Registry {
 	r.Register(NewClaudeAdapter(projectRoot))
 	r.Register(NewCodexAdapter(projectRoot))
 	r.Register(NewPiAdapter(projectRoot))
+	r.Register(NewDroidAdapter(projectRoot))
 	return r
 }
 

@@ -283,6 +283,20 @@ func TestConfigEnabledHarnesses(t *testing.T) {
 	}
 }
 
+// TestEntryFiles_Droid locks that Droid shares AGENTS.md with Codex/Pi
+// (the cross-vendor convention), not a Droid-specific entry file.
+func TestEntryFiles_Droid(t *testing.T) {
+	cfg := Config{
+		Harnesses: map[string]HarnessConfig{
+			"droid": {Enabled: true},
+		},
+	}
+	files := cfg.EntryFiles()
+	if len(files) != 1 || files[0] != "AGENTS.md" {
+		t.Errorf("expected [AGENTS.md], got %v", files)
+	}
+}
+
 // TestLoad_LegacyRuntimesKey verifies that configs using the deprecated
 // "runtimes:" key are still loaded and promoted to "harnesses:".
 func TestLoad_LegacyRuntimesKey(t *testing.T) {

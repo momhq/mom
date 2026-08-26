@@ -223,6 +223,8 @@ func harnessLabel(rt string) string {
 		return "Cursor"
 	case "pi":
 		return "Pi"
+	case "droid":
+		return "Factory Droid"
 	default:
 		return rt
 	}
